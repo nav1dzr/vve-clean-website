@@ -1,0 +1,203 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    @apply bg-white text-gray-900 antialiased;
+    overflow-x: hidden;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-6 py-3 bg-royal-500 hover:bg-royal-600 text-white font-semibold rounded-lg transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0;
+  }
+  .btn-outline {
+    @apply inline-flex items-center gap-2 px-6 py-3 border-2 border-white text-white font-semibold rounded-lg transition-all duration-300 hover:bg-white hover:text-navy-900 active:translate-y-0;
+  }
+  /* Clean white/blue button — replaces old metallic silver style */
+  .btn-silver {
+    @apply inline-flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-sky-200 text-navy-800 font-semibold rounded-lg transition-all duration-300 hover:bg-sky-50 hover:border-sky-400 hover:shadow-md hover:-translate-y-0.5 text-sm;
+  }
+  .section-heading {
+    @apply font-display text-3xl md:text-4xl lg:text-5xl font-bold text-navy-900 leading-tight;
+  }
+  .section-subheading {
+    @apply text-slate-500 text-lg leading-relaxed max-w-2xl mx-auto;
+  }
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl;
+  }
+}
+
+@layer utilities {
+  /* Kept for hero/navbar — dark backgrounds only */
+  .text-gradient-metallic {
+    background: linear-gradient(135deg, #c8cdd6 0%, #ffffff 30%, #b8bec8 50%, #e8eaed 70%, #c0c6d0 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s infinite linear;
+  }
+  /* Blue gradient text — use on light backgrounds */
+  .text-gradient-blue {
+    background: linear-gradient(135deg, #0369a1 0%, #0ea5e9 60%, #38bdf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #c8a45a 0%, #f0d078 30%, #c8a45a 60%, #e8c060 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  /* For dark sections (hero overlay, footer, contact panel) */
+  .glass-card {
+    backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+  .navy-gradient {
+    background: linear-gradient(135deg, #0369a1 0%, #0284c7 50%, #0ea5e9 100%);
+  }
+  .cyan-gradient {
+    background: linear-gradient(135deg, #ecfeff 0%, #cffafe 50%, #a5f3fc 100%);
+  }
+}
+
+/* Animated underline for nav links — sky blue */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+  transition: width 0.3s ease;
+}
+.nav-link:hover::after {
+  width: 100%;
+}
+
+/* Counter animation */
+.counter-animate {
+  animation: countUp 2s ease-out forwards;
+}
+
+/* Scroll reveal base state */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Range input styling */
+input[type='range'] {
+  @apply accent-royal-500;
+}
+
+/* Custom scrollbar — page-level only, not inner containers */
+html::-webkit-scrollbar {
+  width: 6px;
+}
+html::-webkit-scrollbar-track {
+  background: #f0f9ff;
+}
+html::-webkit-scrollbar-thumb {
+  background: #0ea5e9;
+  border-radius: 3px;
+}
+
+/* Hide scrollbar on inner overflow containers (extras list, etc.) */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Mobile page bottom padding — clears sticky bar + iPhone home indicator.
+   Overridden to 0 by lg:pb-0 via Tailwind (class wins over this at >= lg). */
+@media (max-width: 1023px) {
+  .mobile-page-bottom {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* ── FAQ accordion ─────────────────────────────────────────────────────────── */
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.faq-item {
+  background: #fff;
+  border: 1px solid #DDE6E1;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(14, 94, 71, 0.05);
+  overflow: hidden;
+}
+
+.faq-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.faq-summary::-webkit-details-marker { display: none; }
+
+.faq-question {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.4;
+  color: #0d1f1a;
+}
+
+.faq-icon {
+  font-size: 22px;
+  font-weight: 400;
+  color: #0E5E47;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: transform 0.25s ease;
+}
+
+details[open] > .faq-summary .faq-icon {
+  transform: rotate(45deg);
+}
+
+.faq-answer {
+  padding: 0 24px 20px;
+  border-top: 1px solid #DDE6E1;
+}
+
+.faq-answer p {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.65;
+  color: #5C6E66;
+  margin-top: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-icon { transition: none; }
+}
+
