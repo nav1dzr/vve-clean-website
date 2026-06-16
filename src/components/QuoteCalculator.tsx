@@ -258,7 +258,7 @@ export default function QuoteCalculator() {
                           : [['studio','Studio'],['bed1','1 Bed'],['bed2','2 Bed'],['bed3','3 Bed'],['bed4','4+ Bed']]
                         ) as [SizeKey, string][]).map(([k,l]) => (
                           <button key={k} type="button" onClick={() => setDeepSize(k)}
-                            className={`py-2.5 rounded-xl border-2 text-xs font-bold transition-all duration-200 ${deepSize === k ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-silver-500 hover:border-royal-300'}`}>
+                            className={`py-2.5 rounded-xl border-2 text-xs font-bold transition-all duration-200 ${deepSize === k ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-navy-700 hover:border-royal-300'}`}>
                             {l}
                           </button>
                         ))}
@@ -321,7 +321,7 @@ export default function QuoteCalculator() {
                                   {saving > 0 && <span className="text-green-600 ml-1">· saves £{saving}</span>}
                                 </div>
                                 {a.key === 'staircase' && (
-                                  <p className="text-silver-400 text-[10px] mt-0.5 leading-snug">One flight = one set of stairs between floors. A 3-storey home has 2 flights.</p>
+                                  <p className="text-silver-600 text-[10px] mt-0.5 leading-snug">One flight = one set of stairs between floors. A 3-storey home has 2 flights.</p>
                                 )}
                               </div>
                               {isOvenFree ? (
