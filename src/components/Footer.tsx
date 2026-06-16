@@ -47,7 +47,7 @@ export default function Footer() {
             <p className="text-silver-400 text-sm leading-relaxed mb-2">
               London's premium cleaning and property services. Specialising in commercial sites, empty     properties, and exterior cleaning.
             </p>
-            <p className="text-royal-400 text-xs mb-5">Serving East &amp; North London — E1, E2, E8, E9, E14–E17, E20, N1, N4, N7, N16</p>
+            <p className="text-royal-400 text-xs mb-5">Serving East &amp; North London — E1, E2, E8, E9, E14, E15, E17, E20, N1, N4, N5, N7, N8, N10, N15, N16, N17, N19, N22, NW1, NW5</p>
             <div className="flex gap-3">
               <a href="https://www.facebook.com/share/1LXXHgnhvc/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 rounded-lg flex items-center justify-center text-white transition-all duration-200 hover:opacity-90" style={{ backgroundColor: '#1877F2' }}>

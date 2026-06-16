@@ -2,8 +2,12 @@ import { MapPin } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
 
 const areas = [
-  'Hackney', 'Islington', 'Shoreditch', 'Stratford', 'Canary Wharf',
-  'Walthamstow', 'Bethnal Green', 'Dalston', 'Stoke Newington', 'Bow',
+  // East London
+  'Hackney', 'Shoreditch', 'Stratford', 'Canary Wharf', 'Walthamstow',
+  'Bethnal Green', 'Dalston', 'Bow',
+  // North London
+  'Islington', 'Stoke Newington', 'Finsbury Park', 'Highbury', 'Holloway',
+  'Tottenham', 'Crouch End', 'Wood Green', 'Camden', 'Highgate',
 ];
 
 export default function Areas() {
@@ -21,7 +25,7 @@ export default function Areas() {
           </div>
           <h2 className="section-heading mb-4">Areas We Cover</h2>
           <p className="section-subheading mx-auto">
-            East &amp; North London specialists — covering E1, E2, E8, E9, E14, E15, E17, E20, N1, N4, N7 and N16.
+            East &amp; North London specialists — from Hackney and Canary Wharf to Islington, Camden, Highgate and Tottenham.
           </p>
         </div>
 
