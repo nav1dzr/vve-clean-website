@@ -3,25 +3,22 @@ import { useReveal } from '../hooks/useReveal';
 
 const reviews = [
   {
-    text: "We hired VVE Services for our media studio's weekly contract cleaning. The team is absolute professionals—thorough, punctual, and everything looks immaculate before our staff walks in on Monday morning. Excellent B2B communication.",
-    name: 'Robert H.',
-    location: 'Shoreditch, EC1',
-    service: 'Office Cleaning',
-    avatar: 'RH',
-  },
-  {
-    text: 'Flawless service for an end of tenancy move. The inventory checkout clerk specifically commented on how spotless the oven and deep cleaning results were. Got our full deposit back without a single dispute.',
-    name: 'Claire M.',
-    location: 'Fulham, SW6',
+    text: "Great job, really nice doing business with you mate — I'm super happy. Cheers, see you again!",
+    name: 'Milad S.',
     service: 'End of Tenancy',
-    avatar: 'CM',
+    avatar: 'MS',
   },
   {
-    text: 'Incredible transformation on our stone driveway and patio. They completely stripped out years of embedded moss, dark algae, and grime in just an afternoon. It literally looks newly laid. Highly recommend their exterior team.',
-    name: 'Tariq K.',
-    location: 'Ealing, W5',
-    service: 'Pressure Washing',
-    avatar: 'TK',
+    text: "The team did a really good job. They arrived on time, were polite and professional, and the cleaning was done properly. The place looked much fresher after they finished. I'm happy with the service and would recommend them.",
+    name: 'Hannah M.',
+    service: 'Deep Clean',
+    avatar: 'HM',
+  },
+  {
+    text: "Really happy with the cleaning service. They were friendly, worked carefully, and left everything looking clean and fresh. Good communication as well, which made the whole process easy. Would definitely use them again.",
+    name: 'Kaydei M.',
+    service: 'Carpet Cleaning',
+    avatar: 'KM',
   },
 ];
 
@@ -35,10 +32,9 @@ export default function Reviews() {
         <div
           className={`text-center mb-14 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
         >
-          <div className="inline-flex items-center gap-2 bg-yellow-50 border border-yellow-300 rounded-full px-4 py-1.5 mb-4">
-            <Star size={12} className="text-yellow-500 fill-yellow-500" />
-            <span className="text-yellow-700 text-xs tracking-widest font-semibold uppercase">
-              ★ 5.0 Rated Local Service
+          <div className="inline-flex items-center gap-2 bg-sky-50 border border-sky-200 rounded-full px-4 py-1.5 mb-4">
+            <span className="text-sky-700 text-xs tracking-widest font-semibold uppercase">
+              Real feedback from real jobs
             </span>
           </div>
           <h2 className="font-display text-4xl md:text-5xl font-bold text-navy-900 mb-4">
@@ -77,7 +73,6 @@ export default function Reviews() {
                   </div>
                   <div>
                     <div className="text-navy-900 text-sm font-semibold">{r.name}</div>
-                    <div className="text-slate-500 text-xs">{r.location}</div>
                   </div>
                 </div>
 
@@ -101,15 +96,14 @@ export default function Reviews() {
           <div className="bg-white border border-sky-200 shadow-sm rounded-xl px-7 py-4 flex items-center gap-4">
             <Shield className="text-sky-500 flex-shrink-0" size={28} />
             <div>
-              <div className="text-navy-900 text-sm font-semibold">Fully Insured</div>
-              <div className="text-slate-500 text-xs">£5M Public Liability Protection</div>
+              <div className="text-navy-900 text-sm font-semibold">£5M Public Liability Protection</div>
             </div>
           </div>
           <div className="bg-white border border-sky-200 shadow-sm rounded-xl px-7 py-4 flex items-center gap-4">
             <CheckCircle className="text-green-500 flex-shrink-0" size={28} />
             <div>
-              <div className="text-navy-900 text-sm font-semibold">100% Satisfaction Guarantee</div>
-              <div className="text-slate-500 text-xs">Or We Clean It Free</div>
+              <div className="text-navy-900 text-sm font-semibold">48-Hour Re-Clean Guarantee</div>
+              <div className="text-slate-500 text-xs">Or We Re-Clean It Free</div>
             </div>
           </div>
         </div>
