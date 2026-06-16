@@ -30,12 +30,13 @@ const services = [
   },
   {
     title: 'After builders clean',
-    price: 'FROM £199 FIXED',
-    priceFixed: true,
+    price: 'FROM £199',
+    priceFixed: false,
     description:
-      'Fine dust, paint specks, sticker residue and debris — gone. We make renovated and newly finished spaces ready to hand over or move into.',
-    cta: 'Get your price →',
-    ctaHref: '#quote',
+      'Fine dust, paint specks, sticker residue and debris. Final price confirmed after a quick photo via WhatsApp — we\'ll reply within the hour.',
+    cta: 'WhatsApp a photo →',
+    ctaHref: WA_LINK,
+    ctaExternal: true,
     featured: false,
     img: SERVICE_IMAGES.officeService,
   },

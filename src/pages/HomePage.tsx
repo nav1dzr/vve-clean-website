@@ -1,5 +1,6 @@
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
+import AreaMarquee from '../components/AreaMarquee';
 import TrustBadges from '../components/TrustBadges';
 import QuoteCalculator from '../components/QuoteCalculator';
 import Services from '../components/Services';
@@ -17,6 +18,7 @@ export default function HomePage() {
     <div className="min-h-screen mobile-page-bottom lg:pb-0">
       <Navbar />
       <Hero />
+      <AreaMarquee />
       <TrustBadges />
       <QuoteCalculator />
       <Services />

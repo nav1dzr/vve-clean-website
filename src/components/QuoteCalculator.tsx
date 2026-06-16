@@ -12,7 +12,7 @@ type DeepServiceType = 'end_of_tenancy' | 'move_in' | 'after_builders' | 'carpet
 type SizeKey = 'studio' | 'bed1' | 'bed2' | 'bed3' | 'bed4';
 
 const BASE_PRICES: Record<DeepServiceType, Record<SizeKey, number>> = {
-  end_of_tenancy:    { studio: 159, bed1: 189, bed2: 249, bed3: 309, bed4: 379 },
+  end_of_tenancy:    { studio: 159, bed1: 199, bed2: 249, bed3: 329, bed4: 419 },
   move_in:           { studio: 139, bed1: 169, bed2: 219, bed3: 269, bed4: 329 },
   after_builders:    { studio: 199, bed1: 239, bed2: 299, bed3: 369, bed4: 449 },
   carpet_upholstery: { studio:  90, bed1: 150, bed2: 210, bed3: 270, bed4: 330 },
@@ -120,7 +120,8 @@ export default function QuoteCalculator() {
   const [officeHours, setOfficeHours] = useState(MIN_OFFICE_HOURS);
 
   // ── Price calculation ──
-  const isCarpet = deepService === 'carpet_upholstery';
+  const isCarpet        = deepService === 'carpet_upholstery';
+  const isAfterBuilders = service === 'deep' && deepService === 'after_builders';
 
   // Resolve add-on price dynamically (carpet bundle scales by size)
   const getAddOnPrice = (key: string): number => {
@@ -162,6 +163,10 @@ export default function QuoteCalculator() {
   };
 
   const waLink = (() => {
+    if (isAfterBuilders) {
+      const msg = `Hello VVE Clean, I'd like a quote for an after builders clean. I'll send photos of the space to confirm the scope.\nMy postcode is: `;
+      return `${WA_BASE}?text=${encodeURIComponent(msg)}`;
+    }
     const sizeLabel = deepSize === 'studio' ? 'Studio' : deepSize.replace('bed', '') + ' Bed';
     const bathLabel = isCarpet ? 'n/a' : `${deepBaths === 3 ? '3+' : deepBaths}`;
 
@@ -247,7 +252,19 @@ export default function QuoteCalculator() {
                       </div>
                     </div>
 
+                    {/* After builders — photo quote callout (replaces configurator) */}
+                    {isAfterBuilders && (
+                      <div className="rounded-2xl px-5 py-5 bg-amber-50 border-2 border-amber-200 space-y-3 text-center">
+                        <div className="text-amber-700 text-[10px] font-bold tracking-widest uppercase">After Builders Clean</div>
+                        <div className="font-display font-bold text-4xl text-amber-900">From £199</div>
+                        <p className="text-silver-600 text-sm leading-relaxed max-w-xs mx-auto">
+                          The extent of after-builders work varies — fine dust, paint specks, sticker residue and debris. Send us a photo and we'll confirm your exact price within the hour.
+                        </p>
+                      </div>
+                    )}
+
                     {/* Property size / room count */}
+                    {!isAfterBuilders && (<>
                     <div>
                       <label className="block text-navy-900 font-semibold text-sm mb-2">
                         {isCarpet ? 'Number of Carpeted Rooms' : 'Property Size'}
@@ -334,6 +351,7 @@ export default function QuoteCalculator() {
                         })}
                       </div>
                     </div>
+                    </>)}
                   </>
                 )}
 
@@ -401,38 +419,46 @@ export default function QuoteCalculator() {
                   </div>
                 )}
 
-                {/* ── Estimated price shown immediately after service selection ── */}
-                <div className="relative rounded-2xl px-6 py-6 overflow-visible" style={{ backgroundColor: '#dff0e8', border: '1.5px solid #b6d9c8' }}>
-                  {/* Rotated deposit badge */}
-                  <div className="absolute -top-3 -right-3 rotate-6 z-10">
-                    <div className="border-2 rounded-lg px-3 py-1.5" style={{ borderColor: '#1a5c3a', backgroundColor: 'transparent' }}>
-                      <span className="text-[9px] font-bold tracking-widest uppercase" style={{ color: '#1a5c3a' }}>£30 Deposit · Rest After</span>
-                    </div>
+                {/* ── Price / quote box ── */}
+                {isAfterBuilders ? (
+                  <div className="rounded-2xl px-6 py-5 text-center space-y-1" style={{ backgroundColor: '#fff8ed', border: '1.5px solid #f6d77a' }}>
+                    <div className="text-xs font-bold tracking-widest uppercase" style={{ color: '#92600a' }}>After Builders · Photo Quote</div>
+                    <div className="font-display font-bold leading-none" style={{ fontSize: '3.5rem', color: '#92600a' }}>From £199</div>
+                    <div className="text-sm" style={{ color: '#b07d2a' }}>We'll confirm your exact price within the hour</div>
                   </div>
-
-                  {/* Service label */}
-                  <div className="text-center mb-2 mt-3">
-                    <div className="text-xs font-bold tracking-widest uppercase" style={{ color: '#1e6b42', letterSpacing: '0.18em' }}>
-                      {service === 'deep'
-                        ? `${DEEP_SERVICE_LABELS[deepService]} · ${deepSize === 'studio' ? 'Studio' : deepSize.replace('bed', '') + ' Bed'} · ${isCarpet ? '' : `${deepBaths === 3 ? '3+' : deepBaths} Bath`}`.replace(/ · $/, '')
-                        : serviceLabels[service]}
+                ) : (
+                  <div className="relative rounded-2xl px-6 py-6 overflow-visible" style={{ backgroundColor: '#dff0e8', border: '1.5px solid #b6d9c8' }}>
+                    {/* Rotated deposit badge */}
+                    <div className="absolute -top-3 -right-3 rotate-6 z-10">
+                      <div className="border-2 rounded-lg px-3 py-1.5" style={{ borderColor: '#1a5c3a', backgroundColor: 'transparent' }}>
+                        <span className="text-[9px] font-bold tracking-widest uppercase" style={{ color: '#1a5c3a' }}>£30 Deposit · Rest After</span>
+                      </div>
                     </div>
+
+                    {/* Service label */}
+                    <div className="text-center mb-2 mt-3">
+                      <div className="text-xs font-bold tracking-widest uppercase" style={{ color: '#1e6b42', letterSpacing: '0.18em' }}>
+                        {service === 'deep'
+                          ? `${DEEP_SERVICE_LABELS[deepService]} · ${deepSize === 'studio' ? 'Studio' : deepSize.replace('bed', '') + ' Bed'} · ${isCarpet ? '' : `${deepBaths === 3 ? '3+' : deepBaths} Bath`}`.replace(/ · $/, '')
+                          : serviceLabels[service]}
+                      </div>
+                    </div>
+
+                    {/* Big price */}
+                    <div className="text-center">
+                      <div className="font-display font-bold leading-none" style={{ fontSize: '3.5rem', color: '#1a5c3a' }}>
+                        £{Math.round(price)}
+                      </div>
+                    </div>
+
+                    {/* Subtitle */}
+                    {service === 'deep' && (
+                      <div className="text-center mt-3 text-sm" style={{ color: '#4a7a62' }}>
+                        {deepService === 'end_of_tenancy' ? 'Oven clean included free · ' : ''}48hr re-clean guarantee
+                      </div>
+                    )}
                   </div>
-
-                  {/* Big price */}
-                  <div className="text-center">
-                    <div className="font-display font-bold leading-none" style={{ fontSize: '3.5rem', color: '#1a5c3a' }}>
-                      £{Math.round(price)}
-                    </div>
-                  </div>
-
-                  {/* Subtitle */}
-                  {service === 'deep' && (
-                    <div className="text-center mt-3 text-sm" style={{ color: '#4a7a62' }}>
-                      {deepService === 'end_of_tenancy' ? 'Oven clean included free · ' : ''}48hr re-clean guarantee
-                    </div>
-                  )}
-                </div>
+                )}
 
                 {/* ── Regular cleaning discount nudge ── */}
                 <div className="flex items-start gap-3 bg-royal-50 border border-royal-200 rounded-xl px-4 py-3">
@@ -473,9 +499,11 @@ export default function QuoteCalculator() {
           {/* Right: price panel */}
           <div className="lg:col-span-2 navy-gradient p-6 flex flex-col justify-between lg:sticky lg:top-24 lg:self-start">
             <div>
-              <h3 className="text-silver-400 text-xs font-medium tracking-widest uppercase mb-2">Estimated Price</h3>
+              <h3 className="text-silver-400 text-xs font-medium tracking-widest uppercase mb-2">
+                {isAfterBuilders ? 'Starting From' : 'Estimated Price'}
+              </h3>
               <div className="text-5xl font-bold font-display text-white mb-1 transition-all duration-300">
-                £{Math.round(price)}
+                {isAfterBuilders ? 'From £199' : `£${Math.round(price)}`}
               </div>
               {minApplied && (
                 <div className="text-amber-400 text-xs mb-2 flex items-center gap-1">
@@ -535,7 +563,7 @@ export default function QuoteCalculator() {
               <a href={waLink} target="_blank" rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-500 text-white font-semibold py-3 rounded-xl transition-all duration-300 text-sm">
                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                Book via WhatsApp: 07845 451111
+                {isAfterBuilders ? 'WhatsApp a photo for your quote' : 'Book via WhatsApp: 07845 451111'}
               </a>
               <div className="glass-card rounded-xl p-3 text-center">
                 <div className="text-silver-300 text-xs mb-0.5">Prefer to call?</div>

@@ -6,7 +6,7 @@ import MobileStickyFooter from '../components/MobileStickyFooter';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const WA_COMMERCIAL =
-  'https://wa.me/442080502233?text=Hi%20VVE%20Clean%2C%20commercial%20site%20visit%20please.%20Address%3A%20';
+  'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20commercial%20site%20visit%20please.%20Address%3A%20';
 const EMAIL = 'mailto:contact@vveclean.co.uk';
 
 const WA_SVG = (
@@ -122,7 +122,7 @@ const STEPS = [
 const FAQS = [
   {
     q: 'Do you have insurance and RAMS?',
-    a: 'Yes — £1m public liability as standard. All staff are DBS-checked. We supply RAMS, method statements and insurance certificates before any contract starts, at no extra cost.',
+    a: 'Yes — £5m public liability as standard. All staff are DBS-checked. We supply RAMS, method statements and insurance certificates before any contract starts, at no extra cost.',
   },
   {
     q: 'Can you clean outside opening hours?',
@@ -206,7 +206,7 @@ export default function CommercialPage() {
             {/* Trust row */}
             <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-10 text-silver-400 text-sm">
               <span className="flex items-center gap-1.5">
-                <span className="text-sky-400 font-bold">✓</span> £1m public liability insured
+                <span className="text-sky-400 font-bold">✓</span> £5m public liability insured
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="text-sky-400 font-bold">✓</span> DBS-checked staff

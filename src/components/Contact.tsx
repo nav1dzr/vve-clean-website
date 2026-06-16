@@ -83,7 +83,7 @@ export default function Contact() {
           </div>
           <h2 className="section-heading mb-4">Contact VVE Clean</h2>
           <p className="section-subheading mx-auto">
-            Ready to book? We respond within 1 hour during business hours.
+            We usually reply within the hour — message us anytime on WhatsApp.
           </p>
         </div>
 
@@ -143,7 +143,7 @@ export default function Contact() {
                     <div className="text-silver-300 text-xs mb-0.5">Address</div>
                     <span className="text-white font-semibold text-sm block">23-25 Queensway</span>
                     <span className="text-silver-400 text-xs block">London, W2 4QP</span>
-                    <span className="text-silver-300 text-xs mt-1 block">Proudly serving Central &amp; Greater London</span>
+                    <span className="text-silver-300 text-xs mt-1 block">Serving East &amp; North London</span>
                   </div>
                 </div>
 

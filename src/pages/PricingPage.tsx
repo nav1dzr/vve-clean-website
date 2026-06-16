@@ -53,28 +53,26 @@ export default function PricingPage() {
                   <div className="flex flex-col items-center gap-1">
                     <span className="bg-amber-400 text-amber-900 text-[9px] font-bold px-2 py-0.5 rounded-full tracking-widest uppercase">Most Booked</span>
                     End of Tenancy
-                    <span className="text-green-400 text-[10px] font-normal normal-case tracking-normal">Oven clean FREE (worth £35)</span>
+                    <span className="text-green-400 text-[10px] font-normal normal-case tracking-normal">Oven clean FREE — most companies charge up to £45</span>
                   </div>
                 </th>
                 <th className="px-6 py-4 font-semibold text-silver-300 uppercase tracking-widest text-xs">Move-in Deep Clean</th>
-                <th className="px-6 py-4 font-semibold text-silver-300 uppercase tracking-widest text-xs">After Builders</th>
               </tr>
             </thead>
             <tbody>
               {[
-                ['Studio', 159, 139, 199],
-                ['1 Bed',  189, 169, 239],
-                ['2 Bed',  249, 219, 299],
-                ['3 Bed',  309, 269, 369],
-                ['4+ Bed', 379, 329, 449],
-              ].map(([size, eot, movein, builders], i) => (
+                ['Studio', 159, 139],
+                ['1 Bed',  199, 169],
+                ['2 Bed',  249, 219],
+                ['3 Bed',  329, 269],
+                ['4+ Bed', 419, 329],
+              ].map(([size, eot, movein], i) => (
                 <tr key={String(size)} className={i % 2 === 0 ? 'bg-white' : 'bg-silver-100/60'}>
                   <td className="px-6 py-4 font-bold text-navy-900">{size}</td>
                   <td className="px-6 py-4 text-center">
                     <span className="font-display font-bold text-xl text-royal-600">£{eot}</span>
                   </td>
                   <td className="px-6 py-4 text-center font-semibold text-navy-800">£{movein}</td>
-                  <td className="px-6 py-4 text-center font-semibold text-navy-800">£{builders}</td>
                 </tr>
               ))}
             </tbody>
@@ -84,15 +82,15 @@ export default function PricingPage() {
         {/* Mobile cards */}
         <div className="md:hidden space-y-4">
           {[
-            ['Studio', 159, 139, 199],
-            ['1 Bed',  189, 169, 239],
-            ['2 Bed',  249, 219, 299],
-            ['3 Bed',  309, 269, 369],
-            ['4+ Bed', 379, 329, 449],
-          ].map(([size, eot, movein, builders]) => (
+            ['Studio', 159, 139],
+            ['1 Bed',  199, 169],
+            ['2 Bed',  249, 219],
+            ['3 Bed',  329, 269],
+            ['4+ Bed', 419, 329],
+          ].map(([size, eot, movein]) => (
             <div key={String(size)} className="bg-white rounded-2xl border border-silver-200 p-5 shadow-sm">
               <div className="font-bold text-navy-900 text-base mb-3">{size}</div>
-              <div className="grid grid-cols-3 gap-3 text-center text-xs">
+              <div className="grid grid-cols-2 gap-3 text-center text-xs">
                 <div className="bg-royal-50 rounded-xl p-3">
                   <div className="text-royal-600 font-bold text-lg">£{eot}</div>
                   <div className="text-silver-600 mt-0.5">End of Tenancy</div>
@@ -102,10 +100,6 @@ export default function PricingPage() {
                   <div className="text-navy-900 font-bold text-lg">£{movein}</div>
                   <div className="text-silver-600 mt-0.5">Move-in</div>
                 </div>
-                <div className="bg-silver-100 rounded-xl p-3">
-                  <div className="text-navy-900 font-bold text-lg">£{builders}</div>
-                  <div className="text-silver-600 mt-0.5">After Builders</div>
-                </div>
               </div>
             </div>
           ))}
@@ -113,8 +107,24 @@ export default function PricingPage() {
 
         {/* Footnote */}
         <p className="text-silver-500 text-xs mt-4 text-center leading-relaxed">
-          Each bathroom/WC beyond the first: <strong className="text-navy-700">+£20</strong> end of tenancy &nbsp;·&nbsp; <strong className="text-navy-700">+£18</strong> move-in &nbsp;·&nbsp; <strong className="text-navy-700">+£25</strong> after builders
+          Each bathroom/WC beyond the first: <strong className="text-navy-700">+£20</strong> end of tenancy &nbsp;·&nbsp; <strong className="text-navy-700">+£18</strong> move-in
         </p>
+
+        {/* After Builders callout */}
+        <div className="mt-6 bg-amber-50 border border-amber-200 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+          <div>
+            <div className="font-display text-lg font-bold text-navy-900 mb-1">After Builders Clean</div>
+            <div className="text-amber-700 text-sm font-semibold mb-2">From £199 — final price confirmed after a quick photo</div>
+            <p className="text-silver-600 text-sm leading-relaxed max-w-lg">
+              The extent of after-builders work varies job to job — fine dust, paint specks, sticker residue and debris. Send us a photo and we'll confirm your price within the hour.
+            </p>
+          </div>
+          <a href={WA_PHOTO} target="_blank" rel="noopener noreferrer"
+            className="flex-shrink-0 inline-flex items-center gap-2 bg-[#22C55E] hover:opacity-90 text-white font-bold px-5 py-3 rounded-xl transition-all duration-200 text-sm whitespace-nowrap">
+            {WA_SVG}
+            WhatsApp a photo
+          </a>
+        </div>
 
         {/* CTA */}
         <div className="flex justify-center mt-8">
@@ -179,7 +189,7 @@ export default function PricingPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {[
-            { label: 'Inside oven',             price: 'FREE with End of Tenancy · +£35 otherwise',  highlight: true },
+            { label: 'Inside oven',             price: 'FREE with every End of Tenancy · +£35 on its own',  highlight: true },
             { label: 'Fridge / freezer',         price: '+£20' },
             { label: 'Exterior windows',         price: '+£35' },
             { label: 'Wall marks & scuffs',      price: '+£25' },

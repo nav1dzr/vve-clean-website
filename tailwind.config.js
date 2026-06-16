@@ -58,6 +58,7 @@ export default {
         'shimmer': 'shimmer 2s infinite linear',
         'float': 'float 3s ease-in-out infinite',
         'count-up': 'countUp 2s ease-out forwards',
+        'marquee': 'marquee 40s linear infinite',
       },
       keyframes: {
         fadeInUp: {
@@ -79,6 +80,10 @@ export default {
         float: {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-8px)' },
+        },
+        marquee: {
+          '0%':   { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
         },
       },
       backgroundImage: {

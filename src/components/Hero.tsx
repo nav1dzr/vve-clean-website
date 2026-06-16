@@ -46,7 +46,7 @@ export default function Hero() {
             className="text-silver-300 text-lg leading-relaxed mb-5 max-w-lg animate-fade-in-up"
             style={{ animationDelay: '0.45s', opacity: 0 }}
           >
-            End of tenancy and deep cleaning by DBS-checked, fully insured cleaners. See your exact price in 3 taps — no forms, no waiting for a callback.
+            End of tenancy and deep cleaning across East &amp; North London by DBS-checked, fully insured cleaners. See your exact price in 3 taps — no forms, no waiting for a callback.
           </p>
 
           {/* Benefit checklist */}
@@ -56,7 +56,7 @@ export default function Hero() {
           >
             {[
               "Our 67-point checklist mirrors the one your letting agent's clerk uses",
-              'Oven clean included free — most companies charge £45 extra',
+              'Oven clean included free with every end of tenancy (most companies charge up to £45) — booked on its own, £35',
               "Fixed prices. £30 deposit books your slot — balance only after you've checked the work",
             ].map((text) => (
               <li key={text} className="flex items-start gap-2.5">

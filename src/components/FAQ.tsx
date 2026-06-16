@@ -9,7 +9,7 @@ const FAQS = [
   },
   {
     q: 'Are your cleaners insured and vetted?',
-    a: 'Yes. Every cleaner is DBS-checked and we carry £1m public liability insurance. Happy to show certificates before your booking — just ask on WhatsApp.',
+    a: 'Yes. Every cleaner is DBS-checked and we carry £5m public liability insurance. Happy to show certificates before your booking — just ask on WhatsApp.',
   },
   {
     q: 'Do I need to be home during the clean?',
@@ -51,7 +51,7 @@ const SCHEMA = {
   })),
 };
 
-const WA_QUESTION = 'https://wa.me/442080502233?text=Hi%20VVE%20Clean%2C%20quick%20question';
+const WA_QUESTION = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20quick%20question';
 
 export default function FAQ() {
   return (

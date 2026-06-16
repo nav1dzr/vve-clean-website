@@ -2,12 +2,8 @@ import { MapPin } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
 
 const areas = [
-  'Central London', 'Chelsea', 'Kensington', 'Fulham', 'Hammersmith',
-  'Canary Wharf', 'Shoreditch', 'Islington', 'Camden', 'Hackney',
-  'Richmond', 'Wimbledon', 'Putney', 'Clapham', 'Battersea',
-  'Greenwich', 'Lewisham', 'Dulwich', 'Brixton', 'Streatham',
-  'Ealing', 'Acton', 'Chiswick', 'Brentford', 'Kingston',
-  'Croydon', 'Bromley', 'Beckenham', 'Barnet', 'Enfield',
+  'Hackney', 'Islington', 'Shoreditch', 'Stratford', 'Canary Wharf',
+  'Walthamstow', 'Bethnal Green', 'Dalston', 'Stoke Newington', 'Bow',
 ];
 
 export default function Areas() {
@@ -25,7 +21,7 @@ export default function Areas() {
           </div>
           <h2 className="section-heading mb-4">Areas We Cover</h2>
           <p className="section-subheading mx-auto">
-            Proudly serving Central and Greater London. Not sure if we cover you? Give us a call.
+            East &amp; North London specialists — covering E1, E2, E8, E9, E14, E15, E17, E20, N1, N4, N7 and N16.
           </p>
         </div>
 
@@ -53,7 +49,7 @@ export default function Areas() {
               Don't see your area?
             </h3>
             <p className="text-slate-600 text-base">
-              We cover a wide radius beyond the areas listed. Contact us and we'll confirm coverage for your postcode.
+              We also cover wider London — message us to confirm your postcode.
             </p>
           </div>
           <div className="flex-shrink-0 flex flex-col sm:flex-row gap-3">
