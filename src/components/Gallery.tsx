@@ -94,8 +94,11 @@ export default function Gallery() {
         </div>
 
         <div
-          className={`flex justify-center mt-8 transition-all duration-700 delay-500 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+          className={`flex flex-col items-center gap-3 mt-10 transition-all duration-700 delay-500 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
         >
+          <p className="text-navy-700 font-display text-lg font-semibold tracking-wide">
+            Do You Want to <span className="italic">See More?</span>
+          </p>
           <a
             href="https://www.instagram.com/vve__clean"
             target="_blank"
