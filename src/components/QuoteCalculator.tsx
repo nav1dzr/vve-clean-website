@@ -420,13 +420,7 @@ export default function QuoteCalculator() {
                 )}
 
                 {/* ── Price / quote box ── */}
-                {isAfterBuilders ? (
-                  <div className="rounded-2xl px-6 py-5 text-center space-y-1" style={{ backgroundColor: '#fff8ed', border: '1.5px solid #f6d77a' }}>
-                    <div className="text-xs font-bold tracking-widest uppercase" style={{ color: '#92600a' }}>After Builders · Photo Quote</div>
-                    <div className="font-display font-bold leading-none" style={{ fontSize: '3.5rem', color: '#92600a' }}>From £199</div>
-                    <div className="text-sm" style={{ color: '#b07d2a' }}>We'll confirm your exact price within the hour</div>
-                  </div>
-                ) : (
+                {!isAfterBuilders && (
                   <div className="relative rounded-2xl px-6 py-6 overflow-visible" style={{ backgroundColor: '#dff0e8', border: '1.5px solid #b6d9c8' }}>
                     {/* Rotated deposit badge */}
                     <div className="absolute -top-3 -right-3 rotate-6 z-10">

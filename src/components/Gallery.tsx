@@ -92,6 +92,20 @@ export default function Gallery() {
             </div>
           ))}
         </div>
+
+        <p
+          className={`text-center mt-8 text-silver-500 text-sm transition-all duration-700 delay-500 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+        >
+          Want to see more?{' '}
+          <a
+            href="https://www.instagram.com/vve__clean"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-royal-600 font-semibold hover:text-royal-700 underline underline-offset-2 transition-colors"
+          >
+            Follow us on Instagram
+          </a>
+        </p>
       </div>
     </section>
   );

@@ -57,8 +57,8 @@ export default function Areas() {
             </p>
           </div>
           <div className="flex-shrink-0 flex flex-col sm:flex-row gap-3">
-            <a href="tel:+447845451111" className="btn-silver whitespace-nowrap">
-              Call 07845 451111
+            <a href="mailto:contact@vveclean.co.uk" className="btn-silver whitespace-nowrap">
+              Email us
             </a>
             <a href="#contact" className="inline-flex items-center gap-2 px-6 py-2.5 border-2 border-slate-800/30 text-slate-900 font-semibold rounded-lg transition-all duration-300 hover:bg-slate-900 hover:text-white text-sm whitespace-nowrap">
               Send a Message

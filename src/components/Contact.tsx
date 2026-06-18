@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle2 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { useReveal } from '../hooks/useReveal';
 
 const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
+const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xbdedojo';
 
 function WhatsAppIcon({ size = 16 }: { size?: number }) {
   return (
@@ -13,8 +13,6 @@ function WhatsAppIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-const GOOGLE_ENDPOINT = import.meta.env.VITE_GOOGLE_ENDPOINT as string;
-
 export default function Contact() {
   const { ref, visible } = useReveal();
   const [name, setName] = useState('');
@@ -22,12 +20,14 @@ export default function Contact() {
   const [phone, setPhone] = useState('');
   const [message, setMessage] = useState('');
   const [subscribe, setSubscribe] = useState(false);
+  const [honeypot, setHoneypot] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (honeypot) return; // bot filled the hidden field — silently drop
     if (!name || !email || !message) {
       setError('Please fill in all required fields.');
       return;
@@ -35,39 +35,36 @@ export default function Contact() {
     setLoading(true);
     setError('');
 
-    const payload = {
-      formType: 'General Inquiry',
-      name,
-      email,
-      phone: phone || '—',
-      message,
-      subscribe: subscribe ? 'Yes' : 'No',
-    };
-
-    const [dbResult, googleResult] = await Promise.allSettled([
-      supabase.from('contact_messages').insert({ name, email, phone, message }),
-      fetch(GOOGLE_ENDPOINT, {
+    try {
+      const res = await fetch(FORMSPREE_ENDPOINT, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        mode: 'no-cors',
-      }),
-    ]);
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          email,
+          phone: phone || '—',
+          message,
+          'Marketing opt-in': subscribe ? 'Yes' : 'No',
+          _gotcha: honeypot,
+        }),
+      });
 
-    setLoading(false);
+      setLoading(false);
 
-    const dbOk = dbResult.status === 'fulfilled' && !dbResult.value.error;
-    const googleOk = googleResult.status === 'fulfilled';
-
-    if (!dbOk && !googleOk) {
+      if (res.ok) {
+        setName('');
+        setEmail('');
+        setPhone('');
+        setMessage('');
+        setSubscribe(false);
+        setSubmitted(true);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError((data as { errors?: { message: string }[] })?.errors?.[0]?.message ?? 'Something went wrong. Please try again.');
+      }
+    } catch {
+      setLoading(false);
       setError('Something went wrong. Please try again or call us.');
-    } else {
-      setName('');
-      setEmail('');
-      setPhone('');
-      setMessage('');
-      setSubscribe(false);
-      setSubmitted(true);
     }
   };
 
@@ -174,6 +171,17 @@ export default function Contact() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Honeypot — hidden from humans, filled by bots; Formspree drops the submission if non-empty */}
+                <input
+                  type="text"
+                  name="_gotcha"
+                  value={honeypot}
+                  onChange={(e) => setHoneypot(e.target.value)}
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0 }}
+                />
                 <div className="grid sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-navy-900 font-semibold text-sm mb-1.5">Full Name *</label>
