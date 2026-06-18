@@ -10,13 +10,13 @@ const serviceLinks = [
 ];
 
 const quickLinks = [
-  { label: 'Get a Quote', href: '#quote', external: false },
+  { label: 'Get a Quote', href: '/#quote', external: false },
   { label: 'Price Guide', href: '/pricing', external: false },
   { label: 'Book via WhatsApp', href: WA_LINK, external: true },
-  { label: 'Our Services', href: '#services', external: false },
-  { label: 'Before & After', href: '#gallery', external: false },
-  { label: 'Areas We Cover', href: '#areas', external: false },
-  { label: 'Contact Us', href: '#contact', external: false },
+  { label: 'Our Services', href: '/#services', external: false },
+  { label: 'Before & After', href: '/#gallery', external: false },
+  { label: 'Areas We Cover', href: '/#areas', external: false },
+  { label: 'Contact Us', href: '/#contact', external: false },
 ];
 
 function WhatsAppIcon({ size = 16 }: { size?: number }) {
@@ -74,7 +74,7 @@ export default function Footer() {
             <ul className="space-y-2.5">
               {serviceLinks.map((s) => (
                 <li key={s}>
-                  <a href="#services" className="text-silver-400 text-sm hover:text-white transition-colors flex items-center gap-2 group">
+                  <a href="/#services" className="text-silver-400 text-sm hover:text-white transition-colors flex items-center gap-2 group">
                     <span className="w-1 h-1 rounded-full bg-royal-500 group-hover:bg-royal-300 transition-colors flex-shrink-0" />
                     {s}
                   </a>
