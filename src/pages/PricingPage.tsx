@@ -110,6 +110,14 @@ export default function PricingPage() {
           Each bathroom/WC beyond the first: <strong className="text-navy-700">+£20</strong> end of tenancy &nbsp;·&nbsp; <strong className="text-navy-700">+£18</strong> move-in
         </p>
 
+        {/* Condition note */}
+        <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mt-3">
+          <span className="text-blue-400 text-sm flex-shrink-0 leading-none mt-0.5">ℹ</span>
+          <p className="text-silver-600 text-xs leading-relaxed">
+            Prices assume the property is in normal condition. Heavy soiling, mould, excessive rubbish, biohazard contamination, pet accidents, strong odours, or large/permanent stains may require a revised quote before work starts.
+          </p>
+        </div>
+
         {/* After Builders callout */}
         <div className="mt-6 bg-amber-50 border border-amber-200 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
           <div>
@@ -284,6 +292,10 @@ export default function PricingPage() {
               {
                 q: 'Are prices really fixed?',
                 a: 'Yes. The price you tap is the price you pay. The only additions are extras YOU choose.',
+              },
+              {
+                q: 'Can the price change?',
+                a: 'Our prices are fixed for normal condition properties based on the details provided. If we arrive and the property has heavy soiling, mould, excessive rubbish, biohazard contamination, strong odours, pet accidents, or large/permanent stains, we will explain the issue and confirm any revised price before starting.',
               },
               {
                 q: 'Do you clean occupied homes?',

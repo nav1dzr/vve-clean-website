@@ -454,6 +454,16 @@ export default function QuoteCalculator() {
                   </div>
                 )}
 
+                {/* Condition note */}
+                {!isAfterBuilders && (
+                  <div className="flex items-start gap-2 bg-silver-50 border border-silver-200 rounded-xl px-3 py-2.5">
+                    <Info size={13} className="text-silver-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-silver-500 text-[10px] leading-relaxed">
+                      Price assumes the property is in normal condition. Heavy soiling, mould, pet accidents, strong odours, or large/permanent stains may require a revised quote before work starts.
+                    </p>
+                  </div>
+                )}
+
                 {/* ── Regular cleaning discount nudge ── */}
                 <div className="flex items-start gap-3 bg-royal-50 border border-royal-200 rounded-xl px-4 py-3">
                   <div className="w-1 self-stretch rounded-full bg-royal-400 flex-shrink-0" />

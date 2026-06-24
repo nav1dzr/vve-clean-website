@@ -24,6 +24,10 @@ const FAQS = [
     a: "A £30 deposit secures your slot, paid by secure card link when you book (it comes off your total). The balance is due on completion, after you've checked the work — card link, bank transfer or cash. Businesses are invoiced monthly with 14-day payment terms.",
   },
   {
+    q: 'Can the price change?',
+    a: 'Our prices are fixed for normal condition properties based on the details provided. If we arrive and the property has heavy soiling, mould, excessive rubbish, biohazard contamination, strong odours, pet accidents, or large/permanent stains, we will explain the issue and confirm any revised price before starting.',
+  },
+  {
     q: 'Can I reschedule or cancel?',
     a: 'Yes — free of charge until 12pm the day before your booking. After that the £30 deposit covers the reserved slot, since we\'ll have turned other work away for it. To move a booking, just message us on WhatsApp.',
   },
