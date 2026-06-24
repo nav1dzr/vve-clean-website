@@ -456,9 +456,12 @@ export default function QuoteCalculator() {
 
                 {/* Condition note */}
                 {!isAfterBuilders && (
-                  <div className="flex items-start gap-2 bg-silver-50 border border-silver-200 rounded-xl px-3 py-2.5">
-                    <Info size={13} className="text-silver-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-silver-500 text-[10px] leading-relaxed">
+                  <div
+                    className="flex items-start gap-2 rounded-xl px-3 py-2.5"
+                    style={{ background: '#dbeafe', borderLeft: '3px solid #0284c7' }}
+                  >
+                    <Info size={13} className="flex-shrink-0 mt-0.5" style={{ color: '#0284c7' }} />
+                    <p className="text-[10px] leading-relaxed font-medium" style={{ color: '#1e3a5f' }}>
                       Price assumes the property is in normal condition. Heavy soiling, mould, pet accidents, strong odours, or large/permanent stains may require a revised quote before work starts.
                     </p>
                   </div>
