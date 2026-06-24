@@ -8,9 +8,9 @@ const distDir = resolve(__dirname, 'dist');
 const routes = [
   {
     path: '/',
-    title: 'End of Tenancy Cleaning East & North London | Fixed Prices from £159 | VVE Clean',
+    title: 'VVE Clean London | Carpet, Sofa & End of Tenancy Cleaning',
     description:
-      'Fixed-price end of tenancy, move-in, after-builders & commercial cleaning across East & North London. 67-point agency checklist, 48hr re-clean guarantee, oven free. WhatsApp a photo for a quote.',
+      'Professional carpet, sofa, upholstery, deep and end of tenancy cleaning across London. Fixed quotes, reliable service and fast booking. Get a free quote today.',
   },
   {
     path: '/pricing',
