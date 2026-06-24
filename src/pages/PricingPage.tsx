@@ -111,9 +111,12 @@ export default function PricingPage() {
         </p>
 
         {/* Condition note */}
-        <div className="flex items-start gap-2.5 bg-sky-100 border border-sky-200 rounded-xl px-4 py-3 mt-3">
-          <span className="text-royal-600 text-sm flex-shrink-0 leading-none mt-0.5">ℹ</span>
-          <p className="text-navy-800 text-xs leading-relaxed">
+        <div
+          className="flex items-start gap-3 rounded-xl px-4 py-3.5 mt-4"
+          style={{ background: '#dbeafe', borderLeft: '4px solid #0284c7' }}
+        >
+          <span className="flex-shrink-0 font-bold text-base leading-none mt-0.5" style={{ color: '#0284c7' }}>ℹ</span>
+          <p className="text-navy-900 text-xs leading-relaxed font-medium">
             Prices assume the property is in normal condition. Heavy soiling, mould, excessive rubbish, biohazard contamination, pet accidents, strong odours, or large/permanent stains may require a revised quote before work starts.
           </p>
         </div>
