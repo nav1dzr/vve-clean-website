@@ -9,6 +9,7 @@ import Services from '../components/Services';
 import Gallery from '../components/Gallery';
 import OurKit from '../components/OurKit';
 import Reviews from '../components/Reviews';
+import Guarantee from '../components/Guarantee';
 import Areas from '../components/Areas';
 import FAQ from '../components/FAQ';
 import Contact from '../components/Contact';
@@ -39,6 +40,7 @@ export default function HomePage() {
       <Gallery />
       <OurKit />
       <Reviews />
+      <Guarantee />
       <Areas />
       <Contact />
       <FAQ />
