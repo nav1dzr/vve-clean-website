@@ -22,6 +22,48 @@ function makeTransport() {
   });
 }
 
+function escHtml(v) {
+  return String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function telegramText(meta, bookingRef) {
+  const location = [meta.address, meta.postcode].filter(Boolean).join(', ') || '—';
+  const datetime = meta.date
+    ? `${meta.date}${meta.time ? ' · ' + meta.time : ''}`
+    : 'TBC';
+  return [
+    '🔔 <b>New Booking — VVE Clean</b>',
+    '',
+    `📋 <b>Ref:</b> <code>${escHtml(bookingRef)}</code>`,
+    `👤 <b>Name:</b> ${escHtml(meta.fullName)}`,
+    `📱 <b>Phone:</b> ${escHtml(meta.phone) || '—'}`,
+    `📧 <b>Email:</b> ${escHtml(meta.email) || '—'}`,
+    `🏠 <b>Address:</b> ${escHtml(location)}`,
+    `🧹 <b>Service:</b> ${escHtml(meta.service)}`,
+    `📅 <b>Date/Time:</b> ${escHtml(datetime)}`,
+    `💷 <b>Deposit paid:</b> £30`,
+  ].join('\n');
+}
+
+async function sendTelegram(text) {
+  const token  = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) {
+    console.log('[webhook] Telegram env vars not set — skipping notification');
+    return;
+  }
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Telegram API ${res.status}: ${body}`);
+  }
+  console.log('[webhook] Telegram notification sent');
+}
+
 function customerEmailHtml(meta, bookingRef) {
   const dateRow = meta.date
     ? `<tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px">Date / time</td>` +
@@ -247,6 +289,13 @@ export default async function handler(req, res) {
     // Wait for both but never throw — non-200 causes Stripe to retry
     await Promise.allSettled(sends);
     console.log('[webhook] Email dispatch complete');
+  }
+
+  // ── Telegram notification ────────────────────────────────────────────────
+  try {
+    await sendTelegram(telegramText(meta, bookingRef));
+  } catch (err) {
+    console.error('[webhook] Telegram notification FAILED:', err.message);
   }
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
