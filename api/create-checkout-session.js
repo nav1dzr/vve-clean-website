@@ -90,17 +90,25 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'fullName and at least one of phone or email are required' }));
   }
 
-  // Prefer SITE_URL env var, but never use a localhost value as Stripe will
-  // reject it in live mode. Fall back to the actual request host (always
-  // correct in Vercel production, and works without any env var config).
-  const configuredUrl = (process.env.SITE_URL || '').replace(/\/$/, '');
-  const siteUrl = configuredUrl && !configuredUrl.includes('localhost')
-    ? configuredUrl
-    : (() => {
-        const proto = req.headers['x-forwarded-proto'] || 'https';
-        const host  = req.headers['x-forwarded-host'] || req.headers.host || 'vveclean.co.uk';
-        return `${proto}://${host}`;
-      })();
+  // ── Resolve a SAFE site URL ─────────────────────────────────────────────
+  // Extract the first clean http(s) URL from SITE_URL. This survives pasted
+  // markdown like "[https://site](https://site)", stray spaces, or brackets.
+  const extractUrl = (v) => {
+    const m = String(v || '').match(/https?:\/\/[^\s\]\)<>"']+/);
+    return m ? m[0].replace(/\/+$/, '') : '';
+  };
+
+  let siteUrl = extractUrl(process.env.SITE_URL);
+
+  // Validate it. If it's missing, malformed, or localhost, fall back to the
+  // real request host — always correct on Vercel, and needs no env config.
+  let validSite = false;
+  try { if (siteUrl) { new URL(siteUrl); validSite = true; } } catch { validSite = false; }
+  if (!validSite || siteUrl.includes('localhost')) {
+    const proto = req.headers['x-forwarded-proto'] || 'https';
+    const host  = req.headers['x-forwarded-host'] || req.headers.host || 'vveclean.co.uk';
+    siteUrl = `${proto}://${host}`;
+  }
 
   console.log('[checkout] siteUrl:', siteUrl);
   const q = (v) => encodeURIComponent(v || '');
@@ -120,7 +128,6 @@ export default async function handler(req, res) {
   try {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      currency: 'gbp',
       line_items: [
         {
           price_data: {
