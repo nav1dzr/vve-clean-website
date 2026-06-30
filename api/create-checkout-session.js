@@ -10,6 +10,40 @@ function getSupabase() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
+// Parse YYYY-MM-DD → DDMMYY
+function isoToDDMMYY(iso) {
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return m[3] + m[2] + m[1].slice(2);
+}
+
+// Build POSTCODE+DDMMYY ref; append -1/-2 if the base already exists in the DB.
+async function buildBookingRef(postcode, dateStr, supabase) {
+  const pc = (postcode || '').replace(/\s+/g, '').toUpperCase();
+  const dd = isoToDDMMYY(dateStr);
+  if (!pc || !dd) return null;
+
+  const base = pc + dd;
+  if (!supabase) return base;
+
+  try {
+    const { data } = await supabase
+      .from('bookings')
+      .select('booking_ref')
+      .like('booking_ref', `${base}%`);
+
+    const existing = new Set((data || []).map((r) => r.booking_ref));
+    if (!existing.has(base)) return base;
+
+    let n = 1;
+    while (existing.has(`${base}-${n}`)) n++;
+    return `${base}-${n}`;
+  } catch (e) {
+    console.error('[checkout] buildBookingRef DB query failed:', e.message);
+    return base;
+  }
+}
+
 const ALLOWED_ORIGINS = [
   process.env.SITE_URL,
   'http://localhost:5173',
@@ -121,7 +155,16 @@ export default async function handler(req, res) {
   console.log('[checkout] siteUrl:', siteUrl);
   const q = (v) => encodeURIComponent(v || '');
 
-  // {CHECKOUT_SESSION_ID} is a Stripe template literal — must NOT be URL-encoded.
+  // ── Build booking reference ─────────────────────────────────────────────
+  const supabase = getSupabase();
+  let bookingRef = null;
+  try {
+    bookingRef = await buildBookingRef(postcode, date, supabase);
+  } catch (e) {
+    console.error('[checkout] buildBookingRef failed:', e.message);
+  }
+  console.log('[checkout] booking ref:', bookingRef || '(will use session ID)');
+
   const successUrl =
     `${siteUrl}/confirmation.html` +
     `?name=${q(fullName)}` +
@@ -130,7 +173,7 @@ export default async function handler(req, res) {
     `&service=${q(service)}` +
     `&price=${q(price)}` +
     `&date=${q(date)}` +
-    `&ref={CHECKOUT_SESSION_ID}`;
+    `&ref=${bookingRef ? q(bookingRef) : '{CHECKOUT_SESSION_ID}'}`;
 
   // ── Create Checkout Session ─────────────────────────────────────────────
   try {
@@ -151,17 +194,18 @@ export default async function handler(req, res) {
       ],
       ...(email ? { customer_email: email } : {}),
       metadata: {
-        service:  (service  || '').slice(0, 500),
-        price:    price != null ? String(price) : '',
-        deposit:  deposit  != null ? String(deposit) : '30',
-        fullName: (fullName || '').slice(0, 500),
-        address:  (address  || '').slice(0, 500),
-        postcode: (postcode || '').slice(0, 500),
-        phone:    (phone    || '').slice(0, 500),
-        email:    (email    || '').slice(0, 500),
-        date:     (date     || '').slice(0, 500),
-        time:     (time     || '').slice(0, 500),
-        message:  (message  || '').slice(0, 500),
+        service:     (service     || '').slice(0, 500),
+        price:       price != null ? String(price) : '',
+        deposit:     deposit != null ? String(deposit) : '30',
+        fullName:    (fullName    || '').slice(0, 500),
+        address:     (address     || '').slice(0, 500),
+        postcode:    (postcode    || '').slice(0, 500),
+        phone:       (phone       || '').slice(0, 500),
+        email:       (email       || '').slice(0, 500),
+        date:        (date        || '').slice(0, 500),
+        time:        (time        || '').slice(0, 500),
+        message:     (message     || '').slice(0, 500),
+        booking_ref: (bookingRef  || '').slice(0, 500),
       },
       success_url: successUrl,
       cancel_url:  `${siteUrl}/booking.html`,
@@ -169,32 +213,33 @@ export default async function handler(req, res) {
 
     console.log('[checkout] session created:', session.id);
 
+    // Final ref: custom ref if generated, else fall back to Stripe session ID
+    const finalRef = bookingRef || session.id;
+
     // ── Save pending booking to Supabase ──────────────────────────────────
-    // Failure here must never block the Stripe redirect — wrap tightly.
-    const supabase = getSupabase();
     if (!supabase) {
       console.log('[checkout] SUPABASE_SERVICE_ROLE_KEY not set — skipping DB save');
     } else {
       try {
         const { error: dbErr } = await supabase.from('bookings').insert({
-          booking_ref:       session.id,
+          booking_ref:       finalRef,
           stripe_session_id: session.id,
           payment_status:    'pending_payment',
           deposit_amount:    30,
-          full_name:         fullName            || null,
-          email:             email               || null,
-          phone:             phone               || null,
-          address:           address             || null,
-          postcode:          postcode            || null,
-          service:           service             || null,
-          preferred_date:    date                || null,
-          preferred_time:    time                || null,
-          notes:             message             || null,
+          full_name:         fullName || null,
+          email:             email    || null,
+          phone:             phone    || null,
+          address:           address  || null,
+          postcode:          postcode || null,
+          service:           service  || null,
+          preferred_date:    date     || null,
+          preferred_time:    time     || null,
+          notes:             message  || null,
         });
         if (dbErr) {
           console.error('[checkout] Supabase insert error — code:', dbErr.code, '| message:', dbErr.message);
         } else {
-          console.log('[checkout] Booking saved to Supabase as pending_payment');
+          console.log('[checkout] Booking saved to Supabase as pending_payment, ref:', finalRef);
         }
       } catch (dbEx) {
         console.error('[checkout] Supabase unexpected error:', dbEx.message);

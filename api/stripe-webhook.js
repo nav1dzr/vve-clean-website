@@ -224,7 +224,8 @@ export default async function handler(req, res) {
 
   const session    = event.data.object;
   const meta       = session.metadata || {};
-  const bookingRef = session.id;
+  // Use the human-readable ref stored in metadata; fall back to session ID for old sessions.
+  const bookingRef = meta.booking_ref || session.id;
 
   console.log('[webhook] payment completed — ref:', bookingRef);
   console.log('[webhook] customer:', meta.fullName, '| service:', meta.service);
@@ -242,7 +243,7 @@ export default async function handler(req, res) {
       const { error: dbErr } = await supabase.from('bookings').upsert(
         {
           booking_ref:               bookingRef,
-          stripe_session_id:         bookingRef,
+          stripe_session_id:         session.id,
           stripe_payment_intent_id:  session.payment_intent || null,
           payment_status:            'paid',
           deposit_amount:            30,
@@ -262,7 +263,7 @@ export default async function handler(req, res) {
       if (dbErr) {
         console.error('[webhook] Supabase upsert error — code:', dbErr.code, '| message:', dbErr.message);
       } else {
-        console.log('[webhook] Booking updated to paid in Supabase:', bookingRef);
+        console.log('[webhook] Booking updated to paid in Supabase — ref:', bookingRef, '| session:', session.id);
       }
     } catch (dbEx) {
       console.error('[webhook] Supabase unexpected error:', dbEx.message);
