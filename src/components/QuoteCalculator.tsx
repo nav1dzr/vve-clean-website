@@ -209,6 +209,12 @@ export default function QuoteCalculator() {
     return `${WA_BASE}?text=${encodeURIComponent(msg)}`;
   })();
 
+  const deepSizeLabel = deepSize === 'studio' ? 'Studio' : deepSize.replace('bed', '') + ' Bed';
+  const bookingServiceName = service === 'deep'
+    ? `${DEEP_SERVICE_LABELS[deepService]} — ${deepSizeLabel}`
+    : serviceLabels[service];
+  const bookingLink = `/booking.html?service=${encodeURIComponent(bookingServiceName)}&price=${Math.round(price)}`;
+
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -490,16 +496,16 @@ export default function QuoteCalculator() {
                   Book this clean on WhatsApp →
                 </a>
 
-                <a
-                  href="https://calendar.app.google/EeN4x6XMiZn6par76"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-4 rounded-full font-bold text-base transition-all duration-300 active:scale-[0.98]"
-                  style={{ backgroundColor: '#ffffff', border: '2px solid #1a5c3a', color: '#1a5c3a' }}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  Book Online
-                </a>
+                {!isAfterBuilders && (
+                  <a
+                    href={bookingLink}
+                    className="flex items-center justify-center gap-2 w-full py-4 rounded-full font-bold text-base transition-all duration-300 active:scale-[0.98]"
+                    style={{ backgroundColor: '#ffffff', border: '2px solid #1a5c3a', color: '#1a5c3a' }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Book online — pay £30 deposit
+                  </a>
+                )}
               </div>
           </div>
 
