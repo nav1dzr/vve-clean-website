@@ -90,7 +90,19 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'fullName and at least one of phone or email are required' }));
   }
 
-  const siteUrl = (process.env.SITE_URL || 'https://vveclean.co.uk').replace(/\/$/, '');
+  // Prefer SITE_URL env var, but never use a localhost value as Stripe will
+  // reject it in live mode. Fall back to the actual request host (always
+  // correct in Vercel production, and works without any env var config).
+  const configuredUrl = (process.env.SITE_URL || '').replace(/\/$/, '');
+  const siteUrl = configuredUrl && !configuredUrl.includes('localhost')
+    ? configuredUrl
+    : (() => {
+        const proto = req.headers['x-forwarded-proto'] || 'https';
+        const host  = req.headers['x-forwarded-host'] || req.headers.host || 'vveclean.co.uk';
+        return `${proto}://${host}`;
+      })();
+
+  console.log('[checkout] siteUrl:', siteUrl);
   const q = (v) => encodeURIComponent(v || '');
 
   // {CHECKOUT_SESSION_ID} is a Stripe template literal — must NOT be URL-encoded.
