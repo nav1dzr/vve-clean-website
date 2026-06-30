@@ -2,8 +2,6 @@ import Stripe from 'stripe';
 
 export const config = { api: { bodyParser: false } };
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
 const ALLOWED_ORIGINS = [
   process.env.SITE_URL,
   'http://localhost:5173',
@@ -20,6 +18,11 @@ function corsHeaders(origin) {
 }
 
 async function readBody(req) {
+  // If Vercel or a middleware already buffered the body, use it directly.
+  if (req.body !== undefined && req.body !== null) {
+    return typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+  }
+  // Otherwise read the raw stream (standard Vercel non-Next.js behaviour).
   return new Promise((resolve, reject) => {
     let raw = '';
     req.on('data', (chunk) => (raw += chunk));
@@ -32,6 +35,11 @@ export default async function handler(req, res) {
   const origin = req.headers.origin || '';
   const headers = corsHeaders(origin);
 
+  // ── Diagnostic: key presence & method ──────────────────────────────────
+  console.log('[checkout] method:', req.method);
+  console.log('[checkout] key present:', !!process.env.STRIPE_SECRET_KEY);
+  console.log('[checkout] key prefix:', (process.env.STRIPE_SECRET_KEY || '').slice(0, 7));
+
   if (req.method === 'OPTIONS') {
     res.writeHead(204, headers);
     return res.end();
@@ -42,17 +50,40 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
   }
 
+  // ── Guard: env var must be present ─────────────────────────────────────
+  if (!process.env.STRIPE_SECRET_KEY) {
+    console.error('[checkout] STRIPE_SECRET_KEY is not set');
+    res.writeHead(500, { ...headers, 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'Server misconfiguration: missing Stripe key' }));
+  }
+
+  // Initialise Stripe inside the handler so a missing key causes a clean 500
+  // with a logged message rather than a silent module-load crash.
+  let stripe;
+  try {
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  } catch (err) {
+    console.error('[checkout] Stripe init failed:', err);
+    res.writeHead(500, { ...headers, 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'Stripe initialisation failed: ' + err.message }));
+  }
+
+  // ── Parse body ──────────────────────────────────────────────────────────
   let payload;
   try {
     const raw = await readBody(req);
+    console.log('[checkout] raw body length:', raw.length, 'first 120 chars:', raw.slice(0, 120));
     payload = JSON.parse(raw);
-  } catch {
+  } catch (err) {
+    console.error('[checkout] Body parse error:', err);
     res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ error: 'Invalid request body' }));
+    return res.end(JSON.stringify({ error: 'Invalid request body: ' + err.message }));
   }
 
   const { service, price, deposit, fullName, postcode, phone, email, date, time, message } =
     payload;
+
+  console.log('[checkout] fullName:', fullName, 'phone:', !!phone, 'email:', !!email, 'service:', service, 'price:', price);
 
   if (!fullName || (!phone && !email)) {
     res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
@@ -60,10 +91,9 @@ export default async function handler(req, res) {
   }
 
   const siteUrl = (process.env.SITE_URL || 'https://vveclean.co.uk').replace(/\/$/, '');
-
   const q = (v) => encodeURIComponent(v || '');
 
-  // {CHECKOUT_SESSION_ID} is a Stripe template literal — NOT URL-encoded.
+  // {CHECKOUT_SESSION_ID} is a Stripe template literal — must NOT be URL-encoded.
   const successUrl =
     `${siteUrl}/confirmation.html` +
     `?name=${q(fullName)}` +
@@ -74,6 +104,7 @@ export default async function handler(req, res) {
     `&date=${q(date)}` +
     `&ref={CHECKOUT_SESSION_ID}`;
 
+  // ── Create Checkout Session ─────────────────────────────────────────────
   try {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -93,25 +124,26 @@ export default async function handler(req, res) {
       ],
       ...(email ? { customer_email: email } : {}),
       metadata: {
-        service: (service || '').slice(0, 500),
-        price: price != null ? String(price) : '',
-        deposit: deposit != null ? String(deposit) : '30',
+        service:  (service  || '').slice(0, 500),
+        price:    price != null ? String(price) : '',
+        deposit:  deposit  != null ? String(deposit) : '30',
         fullName: (fullName || '').slice(0, 500),
         postcode: (postcode || '').slice(0, 500),
-        phone: (phone || '').slice(0, 500),
-        email: (email || '').slice(0, 500),
-        date: (date || '').slice(0, 500),
-        time: (time || '').slice(0, 500),
-        message: (message || '').slice(0, 500),
+        phone:    (phone    || '').slice(0, 500),
+        email:    (email    || '').slice(0, 500),
+        date:     (date     || '').slice(0, 500),
+        time:     (time     || '').slice(0, 500),
+        message:  (message  || '').slice(0, 500),
       },
       success_url: successUrl,
-      cancel_url: `${siteUrl}/booking.html`,
+      cancel_url:  `${siteUrl}/booking.html`,
     });
 
+    console.log('[checkout] session created:', session.id);
     res.writeHead(200, { ...headers, 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ checkoutUrl: session.url }));
   } catch (err) {
-    console.error('Stripe error:', err.message);
+    console.error('[checkout] Stripe API error:', err);
     res.writeHead(500, { ...headers, 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: err.message || 'Failed to create checkout session' }));
   }
