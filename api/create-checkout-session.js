@@ -1,6 +1,14 @@
 import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
 
 export const config = { api: { bodyParser: false } };
+
+function getSupabase() {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key, { auth: { persistSession: false } });
+}
 
 const ALLOWED_ORIGINS = [
   process.env.SITE_URL,
@@ -160,6 +168,39 @@ export default async function handler(req, res) {
     });
 
     console.log('[checkout] session created:', session.id);
+
+    // ── Save pending booking to Supabase ──────────────────────────────────
+    // Failure here must never block the Stripe redirect — wrap tightly.
+    const supabase = getSupabase();
+    if (!supabase) {
+      console.log('[checkout] SUPABASE_SERVICE_ROLE_KEY not set — skipping DB save');
+    } else {
+      try {
+        const { error: dbErr } = await supabase.from('bookings').insert({
+          booking_ref:       session.id,
+          stripe_session_id: session.id,
+          payment_status:    'pending_payment',
+          deposit_amount:    30,
+          full_name:         fullName            || null,
+          email:             email               || null,
+          phone:             phone               || null,
+          address:           address             || null,
+          postcode:          postcode            || null,
+          service:           service             || null,
+          preferred_date:    date                || null,
+          preferred_time:    time                || null,
+          notes:             message             || null,
+        });
+        if (dbErr) {
+          console.error('[checkout] Supabase insert error — code:', dbErr.code, '| message:', dbErr.message);
+        } else {
+          console.log('[checkout] Booking saved to Supabase as pending_payment');
+        }
+      } catch (dbEx) {
+        console.error('[checkout] Supabase unexpected error:', dbEx.message);
+      }
+    }
+
     res.writeHead(200, { ...headers, 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ checkoutUrl: session.url }));
   } catch (err) {

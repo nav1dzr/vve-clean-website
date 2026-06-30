@@ -1,7 +1,15 @@
 import Stripe from 'stripe';
 import nodemailer from 'nodemailer';
+import { createClient } from '@supabase/supabase-js';
 
 export const config = { api: { bodyParser: false } };
+
+function getSupabase() {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key, { auth: { persistSession: false } });
+}
 
 async function readRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -222,6 +230,44 @@ export default async function handler(req, res) {
   console.log('[webhook] customer:', meta.fullName, '| service:', meta.service);
   console.log('[webhook] email:', meta.email || '(none)', '| phone:', meta.phone || '(none)');
   console.log('[webhook] payment_status:', session.payment_status);
+
+  // ── Update booking in Supabase ───────────────────────────────────────────
+  // Upsert so this works even if the initial pending_payment insert failed.
+  // Runs before emails/Telegram so data is safe even if notifications fail.
+  const supabase = getSupabase();
+  if (!supabase) {
+    console.log('[webhook] SUPABASE_SERVICE_ROLE_KEY not set — skipping DB update');
+  } else {
+    try {
+      const { error: dbErr } = await supabase.from('bookings').upsert(
+        {
+          booking_ref:               bookingRef,
+          stripe_session_id:         bookingRef,
+          stripe_payment_intent_id:  session.payment_intent || null,
+          payment_status:            'paid',
+          deposit_amount:            30,
+          full_name:                 meta.fullName || null,
+          email:                     meta.email    || null,
+          phone:                     meta.phone    || null,
+          address:                   meta.address  || null,
+          postcode:                  meta.postcode || null,
+          service:                   meta.service  || null,
+          preferred_date:            meta.date     || null,
+          preferred_time:            meta.time     || null,
+          notes:                     meta.message  || null,
+          updated_at:                new Date().toISOString(),
+        },
+        { onConflict: 'stripe_session_id' },
+      );
+      if (dbErr) {
+        console.error('[webhook] Supabase upsert error — code:', dbErr.code, '| message:', dbErr.message);
+      } else {
+        console.log('[webhook] Booking updated to paid in Supabase:', bookingRef);
+      }
+    } catch (dbEx) {
+      console.error('[webhook] Supabase unexpected error:', dbEx.message);
+    }
+  }
 
   // ── Email env var check ──────────────────────────────────────────────────
   const emailEnvOk =
