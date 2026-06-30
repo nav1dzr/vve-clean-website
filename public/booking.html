@@ -312,6 +312,12 @@
         </div>
 
         <div class="field">
+          <label for="address">Address <span class="req">*</span></label>
+          <input type="text" id="address" name="address" autocomplete="street-address" placeholder="12 High Street, London" />
+          <div class="err" id="err-address">Please enter your address.</div>
+        </div>
+
+        <div class="field">
           <label for="postcode">Postcode <span class="req">*</span></label>
           <input type="text" id="postcode" name="postcode" autocomplete="postal-code" placeholder="E8 1AA" inputmode="text" autocapitalize="characters" />
           <div class="err" id="err-postcode">Please enter a valid UK postcode.</div>
@@ -526,11 +532,13 @@ function validPostcode(v) {
 function validateForm() {
   let ok = true;
   const name = $("fullName").value.trim();
+  const address = $("address").value.trim();
   const postcode = $("postcode").value.trim();
   const phone = $("phone").value.trim();
   const email = $("email").value.trim();
 
   showErr("fullName", !name); if (!name) ok = false;
+  showErr("address", !address); if (!address) ok = false;
   showErr("postcode", !validPostcode(postcode)); if (!validPostcode(postcode)) ok = false;
 
   // Phone OR email — at least one, and any provided must be valid.
@@ -547,7 +555,7 @@ function validateForm() {
 }
 
 // Clear errors as the user types
-["fullName","postcode","phone","email"].forEach(id => {
+["fullName","address","postcode","phone","email"].forEach(id => {
   $(id).addEventListener("input", () => {
     showErr(id, false);
     $("err-contact").classList.remove("show");
@@ -568,6 +576,7 @@ $("bookingForm").addEventListener("submit", async (e) => {
     price:    currentService.price,
     deposit:  CONFIG.DEPOSIT,
     fullName: $("fullName").value.trim(),
+    address:  $("address").value.trim(),
     postcode: $("postcode").value.trim().toUpperCase(),
     phone:    $("phone").value.trim(),
     email:    $("email").value.trim(),

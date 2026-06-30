@@ -80,7 +80,7 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'Invalid request body: ' + err.message }));
   }
 
-  const { service, price, deposit, fullName, postcode, phone, email, date, time, message } =
+  const { service, price, deposit, fullName, address, postcode, phone, email, date, time, message } =
     payload;
 
   console.log('[checkout] fullName:', fullName, 'phone:', !!phone, 'email:', !!email, 'service:', service, 'price:', price);
@@ -147,6 +147,7 @@ export default async function handler(req, res) {
         price:    price != null ? String(price) : '',
         deposit:  deposit  != null ? String(deposit) : '30',
         fullName: (fullName || '').slice(0, 500),
+        address:  (address  || '').slice(0, 500),
         postcode: (postcode || '').slice(0, 500),
         phone:    (phone    || '').slice(0, 500),
         email:    (email    || '').slice(0, 500),
