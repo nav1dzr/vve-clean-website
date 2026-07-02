@@ -54,12 +54,34 @@ function telegramText(meta, bookingRef) {
   ].join('\n');
 }
 
-// Google Apps Script /exec redirects POST requests. fetch() follows the 302
-// as GET, which calls doGet (undefined) and returns an HTML error page.
-// This helper follows redirects manually, always using POST.
-function postFollowRedirects(urlStr, payload, hops = 0) {
+// Google Apps Script POST flow:
+//   1. POST /exec  → script runs → 302 to /echo?...
+//   2. GET  /echo  → returns the ContentService JSON output
+// fetch() auto-converts POST→GET on 302 but ends up hitting doGet (undefined).
+// We POST manually, then follow the redirect as GET.
+function httpsGet(urlStr, hops = 0) {
   return new Promise((resolve, reject) => {
     if (hops > 5) return reject(new Error('Too many redirects'));
+    const u   = new URL(urlStr);
+    const req = https.request(
+      { hostname: u.hostname, path: u.pathname + u.search, method: 'GET' },
+      (res) => {
+        if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
+          res.resume();
+          return httpsGet(res.headers.location, hops + 1).then(resolve).catch(reject);
+        }
+        let data = '';
+        res.on('data', (c) => (data += c));
+        res.on('end', () => resolve({ status: res.statusCode, body: data }));
+      },
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+function postToAppsScript(urlStr, payload) {
+  return new Promise((resolve, reject) => {
     const body = JSON.stringify(payload);
     const u    = new URL(urlStr);
     const req  = https.request(
@@ -71,9 +93,9 @@ function postFollowRedirects(urlStr, payload, hops = 0) {
       },
       (res) => {
         if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
+          // Script ran on the POST; retrieve its output via GET to the echo URL
           res.resume();
-          return postFollowRedirects(res.headers.location, payload, hops + 1)
-            .then(resolve).catch(reject);
+          return httpsGet(res.headers.location).then(resolve).catch(reject);
         }
         let data = '';
         res.on('data', (c) => (data += c));
@@ -99,7 +121,7 @@ async function sendToGoogleSheets(meta, bookingRef, session) {
   }
 
   const price = Number(meta.price) || 0;
-  const { status, body } = await postFollowRedirects(endpoint, {
+  const { status, body } = await postToAppsScript(endpoint, {
     secret,
     booking_ref:               bookingRef,
     payment_status:            'paid',
