@@ -55,10 +55,10 @@ function telegramText(meta, bookingRef) {
 
 async function sendToGoogleSheets(meta, bookingRef, session) {
   console.log('[sheets] Google Sheets save started');
-  console.log('[sheets] GOOGLE_SHEETS_ENDPOINT exists:', !!process.env.GOOGLE_SHEETS_ENDPOINT);
+  console.log('[sheets] GOOGLE_SHEETS_URL exists:', !!process.env.GOOGLE_SHEETS_URL);
   console.log('[sheets] GOOGLE_SHEETS_SECRET exists:', !!process.env.GOOGLE_SHEETS_SECRET);
 
-  const endpoint = process.env.GOOGLE_SHEETS_ENDPOINT;
+  const endpoint = process.env.GOOGLE_SHEETS_URL;
   const secret   = process.env.GOOGLE_SHEETS_SECRET;
   if (!endpoint || !secret) {
     console.log('[sheets] Google Sheets save skipped — env vars missing');
