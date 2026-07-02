@@ -53,6 +53,40 @@ function telegramText(meta, bookingRef) {
   ].join('\n');
 }
 
+async function sendToGoogleSheets(meta, bookingRef, session) {
+  const url    = process.env.GOOGLE_SHEETS_URL;
+  const secret = process.env.GOOGLE_SHEETS_SECRET;
+  if (!url || !secret) {
+    console.log('[webhook] GOOGLE_SHEETS_URL or GOOGLE_SHEETS_SECRET not set — skipping Sheet save');
+    return;
+  }
+  const price     = Number(meta.price) || 0;
+  const res = await fetch(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      secret,
+      booking_ref:               bookingRef,
+      payment_status:            'paid',
+      full_name:                 meta.fullName || '',
+      email:                     meta.email    || '',
+      phone:                     meta.phone    || '',
+      service:                   meta.service  || '',
+      address:                   meta.address  || '',
+      postcode:                  meta.postcode || '',
+      preferred_date:            meta.date     || '',
+      preferred_time:            meta.time     || '',
+      price:                     price,
+      stripe_session_id:         session.id,
+      stripe_payment_intent_id:  session.payment_intent || '',
+      notes:                     meta.message  || '',
+    }),
+  });
+  const body = await res.text();
+  if (!res.ok) throw new Error(`Google Sheets API ${res.status}: ${body}`);
+  console.log('[webhook] Google Sheet row appended — response:', body);
+}
+
 async function sendTelegram(text) {
   const token  = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
@@ -343,6 +377,13 @@ export default async function handler(req, res) {
     await sendTelegram(telegramText(meta, bookingRef));
   } catch (err) {
     console.error('[webhook] Telegram notification FAILED:', err.message);
+  }
+
+  // ── Google Sheets row ────────────────────────────────────────────────────
+  try {
+    await sendToGoogleSheets(meta, bookingRef, session);
+  } catch (err) {
+    console.error('[webhook] Google Sheets FAILED:', err.message);
   }
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
