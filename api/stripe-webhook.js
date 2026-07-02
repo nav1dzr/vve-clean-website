@@ -63,16 +63,21 @@ function httpsGet(urlStr, hops = 0) {
   return new Promise((resolve, reject) => {
     if (hops > 5) return reject(new Error('Too many redirects'));
     const u   = new URL(urlStr);
+    console.log(`[sheets] GET hop ${hops} host:`, u.hostname);
     const req = https.request(
       { hostname: u.hostname, path: u.pathname + u.search, method: 'GET' },
       (res) => {
+        console.log(`[sheets] GET hop ${hops} status:`, res.statusCode);
         if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
           res.resume();
           return httpsGet(res.headers.location, hops + 1).then(resolve).catch(reject);
         }
         let data = '';
         res.on('data', (c) => (data += c));
-        res.on('end', () => resolve({ status: res.statusCode, body: data }));
+        res.on('end', () => {
+          console.log(`[sheets] GET hop ${hops} body preview:`, data.slice(0, 120));
+          resolve({ status: res.statusCode, body: data });
+        });
       },
     );
     req.on('error', reject);
@@ -84,6 +89,7 @@ function postToAppsScript(urlStr, payload) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify(payload);
     const u    = new URL(urlStr);
+    console.log('[sheets] POST target host:', u.hostname);
     const req  = https.request(
       {
         hostname: u.hostname,
@@ -92,14 +98,19 @@ function postToAppsScript(urlStr, payload) {
         headers:  { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
       },
       (res) => {
+        console.log('[sheets] POST /exec status:', res.statusCode);
         if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
-          // Script ran on the POST; retrieve its output via GET to the echo URL
+          const loc = new URL(res.headers.location);
+          console.log('[sheets] Redirect to host:', loc.hostname);
           res.resume();
           return httpsGet(res.headers.location).then(resolve).catch(reject);
         }
         let data = '';
         res.on('data', (c) => (data += c));
-        res.on('end', () => resolve({ status: res.statusCode, body: data }));
+        res.on('end', () => {
+          console.log('[sheets] No redirect — body preview:', data.slice(0, 120));
+          resolve({ status: res.statusCode, body: data });
+        });
       },
     );
     req.on('error', reject);
