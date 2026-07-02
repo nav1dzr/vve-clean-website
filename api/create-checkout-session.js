@@ -10,18 +10,21 @@ function getSupabase() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-// Parse YYYY-MM-DD → DDMMYY
+// Parse YYYY-MM-DD → DDMMYY, or return today's date as DDMMYY if no date given
 function isoToDDMMYY(iso) {
   const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return null;
-  return m[3] + m[2] + m[1].slice(2);
+  if (m) return m[3] + m[2] + m[1].slice(2);
+  const now = new Date();
+  return String(now.getDate()).padStart(2, '0') +
+         String(now.getMonth() + 1).padStart(2, '0') +
+         String(now.getFullYear()).slice(2);
 }
 
 // Build POSTCODE+DDMMYY ref; append -1/-2 if the base already exists in the DB.
 async function buildBookingRef(postcode, dateStr, supabase) {
   const pc = (postcode || '').replace(/\s+/g, '').toUpperCase();
+  if (!pc) return null;
   const dd = isoToDDMMYY(dateStr);
-  if (!pc || !dd) return null;
 
   const base = pc + dd;
   if (!supabase) return base;
