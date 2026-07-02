@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import nodemailer from 'nodemailer';
 import { createClient } from '@supabase/supabase-js';
+import https from 'node:https';
 
 export const config = { api: { bodyParser: false } };
 
@@ -53,6 +54,38 @@ function telegramText(meta, bookingRef) {
   ].join('\n');
 }
 
+// Google Apps Script /exec redirects POST requests. fetch() follows the 302
+// as GET, which calls doGet (undefined) and returns an HTML error page.
+// This helper follows redirects manually, always using POST.
+function postFollowRedirects(urlStr, payload, hops = 0) {
+  return new Promise((resolve, reject) => {
+    if (hops > 5) return reject(new Error('Too many redirects'));
+    const body = JSON.stringify(payload);
+    const u    = new URL(urlStr);
+    const req  = https.request(
+      {
+        hostname: u.hostname,
+        path:     u.pathname + u.search,
+        method:   'POST',
+        headers:  { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      },
+      (res) => {
+        if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
+          res.resume();
+          return postFollowRedirects(res.headers.location, payload, hops + 1)
+            .then(resolve).catch(reject);
+        }
+        let data = '';
+        res.on('data', (c) => (data += c));
+        res.on('end', () => resolve({ status: res.statusCode, body: data }));
+      },
+    );
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
 async function sendToGoogleSheets(meta, bookingRef, session) {
   console.log('[sheets] Google Sheets save started');
   console.log('[sheets] GOOGLE_SHEETS_URL exists:', !!process.env.GOOGLE_SHEETS_URL);
@@ -66,31 +99,40 @@ async function sendToGoogleSheets(meta, bookingRef, session) {
   }
 
   const price = Number(meta.price) || 0;
-  const res = await fetch(endpoint, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    redirect: 'follow',
-    body: JSON.stringify({
-      secret,
-      booking_ref:               bookingRef,
-      payment_status:            'paid',
-      full_name:                 meta.fullName || '',
-      email:                     meta.email    || '',
-      phone:                     meta.phone    || '',
-      service:                   meta.service  || '',
-      address:                   meta.address  || '',
-      postcode:                  meta.postcode || '',
-      preferred_date:            meta.date     || '',
-      preferred_time:            meta.time     || '',
-      price:                     price,
-      stripe_session_id:         session.id,
-      stripe_payment_intent_id:  session.payment_intent || '',
-      notes:                     meta.message  || '',
-    }),
+  const { status, body } = await postFollowRedirects(endpoint, {
+    secret,
+    booking_ref:               bookingRef,
+    payment_status:            'paid',
+    full_name:                 meta.fullName || '',
+    email:                     meta.email    || '',
+    phone:                     meta.phone    || '',
+    service:                   meta.service  || '',
+    address:                   meta.address  || '',
+    postcode:                  meta.postcode || '',
+    preferred_date:            meta.date     || '',
+    preferred_time:            meta.time     || '',
+    price:                     price,
+    stripe_session_id:         session.id,
+    stripe_payment_intent_id:  session.payment_intent || '',
+    notes:                     meta.message  || '',
   });
-  const body = await res.text();
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${body}`);
-  console.log('[sheets] Google Sheets save success — response:', body);
+
+  if (status < 200 || status >= 300) {
+    throw new Error(`HTTP ${status}: ${body.slice(0, 300)}`);
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(body);
+  } catch (_) {
+    throw new Error(`Non-JSON response — redirect not resolved? Body: ${body.slice(0, 300)}`);
+  }
+
+  if (!parsed.success) {
+    throw new Error(`Apps Script rejected request: ${parsed.message}`);
+  }
+
+  console.log('[sheets] Google Sheets save success');
 }
 
 async function sendTelegram(text) {
