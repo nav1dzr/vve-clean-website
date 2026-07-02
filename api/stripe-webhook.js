@@ -54,16 +54,22 @@ function telegramText(meta, bookingRef) {
 }
 
 async function sendToGoogleSheets(meta, bookingRef, session) {
-  const url    = process.env.GOOGLE_SHEETS_URL;
-  const secret = process.env.GOOGLE_SHEETS_SECRET;
-  if (!url || !secret) {
-    console.log('[webhook] GOOGLE_SHEETS_URL or GOOGLE_SHEETS_SECRET not set — skipping Sheet save');
+  console.log('[sheets] Google Sheets save started');
+  console.log('[sheets] GOOGLE_SHEETS_ENDPOINT exists:', !!process.env.GOOGLE_SHEETS_ENDPOINT);
+  console.log('[sheets] GOOGLE_SHEETS_SECRET exists:', !!process.env.GOOGLE_SHEETS_SECRET);
+
+  const endpoint = process.env.GOOGLE_SHEETS_ENDPOINT;
+  const secret   = process.env.GOOGLE_SHEETS_SECRET;
+  if (!endpoint || !secret) {
+    console.log('[sheets] Google Sheets save skipped — env vars missing');
     return;
   }
-  const price     = Number(meta.price) || 0;
-  const res = await fetch(url, {
+
+  const price = Number(meta.price) || 0;
+  const res = await fetch(endpoint, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
+    redirect: 'follow',
     body: JSON.stringify({
       secret,
       booking_ref:               bookingRef,
@@ -83,8 +89,8 @@ async function sendToGoogleSheets(meta, bookingRef, session) {
     }),
   });
   const body = await res.text();
-  if (!res.ok) throw new Error(`Google Sheets API ${res.status}: ${body}`);
-  console.log('[webhook] Google Sheet row appended — response:', body);
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${body}`);
+  console.log('[sheets] Google Sheets save success — response:', body);
 }
 
 async function sendTelegram(text) {
