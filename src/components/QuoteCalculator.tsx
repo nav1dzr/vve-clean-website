@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calculator, CheckCircle2, Plus, Minus, Info } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
 
@@ -76,6 +77,25 @@ const addOnDefs = [
 
 type ServiceKey = 'deep' | 'window' | 'gutter' | 'office';
 
+export interface BookingSelection {
+  serviceName: string;
+  price: number;
+  quoteConfig?: {
+    service: ServiceKey;
+    deepService: DeepServiceType;
+    deepSize: SizeKey;
+    deepBaths: number;
+    addOnCounts: Record<string, number>;
+    windowSize: string;
+    gutterType: string;
+    officeHours: number;
+  };
+}
+
+interface Props {
+  onBook?: (sel: BookingSelection) => void;
+}
+
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
 function Counter({ value, min = 0, max, onChange }: { value: number; min?: number; max?: number; onChange: (v: number) => void }) {
@@ -96,8 +116,9 @@ function Counter({ value, min = 0, max, onChange }: { value: number; min?: numbe
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function QuoteCalculator() {
+export default function QuoteCalculator({ onBook }: Props = {}) {
   const { ref, visible } = useReveal();
+  const navigate = useNavigate();
 
   // service tab
   const [service, setService] = useState<ServiceKey>('deep');
@@ -213,7 +234,20 @@ export default function QuoteCalculator() {
   const bookingServiceName = service === 'deep'
     ? `${DEEP_SERVICE_LABELS[deepService]} — ${deepSizeLabel}`
     : serviceLabels[service];
-  const bookingLink = `/booking.html?service=${encodeURIComponent(bookingServiceName)}&price=${Math.round(price)}`;
+
+  const handleBookNow = () => {
+    const sel: BookingSelection = {
+      serviceName: bookingServiceName,
+      price:       Math.round(price),
+      quoteConfig: { service, deepService, deepSize, deepBaths, addOnCounts, windowSize, gutterType, officeHours },
+    };
+    if (onBook) {
+      onBook(sel);
+    } else {
+      sessionStorage.setItem('vve_booking', JSON.stringify(sel));
+      navigate('/booking');
+    }
+  };
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -486,14 +520,15 @@ export default function QuoteCalculator() {
 
                 {/* ── Action buttons ── */}
                 {!isAfterBuilders && (
-                  <a
-                    href={bookingLink}
+                  <button
+                    type="button"
+                    onClick={handleBookNow}
                     className="flex items-center justify-center gap-2 w-full py-4 rounded-full font-bold text-white text-base transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98]"
                     style={{ backgroundColor: '#0ea5e9' }}
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     Book Online — Pay £30 Deposit
-                  </a>
+                  </button>
                 )}
 
                 <a

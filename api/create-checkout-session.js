@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { computePrice } from './servicePrices.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -125,10 +126,24 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'Invalid request body: ' + err.message }));
   }
 
-  const { service, price, deposit, fullName, address, postcode, phone, email, date, time, message } =
+  const { service, price, deposit, fullName, address, postcode, phone, email, date, time, message, quoteConfig } =
     payload;
 
-  console.log('[checkout] fullName:', fullName, 'phone:', !!phone, 'email:', !!email, 'service:', service, 'price:', price);
+  // ── Server-side price validation ────────────────────────────────────────────
+  let validatedPrice = Number(price) || 0;
+  if (quoteConfig) {
+    const serverPrice = computePrice(quoteConfig);
+    if (serverPrice !== null) {
+      if (Math.abs(serverPrice - validatedPrice) > 0.5) {
+        console.warn('[checkout] Price mismatch — reported:', validatedPrice, '| server computed:', serverPrice, '| using server price');
+      }
+      validatedPrice = serverPrice;
+    } else {
+      console.warn('[checkout] computePrice returned null for quoteConfig — using reported price');
+    }
+  }
+
+  console.log('[checkout] fullName:', fullName, 'phone:', !!phone, 'email:', !!email, 'service:', service, 'validatedPrice:', validatedPrice);
 
   if (!fullName || (!phone && !email)) {
     res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
@@ -174,7 +189,7 @@ export default async function handler(req, res) {
     `&email=${q(email)}` +
     `&phone=${q(phone)}` +
     `&service=${q(service)}` +
-    `&price=${q(price)}` +
+    `&price=${q(validatedPrice)}` +
     `&date=${q(date)}` +
     `&ref=${bookingRef ? q(bookingRef) : '{CHECKOUT_SESSION_ID}'}`;
 
@@ -198,7 +213,7 @@ export default async function handler(req, res) {
       ...(email ? { customer_email: email } : {}),
       metadata: {
         service:     (service     || '').slice(0, 500),
-        price:       price != null ? String(price) : '',
+        price:       String(validatedPrice),
         deposit:     deposit != null ? String(deposit) : '30',
         fullName:    (fullName    || '').slice(0, 500),
         address:     (address     || '').slice(0, 500),

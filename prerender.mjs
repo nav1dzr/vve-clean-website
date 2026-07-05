@@ -19,6 +19,12 @@ const routes = [
       'Fixed cleaning prices for East & North London. End of tenancy from £159, carpet cleaning from £90, upholstery cleaning from £40, move-in deep clean from £139, after builders from £199. No hidden fees — the price you see is the price you pay.',
   },
   {
+    path: '/booking',
+    title: 'Book Your Clean — VVE Clean London',
+    description:
+      'Book a professional cleaning service online with VVE Clean. Choose your service, fill in your details and pay a £30 deposit to secure your slot.',
+  },
+  {
     path: '/commercial',
     title: 'Commercial & Communal Cleaning East London | Offices, Shops & Blocks | VVE Clean',
     description:
