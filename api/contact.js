@@ -99,7 +99,7 @@ function postToAppsScript(urlStr, payload) {
 }
 
 async function sendToGoogleSheets(data) {
-  const endpoint = process.env.GOOGLE_SHEETS_URL;
+  const endpoint = process.env.GOOGLE_SHEET_CONTACT;
   const secret   = process.env.GOOGLE_SHEETS_SECRET;
   if (!endpoint || !secret) {
     console.log('[contact] Google Sheets env vars missing — skipping');
