@@ -1,4 +1,5 @@
 import { Phone, Mail, MapPin } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
 
@@ -173,8 +174,8 @@ export default function Footer() {
             <span className="text-silver-500">Company Registration Number: <span className="text-silver-400 font-medium">17234391</span></span>
           </div>
           <div className="flex gap-4">
-            <a href="#" className="hover:text-silver-300 transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-silver-300 transition-colors">Terms of Service</a>
+            <Link to="/privacy-policy" className="hover:text-silver-300 transition-colors">Privacy Policy</Link>
+            <Link to="/terms-of-service" className="hover:text-silver-300 transition-colors">Terms of Service</Link>
           </div>
         </div>
       </div>

@@ -30,6 +30,18 @@ const routes = [
     description:
       'Contract cleaning for offices, shops, cafés and communal areas for landlords and managing agents across East & North London (E1–E17, N1–N16). Free site visit within 48 hours, fixed written quote the same day, monthly invoicing.',
   },
+  {
+    path: '/privacy-policy',
+    title: 'Privacy Policy | VVE Clean London',
+    description:
+      'How VVE LIMITED (trading as VVE Clean) collects, uses, and protects your personal data. Covers bookings, payments, cookies, your rights under UK GDPR, and how to contact us.',
+  },
+  {
+    path: '/terms-of-service',
+    title: 'Terms of Service | VVE Clean London',
+    description:
+      'The terms that apply when you use VVE Clean services in London. Covers bookings, deposits, cancellations, liability, complaints, and payment.',
+  },
 ];
 
 const { render } = await import('./dist/server/entry-server.js');
