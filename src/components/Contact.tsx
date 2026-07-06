@@ -3,7 +3,6 @@ import { Phone, Mail, MapPin, Clock, Send, CheckCircle2 } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
 
 const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
-const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xbdedojo';
 
 function WhatsAppIcon({ size = 16 }: { size?: number }) {
   return (
@@ -36,16 +35,17 @@ export default function Contact() {
     setError('');
 
     try {
-      const res = await fetch(FORMSPREE_ENDPOINT, {
+      const res = await fetch('/api/contact', {
         method: 'POST',
-        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name,
+          fullName:       name,
           email,
-          phone: phone || '—',
+          phone:          phone || '',
           message,
-          'Marketing opt-in': subscribe ? 'Yes' : 'No',
-          _gotcha: honeypot,
+          marketingOptIn: subscribe,
+          sourcePage:     window.location.pathname,
+          _honeypot:      honeypot,
         }),
       });
 
@@ -60,11 +60,11 @@ export default function Contact() {
         setSubmitted(true);
       } else {
         const data = await res.json().catch(() => ({}));
-        setError((data as { errors?: { message: string }[] })?.errors?.[0]?.message ?? 'Something went wrong. Please try again.');
+        setError((data as { error?: string })?.error ?? 'Sorry, something went wrong. Please try again or contact us on WhatsApp.');
       }
     } catch {
       setLoading(false);
-      setError('Something went wrong. Please try again or call us.');
+      setError('Sorry, something went wrong. Please try again or contact us on WhatsApp.');
     }
   };
 
@@ -166,15 +166,15 @@ export default function Contact() {
                 <CheckCircle2 className="text-green-500 mb-4" size={56} />
                 <h3 className="text-2xl font-bold text-navy-900 mb-2">Message Sent!</h3>
                 <p className="text-silver-600">
-                  Thank you! We will be in touch shortly.
+                  Thank you — we received your message and will contact you shortly.
                 </p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Honeypot — hidden from humans, filled by bots; Formspree drops the submission if non-empty */}
+                {/* Honeypot — hidden from humans, filled by bots */}
                 <input
                   type="text"
-                  name="_gotcha"
+                  name="_honeypot"
                   value={honeypot}
                   onChange={(e) => setHoneypot(e.target.value)}
                   tabIndex={-1}
