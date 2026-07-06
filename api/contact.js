@@ -1,9 +1,9 @@
 // Contact form submission handler.
-// Mirrors the structure of create-checkout-session.js and stripe-webhook.js.
-// No Stripe involved — enquiries only.
+// Mirrors the structure of stripe-webhook.js — same Google Sheets, Telegram, and email patterns.
+// No Stripe, no Supabase.
 
 import nodemailer from 'nodemailer';
-import { createClient } from '@supabase/supabase-js';
+import https from 'node:https';
 
 export const config = { api: { bodyParser: false } };
 
@@ -20,13 +20,6 @@ function corsHeaders(origin) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
-}
-
-function getSupabase() {
-  const url = process.env.VITE_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
 }
 
 async function readBody(req) {
@@ -54,6 +47,94 @@ function makeTransport() {
 function escHtml(v) {
   return String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+
+// ── Google Sheets (same redirect-following pattern as stripe-webhook.js) ────
+
+function httpsGet(urlStr, hops = 0) {
+  return new Promise((resolve, reject) => {
+    if (hops > 5) return reject(new Error('Too many redirects'));
+    const u   = new URL(urlStr);
+    const req = https.request(
+      { hostname: u.hostname, path: u.pathname + u.search, method: 'GET' },
+      (res) => {
+        if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
+          res.resume();
+          return httpsGet(res.headers.location, hops + 1).then(resolve).catch(reject);
+        }
+        let data = '';
+        res.on('data', (c) => (data += c));
+        res.on('end', () => resolve({ status: res.statusCode, body: data }));
+      },
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+function postToAppsScript(urlStr, payload) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(payload);
+    const u    = new URL(urlStr);
+    const req  = https.request(
+      {
+        hostname: u.hostname,
+        path:     u.pathname + u.search,
+        method:   'POST',
+        headers:  { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      },
+      (res) => {
+        if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
+          res.resume();
+          return httpsGet(res.headers.location).then(resolve).catch(reject);
+        }
+        let data = '';
+        res.on('data', (c) => (data += c));
+        res.on('end', () => resolve({ status: res.statusCode, body: data }));
+      },
+    );
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+async function sendToGoogleSheets(data) {
+  const endpoint = process.env.GOOGLE_SHEETS_URL;
+  const secret   = process.env.GOOGLE_SHEETS_SECRET;
+  if (!endpoint || !secret) {
+    console.log('[contact] Google Sheets env vars missing — skipping');
+    return;
+  }
+
+  const { status, body } = await postToAppsScript(endpoint, {
+    secret,
+    type:              'contact',
+    full_name:         data.fullName,
+    email:             data.email,
+    phone:             data.phone || '',
+    message:           data.message,
+    marketing_opt_in:  data.marketingOptIn ? 'Yes' : 'No',
+    source_page:       data.sourcePage || '/',
+    status:            'new',
+  });
+
+  if (status < 200 || status >= 300) {
+    throw new Error(`HTTP ${status}: ${body.slice(0, 300)}`);
+  }
+
+  let parsed;
+  try { parsed = JSON.parse(body); } catch {
+    throw new Error(`Non-JSON response: ${body.slice(0, 300)}`);
+  }
+
+  if (!parsed.success) {
+    throw new Error(`Apps Script rejected: ${parsed.message}`);
+  }
+
+  console.log('[contact] Saved to Google Sheets');
+}
+
+// ── Telegram ─────────────────────────────────────────────────────────────────
 
 async function sendTelegram(text) {
   const token  = process.env.TELEGRAM_BOT_TOKEN;
@@ -90,6 +171,8 @@ function contactTelegramText(data) {
   ].join('\n');
 }
 
+// ── Emails ────────────────────────────────────────────────────────────────────
+
 function businessEmailHtml(data) {
   const rows = [
     ['Full name',        data.fullName],
@@ -98,7 +181,6 @@ function businessEmailHtml(data) {
     ['Message',          data.message],
     ['Marketing opt-in', data.marketingOptIn ? 'Yes' : 'No'],
     ['Source page',      data.sourcePage || '/'],
-    ['Status',           'new'],
   ]
     .map(([k, v]) =>
       `<tr>` +
@@ -150,6 +232,8 @@ function customerEmailHtml(data) {
 </body></html>`;
 }
 
+// ── Handler ───────────────────────────────────────────────────────────────────
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default async function handler(req, res) {
@@ -166,7 +250,6 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
   }
 
-  // Parse body
   let payload;
   try {
     const raw = await readBody(req);
@@ -178,7 +261,7 @@ export default async function handler(req, res) {
 
   const { fullName, email, phone, message, marketingOptIn, sourcePage, _honeypot } = payload;
 
-  // Honeypot — silently succeed so bots think submission worked
+  // Honeypot — silently succeed so bots think the submission worked
   if (_honeypot) {
     console.log('[contact] Honeypot triggered — silently rejecting');
     res.writeHead(200, { ...headers, 'Content-Type': 'application/json' });
@@ -210,32 +293,14 @@ export default async function handler(req, res) {
 
   console.log('[contact] enquiry from:', data.email, '| name:', data.fullName);
 
-  // Save to Supabase
-  const supabase = getSupabase();
-  if (!supabase) {
-    console.log('[contact] Supabase not configured — skipping DB save');
-  } else {
-    try {
-      const { error: dbErr } = await supabase.from('contact_submissions').insert({
-        full_name:        data.fullName,
-        email:            data.email,
-        phone:            data.phone || null,
-        message:          data.message,
-        marketing_opt_in: data.marketingOptIn,
-        source_page:      data.sourcePage,
-        status:           'new',
-      });
-      if (dbErr) {
-        console.error('[contact] Supabase insert error — code:', dbErr.code, '| message:', dbErr.message);
-      } else {
-        console.log('[contact] Saved to contact_submissions');
-      }
-    } catch (dbEx) {
-      console.error('[contact] Supabase unexpected error:', dbEx.message);
-    }
+  // Google Sheets
+  try {
+    await sendToGoogleSheets(data);
+  } catch (err) {
+    console.error('[contact] Google Sheets FAILED:', err.message);
   }
 
-  // Telegram notification
+  // Telegram
   try {
     await sendTelegram(contactTelegramText(data));
   } catch (err) {
