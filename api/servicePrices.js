@@ -1,5 +1,5 @@
 // Backend pricing engine — authoritative source for price validation.
-// Must stay in sync with QuoteCalculator.tsx when prices change.
+// Must stay in sync with QuoteCalculator.tsx / carpetPricing.ts when prices change.
 
 const BASE_PRICES = {
   end_of_tenancy:    { studio: 159, bed1: 199, bed2: 249, bed3: 329, bed4: 419 },
@@ -21,15 +21,44 @@ const MIN_OFFICE_HOURS    = 4;
 const MIN_CHARGE          = 90;
 
 const ADDON_PRICES = {
-  oven:         35,
-  fridge:       20,
-  ext_windows:  35,
-  wall_marks:   25,
-  key_collect:  10,
-  rubbish:      40,
-  sofa:         40,
-  mattress:     25,
+  oven: 35, fridge: 20, ext_windows: 35, wall_marks: 25, key_collect: 10, rubbish: 40,
+  sofa: 40, mattress: 25,
 };
+
+// ── Carpet itemised engine (mirrors carpetPricing.ts) ────────────────────────
+const CARPET_MIN_BOOKING = 85;
+
+const CARPET_ITEM_PRICES = {
+  bedroom: 50, living_room: 70, large_lounge: 90, hallway: 25, landing: 15,
+  rug: 40, armchair: 50, sofa_2: 75, sofa_3: 95, sofa_corner: 130,
+  mattress_single: 45, mattress_double: 65,
+};
+
+function stairsLinePrice(n) {
+  if (n <= 0) return 0;
+  return 55 + (n - 1) * 40;
+}
+
+function computeCarpetItemisedPrice(carpetCounts, carpetCondition) {
+  if (carpetCondition === 'delicate') return null; // photo quote — no fixed price
+
+  let subtotal = 0;
+  for (const [key, qty] of Object.entries(carpetCounts || {})) {
+    const n = Number(qty) || 0;
+    if (n <= 0) continue;
+    if (key === 'stairs') {
+      subtotal += stairsLinePrice(n);
+    } else {
+      subtotal += (CARPET_ITEM_PRICES[key] ?? 0) * n;
+    }
+  }
+
+  if (carpetCondition === 'heavy') subtotal = Math.round(subtotal * 1.2);
+  if (subtotal <= 0) return null;
+  return Math.max(subtotal, CARPET_MIN_BOOKING);
+}
+
+// ── Public function ───────────────────────────────────────────────────────────
 
 /**
  * Recompute the total price from a quoteConfig object sent by the frontend.
@@ -41,9 +70,16 @@ export function computePrice(quoteConfig) {
   const {
     service, deepService, deepSize, deepBaths,
     addOnCounts, windowSize, gutterType, officeHours,
+    carpetCounts, carpetCondition,
   } = quoteConfig;
 
   if (service === 'deep') {
+    // ── Carpet itemised flow (quote-v2) ─────────────────────────────────────
+    if (deepService === 'carpet_upholstery' && carpetCounts) {
+      return computeCarpetItemisedPrice(carpetCounts, carpetCondition || 'normal');
+    }
+
+    // ── Other deep services (EOT, move-in, after-builders) ──────────────────
     const bp = BASE_PRICES[deepService];
     if (!bp) return null;
     const base = bp[deepSize];
@@ -62,13 +98,12 @@ export function computePrice(quoteConfig) {
         } else if (key === 'carpet_bundle') {
           addons += (CARPET_BUNDLE_PRICE[deepSize] ?? 0) * n;
         } else if (key === 'oven' && deepService === 'end_of_tenancy') {
-          // FREE for end of tenancy — no charge
+          // FREE for end of tenancy
         } else {
           addons += (ADDON_PRICES[key] ?? 0) * n;
         }
       }
     }
-
     return base + bathExtra + addons;
   }
 

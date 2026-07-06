@@ -155,35 +155,63 @@ export default function PricingPage() {
             <p className="text-silver-600">Steam-cleaned. Deodorised. Dried in hours.</p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
-            {[
-              ['1 room',   90],
-              ['2 rooms', 150],
-              ['3 rooms', 210],
-              ['4 rooms', 270],
-              ['5+ rooms', 330],
-            ].map(([label, price]) => (
-              <div key={String(label)} className="rounded-2xl p-5 text-center border border-royal-100 shadow-sm" style={{ background: '#e0f2fe' }}>
-                <div className="text-royal-700 text-xs font-semibold mb-1">{label}</div>
-                <div className="font-display font-bold text-3xl text-navy-900">£{price}</div>
-                <div className="text-royal-700 text-[11px] font-medium mt-1">carpeted rooms</div>
+          <div className="grid sm:grid-cols-2 gap-6 mb-6">
+            {/* Carpets */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-navy-700 font-bold text-xs uppercase tracking-widest">Carpets</span>
+                <div className="flex-1 h-px bg-silver-200" />
               </div>
-            ))}
+              <div className="space-y-2">
+                {[
+                  ['Bedroom',                 50,  null],
+                  ['Living / dining room',    70,  null],
+                  ['Large or through lounge', 90,  null],
+                  ['Hallway',                 25,  null],
+                  ['Landing',                 15,  null],
+                  ['Stairs — first flight',   55,  null],
+                  ['Stairs — each extra',     40,  null],
+                  ['Rug',                     40,  'Large or wool rugs — photo quote'],
+                ].map(([label, price, note]) => (
+                  <div key={String(label)} className="flex items-start justify-between bg-silver-100 rounded-xl px-4 py-3 border border-silver-200">
+                    <div>
+                      <div className="text-navy-800 text-sm font-medium">{label}</div>
+                      {note && <div className="text-silver-600 text-[11px] mt-0.5">{note}</div>}
+                    </div>
+                    <div className="font-display font-bold text-lg text-royal-600 ml-4 whitespace-nowrap">£{price}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Sofas & Upholstery */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-navy-700 font-bold text-xs uppercase tracking-widest">Sofas &amp; Upholstery</span>
+                <div className="flex-1 h-px bg-silver-200" />
+              </div>
+              <div className="space-y-2">
+                {[
+                  ['Armchair',               50],
+                  ['2-seater sofa',          75],
+                  ['3-seater sofa',          95],
+                  ['Corner / L-shaped sofa', 130],
+                  ['Mattress (single)',       45],
+                  ['Mattress (double/king)',  65],
+                ].map(([label, price]) => (
+                  <div key={String(label)} className="flex items-center justify-between bg-silver-100 rounded-xl px-4 py-3 border border-silver-200">
+                    <div className="text-navy-800 text-sm font-medium">{label}</div>
+                    <div className="font-display font-bold text-lg text-royal-600 ml-4">£{price}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <p className="text-center text-silver-500 text-xs mb-4">Count any carpeted room — bedrooms, living room, dining room. Stairs priced separately.</p>
-
-          {/* Add-ons row */}
-          <div className="bg-silver-100 rounded-2xl px-5 py-4 flex flex-wrap gap-x-6 gap-y-2 justify-center text-sm mb-4">
-            <span className="text-silver-600">Add-ons:</span>
-            <span className="text-navy-800 font-semibold">Sofa (2–3 seats) <span className="text-royal-600">+£40</span></span>
-            <span className="text-silver-300">·</span>
-            <span className="text-navy-800 font-semibold">Mattress <span className="text-royal-600">+£25</span></span>
-            <span className="text-silver-300">·</span>
-            <span className="text-navy-800 font-semibold">Flights of stairs <span className="text-royal-600">+£45 (1st) · +£35 each extra</span></span>
+          {/* Minimum booking notice */}
+          <div className="flex items-center justify-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 max-w-md mx-auto mb-4">
+            <span className="text-amber-700 text-sm font-semibold">£85 minimum booking</span>
           </div>
-
-          <p className="text-center text-silver-500 text-xs mb-3">Minimum call-out £75</p>
 
           <p className="text-center text-[#1a5c3a] text-sm font-semibold bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 max-w-md mx-auto">
             Add whole-home carpets to any property clean and save £10.

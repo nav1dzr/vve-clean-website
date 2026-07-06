@@ -4,7 +4,7 @@ import { useReveal } from '../hooks/useReveal';
 const badges = [
   { icon: Shield,         label: 'Fully Insured',          sub: '£5M Public Liability' },
   { icon: CheckCircle,    label: 'Vetted Professionals',    sub: 'Background-Checked Team' },
-  { icon: Clock,          label: 'Same-Day Available',      sub: 'Book by 10am' },
+  { icon: Clock,          label: 'Same-Day Available',      sub: 'Book by 12pm' },
   { icon: PoundSterling,  label: 'Transparent Pricing',     sub: 'Clear Quotes, No Hidden Fees' },
   { icon: MapPin,         label: 'Local London Service',    sub: 'Providing Reliability Near You' },
   { icon: CheckCircle,    label: 'Satisfaction Guaranteed', sub: 'Or We Return Free' },
