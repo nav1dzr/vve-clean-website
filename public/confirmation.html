@@ -390,15 +390,13 @@
 
   // ── Google Ads conversion — "Booking Deposit Paid" ──────────────────────
   // Fires once per transaction using localStorage to prevent duplicate on refresh.
-  // IMPORTANT: replace PASTE_CONVERSION_LABEL_HERE with the label from Google Ads
-  // (Google Ads → Goals → Conversions → your conversion → Tag setup → label string).
   (function () {
     if (typeof gtag !== 'function') return;
     var txId = ref || null;
     var storageKey = txId ? 'vve_ads_conv_' + txId : null;
-    if (storageKey && localStorage.getItem(storageKey)) return; // already fired this session
+    if (storageKey && localStorage.getItem(storageKey)) return;
     gtag('event', 'conversion', {
-      send_to:        'AW-18214693277/PASTE_CONVERSION_LABEL_HERE',
+      send_to:        'AW-18214693277/hUwdCK68gswcEI3TuO1D',
       value:          30.0,
       currency:       'GBP',
       transaction_id: txId || undefined,
