@@ -6,6 +6,14 @@
 <title>Booking confirmed — VVE Clean</title>
 <meta name="robots" content="noindex" />
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+<!-- Google tag (gtag.js) — AW-18214693277 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18214693277"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-18214693277');
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -379,6 +387,24 @@
     ? `Hi VVE Clean, my booking reference is ${ref}. I have a question about my booking.`
     : "Hi VVE Clean, I'd like to ask about my booking.";
   document.getElementById("wa").href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(waText)}`;
+
+  // ── Google Ads conversion — "Booking Deposit Paid" ──────────────────────
+  // Fires once per transaction using localStorage to prevent duplicate on refresh.
+  // IMPORTANT: replace PASTE_CONVERSION_LABEL_HERE with the label from Google Ads
+  // (Google Ads → Goals → Conversions → your conversion → Tag setup → label string).
+  (function () {
+    if (typeof gtag !== 'function') return;
+    var txId = ref || null;
+    var storageKey = txId ? 'vve_ads_conv_' + txId : null;
+    if (storageKey && localStorage.getItem(storageKey)) return; // already fired this session
+    gtag('event', 'conversion', {
+      send_to:        'AW-18214693277/PASTE_CONVERSION_LABEL_HERE',
+      value:          30.0,
+      currency:       'GBP',
+      transaction_id: txId || undefined,
+    });
+    if (storageKey) localStorage.setItem(storageKey, '1');
+  }());
 </script>
 </body>
 </html>
