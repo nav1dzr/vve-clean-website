@@ -398,15 +398,31 @@
   // Server-verified: /api/verify-payment confirms Stripe payment is paid.
   // Fires once per transaction; localStorage prevents re-fire on refresh.
   (function () {
-    if (typeof gtag !== 'function') return;
+    console.log('[VVE conv] start | gtag:', typeof gtag, '| ref:', ref);
+    if (typeof gtag !== 'function') {
+      console.log('[VVE conv] SKIP — gtag not defined');
+      return;
+    }
     var txId = ref;
-    if (!txId) return;
+    if (!txId) {
+      console.log('[VVE conv] SKIP — no ref in URL');
+      return;
+    }
     var storageKey = 'vve_ads_conv_' + txId;
-    if (localStorage.getItem(storageKey)) return;
+    if (localStorage.getItem(storageKey)) {
+      console.log('[VVE conv] SKIP — localStorage already set for key:', storageKey, '(clear it in DevTools → Application → Local Storage to re-test)');
+      return;
+    }
+    console.log('[VVE conv] calling verify-payment...');
     fetch('/api/verify-payment?ref=' + encodeURIComponent(txId))
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        if (!data.paid) return;
+        console.log('[VVE conv] verify-payment response:', data);
+        if (!data.paid) {
+          console.log('[VVE conv] SKIP — paid:false');
+          return;
+        }
+        console.log('[VVE conv] FIRING conversion event');
         gtag('event', 'conversion', {
           send_to:        'AW-18214693277/hUwdCK68gswcEI3TuO1D',
           value:          30.0,
@@ -414,8 +430,9 @@
           transaction_id: txId,
         });
         localStorage.setItem(storageKey, '1');
+        console.log('[VVE conv] done — localStorage set');
       })
-      .catch(function () {});
+      .catch(function (err) { console.error('[VVE conv] fetch error:', err); });
   }());
 </script>
 </body>
