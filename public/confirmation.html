@@ -357,51 +357,56 @@
     el.textContent = v || (fallback !== undefined ? fallback : el.textContent);
   };
 
-  set("name",    p.get("name"));
-  set("contact", p.get("email") || p.get("phone"), "you");
-  set("service", p.get("service"), "—");
-  set("ref",     p.get("ref"),     "—");
-
-  // Estimate
-  const priceRaw = p.get("price");
-  set("price", priceRaw ? "£" + priceRaw : null, "—");
-
-  // Remaining balance
-  const priceNum  = Number(priceRaw) || 0;
-  const remaining = priceNum > 30 ? priceNum - 30 : 0;
-  set("remaining", priceNum ? "£" + remaining.toLocaleString("en-GB") + " (due on the day)" : null, "To be confirmed");
-
-  // Date display
-  const rawDate = p.get("date");
-  if (rawDate) {
-    // YYYY-MM-DD → readable
-    const d = new Date(rawDate + "T12:00:00");
-    const formatted = isNaN(d) ? rawDate : d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-    set("date", formatted, "To be arranged");
-  }
-
-  // WhatsApp — pre-fill with reference number
-  const WHATSAPP_NUMBER = "447845451111";
+  // ref is the only param Stripe puts in the URL — show it immediately.
   const ref = p.get("ref") || "";
+  set("ref", ref, "—");
+
+  // WhatsApp link uses ref from URL — set immediately, no API wait needed.
+  const WHATSAPP_NUMBER = "447845451111";
   const waText = ref
     ? `Hi VVE Clean, my booking reference is ${ref}. I have a question about my booking.`
     : "Hi VVE Clean, I'd like to ask about my booking.";
   document.getElementById("wa").href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(waText)}`;
 
+  // Fetch booking details securely from server — no PII in the URL.
+  if (ref) {
+    fetch('/api/confirmation-details?ref=' + encodeURIComponent(ref))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        set("name",    d.name,              "there");
+        set("contact", d.email || "",       "you");
+        set("service", d.service,           "—");
+        set("ref",     d.bookingRef || ref, "—");
+
+        var priceRaw = String(d.price || '');
+        set("price", priceRaw ? "£" + priceRaw : null, "—");
+
+        var priceNum  = Number(priceRaw) || 0;
+        var remaining = priceNum > 30 ? priceNum - 30 : 0;
+        set("remaining", priceNum ? "£" + remaining.toLocaleString("en-GB") + " (due on the day)" : null, "To be confirmed");
+
+        if (d.date) {
+          var dt        = new Date(d.date + "T12:00:00");
+          var formatted = isNaN(dt) ? d.date : dt.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+          set("date", formatted, "To be arranged");
+        }
+      })
+      .catch(function () {}); // silently ignore — page still works with dashes
+  }
+
   // ── Google Ads conversion — "Booking Deposit Paid" ──────────────────────
-  // Server-verified before firing: /api/verify-payment confirms the Stripe
-  // session is actually paid. Fake or manually-constructed URLs return paid:false
-  // and no conversion fires. localStorage dedup prevents double-fire on refresh.
+  // Server-verified: /api/verify-payment confirms Stripe payment is paid.
+  // Fires once per transaction; localStorage prevents re-fire on refresh.
   (function () {
     if (typeof gtag !== 'function') return;
     var txId = ref;
-    if (!txId) return; // no ref means this isn't from our checkout flow
+    if (!txId) return;
     var storageKey = 'vve_ads_conv_' + txId;
-    if (localStorage.getItem(storageKey)) return; // already fired for this transaction
+    if (localStorage.getItem(storageKey)) return;
     fetch('/api/verify-payment?ref=' + encodeURIComponent(txId))
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        if (!data.paid) return; // Stripe says not paid — do not fire
+        if (!data.paid) return;
         gtag('event', 'conversion', {
           send_to:        'AW-18214693277/hUwdCK68gswcEI3TuO1D',
           value:          30.0,
@@ -410,7 +415,7 @@
         });
         localStorage.setItem(storageKey, '1');
       })
-      .catch(function () {}); // network error: silently skip — never fire unverified
+      .catch(function () {});
   }());
 </script>
 </body>

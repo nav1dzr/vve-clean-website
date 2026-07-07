@@ -185,13 +185,7 @@ export default async function handler(req, res) {
 
   const successUrl =
     `${siteUrl}/confirmation.html` +
-    `?name=${q(fullName)}` +
-    `&email=${q(email)}` +
-    `&phone=${q(phone)}` +
-    `&service=${q(service)}` +
-    `&price=${q(validatedPrice)}` +
-    `&date=${q(date)}` +
-    `&ref=${bookingRef ? q(bookingRef) : '{CHECKOUT_SESSION_ID}'}`;
+    `?ref=${bookingRef ? q(bookingRef) : '{CHECKOUT_SESSION_ID}'}`;
 
   // ── Create Checkout Session ─────────────────────────────────────────────
   try {
