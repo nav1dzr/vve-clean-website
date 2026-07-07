@@ -389,19 +389,28 @@
   document.getElementById("wa").href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(waText)}`;
 
   // ── Google Ads conversion — "Booking Deposit Paid" ──────────────────────
-  // Fires once per transaction using localStorage to prevent duplicate on refresh.
+  // Server-verified before firing: /api/verify-payment confirms the Stripe
+  // session is actually paid. Fake or manually-constructed URLs return paid:false
+  // and no conversion fires. localStorage dedup prevents double-fire on refresh.
   (function () {
     if (typeof gtag !== 'function') return;
-    var txId = ref || null;
-    var storageKey = txId ? 'vve_ads_conv_' + txId : null;
-    if (storageKey && localStorage.getItem(storageKey)) return;
-    gtag('event', 'conversion', {
-      send_to:        'AW-18214693277/hUwdCK68gswcEI3TuO1D',
-      value:          30.0,
-      currency:       'GBP',
-      transaction_id: txId || undefined,
-    });
-    if (storageKey) localStorage.setItem(storageKey, '1');
+    var txId = ref;
+    if (!txId) return; // no ref means this isn't from our checkout flow
+    var storageKey = 'vve_ads_conv_' + txId;
+    if (localStorage.getItem(storageKey)) return; // already fired for this transaction
+    fetch('/api/verify-payment?ref=' + encodeURIComponent(txId))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.paid) return; // Stripe says not paid — do not fire
+        gtag('event', 'conversion', {
+          send_to:        'AW-18214693277/hUwdCK68gswcEI3TuO1D',
+          value:          30.0,
+          currency:       'GBP',
+          transaction_id: txId,
+        });
+        localStorage.setItem(storageKey, '1');
+      })
+      .catch(function () {}); // network error: silently skip — never fire unverified
   }());
 </script>
 </body>
