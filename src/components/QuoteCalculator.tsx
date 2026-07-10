@@ -222,10 +222,15 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
       const totalLabel = carpetCondition === 'heavy'
         ? `~£${carpetResult?.finalTotal ?? 0} (estimate — confirmed before work starts)`
         : `£${carpetResult?.finalTotal ?? 0}`;
+      const carpetBundle = carpetResult?.bundle;
+      const bundleSummaryText = (carpetBundle?.saving ?? 0) > 0
+        ? `• Items subtotal: £${carpetBundle!.preDiscount}\n• Same-visit bundle saving: −£${carpetBundle!.saving}\n`
+        : '';
       const msg =
         `Hello VVE Clean, I would like to book carpet & upholstery cleaning:\n` +
         `• Condition: ${condLabel}\n` +
         `• Items:\n${itemsText || '  (no items selected yet)'}\n` +
+        bundleSummaryText +
         `• Estimated Total: ${totalLabel}\n` +
         `My postcode is: `;
       return `${WA_BASE}?text=${encodeURIComponent(msg)}`;
@@ -460,6 +465,11 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
                           </div>
                         </div>
                       ))}
+
+                      {/* Bundle savings info */}
+                      <p className="text-xs text-silver-500 leading-relaxed px-1">
+                        Book items together and save automatically — 5% over £200, 10% over £300, 12% over £400.
+                      </p>
                     </>
                   )}
 
@@ -659,11 +669,23 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
                         </div>
                       </div>
 
+                      {/* Bundle discount: original price with strikethrough */}
+                      {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
+                        <div className="text-center mb-1">
+                          <span className="line-through text-silver-400 text-lg">£{carpetResult!.bundle.preDiscount}</span>
+                        </div>
+                      )}
+
                       {/* Big price */}
                       <div className="text-center">
                         <div className="font-display font-bold leading-none" style={{ fontSize: '3.5rem', color: '#1a5c3a' }}>
                           {isCarpet && carpetCondition === 'heavy' ? '~' : ''}£{Math.round(price)}
                         </div>
+                        {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
+                          <div className="mt-1.5 inline-flex items-center gap-1.5 bg-green-100 border border-green-300 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">
+                            Same-visit bundle saving — you save £{carpetResult!.bundle.saving}
+                          </div>
+                        )}
                         {isCarpet && carpetResult?.minApplied && (
                           <div className="text-xs font-semibold mt-1" style={{ color: '#4a7a62' }}>
                             Includes minimum booking adjustment (+£{carpetResult.minAdjustment})
@@ -671,10 +693,29 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
                         )}
                       </div>
 
+                      {/* Next-tier nudge */}
+                      {isCarpet && (carpetResult?.bundle.toNextTier ?? 0) > 0 && (
+                        <div className="text-center text-xs font-medium mt-1.5" style={{ color: '#1e6b42' }}>
+                          Add £{carpetResult!.bundle.toNextTier} more to unlock {carpetResult!.bundle.nextTierPct}% off
+                        </div>
+                      )}
+
                       {/* Carpet: deposit breakdown */}
                       {isCarpet && (carpetResult?.totalItems ?? 0) > 0 && !carpetResult?.isPhotoQuote && (
                         <div className="mt-4 border-t pt-3" style={{ borderColor: '#b6d9c8' }}>
                           <div className="space-y-1 text-xs" style={{ color: '#1e6b42' }}>
+                            {(carpetResult?.bundle.saving ?? 0) > 0 && (
+                              <>
+                                <div className="flex justify-between">
+                                  <span>Items subtotal</span>
+                                  <span className="font-bold line-through opacity-60">£{carpetResult!.bundle.preDiscount}</span>
+                                </div>
+                                <div className="flex justify-between text-green-700">
+                                  <span>Bundle saving</span>
+                                  <span className="font-bold">−£{carpetResult!.bundle.saving}</span>
+                                </div>
+                              </>
+                            )}
                             <div className="flex justify-between">
                               <span>{carpetCondition === 'heavy' ? 'Estimated total' : 'Total'}</span>
                               <span className="font-bold">
@@ -766,6 +807,11 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
               <h3 className="text-silver-400 text-xs font-medium tracking-widest uppercase mb-2">
                 {isAfterBuilders ? 'Starting From' : isCarpet && carpetResult?.isPhotoQuote ? 'Photo Quote' : 'Estimated Price'}
               </h3>
+              {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
+                <div className="text-silver-400 text-base line-through mb-0.5">
+                  £{carpetResult!.bundle.preDiscount}
+                </div>
+              )}
               <div className="text-5xl font-bold font-display text-white mb-1 transition-all duration-300">
                 {isAfterBuilders
                   ? 'From £199'
@@ -775,6 +821,11 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
                       ? '—'
                       : `${isCarpet && carpetCondition === 'heavy' ? '~' : ''}£${Math.round(price)}`}
               </div>
+              {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
+                <div className="text-green-400 text-xs font-semibold mb-1">
+                  Bundle saving — £{carpetResult!.bundle.saving} off
+                </div>
+              )}
               {minApplied && (
                 <div className="text-amber-400 text-xs mb-2 flex items-center gap-1">
                   <Info size={11} /> Min. charge applied
@@ -819,6 +870,12 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
                         <div className="flex justify-between text-xs">
                           <span className="text-amber-300">Heavy stain surcharge</span>
                           <span className="text-amber-300 font-semibold">+£{carpetResult!.heavySurcharge}</span>
+                        </div>
+                      )}
+                      {carpetResult!.bundle.saving > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-green-300">Bundle saving</span>
+                          <span className="text-green-300 font-semibold">−£{carpetResult!.bundle.saving}</span>
                         </div>
                       )}
                     </div>

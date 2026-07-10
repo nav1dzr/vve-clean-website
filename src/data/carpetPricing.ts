@@ -3,6 +3,27 @@
 
 export const CARPET_MIN_BOOKING = 85;
 
+// Bundle discount tiers applied to the carpet/upholstery eligible subtotal
+const BUNDLE_TIERS = [
+  { min: 400, pct: 12 },
+  { min: 300, pct: 10 },
+  { min: 200, pct:  5 },
+] as const;
+const MAX_BUNDLE_SAVING = 60;
+
+// Future promo codes: add entries here as { pct: number }
+const PROMO_CODES: Record<string, number> = {};
+
+export interface BundleInfo {
+  pct:         number;              // discount percentage applied (0 if none)
+  saving:      number;              // £ saved (0 if none)
+  source:      'bundle' | 'promo' | 'none';
+  preDiscount: number;              // adjustedSubtotal before discount (for strikethrough)
+  nextTier:    number | null;       // next tier threshold (200/300/400) or null
+  toNextTier:  number;              // £ to add to reach next tier (0 if not within £40)
+  nextTierPct: number;              // pct at next tier
+}
+
 export type CarpetCondition = 'normal' | 'heavy' | 'delicate';
 
 export interface CarpetItem {
@@ -67,6 +88,7 @@ export interface CarpetPriceResult {
   subtotal:         number;
   heavySurcharge:   number;  // 0 unless heavy condition
   adjustedSubtotal: number;  // subtotal + heavySurcharge
+  bundle:           BundleInfo;
   minAdjustment:    number;  // 0 unless min booking applies
   finalTotal:       number;
   minApplied:       boolean;
@@ -82,7 +104,8 @@ export interface CarpetPriceResult {
 export function computeCarpetPrice(
   counts:     CarpetCounts,
   condition:  CarpetCondition,
-  multiplier = 1,
+  multiplier  = 1,
+  promoCode?: string,
 ): CarpetPriceResult {
   const isPhotoQuote = condition === 'delicate';
 
@@ -99,18 +122,54 @@ export function computeCarpetPrice(
 
   const heavySurcharge   = condition === 'heavy' ? Math.round(subtotal * 0.2) : 0;
   const adjustedSubtotal = subtotal + heavySurcharge;
-  const minApplied       = !isPhotoQuote && adjustedSubtotal > 0 && adjustedSubtotal < CARPET_MIN_BOOKING;
-  const minAdjustment    = minApplied ? CARPET_MIN_BOOKING - adjustedSubtotal : 0;
-  const finalTotal       = isPhotoQuote
+
+  // ── Bundle / promo discount (applied after condition multiplier) ──────────
+  const promoPct      = promoCode ? (PROMO_CODES[promoCode.toUpperCase()] ?? 0) : 0;
+  const tier          = BUNDLE_TIERS.find((t) => adjustedSubtotal >= t.min);
+  const rawBundleSave = tier ? Math.round(adjustedSubtotal * tier.pct / 100) : 0;
+  const bundleSave    = Math.min(rawBundleSave, MAX_BUNDLE_SAVING);
+  const promoSave     = promoPct > 0 ? Math.round(adjustedSubtotal * promoPct / 100) : 0;
+  const finalSaving   = Math.max(bundleSave, promoSave);
+  const bundleSource: BundleInfo['source'] =
+    finalSaving === 0        ? 'none'
+    : promoSave > bundleSave ? 'promo'
+    : 'bundle';
+  const bundlePct = bundleSource === 'promo' ? promoPct : (tier?.pct ?? 0);
+
+  // Next-tier nudge: show if within £40 of the next higher tier
+  const ALL_TIERS = [
+    { threshold: 200, pct: 5 },
+    { threshold: 300, pct: 10 },
+    { threshold: 400, pct: 12 },
+  ];
+  const nextTierEntry  = ALL_TIERS.find((t) => t.threshold > adjustedSubtotal) ?? null;
+  const toNextTier     = nextTierEntry ? nextTierEntry.threshold - adjustedSubtotal : 0;
+  const showNudge      = toNextTier > 0 && toNextTier <= 40;
+
+  const bundle: BundleInfo = {
+    pct:         bundlePct,
+    saving:      finalSaving,
+    source:      bundleSource,
+    preDiscount: adjustedSubtotal,
+    nextTier:    showNudge ? nextTierEntry!.threshold : null,
+    toNextTier:  showNudge ? toNextTier : 0,
+    nextTierPct: showNudge ? nextTierEntry!.pct : 0,
+  };
+
+  // ── Min booking (applied after discount) ──────────────────────────────────
+  const discountedSubtotal = adjustedSubtotal - finalSaving;
+  const minApplied         = !isPhotoQuote && discountedSubtotal > 0 && discountedSubtotal < CARPET_MIN_BOOKING;
+  const minAdjustment      = minApplied ? CARPET_MIN_BOOKING - discountedSubtotal : 0;
+  const finalTotal         = isPhotoQuote
     ? 0
-    : adjustedSubtotal > 0
-      ? Math.max(adjustedSubtotal, CARPET_MIN_BOOKING)
+    : discountedSubtotal > 0
+      ? Math.max(discountedSubtotal, CARPET_MIN_BOOKING)
       : 0;
 
   const totalItems = Object.values(counts).reduce<number>((s, v) => s + (v ?? 0), 0);
 
   return {
     lines, subtotal, heavySurcharge, adjustedSubtotal,
-    minAdjustment, finalTotal, minApplied, totalItems, isPhotoQuote,
+    bundle, minAdjustment, finalTotal, minApplied, totalItems, isPhotoQuote,
   };
 }

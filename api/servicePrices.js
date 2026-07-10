@@ -28,6 +28,13 @@ const ADDON_PRICES = {
 // ── Carpet itemised engine (mirrors carpetPricing.ts) ────────────────────────
 const CARPET_MIN_BOOKING = 85;
 
+const CARPET_BUNDLE_DISCOUNT_TIERS = [
+  { min: 400, pct: 12 },
+  { min: 300, pct: 10 },
+  { min: 200, pct:  5 },
+];
+const MAX_BUNDLE_SAVING = 60;
+
 const CARPET_ITEM_PRICES = {
   bedroom: 50, living_room: 70, large_lounge: 90, hallway: 25, landing: 15,
   rug: 40, armchair: 50, sofa_2: 75, sofa_3: 95, sofa_corner: 130,
@@ -55,6 +62,14 @@ function computeCarpetItemisedPrice(carpetCounts, carpetCondition) {
 
   if (carpetCondition === 'heavy') subtotal = Math.round(subtotal * 1.2);
   if (subtotal <= 0) return null;
+
+  // Apply same-visit bundle discount (mirrors carpetPricing.ts)
+  const tier = CARPET_BUNDLE_DISCOUNT_TIERS.find((t) => subtotal >= t.min);
+  if (tier) {
+    const saving = Math.min(Math.round(subtotal * tier.pct / 100), MAX_BUNDLE_SAVING);
+    subtotal -= saving;
+  }
+
   return Math.max(subtotal, CARPET_MIN_BOOKING);
 }
 
