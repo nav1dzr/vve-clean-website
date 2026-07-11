@@ -42,6 +42,12 @@ const routes = [
     description:
       'The terms that apply when you use VVE Clean services in London. Covers bookings, deposits, cancellations, liability, complaints, and payment.',
   },
+  {
+    path: '/leaflet',
+    title: 'Leaflet Offer | 20% Off Your First Clean | VVE Clean',
+    description:
+      'Claim your local VVE Clean leaflet offer. Get 20% off your first carpet, sofa or upholstery clean. No code needed — discount applied automatically.',
+  },
 ];
 
 const { render } = await import('./dist/server/entry-server.js');

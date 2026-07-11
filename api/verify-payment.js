@@ -1,9 +1,16 @@
 // Read-only payment verification for Google Ads conversion gating.
-// Called by confirmation.html before firing the conversion event.
-// Never modifies any data — only reads from Stripe and Supabase.
+// Never modifies any data — only reads from Supabase and Stripe.
 //
-// GET /api/verify-payment?ref=<booking_ref_or_stripe_session_id>
+// GET /api/verify-payment?ref=<booking_ref>&token=<confirmation_token>&sid=<stripe_session_id>
 // Response: { paid: true } or { paid: false }
+//
+// The booking_ref alone is NOT sufficient — a token or Stripe session ID is required.
+// This prevents arbitrary verification of guessable booking references.
+//
+// Resolution order:
+//  1. token provided → query Supabase WHERE booking_ref = ref AND confirmation_token = token
+//  2. sid provided   → query Supabase WHERE stripe_session_id = sid; Stripe direct if row missing
+//  3. Neither        → { paid: false }
 
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
@@ -17,9 +24,13 @@ function getSupabase() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-function respond(res, paid) {
+function respond(res, paid, livemode) {
   res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-  res.end(JSON.stringify({ paid: !!paid }));
+  res.end(JSON.stringify({ paid: !!paid, livemode: livemode === true }));
+}
+
+function isValidTokenFormat(t) {
+  return typeof t === 'string' && /^[0-9a-f]{64}$/.test(t);
 }
 
 export default async function handler(req, res) {
@@ -28,55 +39,97 @@ export default async function handler(req, res) {
     return res.end();
   }
 
-  const ref = new URL(req.url, 'https://x').searchParams.get('ref') || '';
+  const params = new URL(req.url, 'https://x').searchParams;
+  const ref    = params.get('ref')   || '';
+  const token  = params.get('token') || '';
+  const sid    = params.get('sid')   || '';
 
-  // No ref — definitely not from our checkout flow.
-  if (!ref) return respond(res, false);
+  const hasToken = isValidTokenFormat(token);
+  const hasSid   = /^cs_(live|test)_/.test(sid);
+
+  if (!hasToken && !hasSid) {
+    return respond(res, false, false);
+  }
 
   try {
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-    // ── Case 1: ref is a Stripe checkout session ID ───────────────────────
-    if (/^cs_(live|test)_/.test(ref)) {
-      const session = await stripe.checkout.sessions.retrieve(ref);
-      return respond(res, session.payment_status === 'paid');
-    }
-
-    // ── Case 2: ref is a booking reference (POSTCODE+DDMMYY[[-N]]) ────────
-    // Primary check: Supabase (authoritative once webhook lands).
-    // Fallback: Stripe session via stripe_session_id (handles webhook delay).
+    const stripe   = new Stripe(process.env.STRIPE_SECRET_KEY);
     const supabase = getSupabase();
-    if (!supabase) {
-      // Supabase not configured — cannot verify booking ref.
-      return respond(res, false);
+
+    // ── Path A: confirmation token ────────────────────────────────────────────
+    if (hasToken && supabase) {
+      const { data, error: dbErr } = await supabase
+        .from('bookings')
+        .select('payment_status, stripe_session_id')
+        .eq('booking_ref', ref)
+        .eq('confirmation_token', token)
+        .maybeSingle();
+
+      if (dbErr) {
+        console.error('[verify-payment] token lookup error — code:', dbErr.code,
+          '| message:', dbErr.message);
+      }
+
+      if (data) {
+        if (data.payment_status === 'paid') {
+          // stripe_session_id was written by the server (webhook), not the client.
+          // Deriving livemode from its prefix is server-verified.
+          const livemodeFromDb = /^cs_live_/.test(data.stripe_session_id || '');
+          return respond(res, true, livemodeFromDb);
+        }
+
+        // Row exists but still pending — verify via Stripe (handles webhook timing).
+        const stripeId = data.stripe_session_id || (hasSid ? sid : null);
+        if (stripeId && /^cs_(live|test)_/.test(stripeId)) {
+          const session = await stripe.checkout.sessions.retrieve(stripeId);
+          return respond(res, session.payment_status === 'paid', session.livemode);
+        }
+        return respond(res, false, false);
+      }
+
+      // Token not matched — fall through to sid if available.
+      console.warn('[verify-payment] token lookup: no match for ref/token pair');
     }
 
-    const { data } = await supabase
-      .from('bookings')
-      .select('payment_status, stripe_session_id')
-      .eq('booking_ref', ref)
-      .maybeSingle();
+    // ── Path B: Stripe session ID ─────────────────────────────────────────────
+    if (hasSid) {
+      if (supabase) {
+        const { data, error: dbErr } = await supabase
+          .from('bookings')
+          .select('payment_status, stripe_session_id')
+          .eq('stripe_session_id', sid)
+          .maybeSingle();
 
-    // Ref not in our database at all — reject.
-    if (!data) return respond(res, false);
+        if (dbErr) {
+          console.error('[verify-payment] sid lookup error — code:', dbErr.code,
+            '| message:', dbErr.message);
+        }
 
-    // Webhook has already marked it paid — trust Supabase.
-    if (data.payment_status === 'paid') return respond(res, true);
+        if (data) {
+          if (data.payment_status === 'paid') {
+            const livemodeFromDb = /^cs_live_/.test(data.stripe_session_id || '');
+            return respond(res, true, livemodeFromDb);
+          }
 
-    // Webhook hasn't landed yet (still 'pending_payment') but we have the
-    // Stripe session ID. Verify directly with Stripe — this is authoritative.
-    const sid = data.stripe_session_id;
-    if (sid && /^cs_(live|test)_/.test(sid)) {
+          // Pending — verify via Stripe.
+          const stripeId = data.stripe_session_id || sid;
+          if (/^cs_(live|test)_/.test(stripeId)) {
+            const session = await stripe.checkout.sessions.retrieve(stripeId);
+            return respond(res, session.payment_status === 'paid', session.livemode);
+          }
+          return respond(res, false, false);
+        }
+      }
+
+      // No Supabase row — fall back to Stripe directly (webhook not yet landed).
+      console.warn('[verify-payment] no Supabase row for sid:', sid, '— Stripe direct fallback');
       const session = await stripe.checkout.sessions.retrieve(sid);
-      return respond(res, session.payment_status === 'paid');
+      return respond(res, session.payment_status === 'paid', session.livemode);
     }
 
-    // Booking exists but no way to verify payment yet.
-    return respond(res, false);
+    return respond(res, false, false);
 
   } catch (err) {
     console.error('[verify-payment] error:', err.message);
-    // On any error: refuse to fire conversion rather than silently trust.
-    return respond(res, false);
+    return respond(res, false, false);
   }
 }
