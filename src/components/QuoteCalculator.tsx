@@ -127,6 +127,21 @@ function Counter({
   );
 }
 
+// ─── Session-restore helper ───────────────────────────────────────────────────
+// Reads vve_booking.quoteConfig from sessionStorage only when the temporary
+// vve_restore_quote flag is present (set by "Back to quote" in BookingPage).
+
+function getRestoreConfig(): BookingSelection['quoteConfig'] | null {
+  try {
+    if (!sessionStorage.getItem('vve_restore_quote')) return null;
+    const raw = sessionStorage.getItem('vve_booking');
+    if (!raw) return null;
+    return (JSON.parse(raw) as BookingSelection).quoteConfig ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
@@ -138,24 +153,48 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
   const bookErrorRef    = useRef<HTMLDivElement>(null);
 
   const [service] = useState<ServiceKey>('deep');
-  const [deepService,   setDeepService]   = useState<DeepServiceType>('carpet_upholstery');
-  const [deepSize,      setDeepSize]      = useState<SizeKey>('bed2');
-  const [deepBaths,     setDeepBaths]     = useState<1 | 2 | 3>(1);
+
+  // Captured once on mount; null on every subsequent render (flag cleared below).
+  const [_restore] = useState<BookingSelection['quoteConfig'] | null>(getRestoreConfig);
+
+  // Clear the restore flag immediately after we've read it so a future
+  // direct homepage visit doesn't unexpectedly hydrate an old quote.
+  useEffect(() => {
+    sessionStorage.removeItem('vve_restore_quote');
+  }, []);
+
+  const [deepService,   setDeepService]   = useState<DeepServiceType>(
+    () => (_restore?.deepService as DeepServiceType | undefined) ?? 'carpet_upholstery',
+  );
+  const [deepSize,      setDeepSize]      = useState<SizeKey>(
+    () => (_restore?.deepSize as SizeKey | undefined) ?? 'bed2',
+  );
+  const [deepBaths,     setDeepBaths]     = useState<1 | 2 | 3>(
+    () => (_restore?.deepBaths as (1 | 2 | 3) | undefined) ?? 1,
+  );
   const [addOnCounts,   setAddOnCounts]   = useState<Record<string, number>>(
-    () => Object.fromEntries(addOnDefs.map((a) => [a.key, 0])),
+    () => {
+      const defaults = Object.fromEntries(addOnDefs.map((a) => [a.key, 0]));
+      return _restore?.addOnCounts ? { ...defaults, ..._restore.addOnCounts } : defaults;
+    },
   );
 
   // ── Carpet-specific state ──
   const [carpetCounts,    setCarpetCounts]    = useState<CarpetCounts>(
-    () => Object.fromEntries(
-      CARPET_GROUPS.flatMap((g) => g.items).map((i) => [i.key, 0]),
-    ),
+    () => {
+      const defaults = Object.fromEntries(
+        CARPET_GROUPS.flatMap((g) => g.items).map((i) => [i.key, 0]),
+      ) as CarpetCounts;
+      return _restore?.carpetCounts ? { ...defaults, ..._restore.carpetCounts } : defaults;
+    },
   );
-  const [carpetCondition, setCarpetCondition] = useState<CarpetCondition>('normal');
+  const [carpetCondition, setCarpetCondition] = useState<CarpetCondition>(
+    () => (_restore?.carpetCondition as CarpetCondition | undefined) ?? 'normal',
+  );
 
-  const [windowSize,   setWindowSize]   = useState('small');
-  const [gutterType,   setGutterType]   = useState('terraced');
-  const [officeHours,  setOfficeHours]  = useState(MIN_OFFICE_HOURS);
+  const [windowSize,   setWindowSize]   = useState(() => _restore?.windowSize   ?? 'small');
+  const [gutterType,   setGutterType]   = useState(() => _restore?.gutterType   ?? 'terraced');
+  const [officeHours,  setOfficeHours]  = useState(() => _restore?.officeHours  ?? MIN_OFFICE_HOURS);
 
   const isCarpet        = deepService === 'carpet_upholstery';
   const isAfterBuilders = service === 'deep' && deepService === 'after_builders';

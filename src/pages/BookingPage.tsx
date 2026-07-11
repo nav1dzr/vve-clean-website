@@ -43,8 +43,9 @@ function BookingHeader() {
 
         {/* Right controls */}
         <div className="flex items-center gap-1.5">
-          {/* Back to quote — preserves sessionStorage selection */}
+          {/* Back to quote — sets restore flag so QuoteCalculator re-hydrates */}
           <a href="/#quote"
+            onClick={() => sessionStorage.setItem('vve_restore_quote', '1')}
             className="hidden sm:flex items-center gap-1 text-sm font-semibold px-3 py-2 rounded-full border border-[#E3E7EE] text-navy-800 hover:border-navy-300 transition-colors min-h-[36px]">
             ← Back to quote
           </a>
