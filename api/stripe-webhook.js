@@ -3,6 +3,98 @@ import nodemailer from 'nodemailer';
 import { createClient } from '@supabase/supabase-js';
 import https from 'node:https';
 
+// A Lambda crash leaves the event in 'processing'. After this window Stripe
+// retries are allowed to re-claim it.
+const STALE_PROCESSING_MS = 10 * 60 * 1000; // 10 minutes
+
+// Atomically claim a Stripe event for processing.
+// Returns { claimed: true } when we own the event and should proceed.
+// Returns { claimed: false, duplicate: true } when another handler already
+//   completed (or is actively handling) this event — caller returns 200.
+// Returns { claimed: false, tableError: true } when the idempotency table is
+//   unavailable — caller proceeds without the guard (logs warning).
+async function claimStripeEvent(supabase, eventId, eventType) {
+  const { error: insertErr } = await supabase
+    .from('processed_stripe_events')
+    .insert({
+      event_id:   eventId,
+      event_type: eventType,
+      status:     'processing',
+      claimed_at: new Date().toISOString(),
+    });
+
+  if (!insertErr) return { claimed: true };
+
+  if (insertErr.code !== '23505') {
+    // Table missing or other infrastructure error.
+    return { claimed: false, tableError: true, error: insertErr };
+  }
+
+  // Unique violation — row already exists. Read current state.
+  const { data: row, error: readErr } = await supabase
+    .from('processed_stripe_events')
+    .select('status, claimed_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  if (readErr || !row) return { claimed: false, tableError: true };
+
+  if (row.status === 'completed') {
+    return { claimed: false, duplicate: true };
+  }
+
+  if (row.status === 'failed') {
+    // Previous attempt failed — re-claim atomically.
+    const { data: reclaimed } = await supabase
+      .from('processed_stripe_events')
+      .update({ status: 'processing', claimed_at: new Date().toISOString() })
+      .eq('event_id', eventId)
+      .eq('status', 'failed')
+      .select('event_id')
+      .maybeSingle();
+    return reclaimed ? { claimed: true } : { claimed: false, duplicate: true };
+  }
+
+  // status === 'processing'
+  const age = Date.now() - new Date(row.claimed_at).getTime();
+  if (age < STALE_PROCESSING_MS) {
+    // Another Lambda is actively handling this event.
+    return { claimed: false, duplicate: true };
+  }
+
+  // Stale processing — crashed Lambda. Re-claim.
+  const { data: reclaimed } = await supabase
+    .from('processed_stripe_events')
+    .update({ status: 'processing', claimed_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .eq('status', 'processing')
+    .select('event_id')
+    .maybeSingle();
+  return reclaimed ? { claimed: true } : { claimed: false, duplicate: true };
+}
+
+async function markEventCompleted(supabase, eventId) {
+  try {
+    await supabase
+      .from('processed_stripe_events')
+      .update({ status: 'completed', completed_at: new Date().toISOString() })
+      .eq('event_id', eventId);
+  } catch (e) {
+    console.warn('[webhook] markEventCompleted failed (non-fatal):', e.message);
+  }
+}
+
+async function markEventFailed(supabase, eventId, detail) {
+  try {
+    await supabase
+      .from('processed_stripe_events')
+      .update({ status: 'failed', error_detail: String(detail).slice(0, 500) })
+      .eq('event_id', eventId);
+  } catch (e) {
+    console.warn('[webhook] markEventFailed failed (non-fatal):', e.message);
+  }
+}
+
 export const config = { api: { bodyParser: false } };
 
 function getSupabase() {
@@ -228,6 +320,7 @@ function customerEmailHtml(meta, bookingRef) {
       `<td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#020b24;font-weight:600;font-size:14px">` +
       `${[meta.address, meta.postcode].filter(Boolean).join(', ')}</td></tr>`
     : '';
+  const isManualQuote    = meta.quote_mode === 'manual_quote';
   const remainingBalance = meta.price
     ? `£${Math.max(0, Number(meta.price) - 30).toLocaleString('en-GB')}`
     : 'to be confirmed';
@@ -252,7 +345,7 @@ function customerEmailHtml(meta, bookingRef) {
       <tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px;width:40%">Service</td>
           <td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#020b24;font-weight:600;font-size:14px">${meta.service || '—'}</td></tr>
       <tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px">Estimate</td>
-          <td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#020b24;font-weight:600;font-size:14px">${meta.price ? '£' + meta.price : '—'}</td></tr>
+          <td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#020b24;font-weight:600;font-size:14px">${meta.price ? '£' + meta.price : (isManualQuote ? 'Quote to be confirmed' : '—')}</td></tr>
       ${dateRow}
       ${addressRow}
       <tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px">Deposit paid</td>
@@ -279,7 +372,7 @@ function businessEmailHtml(meta, bookingRef) {
     ['Phone',          meta.phone    || '—'],
     ['Address',        [meta.address, meta.postcode].filter(Boolean).join(', ') || '—'],
     ['Service',        meta.service  || '—'],
-    ['Estimate',       meta.price    ? `£${meta.price}` : '—'],
+    ['Estimate',       meta.price    ? `£${meta.price}` : (meta.quote_mode === 'manual_quote' ? 'Quote to be confirmed' : '—')],
     ['Date / time',    meta.date     ? `${meta.date}${meta.time ? ' · ' + meta.time : ''}` : '—'],
     ['Deposit paid',   '£30'],
     ['Remaining',      meta.price    ? `£${Math.max(0, Number(meta.price) - 30)}` : '—'],
@@ -371,33 +464,35 @@ export default async function handler(req, res) {
   console.log('[webhook] payment completed — ref:', bookingRef,
     '| session:', session.id, '| payment_status:', session.payment_status);
 
-  // ── Idempotency check — must happen before any side effects ─────────────────
-  // Insert the event ID into processed_stripe_events. If the UNIQUE constraint
-  // rejects the insert (duplicate delivery), return 200 immediately — all side
-  // effects already ran for this event.
+  // ── Idempotency — claim event before any side effects ───────────────────────
+  // State machine: processing → completed (success) or failed (DB error).
+  // A duplicate delivery is safe to return 200 immediately ONLY when the stored
+  // status is 'completed'. A 'failed' status means the previous attempt's DB
+  // write failed — Stripe retry must be allowed to re-process it.
   const supabase = getSupabase();
+  let eventClaimed = false;
 
   if (supabase) {
     try {
-      const { error: dupErr } = await supabase
-        .from('processed_stripe_events')
-        .insert({ event_id: event.id, event_type: event.type });
+      const claim = await claimStripeEvent(supabase, event.id, event.type);
 
-      if (dupErr) {
-        if (dupErr.code === '23505') {
-          // Unique-violation — event already processed (duplicate delivery from Stripe)
-          console.log('[webhook] duplicate event', event.id, '— already processed, returning 200');
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ received: true }));
-        }
-        // Non-unique error (e.g. table not yet migrated) — log and continue
-        console.warn('[webhook] processed_stripe_events insert error:', dupErr.code, dupErr.message,
-          '— proceeding without idempotency guard');
-      } else {
-        console.log('[webhook] event', event.id, 'marked as in-progress');
+      if (claim.duplicate) {
+        console.log('[webhook] duplicate event', event.id,
+          '— already completed or actively processing; returning 200');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ received: true }));
       }
-    } catch (idempEx) {
-      console.warn('[webhook] idempotency check failed:', idempEx.message, '— proceeding');
+
+      if (claim.claimed) {
+        eventClaimed = true;
+        console.log('[webhook] event', event.id, 'claimed — status: processing');
+      } else {
+        // tableError — idempotency table unavailable; proceed without guard.
+        console.warn('[webhook] idempotency guard unavailable:',
+          claim.error?.code, claim.error?.message, '— proceeding without guard');
+      }
+    } catch (claimEx) {
+      console.warn('[webhook] claimStripeEvent threw:', claimEx.message, '— proceeding');
     }
   }
 
@@ -433,7 +528,8 @@ export default async function handler(req, res) {
       );
 
       if (dbErr) {
-        // Return 500 so Stripe retries. Do NOT send notifications — data is not durable yet.
+        // Mark the event as failed so Stripe retry can re-claim and reprocess it.
+        if (eventClaimed) await markEventFailed(supabase, event.id, dbErr.message);
         console.error('[webhook] Supabase upsert FAILED — code:', dbErr.code,
           '| message:', dbErr.message,
           '| returning 500 for Stripe retry');
@@ -472,6 +568,7 @@ export default async function handler(req, res) {
         }
       }
     } catch (dbEx) {
+      if (eventClaimed) await markEventFailed(supabase, event.id, dbEx.message);
       console.error('[webhook] Supabase unexpected error:', dbEx.message,
         '| returning 500 for Stripe retry');
       res.writeHead(500);
@@ -571,6 +668,16 @@ export default async function handler(req, res) {
     } catch (nsErr) {
       console.warn('[webhook] Notification status update failed (non-critical):', nsErr.message);
     }
+  }
+
+  // ── Mark event completed — only now is it safe to deduplicate ───────────────
+  // Marking 'completed' here (after persistence AND notifications) means a retry
+  // that arrives while this Lambda is still running will also attempt processing.
+  // The UNIQUE constraint ensures only one attempt can claim 'processing' at a time,
+  // so concurrent deliveries cannot both send notifications.
+  if (supabase && eventClaimed) {
+    await markEventCompleted(supabase, event.id);
+    console.log('[webhook] event', event.id, 'marked completed');
   }
 
   res.writeHead(200, { 'Content-Type': 'application/json' });

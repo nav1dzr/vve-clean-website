@@ -530,6 +530,34 @@
           return;
         }
 
+        // ── Production guard ─────────────────────────────────────────────────
+        // A real Google Ads conversion fires only when:
+        //   1. Hostname is the approved production domain
+        //   2. The Stripe session is live-mode (cs_live_ prefix)
+        // On Vercel preview or localhost, log a labelled simulation payload
+        // instead — enough detail for Tag Assistant / console verification
+        // without charging the conversion budget.
+        var PROD_HOSTNAME  = "vveclean.co.uk";
+        var isProductionHost = window.location.hostname === PROD_HOSTNAME;
+        var isLiveSession    = /^cs_live_/.test(sid);
+
+        if (!isProductionHost || !isLiveSession) {
+          var reason = !isProductionHost
+            ? "non-production hostname (" + window.location.hostname + ")"
+            : "Stripe test-mode session (sid prefix: " + sid.slice(0, 8) + "…)";
+          console.log("[VVE conv] SIMULATED — " + reason);
+          console.log("[VVE conv] Simulated payload:", JSON.stringify({
+            event:          isLeaflet && !hasGclid ? "leaflet_booking_completed" : "conversion",
+            send_to:        "AW-18214693277/hUwdCK68gswcEI3TuO1D",
+            value:          30.0,
+            currency:       "GBP",
+            transaction_id: txId,
+          }));
+          localStorage.setItem(storageKey, "1");
+          console.log("[VVE conv] localStorage key set (simulated):", storageKey);
+          return;
+        }
+
         if (isLeaflet && !hasGclid) {
           // Leaflet booking with no Google click — fire GA4 event only (not Google Ads)
           console.log("[VVE conv] Leaflet (no gclid) — firing GA4 leaflet_booking_completed");

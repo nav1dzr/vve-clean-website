@@ -140,29 +140,52 @@ export default async function handler(req, res) {
   } = payload;
 
   // ── Server-side price authority ─────────────────────────────────────────────
-  // The browser-supplied price is never trusted.
-  // If quoteConfig is present, we compute the price server-side.
-  // If quoteConfig is absent (manual/tailored quote), price is stored as null.
-  let validatedPrice = null; // null = not server-verified
+  // quoteConfig is always required. Browser-supplied price is never trusted.
+  // Two valid outcomes:
+  //   fixed_quote  — computePrice returned a number; server price is authoritative
+  //   manual_quote — delicate carpet condition; photo quote required; price is null
+  // Any other path (missing quoteConfig, unrecognised service) → HTTP 400.
 
-  if (quoteConfig) {
-    const serverPrice = computePrice(quoteConfig);
-    if (serverPrice !== null) {
-      // Log a mismatch for investigation, then use the server value.
-      const clientPrice = Number(price) || 0;
-      if (clientPrice && Math.abs(serverPrice - clientPrice) > 0.5) {
-        console.warn('[checkout] Price mismatch — client reported:', clientPrice,
-          '| server computed:', serverPrice, '| using server price');
-      }
-      validatedPrice = serverPrice;
+  if (!quoteConfig) {
+    console.warn('[checkout] Rejected: quoteConfig absent (possible legacy URL exploit)');
+    res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'quoteConfig is required' }));
+  }
+
+  // Only this specific configuration is an approved manual-quote path.
+  // The browser cannot manufacture a manual quote by omitting quoteConfig
+  // or using an arbitrary service name.
+  function isApprovedManualQuote(cfg) {
+    return cfg &&
+      cfg.service === 'deep' &&
+      cfg.deepService === 'carpet_upholstery' &&
+      cfg.carpetCondition === 'delicate';
+  }
+
+  let validatedPrice = null;
+  let quoteMode;
+
+  const serverPrice = computePrice(quoteConfig);
+  if (serverPrice !== null) {
+    quoteMode = 'fixed_quote';
+    validatedPrice = serverPrice;
+    const clientPrice = Number(price) || 0;
+    if (clientPrice && Math.abs(serverPrice - clientPrice) > 0.5) {
+      console.warn('[checkout] Price mismatch — client reported:', clientPrice,
+        '| server computed:', serverPrice, '| using server price');
     }
-    // null from computePrice = manual/tailored quote (e.g. delicate carpet condition).
-    // validatedPrice remains null — not a 400; the booking proceeds without a confirmed price.
+  } else if (isApprovedManualQuote(quoteConfig)) {
+    quoteMode = 'manual_quote';
+    // validatedPrice stays null — confirmation shows "Quote to be confirmed"
+  } else {
+    console.warn('[checkout] Rejected: computePrice returned null for non-manual-quote service');
+    res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'Invalid service configuration' }));
   }
 
   console.log('[checkout] service:', service || '(none)',
-    '| validatedPrice:', validatedPrice !== null ? validatedPrice : '(manual quote)',
-    '| hasQuoteConfig:', !!quoteConfig);
+    '| quoteMode:', quoteMode,
+    '| validatedPrice:', validatedPrice !== null ? validatedPrice : '(manual quote)');
 
   if (!fullName || (!phone && !email)) {
     res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
@@ -232,6 +255,7 @@ export default async function handler(req, res) {
       metadata: {
         service:                    (service     || '').slice(0, 500),
         price:                      validatedPrice !== null ? String(validatedPrice) : '',
+        quote_mode:                 quoteMode,
         deposit:                    deposit != null ? String(deposit) : '30',
         fullName:                   (fullName    || '').slice(0, 500),
         address:                    (address     || '').slice(0, 500),
