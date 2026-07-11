@@ -24,7 +24,8 @@ function validPostcode(v: string) { return /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/
 
 const BOOKING_WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20help%20with%20my%20booking.';
 
-function BookingHeader() {
+function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
+  const backHref = isLeaflet ? '/leaflet#quote' : '/#quote';
   return (
     <header className="sticky top-0 z-50 border-b border-black/[0.08]"
       style={{ background: 'rgba(249,249,245,0.96)', backdropFilter: 'blur(10px)' }}>
@@ -43,8 +44,8 @@ function BookingHeader() {
 
         {/* Right controls */}
         <div className="flex items-center gap-1.5">
-          {/* Back to quote — sets restore flag so QuoteCalculator re-hydrates */}
-          <a href="/#quote"
+          {/* Back to quote — destination depends on whether this is a leaflet booking */}
+          <a href={backHref}
             onClick={() => sessionStorage.setItem('vve_restore_quote', '1')}
             className="hidden sm:flex items-center gap-1 text-sm font-semibold px-3 py-2 rounded-full border border-[#E3E7EE] text-navy-800 hover:border-navy-300 transition-colors min-h-[36px]">
             ← Back to quote
@@ -321,7 +322,7 @@ export default function BookingPage() {
   if (!selection || showSelector) {
     return (
       <div className="min-h-screen" style={{ background: '#f9f9f5' }}>
-        <BookingHeader />
+        <BookingHeader isLeaflet={selection?.offerCode === 'LEAFLET20'} />
         {showSelector && selection && (
           <div className="max-w-5xl mx-auto px-4 pt-5 pb-1 text-center">
             <p className="text-sm text-silver-600">
@@ -337,7 +338,7 @@ export default function BookingPage() {
   // ─── Show booking form ─────────────────────────────────────────────────────
   return (
     <div className="min-h-screen" style={{ background: '#f9f9f5' }}>
-      <BookingHeader />
+      <BookingHeader isLeaflet={selection?.offerCode === 'LEAFLET20'} />
 
       <main className="max-w-xl mx-auto px-4 py-7 pb-24" ref={formTopRef}>
         {/* Page title */}
