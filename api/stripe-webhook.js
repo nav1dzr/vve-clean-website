@@ -104,10 +104,39 @@ async function markEventFailed(supabase, eventId, detail) {
 
 export const config = { api: { bodyParser: false } };
 
+// Decode the `role` claim from a Supabase JWT without logging the key itself.
+// Supabase JWTs are standard HS256 tokens — the payload is plain base64url JSON.
+// Returns 'service_role', 'anon', or 'unknown'/'unparseable'.
+function supabaseKeyRole(key) {
+  try {
+    const b64 = key.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const json = Buffer.from(b64, 'base64').toString('utf8');
+    const payload = JSON.parse(json);
+    return typeof payload.role === 'string' ? payload.role : 'unknown';
+  } catch {
+    return 'unparseable';
+  }
+}
+
 function getSupabase() {
   const url = process.env.VITE_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
+  if (!url || !key) {
+    console.error('[supabase] missing env var —',
+      !url ? 'VITE_SUPABASE_URL' : '', !key ? 'SUPABASE_SERVICE_ROLE_KEY' : '');
+    return null;
+  }
+  const role    = supabaseKeyRole(key);
+  const projRef = (url.match(/https:\/\/([^.]+)\.supabase\.co/) || [])[1] || 'unknown';
+  console.log('[supabase] project ref:', projRef, '| SUPABASE_SERVICE_ROLE_KEY role claim:', role);
+  if (role !== 'service_role') {
+    console.error(
+      '[supabase] ⚠ SUPABASE_SERVICE_ROLE_KEY encodes role "' + role + '" — expected "service_role".',
+      'This will cause 42501 (permission denied) on every Supabase write.',
+      'Go to Vercel → Settings → Environment Variables and replace the value with',
+      'the service_role key from Supabase → Project Settings → API → service_role (secret).',
+    );
+  }
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
