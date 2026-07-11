@@ -475,112 +475,164 @@
     hideLoadingIndicator();
   }
 
-  // ── Conversion tracking — source-aware ──────────────────────────────────
-  // Google Ads conversion fires for normal / unknown traffic, or when a gclid is present.
-  // Leaflet-only bookings (no gclid) fire a GA4 event instead.
-  // Server-verified via /api/verify-payment before firing. localStorage deduplicates.
-  //
-  // Conversion value: £30 (actual deposit charged). The full job value is not charged
-  // at this point — the deposit is the real transaction. Use this for ROAS calculation.
+  // ── Conversion tracking — Google Ads "Booking Deposit Paid" ─────────────
+  // Fires once per transaction. localStorage is only marked AFTER event_callback
+  // confirms the hit reached Google (or a 5s timeout fires as fallback).
+  // Verify the send_to label in Google Ads → Goals → Conversions →
+  // "Booking Deposit Paid" → Tag setup — must match exactly.
   (function () {
-    console.log("[VVE conv] start | gtag:", typeof gtag,
-      "| ref:", ref || "(none)", "| token:", token ? "present" : "none", "| sid:", sid ? "present" : "none");
+    var SEND_TO   = "AW-18214693277/hUwdCK68gswcEJ3TuO1D";
+    var PROD_HOST = "www.vveclean.co.uk";
 
-    if (typeof gtag !== "function") {
-      console.log("[VVE conv] SKIP — gtag not defined yet");
-      return;
-    }
+    // ── Diagnostics (no PII logged) ────────────────────────────────────────
+    var txId       = ref || sid;
+    var storageKey = txId ? "vve_ads_conv_" + txId : null;
+    var dedupSet   = storageKey ? !!localStorage.getItem(storageKey) : false;
 
-    // Require at least one verified identifier before attempting conversion.
+    console.log("[VVE conv] ── diagnostics ─────────────────────────────────");
+    console.log("[VVE conv] hostname          :", location.hostname);
+    console.log("[VVE conv] ref present       :", !!ref);
+    console.log("[VVE conv] token present     :", !!token);
+    console.log("[VVE conv] sid present       :", !!sid);
+    console.log("[VVE conv] typeof window.gtag:", typeof window.gtag);
+    console.log("[VVE conv] dataLayer exists  :", Array.isArray(window.dataLayer));
+    console.log("[VVE conv] send_to           :", SEND_TO);
+    console.log("[VVE conv] transaction_id    :", !!txId, "(present)");
+    console.log("[VVE conv] value             : 30.00 GBP");
+    console.log("[VVE conv] dedup key set     :", dedupSet, storageKey ? "(" + storageKey + ")" : "(no key)");
+    try {
+      // Log consent state if a CMP has written it; most installs will show "not set"
+      var cs = localStorage.getItem("vve_consent") || localStorage.getItem("__gtag_consent") || "not set";
+      console.log("[VVE conv] consent state     :", cs);
+    } catch (_) {/* storage denied in some browsers */}
+
+    // ── Early guards ──────────────────────────────────────────────────────
     if (!token && !sid) {
-      console.log("[VVE conv] SKIP — no token or sid in URL (cannot verify payment)");
+      console.log("[VVE conv] SKIP reason: no token or sid in URL — cannot verify payment");
       return;
     }
-
-    // Use booking ref as the conversion transaction_id (stable, human-readable, non-PII).
-    // Fall back to Stripe session ID when ref is missing.
-    var txId = ref || sid;
     if (!txId) {
-      console.log("[VVE conv] SKIP — no transaction identifier");
+      console.log("[VVE conv] SKIP reason: no stable transaction_id (ref and sid both absent)");
+      return;
+    }
+    if (dedupSet) {
+      console.log("[VVE conv] SKIP reason: dedup key already set in localStorage.",
+        "Open DevTools → Application → Local Storage → delete", storageKey, "to re-test.");
       return;
     }
 
-    var storageKey = "vve_ads_conv_" + txId;
-    if (localStorage.getItem(storageKey)) {
-      console.log("[VVE conv] SKIP — already fired (localStorage key:", storageKey + ").",
-        "Clear DevTools → Application → Local Storage to re-test.");
-      return;
-    }
-
-    var lastSource  = localStorage.getItem("vve_last_source")  || "";
-    var storedGclid = localStorage.getItem("vve_gclid")        || "";
+    // ── Attribution ────────────────────────────────────────────────────────
+    var lastSource  = localStorage.getItem("vve_last_source") || "";
+    var storedGclid = localStorage.getItem("vve_gclid")       || "";
     var isLeaflet   = lastSource === "leaflet";
     var hasGclid    = storedGclid.length > 0;
-
     console.log("[VVE conv] last_source:", lastSource || "(none)", "| gclid:", hasGclid ? "present" : "none");
-    console.log("[VVE conv] calling verify-payment with txId:", txId);
 
+    // ── Server-verify payment ─────────────────────────────────────────────
+    console.log("[VVE conv] fetching verify-payment...");
     fetch(apiQs("/api/verify-payment"))
-      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        console.log("[VVE conv] verify-payment HTTP status:", r.status);
+        return r.json();
+      })
       .then(function (data) {
-        console.log("[VVE conv] verify-payment response:", data);
+        console.log("[VVE conv] paid:", data.paid, "| livemode:", data.livemode);
 
         if (!data.paid) {
-          console.log("[VVE conv] SKIP — paid:false");
+          console.log("[VVE conv] SKIP reason: paid:false from verify-payment");
           return;
         }
 
-        // ── Production guard ─────────────────────────────────────────────────
-        // A real Google Ads conversion fires only when:
-        //   1. Hostname is the approved production domain
-        //   2. The Stripe session is live-mode (cs_live_ prefix)
-        // On Vercel preview or localhost, log a labelled simulation payload
-        // instead — enough detail for Tag Assistant / console verification
-        // without charging the conversion budget.
-        var PROD_HOSTNAME  = "www.vveclean.co.uk";
-        var isProductionHost = window.location.hostname === PROD_HOSTNAME;
+        var isProductionHost = location.hostname === PROD_HOST;
         var isLiveSession    = data.livemode === true;
+        console.log("[VVE conv] hostname === " + PROD_HOST + ":", isProductionHost);
+        console.log("[VVE conv] livemode === true           :", isLiveSession);
 
+        // ── Non-production / test-mode: log simulation, do NOT set localStorage ─
         if (!isProductionHost || !isLiveSession) {
           var reason = !isProductionHost
-            ? "non-production hostname (" + window.location.hostname + ")"
-            : "Stripe test-mode session (sid prefix: " + sid.slice(0, 8) + "…)";
-          console.log("[VVE conv] SIMULATED — " + reason);
+            ? "non-production hostname (" + location.hostname + ")"
+            : "Stripe test-mode (livemode:false)";
+          console.log("[VVE conv] SIMULATED — " + reason + " — no real hit sent, dedup key NOT set");
           console.log("[VVE conv] Simulated payload:", JSON.stringify({
-            event:          isLeaflet && !hasGclid ? "leaflet_booking_completed" : "conversion",
-            send_to:        "AW-18214693277/hUwdCK68gswcEI3TuO1D",
+            event:          (isLeaflet && !hasGclid) ? "leaflet_booking_completed" : "conversion",
+            send_to:        SEND_TO,
             value:          30.0,
             currency:       "GBP",
             transaction_id: txId,
           }));
-          localStorage.setItem(storageKey, "1");
-          console.log("[VVE conv] localStorage key set (simulated):", storageKey);
           return;
         }
 
-        if (isLeaflet && !hasGclid) {
-          // Leaflet booking with no Google click — fire GA4 event only (not Google Ads)
-          console.log("[VVE conv] Leaflet (no gclid) — firing GA4 leaflet_booking_completed");
-          gtag("event", "leaflet_booking_completed", {
-            transaction_id: txId,
-            value:          30.0,
-            currency:       "GBP",
-          });
-        } else {
-          // Standard flow — fire Google Ads conversion
-          console.log("[VVE conv] FIRING Google Ads conversion | send_to: AW-18214693277/hUwdCK68gswcEI3TuO1D");
-          gtag("event", "conversion", {
-            send_to:        "AW-18214693277/hUwdCK68gswcEI3TuO1D",
-            value:          30.0,
-            currency:       "GBP",
-            transaction_id: txId,
-          });
+        // ── Production: wait for gtag, then fire with event_callback ─────────
+        var gtagAttempts = 0;
+
+        function tryFire() {
+          if (typeof window.gtag !== "function") {
+            if (gtagAttempts < 5) {
+              gtagAttempts++;
+              console.log("[VVE conv] gtag not ready — retrying in 200ms (attempt", gtagAttempts, "of 5)");
+              setTimeout(tryFire, 200);
+            } else {
+              console.error("[VVE conv] SKIP reason: window.gtag never became available after 1000ms");
+            }
+            return;
+          }
+
+          console.log("[VVE conv] gtag ready | dataLayer.length:",
+            Array.isArray(window.dataLayer) ? window.dataLayer.length : "n/a");
+
+          // settled flag ensures localStorage is written exactly once
+          var settled = false;
+          function markDone(via) {
+            if (settled) return;
+            settled = true;
+            if (storageKey) {
+              localStorage.setItem(storageKey, "1");
+              console.log("[VVE conv] localStorage key set (" + via + "):", storageKey);
+            }
+          }
+
+          // 5-second timeout: if event_callback never fires (ad-blocker, etc.),
+          // still mark done to prevent repeated fires on refresh.
+          var cbTimeout = setTimeout(function () {
+            console.warn("[VVE conv] event_callback NOT fired within 5s — marking done via timeout");
+            markDone("timeout");
+          }, 5000);
+
+          if (isLeaflet && !hasGclid) {
+            console.log("[VVE conv] FIRING GA4 leaflet_booking_completed | txId present:", !!txId);
+            gtag("event", "leaflet_booking_completed", {
+              transaction_id: txId,
+              value:          30.0,
+              currency:       "GBP",
+              event_callback: function () {
+                clearTimeout(cbTimeout);
+                console.log("[VVE conv] event_callback fired (leaflet) ✓");
+                markDone("callback");
+              },
+            });
+          } else {
+            console.log("[VVE conv] FIRING Google Ads conversion | send_to:", SEND_TO, "| txId present:", !!txId);
+            gtag("event", "conversion", {
+              send_to:        SEND_TO,
+              value:          30.0,
+              currency:       "GBP",
+              transaction_id: txId,
+              event_callback: function () {
+                clearTimeout(cbTimeout);
+                console.log("[VVE conv] event_callback fired — hit confirmed ✓");
+                markDone("callback");
+              },
+            });
+          }
         }
 
-        localStorage.setItem(storageKey, "1");
-        console.log("[VVE conv] done — localStorage key set:", storageKey);
+        tryFire();
       })
-      .catch(function (err) { console.error("[VVE conv] fetch error:", err); });
+      .catch(function (err) {
+        console.error("[VVE conv] fetch error:", err.message || err);
+      });
   }());
 </script>
 </body>
