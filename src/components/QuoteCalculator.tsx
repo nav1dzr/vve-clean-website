@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calculator, CheckCircle2, Plus, Minus, Info, AlertCircle } from 'lucide-react';
+import { useBookingCtx } from '../context/BookingContext';
 import { useReveal } from '../hooks/useReveal';
 import {
   CARPET_GROUPS,
@@ -126,31 +127,74 @@ function Counter({
   );
 }
 
+// ─── Session-restore helper ───────────────────────────────────────────────────
+// Reads vve_booking.quoteConfig from sessionStorage only when the temporary
+// vve_restore_quote flag is present (set by "Back to quote" in BookingPage).
+
+function getRestoreConfig(): BookingSelection['quoteConfig'] | null {
+  try {
+    if (!sessionStorage.getItem('vve_restore_quote')) return null;
+    const raw = sessionStorage.getItem('vve_booking');
+    if (!raw) return null;
+    return (JSON.parse(raw) as BookingSelection).quoteConfig ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
   const { ref, visible } = useReveal();
   const navigate = useNavigate();
+  const { setCtx }      = useBookingCtx();
+  const [bookError, setBookError]   = useState('');
+  const serviceAreaRef  = useRef<HTMLDivElement>(null);
+  const bookErrorRef    = useRef<HTMLDivElement>(null);
 
-  const [service,       setService]       = useState<ServiceKey>('deep');
-  const [deepService,   setDeepService]   = useState<DeepServiceType>('carpet_upholstery');
-  const [deepSize,      setDeepSize]      = useState<SizeKey>('bed2');
-  const [deepBaths,     setDeepBaths]     = useState<1 | 2 | 3>(1);
+  const [service] = useState<ServiceKey>('deep');
+
+  // Captured once on mount; null on every subsequent render (flag cleared below).
+  const [_restore] = useState<BookingSelection['quoteConfig'] | null>(getRestoreConfig);
+
+  // Clear the restore flag immediately after we've read it so a future
+  // direct homepage visit doesn't unexpectedly hydrate an old quote.
+  useEffect(() => {
+    sessionStorage.removeItem('vve_restore_quote');
+  }, []);
+
+  const [deepService,   setDeepService]   = useState<DeepServiceType>(
+    () => (_restore?.deepService as DeepServiceType | undefined) ?? 'carpet_upholstery',
+  );
+  const [deepSize,      setDeepSize]      = useState<SizeKey>(
+    () => (_restore?.deepSize as SizeKey | undefined) ?? 'bed2',
+  );
+  const [deepBaths,     setDeepBaths]     = useState<1 | 2 | 3>(
+    () => (_restore?.deepBaths as (1 | 2 | 3) | undefined) ?? 1,
+  );
   const [addOnCounts,   setAddOnCounts]   = useState<Record<string, number>>(
-    () => Object.fromEntries(addOnDefs.map((a) => [a.key, 0])),
+    () => {
+      const defaults = Object.fromEntries(addOnDefs.map((a) => [a.key, 0]));
+      return _restore?.addOnCounts ? { ...defaults, ..._restore.addOnCounts } : defaults;
+    },
   );
 
   // ── Carpet-specific state ──
   const [carpetCounts,    setCarpetCounts]    = useState<CarpetCounts>(
-    () => Object.fromEntries(
-      CARPET_GROUPS.flatMap((g) => g.items).map((i) => [i.key, 0]),
-    ),
+    () => {
+      const defaults = Object.fromEntries(
+        CARPET_GROUPS.flatMap((g) => g.items).map((i) => [i.key, 0]),
+      ) as CarpetCounts;
+      return _restore?.carpetCounts ? { ...defaults, ..._restore.carpetCounts } : defaults;
+    },
   );
-  const [carpetCondition, setCarpetCondition] = useState<CarpetCondition>('normal');
+  const [carpetCondition, setCarpetCondition] = useState<CarpetCondition>(
+    () => (_restore?.carpetCondition as CarpetCondition | undefined) ?? 'normal',
+  );
 
-  const [windowSize,   setWindowSize]   = useState('small');
-  const [gutterType,   setGutterType]   = useState('terraced');
-  const [officeHours,  setOfficeHours]  = useState(MIN_OFFICE_HOURS);
+  const [windowSize,   setWindowSize]   = useState(() => _restore?.windowSize   ?? 'small');
+  const [gutterType,   setGutterType]   = useState(() => _restore?.gutterType   ?? 'terraced');
+  const [officeHours,  setOfficeHours]  = useState(() => _restore?.officeHours  ?? MIN_OFFICE_HOURS);
 
   const isCarpet        = deepService === 'carpet_upholstery';
   const isAfterBuilders = service === 'deep' && deepService === 'after_builders';
@@ -330,6 +374,45 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
   // ── Can the "Book Online" button be shown? ─────────────────────────────────
   const canBookOnline = !isAfterBuilders && !(isCarpet && (carpetResult?.isPhotoQuote || (carpetResult?.totalItems ?? 0) === 0));
 
+  const isManualQuote = isAfterBuilders || (isCarpet && (carpetResult?.isPhotoQuote ?? false));
+  const isReadyToBook = canBookOnline && price > 0;
+
+  // Stable ref wrapper — lets context consumers call handleBookNow without stale closures
+  const _bookRef = useRef(handleBookNow);
+  _bookRef.current = handleBookNow;
+  const stableBook = useCallback(() => _bookRef.current(), []);
+
+  useEffect(() => {
+    setCtx({
+      state:  isManualQuote ? 'manual' : isReadyToBook ? 'bookable' : 'none',
+      price:  Math.round(price),
+      waLink,
+      onBook: stableBook,
+    });
+  }, [isManualQuote, isReadyToBook, price, waLink, stableBook, setCtx]);
+
+  const handleBookWithValidation = () => {
+    setBookError('Please choose at least one service first.');
+    serviceAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => { bookErrorRef.current?.focus(); }, 400);
+  };
+
+  // Clear error once the user adds an item
+  useEffect(() => {
+    if (bookError && ((carpetResult?.totalItems ?? 0) > 0 || !isCarpet)) {
+      setBookError('');
+    }
+  }, [carpetResult?.totalItems, isCarpet, bookError]);
+
+  // Listen for sticky-bar "book" tap when no items are selected
+  useEffect(() => {
+    const handler = () => {
+      if (!isReadyToBook && !isManualQuote) handleBookWithValidation();
+    };
+    document.addEventListener('vve:validate-book', handler);
+    return () => document.removeEventListener('vve:validate-book', handler);
+  }, [isReadyToBook, isManualQuote]);
+
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -353,7 +436,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
 
           {/* ── Left: configurator ── */}
           <div className="lg:col-span-3 bg-white p-6 md:p-8">
-            <div className="space-y-5">
+            <div ref={serviceAreaRef} className="space-y-5">
 
               {/* Step label */}
               <div className="flex items-center gap-2 mb-1">
@@ -722,42 +805,6 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                         </div>
                       )}
 
-                      {/* Carpet: deposit breakdown */}
-                      {isCarpet && (carpetResult?.totalItems ?? 0) > 0 && !carpetResult?.isPhotoQuote && (
-                        <div className="mt-4 border-t pt-3" style={{ borderColor: '#b6d9c8' }}>
-                          <div className="space-y-1 text-xs" style={{ color: '#1e6b42' }}>
-                            {(carpetResult?.bundle.saving ?? 0) > 0 && (
-                              <>
-                                <div className="flex justify-between">
-                                  <span>Items subtotal</span>
-                                  <span className="font-bold line-through opacity-60">£{carpetResult!.bundle.preDiscount}</span>
-                                </div>
-                                <div className="flex justify-between text-green-700">
-                                  <span>{carpetResult!.bundle.source === 'promo' ? 'Leaflet offer' : 'Bundle saving'}</span>
-                                  <span className="font-bold">−£{carpetResult!.bundle.saving}</span>
-                                </div>
-                              </>
-                            )}
-                            <div className="flex justify-between">
-                              <span>{carpetCondition === 'heavy' ? 'Estimated total' : 'Total'}</span>
-                              <span className="font-bold">
-                                {carpetCondition === 'heavy' ? '~' : ''}£{Math.round(price)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>£30 deposit today</span>
-                              <span className="font-bold">£30</span>
-                            </div>
-                            <div className="flex justify-between border-t pt-1" style={{ borderColor: '#b6d9c8' }}>
-                              <span>Balance after the job</span>
-                              <span className="font-bold">£{Math.max(0, Math.round(price) - 30)}</span>
-                            </div>
-                          </div>
-                          <p className="text-[10px] mt-2 leading-relaxed" style={{ color: '#4a7a62' }}>
-                            Final price confirmed before work starts.
-                          </p>
-                        </div>
-                      )}
 
                       {/* Non-carpet subtitle */}
                       {!isCarpet && service === 'deep' && (
@@ -792,33 +839,69 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                 </div>
               </div>
 
-              {/* Action buttons */}
-              {canBookOnline && (
+              {/* ── Action area — always visible ── */}
+
+              {/* Inline validation error */}
+              {bookError && (
+                <div
+                  ref={bookErrorRef}
+                  role="alert"
+                  aria-live="assertive"
+                  tabIndex={-1}
+                  className="flex items-start gap-2 rounded-xl px-4 py-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm focus:outline-none"
+                >
+                  <AlertCircle size={14} className="flex-shrink-0 mt-0.5 text-amber-600" aria-hidden="true" />
+                  <span>{bookError}</span>
+                </div>
+              )}
+
+              {/* Primary CTA */}
+              {isManualQuote ? (
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-base text-white transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98]"
+                  style={{ backgroundColor: '#22C55E' }}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 flex-shrink-0" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                  {isAfterBuilders ? 'Request a quote →' : 'Send photos for a quote →'}
+                </a>
+              ) : (
                 <button
                   type="button"
-                  onClick={handleBookNow}
+                  onClick={isReadyToBook ? handleBookNow : handleBookWithValidation}
                   className="flex items-center justify-center gap-2 w-full py-4 rounded-full font-bold text-white text-base transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98]"
                   style={{ backgroundColor: '#0ea5e9' }}
+                  aria-label={isReadyToBook ? 'Book online — pay £30 deposit' : 'Book online'}
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  Book Online — Pay £30 Deposit
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  {isReadyToBook ? 'Book online — pay £30 deposit' : 'Book online'}
                 </button>
               )}
 
-              <a
-                href={waLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-base transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98]"
-                style={isAfterBuilders || (isCarpet && carpetResult?.isPhotoQuote)
-                  ? { backgroundColor: '#22C55E', color: '#ffffff' }
-                  : { backgroundColor: '#ffffff', border: '2px solid #22C55E', color: '#16a34a' }}
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 flex-shrink-0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                {isAfterBuilders || (isCarpet && carpetResult?.isPhotoQuote)
-                  ? 'WhatsApp a photo for your quote →'
-                  : 'Chat on WhatsApp'}
-              </a>
+              {/* Secondary: help text for no-items state; WA button for bookable state */}
+              {!isManualQuote && !isReadyToBook && (
+                <p className="text-center text-xs text-silver-500">
+                  Not sure which service you need?{' '}
+                  <a href={waLink} target="_blank" rel="noopener noreferrer"
+                    className="font-semibold text-green-600 hover:underline">
+                    Get help →
+                  </a>
+                </p>
+              )}
+              {!isManualQuote && isReadyToBook && (
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2.5 w-full py-4 rounded-full font-bold text-base transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98]"
+                  style={{ backgroundColor: '#ffffff', border: '2px solid #22C55E', color: '#16a34a' }}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 flex-shrink-0" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                  Need help? Chat on WhatsApp
+                </a>
+              )}
 
             </div>
           </div>
@@ -827,7 +910,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
           <div className="lg:col-span-2 navy-gradient p-6 flex flex-col justify-between lg:sticky lg:top-24 lg:self-start">
             <div>
               <h3 className="text-silver-400 text-xs font-medium tracking-widest uppercase mb-2">
-                {isAfterBuilders ? 'Starting From' : isCarpet && carpetResult?.isPhotoQuote ? 'Photo Quote' : 'Estimated Price'}
+                {isAfterBuilders ? 'Starting From' : isCarpet && carpetResult?.isPhotoQuote ? 'Photo Quote' : 'Your price'}
               </h3>
               {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
                 <div className="text-silver-400 text-base line-through mb-0.5">
@@ -853,7 +936,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                   <Info size={11} /> Min. charge applied
                 </div>
               )}
-              <div className="text-silver-400 text-sm mb-6">
+              <div className="text-silver-400 text-sm mb-4">
                 {isCarpet
                   ? (() => {
                       const n = carpetResult?.totalItems ?? 0;
@@ -861,8 +944,64 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                     })()
                   : serviceLabels[service]}
               </div>
-              <div className="space-y-4 mb-6">
-                {['Fully insured & vetted team', 'Background-checked staff', 'Satisfaction guarantee', 'No hidden fees', 'Eco-friendly products'].map((item) => (
+
+              {/* Deposit split — shown whenever there's a bookable price */}
+              {canBookOnline && price > 0 && (
+                <div className="glass-card rounded-xl p-3 mb-3 space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-silver-300">£30 deposit today</span>
+                    <span className="text-white font-bold">£30</span>
+                  </div>
+                  {Math.round(price) > 30 && (
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-silver-300">Balance after the job</span>
+                      <span className="text-white font-bold">£{Math.round(price) - 30}</span>
+                    </div>
+                  )}
+                  <div className="border-t border-white/10 pt-1.5 mt-1">
+                    <p className="text-silver-500 text-[10px] leading-snug">
+                      Your £30 deposit comes straight off the total — it is not an extra charge.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Book CTA in right panel */}
+              {isReadyToBook && (
+                <div className="mb-3 space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={handleBookNow}
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-full font-bold text-white text-sm transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98]"
+                    style={{ backgroundColor: '#0ea5e9' }}
+                    aria-label="Book online — pay £30 deposit"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Book online — pay £30 deposit
+                  </button>
+                  <div className="flex items-center justify-center gap-1.5">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-silver-500 flex-shrink-0" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <span className="text-silver-500 text-[10px]">Secured by Stripe · encrypted checkout</span>
+                  </div>
+                </div>
+              )}
+              {!isReadyToBook && !isManualQuote && (
+                <div className="mb-3">
+                  <button
+                    type="button"
+                    onClick={handleBookWithValidation}
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-full font-bold text-white text-sm transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98]"
+                    style={{ backgroundColor: '#0ea5e9' }}
+                    aria-label="Book online"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Book online
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-3 mb-4">
+                {['£5m public liability insurance', 'DBS-checked, vetted cleaners', '48hr re-clean guarantee', 'No hidden fees — fixed prices', 'Secure Stripe checkout'].map((item) => (
                   <div key={item} className="flex items-center gap-2 text-silver-300 text-sm">
                     <CheckCircle2 size={13} className="text-royal-400 flex-shrink-0" />
                     {item}
@@ -934,9 +1073,9 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
 
             <div className="space-y-3">
               <a href={waLink} target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-500 text-white font-semibold py-3 rounded-xl transition-all duration-300 text-sm">
+                className="flex items-center justify-center gap-2 w-full bg-green-700 hover:bg-green-600 text-white font-semibold py-2.5 rounded-xl transition-all duration-300 text-sm">
                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                {isAfterBuilders ? 'WhatsApp a photo for your quote' : 'Book via WhatsApp: 07845 451111'}
+                {isAfterBuilders ? 'WhatsApp a photo for your quote' : 'Need help? Chat on WhatsApp'}
               </a>
               <div className="glass-card rounded-xl p-3 text-center">
                 <div className="text-silver-300 text-xs mb-0.5">Prefer to call?</div>

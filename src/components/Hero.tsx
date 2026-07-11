@@ -1,4 +1,5 @@
-import { ArrowRight, CalendarCheck, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Star, Clock } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 
 export default function Hero() {
   return (
@@ -8,7 +9,7 @@ export default function Hero() {
       <div className="absolute inset-0">
         <img
           src="/photo_2026-06-02_16-48-38.jpg"
-          alt="Professional window cleaning service"
+          alt="Professional end-of-tenancy cleaning result — spotless kitchen"
           className="w-full h-full object-cover object-center"
         />
       </div>
@@ -75,39 +76,56 @@ export default function Hero() {
               href="#quote"
               className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-royal-500 hover:bg-royal-600 text-white font-semibold rounded-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base w-full sm:w-auto"
             >
-              Get Instant Quote
+              Get my price
               <ArrowRight size={18} />
             </a>
             <a
-              href="#contact"
+              href="/pricing"
               className="inline-flex items-center justify-center gap-2 px-7 py-3.5 border-2 border-white/60 text-white font-semibold rounded-lg transition-all duration-300 hover:bg-white hover:text-navy-900 hover:border-white text-base w-full sm:w-auto"
             >
-              <CalendarCheck size={18} />
-              Book Online
+              See all prices
             </a>
           </div>
 
-          {/* Stats strip */}
+          {/* Trust strip — verified facts only */}
           <div
-            className="flex flex-row gap-6 sm:gap-10 mt-8 pt-7 border-t border-white/20 animate-fade-in-up"
+            className="flex flex-row flex-wrap gap-5 sm:gap-8 mt-8 pt-7 border-t border-white/20 animate-fade-in-up"
             style={{ animationDelay: '0.72s', opacity: 0 }}
           >
-            {[
-              { value: '50+',     label: 'Happy Clients' },
-              { value: 'Expert',  label: 'Combined Experience' },
-              { value: '100%',    label: 'Satisfaction Rate' },
-            ].map((stat) => (
-              <div key={stat.label}>
-                <div className="font-display text-2xl font-bold text-white leading-none mb-1">{stat.value}</div>
-                <div className="text-silver-400 text-xs tracking-wide">{stat.label}</div>
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={16} className="text-royal-400 flex-shrink-0" />
+              <div>
+                <div className="font-display text-base font-bold text-white leading-none mb-0.5">£5m</div>
+                <div className="text-silver-400 text-xs tracking-wide">Public liability</div>
               </div>
-            ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <Star size={16} className="text-amber-400 flex-shrink-0" />
+              <div>
+                <div className="font-display text-base font-bold text-white leading-none mb-0.5">5-star</div>
+                <div className="text-silver-400 text-xs tracking-wide">Google reviews</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
+              <div>
+                <div className="font-display text-base font-bold text-white leading-none mb-0.5">DBS</div>
+                <div className="text-silver-400 text-xs tracking-wide">Checked staff</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock size={16} className="text-sky-400 flex-shrink-0" />
+              <div>
+                <div className="font-display text-base font-bold text-white leading-none mb-0.5">48hr</div>
+                <div className="text-silver-400 text-xs tracking-wide">Re-clean guarantee</div>
+              </div>
+            </div>
           </div>
 
         </div>
       </div>
 
-      
+
     </section>
   );
 }
