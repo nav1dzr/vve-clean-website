@@ -203,7 +203,7 @@ export default async function handler(req, res) {
   try { if (siteUrl) { new URL(siteUrl); validSite = true; } } catch { validSite = false; }
   if (!validSite || siteUrl.includes('localhost')) {
     const proto = req.headers['x-forwarded-proto'] || 'https';
-    const host  = req.headers['x-forwarded-host'] || req.headers.host || 'vveclean.co.uk';
+    const host  = req.headers['x-forwarded-host'] || req.headers.host || 'www.vveclean.co.uk';
     siteUrl = `${proto}://${host}`;
   }
 
@@ -221,7 +221,7 @@ export default async function handler(req, res) {
   console.log('[checkout] booking ref:', bookingRef || '(will use session ID)');
 
   // ── Generate confirmation token ─────────────────────────────────────────────
-  // 32 random bytes = 64 hex chars = ~192 bits of entropy.
+  // 32 random bytes = 64 hex chars = 256 bits of entropy.
   // The token is included in the success URL so the confirmation page can
   // fetch booking details without exposing the guessable booking reference.
   const confirmationToken = randomBytes(32).toString('hex');

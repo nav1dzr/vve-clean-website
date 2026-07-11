@@ -150,19 +150,23 @@ export default function BookingPage() {
     try {
       const stored = sessionStorage.getItem(STORAGE_KEY);
       if (stored) {
-        setSelection(JSON.parse(stored));
-        return;
+        const parsed: BookingSelection = JSON.parse(stored);
+        // Discard selections that have no quoteConfig — the server rejects them.
+        // This catches stale sessionStorage entries written by legacy booking.html.
+        if (parsed.quoteConfig) {
+          setSelection(parsed);
+          return;
+        }
+        sessionStorage.removeItem(STORAGE_KEY);
       }
     } catch { /* ignore */ }
 
-    // Backward-compat: read old booking.html URL params
-    const params      = new URLSearchParams(window.location.search);
-    const urlService  = params.get('service');
-    const urlPrice    = params.get('price');
-    if (urlService) {
-      const sel: BookingSelection = { serviceName: urlService, price: Number(urlPrice) || 0 };
-      setSelection(sel);
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(sel));
+    // Legacy URL params (?service=X&price=Y) are no longer accepted because they
+    // carry no quoteConfig and the server now requires one for price authority.
+    // Silently discard the params so the user sees the calculator and generates
+    // a valid selection with server-verifiable pricing.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('service')) {
       window.history.replaceState({}, '', '/booking');
     }
   }, []);

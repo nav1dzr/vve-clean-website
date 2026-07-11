@@ -58,16 +58,23 @@ async function claimStripeEvent(supabase, eventId, eventType) {
   // status === 'processing'
   const age = Date.now() - new Date(row.claimed_at).getTime();
   if (age < STALE_PROCESSING_MS) {
-    // Another Lambda is actively handling this event.
-    return { claimed: false, duplicate: true };
+    // Another Lambda is actively processing this event.
+    // Return a distinct signal so the caller returns 503 (retryable), not 200.
+    // If that Lambda crashes, Stripe will retry and eventually the stale path below
+    // re-claims the event.
+    return { claimed: false, activeProcessing: true };
   }
 
-  // Stale processing — crashed Lambda. Re-claim.
+  // Stale processing — crashed Lambda. Re-claim atomically.
+  // Include claimed_at in the WHERE clause so that two concurrent stale-recovery
+  // attempts cannot both acquire the event: the first update changes claimed_at,
+  // causing the second's WHERE to match no row.
   const { data: reclaimed } = await supabase
     .from('processed_stripe_events')
     .update({ status: 'processing', claimed_at: new Date().toISOString() })
     .eq('event_id', eventId)
     .eq('status', 'processing')
+    .eq('claimed_at', row.claimed_at)
     .select('event_id')
     .maybeSingle();
   return reclaimed ? { claimed: true } : { claimed: false, duplicate: true };
@@ -477,10 +484,21 @@ export default async function handler(req, res) {
       const claim = await claimStripeEvent(supabase, event.id, event.type);
 
       if (claim.duplicate) {
-        console.log('[webhook] duplicate event', event.id,
-          '— already completed or actively processing; returning 200');
+        // status was 'completed' — safe to deduplicate.
+        console.log('[webhook] duplicate event', event.id, '— already completed; returning 200');
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ received: true }));
+      }
+
+      if (claim.activeProcessing) {
+        // Another Lambda is actively handling this event (recent 'processing' status).
+        // Returning 503 tells Stripe to retry. If that Lambda succeeds it will mark
+        // the event 'completed' and the next retry deduplicates cleanly.
+        // If it crashes, the stale-recovery path re-claims after STALE_PROCESSING_MS.
+        console.log('[webhook] event', event.id,
+          '— actively processing by another invocation; returning 503 for Stripe retry');
+        res.writeHead(503, { 'Retry-After': '30' });
+        return res.end('Event processing in progress — Stripe will retry');
       }
 
       if (claim.claimed) {
@@ -539,6 +557,15 @@ export default async function handler(req, res) {
 
       console.log('[webhook] Booking upserted to Supabase — ref:', bookingRef, '| session:', session.id);
       dbPersisted = true;
+
+      // Mark the event completed here — immediately after durable persistence.
+      // This means a notification failure will NOT cause Stripe to retry the webhook
+      // (which would risk double-sending confirmed channels). Failed notifications
+      // are recoverable by querying bookings WHERE telegram_sent=false etc.
+      if (eventClaimed) {
+        await markEventCompleted(supabase, event.id);
+        console.log('[webhook] event', event.id, 'marked completed (booking durable)');
+      }
 
       // Attribution — in its own try/catch so column absence never breaks the webhook.
       if (meta.last_source || meta.offer_code) {
@@ -660,24 +687,22 @@ export default async function handler(req, res) {
   }
 
   // ── Update notification status in Supabase ─────────────────────────────────
+  // Only write fields that succeeded this invocation. Never write false over an
+  // existing true — if a prior invocation sent telegram and this one skipped it,
+  // the prior true must be preserved.
   if (supabase && dbPersisted) {
-    try {
-      await supabase.from('bookings')
-        .update(notifStatus)
-        .eq('stripe_session_id', session.id);
-    } catch (nsErr) {
-      console.warn('[webhook] Notification status update failed (non-critical):', nsErr.message);
+    const successFields = Object.fromEntries(
+      Object.entries(notifStatus).filter(([, v]) => v),
+    );
+    if (Object.keys(successFields).length > 0) {
+      try {
+        await supabase.from('bookings')
+          .update(successFields)
+          .eq('stripe_session_id', session.id);
+      } catch (nsErr) {
+        console.warn('[webhook] Notification status update failed (non-critical):', nsErr.message);
+      }
     }
-  }
-
-  // ── Mark event completed — only now is it safe to deduplicate ───────────────
-  // Marking 'completed' here (after persistence AND notifications) means a retry
-  // that arrives while this Lambda is still running will also attempt processing.
-  // The UNIQUE constraint ensures only one attempt can claim 'processing' at a time,
-  // so concurrent deliveries cannot both send notifications.
-  if (supabase && eventClaimed) {
-    await markEventCompleted(supabase, event.id);
-    console.log('[webhook] event', event.id, 'marked completed');
   }
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
