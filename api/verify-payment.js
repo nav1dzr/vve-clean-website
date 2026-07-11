@@ -24,9 +24,9 @@ function getSupabase() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-function respond(res, paid) {
+function respond(res, paid, livemode) {
   res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-  res.end(JSON.stringify({ paid: !!paid }));
+  res.end(JSON.stringify({ paid: !!paid, livemode: livemode === true }));
 }
 
 function isValidTokenFormat(t) {
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
   const hasSid   = /^cs_(live|test)_/.test(sid);
 
   if (!hasToken && !hasSid) {
-    return respond(res, false);
+    return respond(res, false, false);
   }
 
   try {
@@ -70,15 +70,20 @@ export default async function handler(req, res) {
       }
 
       if (data) {
-        if (data.payment_status === 'paid') return respond(res, true);
+        if (data.payment_status === 'paid') {
+          // stripe_session_id was written by the server (webhook), not the client.
+          // Deriving livemode from its prefix is server-verified.
+          const livemodeFromDb = /^cs_live_/.test(data.stripe_session_id || '');
+          return respond(res, true, livemodeFromDb);
+        }
 
         // Row exists but still pending — verify via Stripe (handles webhook timing).
         const stripeId = data.stripe_session_id || (hasSid ? sid : null);
         if (stripeId && /^cs_(live|test)_/.test(stripeId)) {
           const session = await stripe.checkout.sessions.retrieve(stripeId);
-          return respond(res, session.payment_status === 'paid');
+          return respond(res, session.payment_status === 'paid', session.livemode);
         }
-        return respond(res, false);
+        return respond(res, false, false);
       }
 
       // Token not matched — fall through to sid if available.
@@ -100,28 +105,31 @@ export default async function handler(req, res) {
         }
 
         if (data) {
-          if (data.payment_status === 'paid') return respond(res, true);
+          if (data.payment_status === 'paid') {
+            const livemodeFromDb = /^cs_live_/.test(data.stripe_session_id || '');
+            return respond(res, true, livemodeFromDb);
+          }
 
           // Pending — verify via Stripe.
           const stripeId = data.stripe_session_id || sid;
           if (/^cs_(live|test)_/.test(stripeId)) {
             const session = await stripe.checkout.sessions.retrieve(stripeId);
-            return respond(res, session.payment_status === 'paid');
+            return respond(res, session.payment_status === 'paid', session.livemode);
           }
-          return respond(res, false);
+          return respond(res, false, false);
         }
       }
 
       // No Supabase row — fall back to Stripe directly (webhook not yet landed).
       console.warn('[verify-payment] no Supabase row for sid:', sid, '— Stripe direct fallback');
       const session = await stripe.checkout.sessions.retrieve(sid);
-      return respond(res, session.payment_status === 'paid');
+      return respond(res, session.payment_status === 'paid', session.livemode);
     }
 
-    return respond(res, false);
+    return respond(res, false, false);
 
   } catch (err) {
     console.error('[verify-payment] error:', err.message);
-    return respond(res, false);
+    return respond(res, false, false);
   }
 }

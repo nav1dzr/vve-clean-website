@@ -539,7 +539,7 @@
         // without charging the conversion budget.
         var PROD_HOSTNAME  = "www.vveclean.co.uk";
         var isProductionHost = window.location.hostname === PROD_HOSTNAME;
-        var isLiveSession    = /^cs_live_/.test(sid);
+        var isLiveSession    = data.livemode === true;
 
         if (!isProductionHost || !isLiveSession) {
           var reason = !isProductionHost
