@@ -1,15 +1,24 @@
 // Read-only booking details for confirmation.html.
-// Called on page load to populate display fields (name, service, price, date).
-// Also returns paid: true/false so the caller can make decisions, but the
-// Google Ads conversion uses /api/verify-payment separately per the existing flow.
+// Called on page load (with retry) to populate display fields.
 //
-// GET /api/confirmation-details?ref=<booking_ref_or_stripe_session_id>
-// Response: { paid, bookingRef, name, email, service, price, date }
+// GET /api/confirmation-details?ref=<booking_ref>&token=<confirmation_token>&sid=<stripe_session_id>
+//
+// Lookup priority:
+//  1. token provided → query Supabase WHERE booking_ref = ref AND confirmation_token = token
+//  2. sid provided (Stripe session ID) → query Supabase WHERE stripe_session_id = sid;
+//     fall back to Stripe direct when row is missing (handles timing / missing DB).
+//  3. Neither token nor sid → { paid: false }  (generic — does not reveal whether ref exists)
+//
+// The booking_ref alone is NOT sufficient for lookup — it is guessable (POSTCODE+DDMMYY).
+// Requiring a token prevents enumeration of booking details by guessing references.
 
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
 export const config = { api: { bodyParser: false } };
+
+// Only expose these fields to the confirmation page — never return raw notes or full address.
+const SAFE_SELECT = 'full_name, email, service, preferred_date, payment_status, stripe_session_id';
 
 function getSupabase() {
   const url = process.env.VITE_SUPABASE_URL;
@@ -23,73 +32,161 @@ function ok(res, data) {
   res.end(JSON.stringify(data));
 }
 
+// Map a Stripe session to the standard response shape.
+function fromStripeSession(session, overrideRef) {
+  const meta = session.metadata || {};
+  return {
+    paid:       session.payment_status === 'paid',
+    bookingRef: overrideRef || meta.booking_ref || session.id,
+    name:       meta.fullName || '',
+    service:    meta.service  || '',
+    price:      meta.price    || '',
+    date:       meta.date     || '',
+  };
+}
+
+// Validate that a token looks like a 64-char hex string (basic sanity / abuse guard).
+function isValidTokenFormat(t) {
+  return typeof t === 'string' && /^[0-9a-f]{64}$/.test(t);
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.writeHead(405);
     return res.end();
   }
 
-  const ref = new URL(req.url, 'https://x').searchParams.get('ref') || '';
+  const params = new URL(req.url, 'https://x').searchParams;
+  const ref    = params.get('ref')   || '';
+  const token  = params.get('token') || '';
+  const sid    = params.get('sid')   || '';
 
-  if (!ref) return ok(res, { paid: false });
+  // Must have a token or a Stripe session ID — ref alone is not enough.
+  const hasToken = isValidTokenFormat(token);
+  const hasSid   = /^cs_(live|test)_/.test(sid);
+
+  if (!hasToken && !hasSid) {
+    // Generic response — do not reveal whether the booking exists.
+    return ok(res, { paid: false });
+  }
 
   try {
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-    // ── Case 1: Stripe checkout session ID ───────────────────────────────
-    if (/^cs_(live|test)_/.test(ref)) {
-      const session = await stripe.checkout.sessions.retrieve(ref);
-      const meta    = session.metadata || {};
-      return ok(res, {
-        paid:       session.payment_status === 'paid',
-        bookingRef: meta.booking_ref || ref,
-        name:       meta.fullName || '',
-        email:      meta.email    || '',
-        service:    meta.service  || '',
-        price:      meta.price    || '',
-        date:       meta.date     || '',
-      });
-    }
-
-    // ── Case 2: booking reference (POSTCODE+DDMMYY) ───────────────────────
+    const stripe   = new Stripe(process.env.STRIPE_SECRET_KEY);
     const supabase = getSupabase();
-    if (!supabase) return ok(res, { paid: false });
 
-    const { data } = await supabase
-      .from('bookings')
-      .select('full_name, email, service, preferred_date, payment_status, stripe_session_id')
-      .eq('booking_ref', ref)
-      .maybeSingle();
+    // ── Path A: valid confirmation token ─────────────────────────────────────
+    if (hasToken) {
+      if (!supabase) {
+        // Supabase not configured — can't verify token; fall through to Stripe sid.
+        console.warn('[confirmation-details] No Supabase, cannot verify token');
+      } else {
+        const { data, error: dbErr } = await supabase
+          .from('bookings')
+          .select(SAFE_SELECT)
+          .eq('booking_ref', ref)
+          .eq('confirmation_token', token)
+          .maybeSingle();
 
-    if (!data) return ok(res, { paid: false });
+        if (dbErr) {
+          console.error('[confirmation-details] token lookup error — code:', dbErr.code,
+            '| message:', dbErr.message);
+        }
 
-    let paid  = data.payment_status === 'paid';
-    let price = '';
+        if (data) {
+          // Token matched — row found.
+          let paid    = data.payment_status === 'paid';
+          let price   = '';
+          let name    = data.full_name      || '';
+          let service = data.service        || '';
+          let date    = data.preferred_date || '';
 
-    // Retrieve the Stripe session to get the quote price (not stored in Supabase)
-    // and resolve webhook-timing race (pending_payment → verify via Stripe directly).
-    if (data.stripe_session_id) {
-      try {
-        const session = await stripe.checkout.sessions.retrieve(data.stripe_session_id);
-        if (!paid) paid = session.payment_status === 'paid';
-        price = (session.metadata || {}).price || '';
-      } catch (e) {
-        console.error('[confirmation-details] Stripe retrieve failed:', e.message);
+          const stripeId = data.stripe_session_id ||
+            (hasSid ? sid : null);
+
+          if (stripeId) {
+            try {
+              const session = await stripe.checkout.sessions.retrieve(stripeId);
+              const meta    = session.metadata || {};
+              if (!paid)    paid    = session.payment_status === 'paid';
+              price                 = meta.price    || '';
+              if (!name)    name    = meta.fullName || '';
+              if (!service) service = meta.service  || '';
+              if (!date)    date    = meta.date     || '';
+            } catch (e) {
+              console.error('[confirmation-details] Stripe retrieve failed:', e.message);
+            }
+          }
+
+          return ok(res, { paid, bookingRef: ref, name, service, price, date });
+        }
+
+        // Token not matched — could be a tampered token or pre-migration booking.
+        // Fall through to Stripe sid if available.
+        console.warn('[confirmation-details] token lookup: no match for ref/token pair');
       }
     }
 
-    return ok(res, {
-      paid,
-      bookingRef: ref,
-      name:    data.full_name      || '',
-      email:   data.email          || '',
-      service: data.service        || '',
-      price,
-      date:    data.preferred_date || '',
-    });
+    // ── Path B: Stripe session ID (no token, or token lookup failed) ─────────
+    if (hasSid) {
+      // First try Supabase by stripe_session_id (avoids Stripe API call when row exists).
+      if (supabase) {
+        const { data, error: dbErr } = await supabase
+          .from('bookings')
+          .select(SAFE_SELECT)
+          .eq('stripe_session_id', sid)
+          .maybeSingle();
+
+        if (dbErr) {
+          console.error('[confirmation-details] sid lookup error — code:', dbErr.code,
+            '| message:', dbErr.message);
+        }
+
+        if (data) {
+          let paid    = data.payment_status === 'paid';
+          let price   = '';
+          let name    = data.full_name      || '';
+          let service = data.service        || '';
+          let date    = data.preferred_date || '';
+
+          try {
+            const session = await stripe.checkout.sessions.retrieve(sid);
+            const meta    = session.metadata || {};
+            if (!paid)    paid    = session.payment_status === 'paid';
+            price                 = meta.price    || '';
+            if (!name)    name    = meta.fullName || '';
+            if (!service) service = meta.service  || '';
+            if (!date)    date    = meta.date     || '';
+          } catch (e) {
+            console.error('[confirmation-details] Stripe retrieve failed:', e.message);
+          }
+
+          return ok(res, {
+            paid,
+            bookingRef: data.booking_ref || ref,
+            name,
+            service,
+            price,
+            date,
+          });
+        }
+      }
+
+      // Supabase row missing or unavailable — fall back to Stripe directly.
+      // This handles: webhook not yet landed, initial insert failed, Supabase unconfigured.
+      console.warn('[confirmation-details] no Supabase row for sid:', sid,
+        '— using Stripe direct fallback');
+      try {
+        const session = await stripe.checkout.sessions.retrieve(sid);
+        return ok(res, fromStripeSession(session, ref));
+      } catch (e) {
+        console.error('[confirmation-details] Stripe direct fallback failed:', e.message);
+      }
+    }
+
+    return ok(res, { paid: false });
 
   } catch (err) {
-    console.error('[confirmation-details] error:', err.message);
+    console.error('[confirmation-details] unexpected error:', err.message);
     return ok(res, { paid: false });
   }
 }

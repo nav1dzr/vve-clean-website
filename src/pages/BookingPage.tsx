@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import QuoteCalculator, { type BookingSelection } from '../components/QuoteCalculator';
+import { getAttribution } from '../lib/attribution';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,9 @@ function ServiceCard({ selection, onChangeService }: {
   onChangeService: () => void;
 }) {
   const remaining = selection.price > DEPOSIT ? selection.price - DEPOSIT : 0;
+  const hasOffer  = !!selection.offerCode && (selection.discountAmount ?? 0) > 0;
+  const isLeaflet = selection.offerCode === 'LEAFLET20';
+
   return (
     <div className="bg-white border border-[#E3E7EE] rounded-2xl shadow-sm overflow-hidden mb-5">
       <div className="flex items-center justify-between px-5 py-4 gap-3">
@@ -63,9 +67,16 @@ function ServiceCard({ selection, onChangeService }: {
               Selected service
             </div>
             <div className="text-navy-900 font-bold text-sm leading-tight truncate">{selection.serviceName}</div>
-            <div className="font-bold mt-0.5" style={{ color: '#0ea5e9', fontSize: '1.1rem' }}>
-              {money(selection.price)}
-            </div>
+            {hasOffer && selection.standardPrice ? (
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="line-through text-silver-400 text-sm">{money(selection.standardPrice)}</span>
+                <span className="font-bold" style={{ color: '#16a34a', fontSize: '1.1rem' }}>{money(selection.price)}</span>
+              </div>
+            ) : (
+              <div className="font-bold mt-0.5" style={{ color: '#0ea5e9', fontSize: '1.1rem' }}>
+                {money(selection.price)}
+              </div>
+            )}
           </div>
         </div>
         <button type="button" onClick={onChangeService}
@@ -74,6 +85,29 @@ function ServiceCard({ selection, onChangeService }: {
           Change service
         </button>
       </div>
+
+      {/* Offer breakdown */}
+      {hasOffer && (
+        <div className="px-5 py-3 border-t border-[#E3E7EE] space-y-1" style={{ background: '#f0fdf4' }}>
+          <div className="flex justify-between text-xs text-silver-600">
+            <span>Standard price</span>
+            <span className="line-through">{money(selection.standardPrice ?? selection.price)}</span>
+          </div>
+          <div className="flex justify-between text-xs font-semibold text-green-700">
+            <span>
+              {isLeaflet
+                ? `Leaflet discount ${selection.discountPercent ?? 20}%`
+                : `Bundle saving ${selection.discountPercent ?? 0}%`}
+            </span>
+            <span>−{money(selection.discountAmount ?? 0)}</span>
+          </div>
+          <div className="flex justify-between text-xs font-bold text-navy-900 border-t border-green-200 pt-1 mt-1">
+            <span>Your price</span>
+            <span>{money(selection.price)}</span>
+          </div>
+        </div>
+      )}
+
       {remaining > 0 && (
         <div className="px-5 py-2.5 border-t border-[#E3E7EE]" style={{ background: '#F7F8FA' }}>
           <span className="text-xs text-silver-600">
@@ -178,6 +212,7 @@ export default function BookingPage() {
     setSubmitting(true);
     setSubmitError('');
 
+    const attribution = getAttribution();
     const payload = {
       service:     selection.serviceName,
       price:       selection.price,
@@ -191,6 +226,23 @@ export default function BookingPage() {
       date:        form.date,
       time:        form.time,
       message:     form.message.trim(),
+      // Offer data (present when a discount was applied)
+      ...(selection.offerCode ? {
+        offer_code:                 selection.offerCode,
+        discount_percent:           selection.discountPercent ?? null,
+        standard_total:             selection.standardPrice ?? null,
+        discount_amount:            selection.discountAmount ?? null,
+        final_total_after_discount: selection.price,
+      } : {}),
+      // Attribution
+      first_source: attribution.first_source,
+      last_source:  attribution.last_source,
+      landing_page: attribution.landing_page,
+      utm_source:   attribution.utm_source,
+      utm_medium:   attribution.utm_medium,
+      utm_campaign: attribution.utm_campaign,
+      utm_content:  attribution.utm_content,
+      gclid:        attribution.gclid,
     };
 
     try {

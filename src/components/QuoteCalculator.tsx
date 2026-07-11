@@ -69,8 +69,13 @@ const addOnDefs = [
 type ServiceKey = 'deep' | 'window' | 'gutter' | 'office';
 
 export interface BookingSelection {
-  serviceName: string;
-  price:       number;
+  serviceName:     string;
+  price:           number;
+  // Offer/promo data (present when a discount was applied)
+  offerCode?:      string;   // e.g. 'LEAFLET20' or 'BUNDLE'
+  standardPrice?:  number;   // pre-discount price for display
+  discountAmount?: number;   // £ saved
+  discountPercent?: number;  // percentage
   quoteConfig?: {
     service:          ServiceKey;
     deepService:      DeepServiceType;
@@ -87,7 +92,8 @@ export interface BookingSelection {
 }
 
 interface Props {
-  onBook?: (sel: BookingSelection) => void;
+  onBook?:    (sel: BookingSelection) => void;
+  promoCode?: string;
 }
 
 // ─── Shared counter widget ────────────────────────────────────────────────────
@@ -122,7 +128,7 @@ function Counter({
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function QuoteCalculator({ onBook }: Props = {}) {
+export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
   const { ref, visible } = useReveal();
   const navigate = useNavigate();
 
@@ -149,9 +155,9 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
   const isCarpet        = deepService === 'carpet_upholstery';
   const isAfterBuilders = service === 'deep' && deepService === 'after_builders';
 
-  // Carpet price (computed only when isCarpet)
+  // Carpet price (computed only when isCarpet). promoCode enables discount (e.g. LEAFLET20).
   const carpetResult = isCarpet
-    ? computeCarpetPrice(carpetCounts, carpetCondition)
+    ? computeCarpetPrice(carpetCounts, carpetCondition, 1, promoCode)
     : null;
 
   const getAddOnPrice = (key: string): number => {
@@ -223,9 +229,13 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
         ? `~£${carpetResult?.finalTotal ?? 0} (estimate — confirmed before work starts)`
         : `£${carpetResult?.finalTotal ?? 0}`;
       const carpetBundle = carpetResult?.bundle;
-      const bundleSummaryText = (carpetBundle?.saving ?? 0) > 0
-        ? `• Items subtotal: £${carpetBundle!.preDiscount}\n• Same-visit bundle saving: −£${carpetBundle!.saving}\n`
-        : '';
+      const bundleSummaryText = (() => {
+        if ((carpetBundle?.saving ?? 0) === 0) return '';
+        const label = carpetBundle!.source === 'promo' && promoCode
+          ? `Leaflet offer (${carpetBundle!.pct}% off)`
+          : 'Same-visit bundle saving';
+        return `• Items subtotal: £${carpetBundle!.preDiscount}\n• ${label}: −£${carpetBundle!.saving}\n`;
+      })();
       const msg =
         `Hello VVE Clean, I would like to book carpet & upholstery cleaning:\n` +
         `• Condition: ${condLabel}\n` +
@@ -292,9 +302,17 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
   })();
 
   const handleBookNow = () => {
+    const bundle = carpetResult?.bundle;
+    const hasDiscount = (bundle?.saving ?? 0) > 0;
     const sel: BookingSelection = {
       serviceName: bookingServiceName,
       price:       Math.round(price),
+      ...(hasDiscount ? {
+        offerCode:      bundle!.source === 'promo' ? (promoCode ?? 'PROMO') : 'BUNDLE',
+        standardPrice:  bundle!.preDiscount,
+        discountAmount: bundle!.saving,
+        discountPercent: bundle!.pct,
+      } : {}),
       quoteConfig: {
         service, deepService, deepSize, deepBaths, addOnCounts,
         windowSize, gutterType, officeHours,
@@ -466,10 +484,12 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
                         </div>
                       ))}
 
-                      {/* Bundle savings info */}
-                      <p className="text-xs text-silver-500 leading-relaxed px-1">
-                        Book items together and save automatically — 5% over £200, 10% over £300, 12% over £400.
-                      </p>
+                      {/* Bundle savings info — hidden when a promo code already gives a better saving */}
+                      {!promoCode && (
+                        <p className="text-xs text-silver-700 leading-relaxed px-1">
+                          Book items together and save automatically — 5% over £200, 10% over £300, 12% over £400.
+                        </p>
+                      )}
                     </>
                   )}
 
@@ -672,7 +692,7 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
                       {/* Bundle discount: original price with strikethrough */}
                       {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
                         <div className="text-center mb-1">
-                          <span className="line-through text-silver-400 text-lg">£{carpetResult!.bundle.preDiscount}</span>
+                          <span className="line-through text-silver-600 text-lg">£{carpetResult!.bundle.preDiscount}</span>
                         </div>
                       )}
 
@@ -683,7 +703,9 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
                         </div>
                         {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
                           <div className="mt-1.5 inline-flex items-center gap-1.5 bg-green-100 border border-green-300 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">
-                            Same-visit bundle saving — you save £{carpetResult!.bundle.saving}
+                            {carpetResult!.bundle.source === 'promo'
+                              ? `Leaflet offer — you save £${carpetResult!.bundle.saving}`
+                              : `Same-visit bundle saving — you save £${carpetResult!.bundle.saving}`}
                           </div>
                         )}
                         {isCarpet && carpetResult?.minApplied && (
@@ -693,8 +715,8 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
                         )}
                       </div>
 
-                      {/* Next-tier nudge */}
-                      {isCarpet && (carpetResult?.bundle.toNextTier ?? 0) > 0 && (
+                      {/* Next-tier nudge — hidden when a promo already beats all tiers */}
+                      {isCarpet && (carpetResult?.bundle.toNextTier ?? 0) > 0 && carpetResult!.bundle.source !== 'promo' && (
                         <div className="text-center text-xs font-medium mt-1.5" style={{ color: '#1e6b42' }}>
                           Add £{carpetResult!.bundle.toNextTier} more to unlock {carpetResult!.bundle.nextTierPct}% off
                         </div>
@@ -711,7 +733,7 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
                                   <span className="font-bold line-through opacity-60">£{carpetResult!.bundle.preDiscount}</span>
                                 </div>
                                 <div className="flex justify-between text-green-700">
-                                  <span>Bundle saving</span>
+                                  <span>{carpetResult!.bundle.source === 'promo' ? 'Leaflet offer' : 'Bundle saving'}</span>
                                   <span className="font-bold">−£{carpetResult!.bundle.saving}</span>
                                 </div>
                               </>
@@ -823,7 +845,7 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
               </div>
               {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
                 <div className="text-green-400 text-xs font-semibold mb-1">
-                  Bundle saving — £{carpetResult!.bundle.saving} off
+                  {carpetResult!.bundle.source === 'promo' ? 'Leaflet offer' : 'Bundle saving'} — £{carpetResult!.bundle.saving} off
                 </div>
               )}
               {minApplied && (
@@ -874,7 +896,9 @@ export default function QuoteCalculator({ onBook }: Props = {}) {
                       )}
                       {carpetResult!.bundle.saving > 0 && (
                         <div className="flex justify-between text-xs">
-                          <span className="text-green-300">Bundle saving</span>
+                          <span className="text-green-300">
+                            {carpetResult!.bundle.source === 'promo' ? 'Leaflet offer' : 'Bundle saving'}
+                          </span>
                           <span className="text-green-300 font-semibold">−£{carpetResult!.bundle.saving}</span>
                         </div>
                       )}

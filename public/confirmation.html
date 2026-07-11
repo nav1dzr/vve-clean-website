@@ -284,6 +284,11 @@
     <span>A confirmation email has been sent to <strong id="contact">you</strong>. Check your spam folder if you don't see it within a few minutes.</span>
   </div>
 
+  <!-- Booking-details loading indicator (hidden once details arrive) -->
+  <p class="lede" id="details-loading" style="font-size:13px;color:var(--muted);margin-bottom:14px;text-align:center">
+    Confirming your booking details&hellip;
+  </p>
+
   <!-- What happens next -->
   <div class="next-card">
     <p class="next-title">What happens next</p>
@@ -350,89 +355,204 @@
 </footer>
 
 <script>
-  const p   = new URLSearchParams(location.search);
-  const set = (id, v, fallback) => {
-    const el = document.getElementById(id);
+  // ── URL params ──────────────────────────────────────────────────────────
+  // ref   = booking reference (POSTCODE+DDMMYY) — display only
+  // token = server-generated 64-char hex token — required for API lookup
+  // sid   = Stripe session ID — fallback when token is missing (legacy bookings)
+  var p     = new URLSearchParams(location.search);
+  var ref   = p.get("ref")   || "";
+  var token = p.get("token") || "";
+  var sid   = p.get("sid")   || "";
+
+  // ── Helpers ─────────────────────────────────────────────────────────────
+  function set(id, v, fallback) {
+    var el = document.getElementById(id);
     if (!el) return;
     el.textContent = v || (fallback !== undefined ? fallback : el.textContent);
-  };
-
-  // ref is the only param Stripe puts in the URL — show it immediately.
-  const ref = p.get("ref") || "";
-  set("ref", ref, "—");
-
-  // WhatsApp link uses ref from URL — set immediately, no API wait needed.
-  const WHATSAPP_NUMBER = "447845451111";
-  const waText = ref
-    ? `Hi VVE Clean, my booking reference is ${ref}. I have a question about my booking.`
-    : "Hi VVE Clean, I'd like to ask about my booking.";
-  document.getElementById("wa").href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(waText)}`;
-
-  // Fetch booking details securely from server — no PII in the URL.
-  if (ref) {
-    fetch('/api/confirmation-details?ref=' + encodeURIComponent(ref))
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        set("name",    d.name,              "there");
-        set("contact", d.email || "",       "you");
-        set("service", d.service,           "—");
-        set("ref",     d.bookingRef || ref, "—");
-
-        var priceRaw = String(d.price || '');
-        set("price", priceRaw ? "£" + priceRaw : null, "—");
-
-        var priceNum  = Number(priceRaw) || 0;
-        var remaining = priceNum > 30 ? priceNum - 30 : 0;
-        set("remaining", priceNum ? "£" + remaining.toLocaleString("en-GB") + " (due on the day)" : null, "To be confirmed");
-
-        if (d.date) {
-          var dt        = new Date(d.date + "T12:00:00");
-          var formatted = isNaN(dt) ? d.date : dt.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-          set("date", formatted, "To be arranged");
-        }
-      })
-      .catch(function () {}); // silently ignore — page still works with dashes
   }
 
-  // ── Google Ads conversion — "Booking Deposit Paid" ──────────────────────
-  // Server-verified: /api/verify-payment confirms Stripe payment is paid.
-  // Fires once per transaction; localStorage prevents re-fire on refresh.
+  function hideLoadingIndicator() {
+    var el = document.getElementById("details-loading");
+    if (el) el.style.display = "none";
+  }
+
+  // Build query string for API calls — always includes ref, token, and sid.
+  function apiQs(base) {
+    var qs = "?ref=" + encodeURIComponent(ref);
+    if (token) qs += "&token=" + encodeURIComponent(token);
+    if (sid)   qs += "&sid="   + encodeURIComponent(sid);
+    return base + qs;
+  }
+
+  // ── Show booking reference immediately from URL ──────────────────────────
+  set("ref", ref, "—");
+
+  // ── WhatsApp link ────────────────────────────────────────────────────────
+  var WHATSAPP_NUMBER = "447845451111";
+  var waText = ref
+    ? "Hi VVE Clean, my booking reference is " + ref + ". I have a question about my booking."
+    : "Hi VVE Clean, I'd like to ask about my booking.";
+  document.getElementById("wa").href =
+    "https://wa.me/" + WHATSAPP_NUMBER + "?text=" + encodeURIComponent(waText);
+
+  // ── Populate details from API response ───────────────────────────────────
+  function populateDetails(d) {
+    set("name",    d.name,              "there");
+    set("contact", d.email || "",       "you");
+    set("service", d.service,           "—");
+    set("ref",     d.bookingRef || ref, "—");
+
+    var priceRaw = String(d.price || "");
+    set("price", priceRaw ? "£" + priceRaw : null, "—");
+
+    var priceNum  = Number(priceRaw) || 0;
+    var remaining = priceNum > 30 ? priceNum - 30 : 0;
+    set("remaining",
+      priceNum ? "£" + remaining.toLocaleString("en-GB") + " (due on the day)" : null,
+      "To be confirmed");
+
+    if (d.date) {
+      var dt        = new Date(d.date + "T12:00:00");
+      var formatted = isNaN(dt.getTime())
+        ? d.date
+        : dt.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+      set("date", formatted, "To be arranged");
+    }
+
+    hideLoadingIndicator();
+  }
+
+  // ── Retry / polling for booking details ─────────────────────────────────
+  // Makes up to MAX_ATTEMPTS fetches. Backs off gently so a delayed webhook
+  // (typically arrives within 2-5 s) is caught on the 2nd or 3rd attempt.
+  // Total window ≈ 1+2+3+5+7 = 18 seconds before giving up.
+  var MAX_ATTEMPTS = 6;
+  var RETRY_DELAYS = [0, 1000, 2000, 3000, 5000, 7000];
+
+  function fetchDetails(attempt) {
+    if (!ref && !sid) { hideLoadingIndicator(); return; }
+
+    console.log("[VVE conf] confirmation-details attempt", attempt + 1, "of", MAX_ATTEMPTS);
+
+    fetch(apiQs("/api/confirmation-details"))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        console.log("[VVE conf] response:", JSON.stringify(d));
+
+        // A real response has at least one populated field beyond paid:false
+        var hasData = !!(d.bookingRef || d.name || d.service || d.price);
+        if (hasData) {
+          populateDetails(d);
+        } else if (attempt + 1 < MAX_ATTEMPTS) {
+          var delay = RETRY_DELAYS[attempt + 1] || 7000;
+          console.log("[VVE conf] no data yet — retrying in " + delay + " ms");
+          setTimeout(function () { fetchDetails(attempt + 1); }, delay);
+        } else {
+          console.warn("[VVE conf] details not available after " + MAX_ATTEMPTS + " attempts");
+          var el = document.getElementById("details-loading");
+          if (el) {
+            el.innerHTML =
+              '<em style="color:var(--muted);font-size:13px">' +
+              "Your booking is confirmed — full details will be in your confirmation email." +
+              "</em>";
+          }
+        }
+      })
+      .catch(function (err) {
+        console.error("[VVE conf] fetch error:", err);
+        if (attempt + 1 < MAX_ATTEMPTS) {
+          var delay = RETRY_DELAYS[attempt + 1] || 7000;
+          setTimeout(function () { fetchDetails(attempt + 1); }, delay);
+        } else {
+          hideLoadingIndicator();
+        }
+      });
+  }
+
+  if (ref || sid) {
+    fetchDetails(0);
+  } else {
+    hideLoadingIndicator();
+  }
+
+  // ── Conversion tracking — source-aware ──────────────────────────────────
+  // Google Ads conversion fires for normal / unknown traffic, or when a gclid is present.
+  // Leaflet-only bookings (no gclid) fire a GA4 event instead.
+  // Server-verified via /api/verify-payment before firing. localStorage deduplicates.
+  //
+  // Conversion value: £30 (actual deposit charged). The full job value is not charged
+  // at this point — the deposit is the real transaction. Use this for ROAS calculation.
   (function () {
-    console.log('[VVE conv] start | gtag:', typeof gtag, '| ref:', ref);
-    if (typeof gtag !== 'function') {
-      console.log('[VVE conv] SKIP — gtag not defined');
+    console.log("[VVE conv] start | gtag:", typeof gtag,
+      "| ref:", ref || "(none)", "| token:", token ? "present" : "none", "| sid:", sid ? "present" : "none");
+
+    if (typeof gtag !== "function") {
+      console.log("[VVE conv] SKIP — gtag not defined yet");
       return;
     }
-    var txId = ref;
+
+    // Require at least one verified identifier before attempting conversion.
+    if (!token && !sid) {
+      console.log("[VVE conv] SKIP — no token or sid in URL (cannot verify payment)");
+      return;
+    }
+
+    // Use booking ref as the conversion transaction_id (stable, human-readable, non-PII).
+    // Fall back to Stripe session ID when ref is missing.
+    var txId = ref || sid;
     if (!txId) {
-      console.log('[VVE conv] SKIP — no ref in URL');
+      console.log("[VVE conv] SKIP — no transaction identifier");
       return;
     }
-    var storageKey = 'vve_ads_conv_' + txId;
+
+    var storageKey = "vve_ads_conv_" + txId;
     if (localStorage.getItem(storageKey)) {
-      console.log('[VVE conv] SKIP — localStorage already set for key:', storageKey, '(clear it in DevTools → Application → Local Storage to re-test)');
+      console.log("[VVE conv] SKIP — already fired (localStorage key:", storageKey + ").",
+        "Clear DevTools → Application → Local Storage to re-test.");
       return;
     }
-    console.log('[VVE conv] calling verify-payment...');
-    fetch('/api/verify-payment?ref=' + encodeURIComponent(txId))
+
+    var lastSource  = localStorage.getItem("vve_last_source")  || "";
+    var storedGclid = localStorage.getItem("vve_gclid")        || "";
+    var isLeaflet   = lastSource === "leaflet";
+    var hasGclid    = storedGclid.length > 0;
+
+    console.log("[VVE conv] last_source:", lastSource || "(none)", "| gclid:", hasGclid ? "present" : "none");
+    console.log("[VVE conv] calling verify-payment with txId:", txId);
+
+    fetch(apiQs("/api/verify-payment"))
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        console.log('[VVE conv] verify-payment response:', data);
+        console.log("[VVE conv] verify-payment response:", data);
+
         if (!data.paid) {
-          console.log('[VVE conv] SKIP — paid:false');
+          console.log("[VVE conv] SKIP — paid:false");
           return;
         }
-        console.log('[VVE conv] FIRING conversion event');
-        gtag('event', 'conversion', {
-          send_to:        'AW-18214693277/hUwdCK68gswcEI3TuO1D',
-          value:          30.0,
-          currency:       'GBP',
-          transaction_id: txId,
-        });
-        localStorage.setItem(storageKey, '1');
-        console.log('[VVE conv] done — localStorage set');
+
+        if (isLeaflet && !hasGclid) {
+          // Leaflet booking with no Google click — fire GA4 event only (not Google Ads)
+          console.log("[VVE conv] Leaflet (no gclid) — firing GA4 leaflet_booking_completed");
+          gtag("event", "leaflet_booking_completed", {
+            transaction_id: txId,
+            value:          30.0,
+            currency:       "GBP",
+          });
+        } else {
+          // Standard flow — fire Google Ads conversion
+          console.log("[VVE conv] FIRING Google Ads conversion | send_to: AW-18214693277/hUwdCK68gswcEI3TuO1D");
+          gtag("event", "conversion", {
+            send_to:        "AW-18214693277/hUwdCK68gswcEI3TuO1D",
+            value:          30.0,
+            currency:       "GBP",
+            transaction_id: txId,
+          });
+        }
+
+        localStorage.setItem(storageKey, "1");
+        console.log("[VVE conv] done — localStorage key set:", storageKey);
       })
-      .catch(function (err) { console.error('[VVE conv] fetch error:', err); });
+      .catch(function (err) { console.error("[VVE conv] fetch error:", err); });
   }());
 </script>
 </body>

@@ -11,8 +11,10 @@ const BUNDLE_TIERS = [
 ] as const;
 const MAX_BUNDLE_SAVING = 60;
 
-// Future promo codes: add entries here as { pct: number }
-const PROMO_CODES: Record<string, number> = {};
+// Promo codes: key → discount percentage
+const PROMO_CODES: Record<string, number> = {
+  LEAFLET20: 20,
+};
 
 export interface BundleInfo {
   pct:         number;              // discount percentage applied (0 if none)

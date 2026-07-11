@@ -36,12 +36,43 @@ function escHtml(v) {
 }
 
 function telegramText(meta, bookingRef) {
-  const location = [meta.address, meta.postcode].filter(Boolean).join(', ') || '—';
-  const datetime = meta.date
+  const isLeaflet = meta.last_source === 'leaflet' || meta.offer_code === 'LEAFLET20';
+  const location  = [meta.address, meta.postcode].filter(Boolean).join(', ') || '—';
+  const datetime  = meta.date
     ? `${meta.date}${meta.time ? ' · ' + meta.time : ''}`
     : 'TBC';
+
+  const priceNum    = Number(meta.price)           || 0;
+  const stdTotal    = Number(meta.standard_total)  || 0;
+  const discountAmt = Number(meta.discount_amount) || 0;
+  const balance     = Math.max(0, priceNum - 30);
+
+  const priceLines = isLeaflet && stdTotal > 0
+    ? [
+        `💷 <b>Standard price:</b> £${stdTotal}`,
+        `🏷️ <b>Leaflet discount 20%:</b> −£${discountAmt}`,
+        `✅ <b>Final total:</b> £${priceNum}`,
+        `💳 <b>Deposit paid:</b> £30`,
+        `🕐 <b>Balance after clean:</b> £${balance}`,
+      ]
+    : [
+        `💷 <b>Price:</b> £${priceNum || '—'}`,
+        `💳 <b>Deposit paid:</b> £30`,
+      ];
+
+  const sourceLines = isLeaflet
+    ? [
+        '',
+        `📍 <b>Source:</b> Leaflet`,
+        `🎟️ <b>Offer:</b> LEAFLET20`,
+        `🔗 <b>Landing page:</b> /leaflet`,
+      ]
+    : meta.last_source
+      ? [`📍 <b>Source:</b> ${escHtml(meta.last_source)}`]
+      : [];
+
   return [
-    '🔔 <b>New Booking — VVE Clean</b>',
+    isLeaflet ? '🚨 <b>NEW LEAFLET BOOKING</b>' : '🔔 <b>New Booking — VVE Clean</b>',
     '',
     `📋 <b>Ref:</b> <code>${escHtml(bookingRef)}</code>`,
     `👤 <b>Name:</b> ${escHtml(meta.fullName)}`,
@@ -50,15 +81,14 @@ function telegramText(meta, bookingRef) {
     `🏠 <b>Address:</b> ${escHtml(location)}`,
     `🧹 <b>Service:</b> ${escHtml(meta.service)}`,
     `📅 <b>Date/Time:</b> ${escHtml(datetime)}`,
-    `💷 <b>Deposit paid:</b> £30`,
+    ...priceLines,
+    ...sourceLines,
   ].join('\n');
 }
 
 // Google Apps Script POST flow:
 //   1. POST /exec  → script runs → 302 to /echo?...
 //   2. GET  /echo  → returns the ContentService JSON output
-// fetch() auto-converts POST→GET on 302 but ends up hitting doGet (undefined).
-// We POST manually, then follow the redirect as GET.
 function httpsGet(urlStr, hops = 0) {
   return new Promise((resolve, reject) => {
     if (hops > 5) return reject(new Error('Too many redirects'));
@@ -286,7 +316,6 @@ export default async function handler(req, res) {
     return res.end('Method not allowed');
   }
 
-  // ── Guard: env vars ──────────────────────────────────────────────────────
   if (!process.env.STRIPE_SECRET_KEY) {
     console.error('[webhook] STRIPE_SECRET_KEY is not set');
     res.writeHead(500);
@@ -298,7 +327,6 @@ export default async function handler(req, res) {
     return res.end('Server misconfiguration: missing webhook secret');
   }
 
-  // ── Lazy Stripe init ─────────────────────────────────────────────────────
   let stripe;
   try {
     stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -308,10 +336,10 @@ export default async function handler(req, res) {
     return res.end('Stripe init failed');
   }
 
-  // ── Read + verify signature ──────────────────────────────────────────────
+  // ── Read + verify signature ──────────────────────────────────────────────────
   const sig = req.headers['stripe-signature'];
   if (!sig) {
-    console.error('[webhook] No stripe-signature header present');
+    console.error('[webhook] No stripe-signature header');
     res.writeHead(400);
     return res.end('Missing Stripe signature');
   }
@@ -322,15 +350,14 @@ export default async function handler(req, res) {
   let event;
   try {
     event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
-    console.log('[webhook] signature verified — event type:', event.type, '| id:', event.id);
+    console.log('[webhook] signature verified — event type:', event.type, '| event id:', event.id);
   } catch (err) {
     console.error('[webhook] Signature verification FAILED:', err.message);
-    console.error('[webhook] Check STRIPE_WEBHOOK_SECRET matches the endpoint signing secret in Stripe Dashboard');
     res.writeHead(400);
     return res.end(`Webhook Error: ${err.message}`);
   }
 
-  // ── Only act on completed payments ──────────────────────────────────────
+  // ── Ignore non-payment events ───────────────────────────────────────────────
   if (event.type !== 'checkout.session.completed') {
     console.log('[webhook] ignoring event:', event.type);
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -339,20 +366,49 @@ export default async function handler(req, res) {
 
   const session    = event.data.object;
   const meta       = session.metadata || {};
-  // Use the human-readable ref stored in metadata; fall back to session ID for old sessions.
   const bookingRef = meta.booking_ref || session.id;
 
-  console.log('[webhook] payment completed — ref:', bookingRef);
-  console.log('[webhook] customer:', meta.fullName, '| service:', meta.service);
-  console.log('[webhook] email:', meta.email || '(none)', '| phone:', meta.phone || '(none)');
-  console.log('[webhook] payment_status:', session.payment_status);
+  console.log('[webhook] payment completed — ref:', bookingRef,
+    '| session:', session.id, '| payment_status:', session.payment_status);
 
-  // ── Update booking in Supabase ───────────────────────────────────────────
-  // Upsert so this works even if the initial pending_payment insert failed.
-  // Runs before emails/Telegram so data is safe even if notifications fail.
+  // ── Idempotency check — must happen before any side effects ─────────────────
+  // Insert the event ID into processed_stripe_events. If the UNIQUE constraint
+  // rejects the insert (duplicate delivery), return 200 immediately — all side
+  // effects already ran for this event.
   const supabase = getSupabase();
+
+  if (supabase) {
+    try {
+      const { error: dupErr } = await supabase
+        .from('processed_stripe_events')
+        .insert({ event_id: event.id, event_type: event.type });
+
+      if (dupErr) {
+        if (dupErr.code === '23505') {
+          // Unique-violation — event already processed (duplicate delivery from Stripe)
+          console.log('[webhook] duplicate event', event.id, '— already processed, returning 200');
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ received: true }));
+        }
+        // Non-unique error (e.g. table not yet migrated) — log and continue
+        console.warn('[webhook] processed_stripe_events insert error:', dupErr.code, dupErr.message,
+          '— proceeding without idempotency guard');
+      } else {
+        console.log('[webhook] event', event.id, 'marked as in-progress');
+      }
+    } catch (idempEx) {
+      console.warn('[webhook] idempotency check failed:', idempEx.message, '— proceeding');
+    }
+  }
+
+  // ── Persist booking to Supabase (MUST succeed before notifications) ─────────
+  // Upsert on stripe_session_id so this is safe even if the initial insert failed.
+  let dbPersisted = false;
+
   if (!supabase) {
-    console.log('[webhook] SUPABASE_SERVICE_ROLE_KEY not set — skipping DB update');
+    console.warn('[webhook] Supabase not configured — booking will not be persisted to DB');
+    // Allow notifications in no-DB (dev/fallback) mode — booking data comes from Stripe metadata.
+    dbPersisted = true;
   } else {
     try {
       const { error: dbErr } = await supabase.from('bookings').upsert(
@@ -375,17 +431,66 @@ export default async function handler(req, res) {
         },
         { onConflict: 'stripe_session_id' },
       );
+
       if (dbErr) {
-        console.error('[webhook] Supabase upsert error — code:', dbErr.code, '| message:', dbErr.message);
-      } else {
-        console.log('[webhook] Booking updated to paid in Supabase — ref:', bookingRef, '| session:', session.id);
+        // Return 500 so Stripe retries. Do NOT send notifications — data is not durable yet.
+        console.error('[webhook] Supabase upsert FAILED — code:', dbErr.code,
+          '| message:', dbErr.message,
+          '| returning 500 for Stripe retry');
+        res.writeHead(500);
+        return res.end('DB persistence failed — Stripe will retry');
+      }
+
+      console.log('[webhook] Booking upserted to Supabase — ref:', bookingRef, '| session:', session.id);
+      dbPersisted = true;
+
+      // Attribution — in its own try/catch so column absence never breaks the webhook.
+      if (meta.last_source || meta.offer_code) {
+        try {
+          const { error: attrErr } = await supabase.from('bookings').update({
+            offer_code:                 meta.offer_code                 || null,
+            discount_percent:           meta.discount_percent           ? Number(meta.discount_percent)           : null,
+            standard_total:             meta.standard_total             ? Number(meta.standard_total)             : null,
+            discount_amount:            meta.discount_amount            ? Number(meta.discount_amount)            : null,
+            final_total_after_discount: meta.final_total_after_discount ? Number(meta.final_total_after_discount) : null,
+            first_source:               meta.first_source               || null,
+            last_source:                meta.last_source                || null,
+            landing_page:               meta.landing_page               || null,
+            utm_source:                 meta.utm_source                 || null,
+            utm_medium:                 meta.utm_medium                 || null,
+            utm_campaign:               meta.utm_campaign               || null,
+            utm_content:                meta.utm_content                || null,
+            gclid:                      meta.gclid                      || null,
+          }).eq('stripe_session_id', session.id);
+          if (attrErr) {
+            console.warn('[webhook] Attribution update skipped:', attrErr.code, attrErr.message);
+          } else {
+            console.log('[webhook] Attribution saved');
+          }
+        } catch (attrEx) {
+          console.warn('[webhook] Attribution update error:', attrEx.message);
+        }
       }
     } catch (dbEx) {
-      console.error('[webhook] Supabase unexpected error:', dbEx.message);
+      console.error('[webhook] Supabase unexpected error:', dbEx.message,
+        '| returning 500 for Stripe retry');
+      res.writeHead(500);
+      return res.end('DB unexpected error — Stripe will retry');
     }
   }
 
-  // ── Email env var check ──────────────────────────────────────────────────
+  // ── Notifications — only after booking is durably stored ────────────────────
+  // Each notification is independent. One failure does not prevent others.
+  // We track notification status back to Supabase where columns are available.
+
+  const notifStatus = {
+    email_customer_sent: false,
+    email_business_sent: false,
+    telegram_sent:       false,
+    sheets_sent:         false,
+  };
+
+  // ── Email ──────────────────────────────────────────────────────────────────
   const emailEnvOk =
     !!process.env.GMAIL_SENDER &&
     !!process.env.GMAIL_APP_PASSWORD &&
@@ -393,78 +498,79 @@ export default async function handler(req, res) {
 
   if (!emailEnvOk) {
     console.error('[webhook] Email env vars missing:',
-      !process.env.GMAIL_SENDER        ? 'GMAIL_SENDER '        : '',
-      !process.env.GMAIL_APP_PASSWORD  ? 'GMAIL_APP_PASSWORD '  : '',
-      !process.env.BUSINESS_EMAIL      ? 'BUSINESS_EMAIL'        : '',
+      !process.env.GMAIL_SENDER       ? 'GMAIL_SENDER '       : '',
+      !process.env.GMAIL_APP_PASSWORD ? 'GMAIL_APP_PASSWORD '  : '',
+      !process.env.BUSINESS_EMAIL     ? 'BUSINESS_EMAIL'       : '',
     );
   } else {
-    // ── Send emails ────────────────────────────────────────────────────────
     const transport = makeTransport();
-
-    // Verify SMTP credentials before attempting send
     try {
       await transport.verify();
       console.log('[webhook] SMTP connection verified OK');
     } catch (verifyErr) {
       console.error('[webhook] SMTP verify FAILED — code:', verifyErr.code, '| message:', verifyErr.message);
-      console.error('[webhook] Check GMAIL_SENDER is a real Gmail address and GMAIL_APP_PASSWORD is a valid App Password (not your regular Gmail password)');
     }
 
-    const sends = [];
+    // Business alert
+    try {
+      await transport.sendMail({
+        from:    `"VVE Clean Bookings" <${process.env.GMAIL_SENDER}>`,
+        to:      process.env.BUSINESS_EMAIL,
+        subject: `New booking — ref: ${bookingRef} — ${meta.service || 'Cleaning'}`,
+        html:    businessEmailHtml(meta, bookingRef),
+      });
+      console.log('[webhook] Business alert sent');
+      notifStatus.email_business_sent = true;
+    } catch (err) {
+      console.error('[webhook] Business alert FAILED — code:', err.code, '| message:', err.message,
+        '| responseCode:', err.responseCode);
+    }
 
-    // Business alert — always
-    sends.push(
-      transport
-        .sendMail({
-          from:    `"VVE Clean Bookings" <${process.env.GMAIL_SENDER}>`,
-          to:      process.env.BUSINESS_EMAIL,
-          subject: `New booking — ${meta.fullName || 'Customer'} — ${meta.service || 'Cleaning'}`,
-          html:    businessEmailHtml(meta, bookingRef),
-        })
-        .then(() => console.log('[webhook] Business alert sent to:', process.env.BUSINESS_EMAIL))
-        .catch((err) =>
-          console.error('[webhook] Business alert FAILED — code:', err.code, '| message:', err.message,
-            '| responseCode:', err.responseCode, '| response:', err.response),
-        ),
-    );
-
-    // Customer confirmation — only if they gave an email
+    // Customer confirmation
     if (meta.email) {
-      sends.push(
-        transport
-          .sendMail({
-            from:    `"VVE Clean" <${process.env.GMAIL_SENDER}>`,
-            to:      meta.email,
-            subject: `Your booking is confirmed — ${meta.service || 'VVE Clean'}`,
-            html:    customerEmailHtml(meta, bookingRef),
-          })
-          .then(() => console.log('[webhook] Customer confirmation sent to:', meta.email))
-          .catch((err) =>
-            console.error('[webhook] Customer confirmation FAILED — code:', err.code, '| message:', err.message,
-              '| responseCode:', err.responseCode, '| response:', err.response),
-          ),
-      );
+      try {
+        await transport.sendMail({
+          from:    `"VVE Clean" <${process.env.GMAIL_SENDER}>`,
+          to:      meta.email,
+          subject: `Your booking is confirmed — ${meta.service || 'VVE Clean'}`,
+          html:    customerEmailHtml(meta, bookingRef),
+        });
+        console.log('[webhook] Customer confirmation sent');
+        notifStatus.email_customer_sent = true;
+      } catch (err) {
+        console.error('[webhook] Customer confirmation FAILED — code:', err.code, '| message:', err.message,
+          '| responseCode:', err.responseCode);
+      }
     } else {
       console.log('[webhook] No customer email on file — skipping customer confirmation');
     }
-
-    // Wait for both but never throw — non-200 causes Stripe to retry
-    await Promise.allSettled(sends);
-    console.log('[webhook] Email dispatch complete');
   }
 
-  // ── Telegram notification ────────────────────────────────────────────────
+  // ── Telegram ───────────────────────────────────────────────────────────────
   try {
     await sendTelegram(telegramText(meta, bookingRef));
+    notifStatus.telegram_sent = true;
   } catch (err) {
-    console.error('[webhook] Telegram notification FAILED:', err.message);
+    console.error('[webhook] Telegram FAILED:', err.message);
   }
 
-  // ── Google Sheets row ────────────────────────────────────────────────────
+  // ── Google Sheets ──────────────────────────────────────────────────────────
   try {
     await sendToGoogleSheets(meta, bookingRef, session);
+    notifStatus.sheets_sent = true;
   } catch (err) {
     console.error('[webhook] Google Sheets FAILED:', err.message);
+  }
+
+  // ── Update notification status in Supabase ─────────────────────────────────
+  if (supabase && dbPersisted) {
+    try {
+      await supabase.from('bookings')
+        .update(notifStatus)
+        .eq('stripe_session_id', session.id);
+    } catch (nsErr) {
+      console.warn('[webhook] Notification status update failed (non-critical):', nsErr.message);
+    }
   }
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
