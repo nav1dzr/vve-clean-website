@@ -68,9 +68,8 @@ const services = [
     priceFixed: false,
     description:
       'Interior and exterior, streak-free, up to second-floor reach. Add to any clean or book on its own.',
-    cta: 'WhatsApp for a quote →',
-    ctaHref: WA_LINK,
-    ctaExternal: true,
+    cta: 'Get your price →',
+    ctaHref: '#quote',
     featured: false,
     img: SERVICE_IMAGES.windowCleaning,
   },

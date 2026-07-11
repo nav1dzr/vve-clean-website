@@ -309,8 +309,8 @@ export default function BookingPage() {
       <main className="max-w-xl mx-auto px-4 py-7 pb-24" ref={formTopRef}>
         {/* Page title */}
         <div className="mb-5">
-          <h1 className="font-display text-2xl font-bold text-navy-900 mb-1">Confirm your booking</h1>
-          <p className="text-silver-600 text-sm">Fill in your details and secure your slot with a £{DEPOSIT} deposit.</p>
+          <h1 className="font-display text-2xl font-bold text-navy-900 mb-1">Almost done — your slot is nearly secured.</h1>
+          <p className="text-silver-600 text-sm">Complete your details and pay the £{DEPOSIT} deposit. It comes straight off your final bill — it is not an extra charge.</p>
         </div>
 
         {/* Selected service card */}
