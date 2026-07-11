@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { BookingProvider } from '../context/BookingContext';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import AreaMarquee from '../components/AreaMarquee';
@@ -30,6 +31,7 @@ export default function HomePage() {
   }, [hash]);
 
   return (
+    <BookingProvider>
     <div className="min-h-screen mobile-page-bottom lg:pb-0">
       <Navbar />
       <Hero />
@@ -47,5 +49,6 @@ export default function HomePage() {
       <Footer />
       <MobileStickyFooter />
     </div>
+    </BookingProvider>
   );
 }
