@@ -1,0 +1,34 @@
+-- Removes the broad `authenticated_read_bookings` policy on `bookings`
+-- (added in 20260711000000_create_bookings_table.sql), with NO replacement
+-- direct-read policy. See ADMIN_CRM_PLAN.md §10 and §24 item 4.
+--
+-- Why this is safe (confirmed by inspecting every current Supabase client
+-- usage in the repo, not assumed):
+--   - The only Supabase client that ever runs in a browser context
+--     (src/lib/supabase.ts, anon key) is not imported by anything that
+--     queries `bookings`.
+--   - Every place that does query `bookings` — api/stripe-webhook.js,
+--     api/verify-payment.js, api/confirmation-details.js,
+--     api/create-checkout-session.js, api/backfill-paid-booking.js,
+--     scripts/backfill-N15NJ310726.mjs — uses SUPABASE_SERVICE_ROLE_KEY,
+--     which bypasses RLS entirely and is completely unaffected by this
+--     policy's removal.
+--
+-- After this migration:
+--   - RLS remains enabled on `bookings` (unchanged).
+--   - `anon` has zero read access (unchanged — no policy ever granted this).
+--   - `authenticated` has zero DIRECT read access (changed — previously
+--     `USING (true)`, i.e. any authenticated Supabase user could read every
+--     booking row; now nothing).
+--   - `service_role` is unaffected — it bypasses RLS regardless of policies,
+--     and its explicit table GRANTs from 20260714000000_explicit_grants.sql
+--     are untouched by this migration.
+--   - All future admin reads/writes go through server-only admin API routes
+--     using the service-role key (ADMIN_CRM_PLAN.md §25), never a direct
+--     browser Supabase query against `bookings`.
+--
+-- No replacement policy is added in this migration, by design — the admin
+-- dashboard's booking search/list/detail features (Phase 2) are read
+-- server-side, not via RLS-gated browser queries.
+
+DROP POLICY IF EXISTS "authenticated_read_bookings" ON bookings;
