@@ -1,7 +1,9 @@
 # VVE Clean — Admin CRM / Booking Dashboard: Plan & Architecture
 
-Status: **Planning only. No code, migrations, or infrastructure created.**
+Status: Architecture approved. **Phase 1 (application foundation, authentication, authorisation, security) in progress on this branch.** Booking search/list/detail/notes/status editing (§11 items 2–7) are **not** built yet — see the Phase 1 scope note in §36.
 Branch: `feat/admin-crm-dashboard`
+
+This document was corrected after the Phase 1 review to reflect approved decisions on routes, authentication, data access, and the operational-status model — see the inline "Approved correction" notes throughout (§6, §13, §21, §22, §24, §35).
 
 ---
 
@@ -118,7 +120,9 @@ These are real gaps confirmed by reading the code, not assumptions:
 
 ## 6. Recommended architecture
 
-**A new, independent app living in this repo at `/admin`, deployed as its own Vercel project to `admin.vveclean.co.uk`.**
+**A new, independent app living in this repo at `admin/`, deployed as its own Vercel project to `admin.vveclean.co.uk`.**
+
+> **Approved correction**: because this app lives on its own subdomain, its internal routes are root-relative — `/login`, not `/admin/login` — and its server routes are `/api/*`, not `/admin/api/*` (§13, §25). The `admin/` name below refers only to the repository directory holding the app's source code, never to a URL path.
 
 Concretely:
 - New top-level directory, e.g. `admin/`, with its own `package.json`, `vite.config.ts`, `tsconfig.json`, `src/`, and its own `admin/api/` folder for admin-only serverless functions.
@@ -154,8 +158,9 @@ The separate-app-same-repo option is the one point on the spectrum that satisfie
 - **Supabase Auth**, email + password provider only. No magic links, no OAuth, no public sign-up (disable sign-ups in Supabase Auth settings, or simply never expose a sign-up UI and rely on admin users being created manually in the Supabase dashboard / via a one-off `supabase.auth.admin.createUser` script run by the developer).
 - Admin app's Supabase client (`admin/src/lib/supabase.ts`) uses the anon key only (safe for the browser) — Auth itself (login, session refresh, password reset) works entirely through the anon key + Supabase's public Auth API, exactly as designed.
 - **Session persistence**: default Supabase JS behavior (stored in `localStorage`, auto-refreshed). Acceptable for a private, bookmarked, low-user-count internal tool; revisit only if compliance requirements emerge.
-- **Password reset**: Supabase's built-in `resetPasswordForEmail` + a `/admin/reset-password` page that calls `updateUser({ password })` after the recovery link lands — no custom email infrastructure needed (reuses Supabase's transactional email, not the site's Gmail/nodemailer setup, which stays untouched).
-- **Logout**: `supabase.auth.signOut()`, redirect to `/admin/login`, clear any client-side cached booking data from memory.
+- **Password reset**: Supabase's built-in `resetPasswordForEmail` + a single `/reset-password` route that handles both the request form (enter email) and, when arrived at via a Supabase recovery link, the completion form (`updateUser({ password })`) — state-driven off the Supabase auth event, not two separate routes. No custom email infrastructure needed (reuses Supabase's transactional email, not the site's Gmail/nodemailer setup, which stays untouched).
+- **Logout**: `supabase.auth.signOut()`, redirect to `/login`, clear any client-side cached admin data (profile, session) from memory.
+- **No hard-coded owner account**: launch supports exactly one admin account operationally, but no email address or user UUID is ever hard-coded anywhere in the app or migrations. The first (and any future) admin is created manually in the Supabase dashboard and linked via the `admin_users` table — see `admin/SETUP.md`. Public sign-up is disabled in Supabase Auth settings, and no sign-up UI exists in the app.
 - **Route protection**: a top-level `<RequireAuth>` wrapper checks `supabase.auth.getSession()` (and subscribes to `onAuthStateChange`) before rendering any child route. While the session is being resolved, render a loading state — **no booking data component mounts, and no data-fetching call fires, until a session is confirmed present.** This directly satisfies "No customer data rendered before authentication is confirmed."
 - **Session expiry**: rely on Supabase's default JWT expiry (1 hour access token, silent refresh via refresh token) — if refresh fails (e.g., revoked/stale), `RequireAuth` redirects to login.
 - **Login rate limiting**: Supabase Auth has built-in rate limiting on the login endpoint; additionally, keep the login form free of any client-side hints about *why* a login failed (generic "invalid email or password" message) to avoid user enumeration.
@@ -166,7 +171,7 @@ The separate-app-same-repo option is the one point on the spectrum that satisfie
 
 Supabase's `auth.users` table has no built-in "role" concept usable for app-level authorization out of the box. Recommendation: a small **`admin_users`** table (see §24) that is the single source of truth for "is this authenticated person allowed to use the dashboard."
 
-- `admin_users(id uuid PK references auth.users(id), email text, display_name text, created_at timestamptz)`.
+- `admin_users(id uuid primary key references auth.users(id) on delete cascade, display_name text not null, created_at timestamptz not null default now(), updated_at timestamptz not null default now())`. **Email is deliberately not stored here** — `auth.users` remains the single source of truth for account email; `admin_users` only proves authorization, keeping the two concerns (identity vs. permission) cleanly separated and avoiding a copy of the email that could drift out of sync.
 - Every admin-only server route re-validates: (1) the caller's Supabase JWT is valid, (2) `auth.uid()` exists in `admin_users`. A logged-in Supabase Auth user who is **not** in `admin_users` gets a 403 from every admin API route and is signed out client-side — this covers the case where a Supabase Auth account exists (e.g., created by mistake, or a future customer-auth feature reuses the same `auth.users` table) but was never granted admin access.
 - This table is also what makes §20 ("show who added the note") possible, and is the natural place to later add a `role` column (`owner`, `staff`, `readonly`) for future role-based permissions without any breaking change.
 
@@ -176,7 +181,7 @@ Supabase's `auth.users` table has no built-in "role" concept usable for app-leve
 
 Guiding principle: **the browser never talks to Postgres directly for anything except Supabase Auth itself.** All booking reads/writes go through the admin app's own server-side API routes, which hold the service-role key. This sidesteps the need for complex, easy-to-get-wrong RLS write policies entirely, and matches the existing pattern already used by the public site's `/api/*.js` functions.
 
-- **`bookings`**: RLS stays enabled. The existing `authenticated_read_bookings` policy (`SELECT ... USING (true)`) is overly broad now that `authenticated` will mean "any Supabase Auth account, not just admins" — recommend tightening it to `USING (auth.uid() IN (SELECT id FROM admin_users))` as a backward-compatible policy replacement (§24). No INSERT/UPDATE/DELETE policy for `authenticated` is added — writes only ever happen via service-role from the admin API, exactly as today.
+- **`bookings`**: RLS stays enabled. The existing `authenticated_read_bookings` policy (`SELECT ... USING (true)`) is **removed outright, with no replacement direct-read policy** — confirmed safe by inspecting every current Supabase client usage in the repo: the only Supabase client that ever runs in a browser context (`src/lib/supabase.ts`, anon key) is not imported by anything that queries `bookings`, and all six places that do query `bookings` (`api/stripe-webhook.js`, `api/verify-payment.js`, `api/confirmation-details.js`, `api/create-checkout-session.js`, `api/backfill-paid-booking.js`, `scripts/backfill-N15NJ310726.mjs`) use the service-role key, which bypasses RLS entirely and is unaffected by this policy's removal. After removal, both `anon` and `authenticated` have zero read access to `bookings` — every future admin read or write goes through server-only `/api/*` routes (§25) using the service-role key, never a direct browser Supabase query. No INSERT/UPDATE/DELETE policy for `authenticated` is added either — writes only ever happen via service-role, exactly as today.
 - **`admin_users`**: RLS enabled, no `anon`/`authenticated` access at all — only `service_role` reads it (from the admin API's server-side role check).
 - **`internal_notes`** (new, §24): RLS enabled, no direct `anon`/`authenticated` access — all reads/writes go through the admin API using service-role, which independently re-checks `admin_users` membership before touching the table. This is what makes notes safely "never visible to customers" — there is no policy path that would let a public/customer-facing Supabase client ever read this table, even by accident.
 - **`processed_stripe_events`**: untouched.
@@ -207,14 +212,16 @@ Customer profiles/lifetime value, a `customers` table, rescheduling workflow, ca
 
 | Route | Purpose | v1? |
 |---|---|---|
-| `/admin/login` | Email/password login, password-reset entry point | Yes |
-| `/admin/reset-password` | Complete a Supabase password-recovery flow | Yes |
-| `/admin` | Dashboard home | Yes |
-| `/admin/bookings` | Filterable, sortable booking list | Yes |
-| `/admin/bookings/:id` | Booking detail (by internal UUID) | Yes |
-| `/admin/search` | Global search results (also reachable via the search box on `/admin` and `/admin/bookings`) | Yes |
-| `/admin/customers` | Would require a `customers` table | No — future |
-| `/admin/settings` | No concrete v1 need identified (admin users managed directly in Supabase for now) | No |
+| `/login` | Email/password login | Yes |
+| `/reset-password` | Password-reset request and completion — one route, state-driven off the Supabase auth event (§8) | Yes |
+| `/` | Dashboard home | Yes |
+| `/bookings` | Filterable, sortable booking list | Yes |
+| `/bookings/:id` | Booking detail (by internal UUID) | Yes |
+| `/search` | Global search results (also reachable via the search box on `/` and `/bookings`) | Yes |
+| `/customers` | Would require a `customers` table | No — future |
+| `/settings` | No concrete v1 need identified (admin users managed directly in Supabase for now) | No |
+
+These are root-relative, **not** prefixed with `/admin` — the app already lives on its own subdomain (`admin.vveclean.co.uk`), so `/admin/login` there would be redundant. Server-side admin API routes follow the same logic: `/api/*`, not `/admin/api/*` (§25).
 
 Navigation: persistent header with the search box (desktop) or a dedicated search tab (mobile, see §14); bottom tab bar on mobile with Home / Bookings / Search / (future: Customers).
 
@@ -245,7 +252,7 @@ Designed for one-handed use at 360px–390px width first, tablet/desktop as prog
 
 ## 16. Search design
 
-A single server-side endpoint, e.g. `POST /admin/api/search { q }`, backing both the dashboard's quick-search box and `/admin/search`. It:
+A single server-side endpoint, e.g. `POST /api/search { q }`, backing both the dashboard's quick-search box and `/search`. It:
 
 1. Validates the caller is an authenticated admin (§9).
 2. Normalizes the raw query (§17).
@@ -306,17 +313,27 @@ New `internal_notes` table (§24): `id`, `booking_id` (FK → `bookings.id`), `a
 
 ## 21. Booking-status model
 
-New, free-standing operational status — **separate from** `payment_status`. Recommended enum (as a `CHECK` constraint on a `text` column, not a Postgres `ENUM` type, so future values can be added with a simple constraint migration rather than an enum-alter):
+New, free-standing **operational** status — separate from both the existing `payment_status` (§22, Stripe-driven) and the future `balance_status` (§22, post-service balance tracking). Approved enum (as a `CHECK` constraint on a `text` column, not a Postgres `ENUM` type, so future values can be added with a simple constraint migration rather than an enum-alter):
 
-`new → deposit_paid → confirmed → scheduled → in_progress → completed`, with side branches `rescheduled`, `cancelled`, `refunded`, `payment_issue` reachable from most states.
+`new → confirmed → scheduled → in_progress → completed`, with side branches `rescheduled`, `cancelled`, `no_show` reachable from most states.
 
-Default: `'new'` for all existing and future rows (backward-compatible, additive column). **No automatic transitions are wired to Stripe** — the webhook is not changed to set this field; an admin manually advances status from the dashboard. This satisfies "Do not automatically refund Stripe or alter payments when an admin changes a status."
+`deposit_paid`, `refunded`, and `payment_issue` are **deliberately excluded** from this vocabulary — they describe payment/balance state, not job state, and belong to `payment_status` or the future `balance_status` instead. Keeping these two axes strictly separate matters in practice: a `completed` job can still have an `outstanding` balance, and a `cancelled` job can already be `refunded` — conflating them into one status field would make either state unrepresentable at the same time.
+
+Default: `'new'` for all existing and future rows (backward-compatible, additive column — created only when the §24 migration for this column is scheduled; not part of Phase 1). **No automatic transitions are wired to Stripe** — the webhook is not changed to set this field; an admin manually advances status from the dashboard. This satisfies "Do not automatically refund Stripe or alter payments when an admin changes a status."
 
 ---
 
 ## 22. Payment-status model
 
 Kept exactly as it exists today (`pending_payment` / `paid`, free-text column) — **not modified**, since it's written by the live Stripe webhook and checkout session code, which is explicitly off-limits. The admin dashboard treats it as read-only display data (with color-coded badges) and never lets an admin edit it directly — any real payment change happens in Stripe, and (in a future phase, not v1) could be reconciled back via a read path, never a write path, from the admin app.
+
+### Future: balance-status model (approved for a later migration — not built in Phase 1)
+
+`payment_status` only ever describes the £30 deposit on the Stripe Checkout session. It says nothing about the **remaining balance**, which today is collected manually (cash/card on the day) and tracked nowhere. A third, independent field — `balance_status` — is approved for a later controlled migration (§24) to close that gap:
+
+`not_due → outstanding → paid`, with `waived` as a side branch.
+
+This is a third axis, independent of both operational `status` (§21) and Stripe-driven `payment_status`: a booking can be `completed` (status), `paid` (payment_status, deposit only), and still `outstanding` (balance_status) until the on-the-day payment is recorded. `balance_paid_at` and `balance_payment_method` (§24) accompany it to record when and how the balance was settled. None of `balance_status`, `balance_paid_at`, or `balance_payment_method` are created in Phase 1.
 
 ---
 
@@ -338,31 +355,39 @@ Reasoning against the checklist in the brief:
 
 All additive, nullable-or-defaulted, and reversible (§30). None require changing `stripe-webhook.js`, `create-checkout-session.js`, `confirmation-details.js`, or `verify-payment.js`, **except** the one flagged item under "deferred."
 
-1. **`admin_users`** (new table) — `id uuid PK references auth.users(id)`, `email text`, `display_name text`, `created_at timestamptz default now()`. RLS enabled, no `anon`/`authenticated` access.
-2. **`internal_notes`** (new table) — `id uuid PK default gen_random_uuid()`, `booking_id uuid references bookings(id)`, `author_admin_id uuid references admin_users(id)`, `note text not null`, `created_at timestamptz default now()`. RLS enabled, no `anon`/`authenticated` access. Index on `booking_id`.
-3. **`bookings.status`** (new column) — `text not null default 'new'`, `CHECK (status IN ('new','deposit_paid','confirmed','scheduled','in_progress','completed','rescheduled','cancelled','refunded','payment_issue'))`. Additive, defaulted — safe for every existing row.
-4. **Tighten `bookings`' `authenticated_read_bookings` RLS policy** to `USING (auth.uid() IN (SELECT id FROM admin_users))` instead of `USING (true)` — backward compatible (nothing currently relies on the broad policy, since no customer-facing Supabase Auth flow exists) and closes a latent gap before it matters.
-5. **`pg_trgm` extension + GIN indexes** on `bookings.full_name`, `bookings.address`, `bookings.postcode`, `bookings.booking_ref` for partial-match search performance (§16). Standard Supabase-available extension, no data change.
-6. **`search_bookings(q text)` SQL function** (§16) — pure function, no table change.
-7. **Deferred / requires a business decision (§35)**: a nullable `bookings.total_price numeric` column, populated going forward by one additional line in `stripe-webhook.js`'s existing upsert (writing `meta.price`). This is the *only* schema change that touches the protected webhook file, and only if "sort by highest value" is confirmed as a true v1 requirement rather than a nice-to-have. If deferred, total price is shown on the booking detail page via a live, read-only Stripe API lookup (same pattern already used in `confirmation-details.js`) and dropped from list-level sorting/filtering.
-8. **Deferred / requires a business decision (§35)**: a nullable `bookings.service_date date` column to make "today's bookings" and date-sorting reliable, since `preferred_date` is free text. If approved, populated by a one-off, read-only backfill script that best-effort parses existing `preferred_date` values (leaving unparseable ones null) — no webhook change required for this one, since the admin can also just be shown/asked to confirm the date when advancing a booking's status, going forward.
+1. **`admin_users`** (new table — **created in Phase 1**) — `id uuid primary key references auth.users(id) on delete cascade`, `display_name text not null`, `created_at timestamptz not null default now()`, `updated_at timestamptz not null default now()`. Email is deliberately not duplicated here — `auth.users` remains the source of truth for it (§9). RLS enabled, no `anon`/`authenticated` access. The migration creates the table only — it cannot also insert the first admin row, because that person's `auth.users` UUID doesn't exist until they're created manually in Supabase Auth; see `admin/SETUP.md` for the exact manual insert step.
+2. **`internal_notes`** (new table — Phase 3) — `id uuid PK default gen_random_uuid()`, `booking_id uuid references bookings(id)`, `author_admin_id uuid references admin_users(id)`, `note text not null`, `created_at timestamptz default now()`. RLS enabled, no `anon`/`authenticated` access. Index on `booking_id`.
+3. **`bookings.status`** (new column — Phase 2) — `text not null default 'new'`, `CHECK (status IN ('new','confirmed','scheduled','in_progress','completed','rescheduled','cancelled','no_show'))` (§21). Additive, defaulted — safe for every existing row.
+4. **Remove `bookings`' `authenticated_read_bookings` RLS policy outright — created in Phase 1**, with **no replacement direct-read policy** (§10). Confirmed safe by inspecting every current Supabase client usage in the repo — nothing queries `bookings` from a browser context, and every server-side query already uses the service-role key, which bypasses RLS and is unaffected. All future admin reads/writes go through server-only `/api/*` routes (§25).
+5. **`pg_trgm` extension + GIN indexes** on `bookings.full_name`, `bookings.address`, `bookings.postcode`, `bookings.booking_ref` for partial-match search performance (§16) — Phase 2. Standard Supabase-available extension, no data change.
+6. **`search_bookings(q text)` SQL function** (§16) — Phase 2, pure function, no table change.
+7. **Approved for a later controlled migration — not created in Phase 1** (resolved by this review, see §35):
+   - `bookings.total_price numeric` (nullable) — closes the §5 pricing gap. Populated going forward by one additional line in `stripe-webhook.js`'s existing upsert (writing `meta.price`) — the *only* approved schema change that would touch the protected webhook file, scheduled as its own separately-approved migration, not part of Phase 1 or Phase 2.
+   - `bookings.quote_config jsonb` (nullable) — stores the itemised `quoteConfig` object (§5) that's currently computed and discarded at checkout, so the detail page can eventually show *what* was quoted, not just the service category. Also requires a small, separately-approved addition to the checkout/webhook write path.
+   - `bookings.service_date date` (nullable) — a normalized, queryable counterpart to the free-text `preferred_date` (§5). Populated by a one-off, read-only backfill script (no webhook change required) plus admin confirmation going forward.
+   - `bookings.balance_status text` (nullable), `CHECK (balance_status IN ('not_due','outstanding','paid','waived'))` — see §22.
+   - `bookings.balance_paid_at timestamptz` (nullable) — see §22.
+   - `bookings.balance_payment_method text` (nullable) — see §22.
+
+   Every field in this group is additive and nullable, so none of them put existing rows or the protected write paths at risk until each is explicitly scheduled and approved as its own migration.
 
 ---
 
 ## 25. Proposed API/server functions
 
-All under `admin/api/` (a separate serverless function set from the public site's `/api/`), each re-validating the Supabase session and `admin_users` membership server-side before doing anything:
+All live under the admin app's own `admin/api/` directory (a separate serverless function set from the public site's `/api/`) and are addressed as `/api/*` on `admin.vveclean.co.uk` — **not** `/admin/api/*`, since the app already has its own subdomain (§13). Each route re-validates the Supabase session and `admin_users` membership server-side before doing anything:
 
-| Route | Method | Purpose |
-|---|---|---|
-| `/admin/api/search` | POST | Global search (§16) |
-| `/admin/api/bookings` | GET | Filtered/sorted/paginated list (§18) |
-| `/admin/api/bookings/:id` | GET | Booking detail (§19) |
-| `/admin/api/bookings/:id/status` | PATCH | Update `status` only (§21) — never touches `payment_status` |
-| `/admin/api/bookings/:id/notes` | GET, POST | List/append internal notes (§20) |
-| `/admin/api/dashboard-summary` | GET | Today's/upcoming/recent/outstanding counts for the home page (§29 wireframe) |
+| Route | Method | Purpose | Phase |
+|---|---|---|---|
+| `/api/me` | GET | Verify session + admin authorization, return safe profile only | 1 — built in this task |
+| `/api/search` | POST | Global search (§16) | 2 |
+| `/api/bookings` | GET | Filtered/sorted/paginated list (§18) | 2 |
+| `/api/bookings/:id` | GET | Booking detail (§19) | 2 |
+| `/api/bookings/:id/status` | PATCH | Update `status` only (§21) — never touches `payment_status` | 2 |
+| `/api/bookings/:id/notes` | GET, POST | List/append internal notes (§20) | 3 |
+| `/api/dashboard-summary` | GET | Today's/upcoming/recent/outstanding counts for the home page | 2 |
 
-None of these are added to the public site's `/api/` folder, and none of the six existing public routes are modified.
+None of these are added to the public site's `/api/` folder, and none of the six existing public routes are modified. `/api/me` is the only one of these built in Phase 1 — the rest remain server-route *design*, not code, until their phase.
 
 ---
 
@@ -416,7 +441,7 @@ New Vercel project, Root Directory `admin/`, custom domain `admin.vveclean.co.uk
 
 ## 31. Testing plan
 
-- **Auth**: login success/failure, logout, session expiry/refresh, password reset end-to-end, route guard blocks unauthenticated access to every `/admin/*` route (including deep-linking directly to `/admin/bookings/:id`).
+- **Auth**: login success/failure, logout, session expiry/refresh, password reset end-to-end, route guard blocks unauthenticated access to every protected route (including deep-linking directly to `/bookings/:id`).
 - **Authorization**: a Supabase Auth account that exists but is *not* in `admin_users` is rejected by every API route (403), not just hidden in the UI.
 - **Search**: exact/partial name, both phone formats (`07...`/`+44...`) with/without spaces, postcode with/without spaces and mixed case, partial address, partial and exact booking reference, exact UUID — each against seeded test rows.
 - **List/filters**: each filter individually and combined; each sort option; pagination boundaries.
@@ -472,12 +497,17 @@ New Vercel project, Root Directory `admin/`, custom domain `admin.vveclean.co.uk
 
 ## 35. Business decisions required
 
-1. **Total price column**: approve a one-line, additive change to `stripe-webhook.js` (writing `meta.price` into a new nullable `bookings.total_price` column) to make "sort by value" and reliable balance display work — or accept a v1 without that sort, using a live read-only Stripe lookup on the detail page only. *(§5, §24 item 7)*
-2. **Service-date column**: approve a nullable `bookings.service_date date` column + a one-off, read-only backfill script (no webhook change required) to make "today's bookings"/date-sorting reliable — or accept best-effort parsing of the free-text `preferred_date` at query time. *(§5, §24 item 8)*
-3. **Phone format assumption**: confirm all customer phone numbers are UK numbers (so the `0` ↔ `+44` normalization in §17 is correct) — flag if any non-UK numbers are expected.
-4. **DNS/subdomain access**: confirm who can create the `admin.vveclean.co.uk` DNS record and the new Vercel project, and roughly when.
-5. **Initial admin users**: confirm how many people need login access at launch (affects nothing structurally — `admin_users` supports multiple from day one — but affects whether extra Deployment Protection (§27) is worth the friction for a single user).
-6. **Deployment Protection**: approve or decline the optional Vercel-level password/SSO gate in front of the whole admin subdomain (§27) as a second layer beyond Supabase Auth.
+**Resolved by the Phase 1 review** (kept here for traceability — no longer open):
+- ~~Total price column~~ — **approved** as a future, separately-scheduled migration, not built in Phase 1 or Phase 2 (§22, §24 item 7).
+- ~~Service-date column~~ — **approved** as a future, separately-scheduled migration (§24 item 7).
+- ~~Booking-status vocabulary~~ — **approved**: `new, confirmed, scheduled, in_progress, completed, rescheduled, cancelled, no_show`, with `deposit_paid`/`refunded`/`payment_issue` explicitly excluded from it (§21), plus a separate future `balance_status` (`not_due`/`outstanding`/`paid`/`waived`) (§22).
+- ~~Direct-read RLS policy on `bookings`~~ — **approved to remove outright**, with no replacement policy (§10, §24 item 4).
+
+**Still open**:
+1. **Phone format assumption**: confirm all customer phone numbers are UK numbers (so the `0` ↔ `+44` normalization in §17 is correct) — flag if any non-UK numbers are expected. Not needed until search is built (Phase 2) — no action for Phase 1.
+2. **DNS/subdomain access**: confirm who can create the `admin.vveclean.co.uk` DNS record and the new Vercel project, and roughly when. Phase 1 ships without connecting or deploying anything (§11/§27) — the app runs locally only until this is resolved.
+3. **Initial admin users**: confirm how many people need login access at launch. `admin_users` supports multiple from day one; Phase 1 only documents the manual setup steps (`admin/SETUP.md`) for creating the first owner account — no account is created automatically or hard-coded.
+4. **Deployment Protection**: approve or decline the optional Vercel-level password/SSO gate in front of the whole admin subdomain (§27) as a second layer beyond Supabase Auth — relevant once the project is actually deployed, not for Phase 1.
 
 ---
 
@@ -485,8 +515,9 @@ New Vercel project, Root Directory `admin/`, custom domain `admin.vveclean.co.uk
 
 - Separate `admin/` app, own Vercel project, `admin.vveclean.co.uk`.
 - Supabase Auth (email/password), no public sign-up, `admin_users` table gating all API access, protected routes, no data before auth resolves.
-- New tables: `admin_users`, `internal_notes`. New column: `bookings.status` (operational status, separate from `payment_status`). Tightened RLS on `bookings`. `pg_trgm` search indexes + one `search_bookings` SQL function.
-- Pages: `/admin/login`, `/admin/reset-password`, `/admin` (home), `/admin/bookings`, `/admin/bookings/:id`, `/admin/search`.
+- New tables: `admin_users`, `internal_notes`. New column: `bookings.status` (operational status, separate from `payment_status` and the future `balance_status`). Broad `authenticated_read_bookings` RLS policy removed outright, no replacement. `pg_trgm` search indexes + one `search_bookings` SQL function.
+- Pages: `/login`, `/reset-password`, `/` (home), `/bookings`, `/bookings/:id`, `/search` — root-relative, no `/admin` prefix (§13).
+- **Phase 1 (this task) scope note**: only the application foundation, authentication, and authorization/security layer are built now — login, reset-password, protected-route shell, `admin_users`, the `bookings` RLS removal, and `/api/me`. Search, booking list/detail, internal notes, and status editing are Phase 2/3 as described throughout this document, not built yet.
 - Global search across name/phone/email/postcode/address/booking-ref/UUID, normalized for UK phone formats and postcode spacing/case.
 - Booking list: filter by date/status/payment-status/service/source/postcode; sort by newest/oldest/service-date (value-sort pending §35).
 - Booking detail: full field set from §4, click-to-call/WhatsApp/email, copy address/reference, internal notes panel, status control.
@@ -499,7 +530,7 @@ New Vercel project, Root Directory `admin/`, custom domain `admin.vveclean.co.uk
 
 ## Text wireframes
 
-### Login (`/admin/login`)
+### Login (`/login`)
 ```
 ┌──────────────────────────────┐
 │           VVE CLEAN           │
@@ -520,7 +551,7 @@ New Vercel project, Root Directory `admin/`, custom domain `admin.vveclean.co.uk
 └──────────────────────────────┘
 ```
 
-### Mobile dashboard home (`/admin`, 360–390px)
+### Mobile dashboard home (`/`, 360–390px)
 ```
 ┌──────────────────────────────┐
 │  VVE Admin            ⎋ log out│
@@ -564,7 +595,7 @@ New Vercel project, Root Directory `admin/`, custom domain `admin.vveclean.co.uk
 └───────────┴──────────────────────────────────────────────────┘
 ```
 
-### Search results (`/admin/search?q=…`)
+### Search results (`/search?q=…`)
 ```
 ┌──────────────────────────────┐
 │  🔍  07123 456789          ✕  │
@@ -587,7 +618,7 @@ New Vercel project, Root Directory `admin/`, custom domain `admin.vveclean.co.uk
 └──────────────────────────────┘
 ```
 
-### Booking list (`/admin/bookings`, mobile)
+### Booking list (`/bookings`, mobile)
 ```
 ┌──────────────────────────────┐
 │  Bookings          [Filters ▾]│
@@ -608,7 +639,7 @@ New Vercel project, Root Directory `admin/`, custom domain `admin.vveclean.co.uk
 └──────────────────────────────┘
 ```
 
-### Booking detail (`/admin/bookings/:id`, mobile)
+### Booking detail (`/bookings/:id`, mobile)
 ```
 ┌──────────────────────────────┐
 │  ← Booking N15NJ180726     ⧉  │
