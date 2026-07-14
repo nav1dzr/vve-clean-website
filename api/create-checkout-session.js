@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { computePrice } from './servicePrices.js';
+import { formatServiceDetail } from './_lib/formatBookingItems.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -188,6 +189,13 @@ export default async function handler(req, res) {
     '| quoteMode:', quoteMode,
     '| validatedPrice:', validatedPrice !== null ? validatedPrice : '(manual quote)');
 
+  // Itemised description built server-side from the same trusted quoteConfig
+  // computePrice() just validated — never from unvalidated browser text.
+  // Falls back to the broad service category when no item-level detail
+  // applies (e.g. window/gutter/office already reduce to one line; unknown
+  // shapes fall back further to `service`).
+  const serviceDetail = formatServiceDetail(quoteConfig, service);
+
   if (!fullName || (!phone && !email)) {
     res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'fullName and at least one of phone or email are required' }));
@@ -274,6 +282,7 @@ export default async function handler(req, res) {
       ...(email ? { customer_email: email } : {}),
       metadata: {
         service:                    (service     || '').slice(0, 500),
+        service_detail:             (serviceDetail || '').slice(0, 500),
         price:                      validatedPrice !== null ? String(validatedPrice) : '',
         quote_mode:                 quoteMode,
         deposit:                    deposit != null ? String(deposit) : '30',

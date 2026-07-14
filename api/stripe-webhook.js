@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import nodemailer from 'nodemailer';
 import { createClient } from '@supabase/supabase-js';
 import https from 'node:https';
+import { splitServiceDetail } from './_lib/formatBookingItems.js';
 
 // A Lambda crash leaves the event in 'processing'. After this window Stripe
 // retries are allowed to re-claim it.
@@ -163,6 +164,16 @@ function escHtml(v) {
   return String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// Itemised where quoteConfig produced item-level detail at checkout time;
+// falls back to the broad service category otherwise. Shared by both
+// customer and business emails so the two never drift out of sync.
+function serviceDetailHtml(meta) {
+  const itemLines = splitServiceDetail(meta.service_detail || meta.service);
+  if (itemLines.length === 0) return '—';
+  if (itemLines.length === 1) return escHtml(itemLines[0]);
+  return itemLines.map((l) => escHtml(l)).join('<br>');
+}
+
 function telegramText(meta, bookingRef) {
   const isLeaflet = meta.last_source === 'leaflet' || meta.offer_code === 'LEAFLET20';
   const location  = [meta.address, meta.postcode].filter(Boolean).join(', ') || '—';
@@ -199,6 +210,12 @@ function telegramText(meta, bookingRef) {
       ? [`📍 <b>Source:</b> ${escHtml(meta.last_source)}`]
       : [];
 
+  // Itemised where available (built server-side from quoteConfig at checkout
+  // time); falls back to the broad category (e.g. "Carpet & upholstery ·
+  // 2 items") when no item-level detail was stored.
+  const itemLines = splitServiceDetail(meta.service_detail || meta.service);
+  const serviceLines = [`🧹 <b>Service:</b>`, ...itemLines.map((l) => `• ${escHtml(l)}`)];
+
   return [
     isLeaflet ? '🚨 <b>NEW LEAFLET BOOKING</b>' : '🔔 <b>New Booking — VVE Clean</b>',
     '',
@@ -207,7 +224,7 @@ function telegramText(meta, bookingRef) {
     `📱 <b>Phone:</b> ${escHtml(meta.phone) || '—'}`,
     `📧 <b>Email:</b> ${escHtml(meta.email) || '—'}`,
     `🏠 <b>Address:</b> ${escHtml(location)}`,
-    `🧹 <b>Service:</b> ${escHtml(meta.service)}`,
+    ...serviceLines,
     `📅 <b>Requested date/time:</b> ${escHtml(datetime)}`,
     ...priceLines,
     ...sourceLines,
@@ -297,7 +314,7 @@ async function sendToGoogleSheets(meta, bookingRef, session) {
     full_name:                 meta.fullName || '',
     email:                     meta.email    || '',
     phone:                     meta.phone    || '',
-    service:                   meta.service  || '',
+    service:                   meta.service_detail || meta.service || '',
     address:                   meta.address  || '',
     postcode:                  meta.postcode || '',
     preferred_date:            meta.date     || '',
@@ -385,7 +402,7 @@ function customerEmailHtml(meta, bookingRef) {
     <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E3E7EE;border-radius:8px;overflow:hidden;margin:0 0 24px">
       <tr style="background:#f7f8fa"><td colspan="2" style="padding:10px 16px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#b8960c;font-weight:700">Your booking request</td></tr>
       <tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px;width:40%">Service</td>
-          <td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#020b24;font-weight:600;font-size:14px">${meta.service || '—'}</td></tr>
+          <td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#020b24;font-weight:600;font-size:14px">${serviceDetailHtml(meta)}</td></tr>
       <tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px">Total</td>
           <td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#020b24;font-weight:600;font-size:14px">${meta.price ? '£' + meta.price : (isManualQuote ? 'Quote to be confirmed' : '—')}</td></tr>
       ${dateRow}
@@ -413,7 +430,7 @@ function businessEmailHtml(meta, bookingRef) {
     ['Email',          meta.email    || '—'],
     ['Phone',          meta.phone    || '—'],
     ['Address',        [meta.address, meta.postcode].filter(Boolean).join(', ') || '—'],
-    ['Service',        meta.service  || '—'],
+    ['Service',        serviceDetailHtml(meta)],
     ['Total',          meta.price    ? `£${meta.price}` : (meta.quote_mode === 'manual_quote' ? 'Quote to be confirmed' : '—')],
     ['Requested date / time', meta.date ? `${meta.date}${meta.time ? ' · ' + meta.time : ''}` : '—'],
     ['Deposit paid',   '£30'],

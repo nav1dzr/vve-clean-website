@@ -162,6 +162,38 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
     expect(call.metadata.price).not.toBe('5');
   });
 
+  it('stores an itemised service_detail in Stripe metadata, built from quoteConfig', async () => {
+    const res = makeRes();
+    await handler(makeReq(basePayload({
+      service: 'Carpet & upholstery · 2 items',
+      price: 120,
+      quoteConfig: {
+        service: 'deep',
+        deepService: 'carpet_upholstery',
+        carpetCounts: { mattress_double: 1, sofa_3: 1 },
+      },
+    })), res);
+
+    const call = sessionsCreateMock.mock.calls[0][0];
+    expect(call.metadata.service_detail).toBe('1 × 3-seater sofa\n1 × Mattress (double/king)');
+  });
+
+  it('falls back to the broad service category in service_detail when quoteConfig has no item-level detail', async () => {
+    const res = makeRes();
+    await handler(makeReq(basePayload({
+      service: 'Carpet & upholstery · 0 items',
+      quoteConfig: {
+        service: 'deep',
+        deepService: 'carpet_upholstery',
+        carpetCondition: 'delicate',
+        carpetCounts: {},
+      },
+    })), res);
+
+    const call = sessionsCreateMock.mock.calls[0][0];
+    expect(call.metadata.service_detail).toBe('Carpet & upholstery · 0 items');
+  });
+
   it('persists preferred date/time and terms acceptance to Supabase when configured', async () => {
     process.env.VITE_SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';

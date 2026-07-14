@@ -185,4 +185,81 @@ describe('stripe-webhook — Telegram notification wording', () => {
     expect(body.text).toMatch(/Requested date\/time/);
     expect(body.text).not.toMatch(/no one else can take your slot/i);
   });
+
+  it('lists the exact selected items, not just the broad category, when service_detail is present', async () => {
+    constructEventMock.mockReturnValue(makeEvent({
+      service: 'Carpet & upholstery · 2 items',
+      service_detail: '1 × 3-seater sofa\n1 × Mattress (double/king)',
+    }));
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: async () => '' });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = makeRes();
+    await handler(makeReq(), res);
+
+    const telegramCall = fetchMock.mock.calls.find(([url]) => String(url).includes('api.telegram.org'));
+    const body = JSON.parse(telegramCall[1].body);
+    expect(body.text).toMatch(/Service:<\/b>\n• 1 × 3-seater sofa\n• 1 × Mattress \(double\/king\)/);
+  });
+
+  it('falls back to the broad service category as a single bullet when service_detail is absent (legacy sessions)', async () => {
+    constructEventMock.mockReturnValue(makeEvent({ service: 'End of tenancy' }));
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: async () => '' });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = makeRes();
+    await handler(makeReq(), res);
+
+    const telegramCall = fetchMock.mock.calls.find(([url]) => String(url).includes('api.telegram.org'));
+    const body = JSON.parse(telegramCall[1].body);
+    expect(body.text).toMatch(/Service:<\/b>\n• End of tenancy/);
+  });
+});
+
+describe('stripe-webhook — itemised service detail in emails', () => {
+  beforeEach(() => {
+    sendMailMock.mockClear();
+    verifyMock.mockClear();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, text: async () => '' }));
+    process.env.STRIPE_SECRET_KEY    = 'sk_test_123';
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
+    process.env.GMAIL_SENDER          = 'sender@example.com';
+    process.env.GMAIL_APP_PASSWORD    = 'app-password';
+    process.env.BUSINESS_EMAIL        = 'business@example.com';
+    delete process.env.VITE_SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  });
+
+  it('shows each selected item on its own line in the business email Service row', async () => {
+    constructEventMock.mockReturnValue(makeEvent({
+      service: 'Carpet & upholstery · 2 items',
+      service_detail: '1 × Rug\n1 × Armchair',
+    }));
+    const res = makeRes();
+    await handler(makeReq(), res);
+
+    const businessCall = sendMailMock.mock.calls.find((c) => c[0].to === 'business@example.com');
+    expect(businessCall[0].html).toMatch(/1 × Rug<br>1 × Armchair/);
+  });
+
+  it('shows each selected item on its own line in the customer email Service row', async () => {
+    constructEventMock.mockReturnValue(makeEvent({
+      service: 'Carpet & upholstery · 2 items',
+      service_detail: '1 × Rug\n1 × Armchair',
+    }));
+    const res = makeRes();
+    await handler(makeReq(), res);
+
+    const customerCall = sendMailMock.mock.calls.find((c) => c[0].to === 'jane@example.com');
+    expect(customerCall[0].html).toMatch(/1 × Rug<br>1 × Armchair/);
+  });
+
+  it('falls back to the broad service category in emails when service_detail is absent', async () => {
+    constructEventMock.mockReturnValue(makeEvent({ service: 'End of tenancy' }));
+    const res = makeRes();
+    await handler(makeReq(), res);
+
+    const businessCall = sendMailMock.mock.calls.find((c) => c[0].to === 'business@example.com');
+    expect(businessCall[0].html).toMatch(/End of tenancy/);
+  });
 });
