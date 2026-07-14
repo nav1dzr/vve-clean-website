@@ -366,12 +366,12 @@ function customerEmailHtml(meta, bookingRef) {
   const dateRow = meta.date
     ? `<tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px">Requested date / time</td>` +
       `<td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#020b24;font-weight:600;font-size:14px">` +
-      `${meta.date}${meta.time ? ' · ' + meta.time : ''}</td></tr>`
+      `${escHtml(meta.date)}${meta.time ? ' · ' + escHtml(meta.time) : ''}</td></tr>`
     : '';
   const addressRow = (meta.address || meta.postcode)
     ? `<tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px">Location</td>` +
       `<td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#020b24;font-weight:600;font-size:14px">` +
-      `${[meta.address, meta.postcode].filter(Boolean).join(', ')}</td></tr>`
+      `${escHtml([meta.address, meta.postcode].filter(Boolean).join(', '))}</td></tr>`
     : '';
   const isManualQuote    = meta.quote_mode === 'manual_quote';
   const remainingBalance = meta.price
@@ -381,7 +381,7 @@ function customerEmailHtml(meta, bookingRef) {
   // confirms availability separately (never claimed here, since this email
   // is sent immediately on payment, before any manual confirmation).
   const requestFor = meta.date
-    ? `your request for ${meta.date}${meta.time ? ' during ' + meta.time : ''}`
+    ? `your request for ${escHtml(meta.date)}${meta.time ? ' during ' + escHtml(meta.time) : ''}`
     : 'your booking request';
 
   return `<!DOCTYPE html>
@@ -398,7 +398,7 @@ function customerEmailHtml(meta, bookingRef) {
   </td></tr>
   <tr><td style="background:#fff;padding:32px;border:1px solid #E3E7EE;border-top:none;border-radius:0 0 12px 12px">
     <h1 style="font-size:22px;color:#020b24;margin:0 0 8px;font-family:Georgia,serif">Payment received — booking request submitted</h1>
-    <p style="color:#6B7280;margin:0 0 24px;font-size:15px">Hi ${meta.fullName || 'there'}, we have received your £30 deposit and ${requestFor}. We will confirm availability within one business hour.</p>
+    <p style="color:#6B7280;margin:0 0 24px;font-size:15px">Hi ${escHtml(meta.fullName) || 'there'}, we have received your £30 deposit and ${requestFor}. We will confirm availability within one business hour.</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E3E7EE;border-radius:8px;overflow:hidden;margin:0 0 24px">
       <tr style="background:#f7f8fa"><td colspan="2" style="padding:10px 16px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#b8960c;font-weight:700">Your booking request</td></tr>
       <tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px;width:40%">Service</td>
@@ -412,7 +412,7 @@ function customerEmailHtml(meta, bookingRef) {
       <tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px">Remaining balance</td>
           <td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#020b24;font-weight:600;font-size:14px">${remainingBalance} (due on the day)</td></tr>
       <tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px">Reference</td>
-          <td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#020b24;font-weight:600;font-size:14px;word-break:break-all">${bookingRef}</td></tr>
+          <td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#020b24;font-weight:600;font-size:14px;word-break:break-all">${escHtml(bookingRef)}</td></tr>
     </table>
     <p style="color:#1e3a5f;font-size:14px;margin:0 0 8px">The £30 deposit comes off your final bill. If you need to change anything, contact us with your reference number above.</p>
     <p style="color:#6B7280;font-size:13px;margin:0 0 24px">Phone: <strong>020 8050 2233</strong> · Email: <strong>contact@vveclean.co.uk</strong></p>
@@ -426,17 +426,17 @@ function customerEmailHtml(meta, bookingRef) {
 
 function businessEmailHtml(meta, bookingRef) {
   const rows = [
-    ['Full name',      meta.fullName || '—'],
-    ['Email',          meta.email    || '—'],
-    ['Phone',          meta.phone    || '—'],
-    ['Address',        [meta.address, meta.postcode].filter(Boolean).join(', ') || '—'],
+    ['Full name',      escHtml(meta.fullName) || '—'],
+    ['Email',          escHtml(meta.email)    || '—'],
+    ['Phone',          escHtml(meta.phone)    || '—'],
+    ['Address',        escHtml([meta.address, meta.postcode].filter(Boolean).join(', ')) || '—'],
     ['Service',        serviceDetailHtml(meta)],
     ['Total',          meta.price    ? `£${meta.price}` : (meta.quote_mode === 'manual_quote' ? 'Quote to be confirmed' : '—')],
-    ['Requested date / time', meta.date ? `${meta.date}${meta.time ? ' · ' + meta.time : ''}` : '—'],
+    ['Requested date / time', meta.date ? `${escHtml(meta.date)}${meta.time ? ' · ' + escHtml(meta.time) : ''}` : '—'],
     ['Deposit paid',   '£30'],
     ['Remaining',      meta.price    ? `£${Math.max(0, Number(meta.price) - 30)}` : '—'],
-    ['Notes',          meta.message  || '—'],
-    ['Booking ref',    bookingRef],
+    ['Notes',          escHtml(meta.message)  || '—'],
+    ['Booking ref',    escHtml(bookingRef)],
   ]
     .map(([k, v]) =>
       `<tr>` +
@@ -449,8 +449,8 @@ function businessEmailHtml(meta, bookingRef) {
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:32px 16px;background:#f5f6f8;font-family:Arial,sans-serif;color:#1c1917">
-  <h2 style="color:#020b24;margin:0 0 4px;font-family:Georgia,serif">New booking — ${meta.fullName || '—'}</h2>
-  <p style="color:#6B7280;font-size:14px;margin:0 0 20px">${meta.service || '—'} · ref: ${bookingRef}</p>
+  <h2 style="color:#020b24;margin:0 0 4px;font-family:Georgia,serif">New booking — ${escHtml(meta.fullName) || '—'}</h2>
+  <p style="color:#6B7280;font-size:14px;margin:0 0 20px">${escHtml(meta.service) || '—'} · ref: ${escHtml(bookingRef)}</p>
   <table cellpadding="0" cellspacing="0" style="border:1px solid #E3E7EE;border-radius:8px;overflow:hidden;background:#fff;width:100%;max-width:560px">
     <tr style="background:#f7f8fa">
       <td colspan="2" style="padding:10px 16px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#b8960c;font-weight:700">Booking details</td>
