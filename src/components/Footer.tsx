@@ -1,5 +1,6 @@
 import { Phone, Mail, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useCookieConsent } from '../context/CookieConsentContext';
 
 const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
 
@@ -29,6 +30,8 @@ function WhatsAppIcon({ size = 16 }: { size?: number }) {
 }
 
 export default function Footer() {
+  const { openSettings } = useCookieConsent();
+
   return (
     <footer className="bg-navy-950 border-t border-white/5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -169,9 +172,16 @@ export default function Footer() {
             <span className="hidden sm:inline text-silver-800">|</span>
             <span className="text-silver-500">Company Registration Number: <span className="text-silver-400 font-medium">17234391</span></span>
           </div>
-          <div className="flex gap-4">
+          <div className="flex items-center gap-4">
             <Link to="/privacy-policy" className="hover:text-silver-300 transition-colors">Privacy Policy</Link>
             <Link to="/terms-of-service" className="hover:text-silver-300 transition-colors">Terms of Service</Link>
+            <button
+              type="button"
+              onClick={openSettings}
+              className="min-h-[44px] hover:text-silver-300 transition-colors underline-offset-2 hover:underline"
+            >
+              Cookie settings
+            </button>
           </div>
         </div>
       </div>

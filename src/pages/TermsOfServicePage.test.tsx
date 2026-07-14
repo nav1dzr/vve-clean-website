@@ -3,11 +3,14 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TermsOfServicePage from './TermsOfServicePage';
 import { TERMS_VERSION } from '../lib/termsVersion';
+import { CookieConsentProvider } from '../context/CookieConsentContext';
 
 function renderPage() {
   render(
     <MemoryRouter>
-      <TermsOfServicePage />
+      <CookieConsentProvider>
+        <TermsOfServicePage />
+      </CookieConsentProvider>
     </MemoryRouter>,
   );
   // Content is split across <strong>/inline elements, so match against the
