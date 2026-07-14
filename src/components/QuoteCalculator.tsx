@@ -6,6 +6,7 @@ import { useReveal } from '../hooks/useReveal';
 import {
   CARPET_GROUPS,
   CARPET_MIN_BOOKING,
+  DISCOUNT_MIN_NOTE,
   computeCarpetPrice,
   itemLinePrice,
   type CarpetCondition,
@@ -72,11 +73,16 @@ type ServiceKey = 'deep' | 'window' | 'gutter' | 'office';
 export interface BookingSelection {
   serviceName:     string;
   price:           number;
-  // Offer/promo data (present when a discount was applied)
+  // Offer/promo data (present only when a discount genuinely reduced the
+  // final price — never set when the £85 minimum booking charge overrode it)
   offerCode?:      string;   // e.g. 'LEAFLET20' or 'BUNDLE'
   standardPrice?:  number;   // pre-discount price for display
   discountAmount?: number;   // £ saved
   discountPercent?: number;  // percentage
+  // Minimum-booking-charge context (present when the £85 floor determined
+  // the final price, whether or not a discount was also in play)
+  minimumApplied?:        boolean;
+  subtotalBeforeMinimum?: number;  // discounted subtotal before the £85 floor
   quoteConfig?: {
     service:          ServiceKey;
     deepService:      DeepServiceType;
@@ -274,7 +280,15 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
         : `£${carpetResult?.finalTotal ?? 0}`;
       const carpetBundle = carpetResult?.bundle;
       const bundleSummaryText = (() => {
-        if ((carpetBundle?.saving ?? 0) === 0) return '';
+        if (!carpetResult?.showSaving) {
+          // Either no discount applies, or the £85 minimum booking charge
+          // overrode it — in the latter case, say so instead of quoting a
+          // saving the customer won't actually receive.
+          if (carpetResult?.minApplied) {
+            return `• Items subtotal: £${carpetBundle!.preDiscount}\n• £${CARPET_MIN_BOOKING} minimum booking charge applies\n`;
+          }
+          return '';
+        }
         const label = carpetBundle!.source === 'promo' && promoCode
           ? `Leaflet offer (${carpetBundle!.pct}% off)`
           : 'Same-visit bundle saving';
@@ -347,7 +361,11 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
 
   const handleBookNow = () => {
     const bundle = carpetResult?.bundle;
-    const hasDiscount = (bundle?.saving ?? 0) > 0;
+    // Only claim a discount when the minimum booking charge hasn't overridden
+    // it — otherwise standardPrice - discountAmount would not equal price,
+    // and the booking summary would show a saving the customer didn't get.
+    const hasDiscount = carpetResult?.showSaving ?? false;
+    const minimumApplied = carpetResult?.minApplied ?? false;
     const sel: BookingSelection = {
       serviceName: bookingServiceName,
       price:       Math.round(price),
@@ -356,6 +374,10 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
         standardPrice:  bundle!.preDiscount,
         discountAmount: bundle!.saving,
         discountPercent: bundle!.pct,
+      } : {}),
+      ...(minimumApplied ? {
+        minimumApplied:         true,
+        subtotalBeforeMinimum:  carpetResult!.discountedSubtotal,
       } : {}),
       quoteConfig: {
         service, deepService, deepSize, deepBaths, addOnCounts,
@@ -784,19 +806,45 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                         <div className="font-display font-bold leading-none" style={{ fontSize: '3.5rem', color: '#1a5c3a' }}>
                           {isCarpet && carpetCondition === 'heavy' ? '~' : ''}£{Math.round(price)}
                         </div>
-                        {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
+                        {/* "You save £X" is only ever shown when the minimum booking
+                            charge did NOT override the discount — otherwise the
+                            customer wouldn't actually receive that saving. */}
+                        {isCarpet && carpetResult?.showSaving && (
                           <div className="mt-1.5 inline-flex items-center gap-1.5 bg-green-100 border border-green-300 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">
                             {carpetResult!.bundle.source === 'promo'
                               ? `Leaflet offer — you save £${carpetResult!.bundle.saving}`
                               : `Same-visit bundle saving — you save £${carpetResult!.bundle.saving}`}
                           </div>
                         )}
-                        {isCarpet && carpetResult?.minApplied && (
-                          <div className="text-xs font-semibold mt-1" style={{ color: '#4a7a62' }}>
-                            Includes minimum booking adjustment (+£{carpetResult.minAdjustment})
-                          </div>
-                        )}
                       </div>
+
+                      {/* Minimum booking charge breakdown — replaces any saving
+                          claim when the £85 floor is what actually set the price */}
+                      {isCarpet && carpetResult?.minApplied && (
+                        <div className="mt-3 mx-auto max-w-[300px] rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 space-y-1">
+                          <div className="flex justify-between text-xs text-navy-700">
+                            <span>Service subtotal</span>
+                            <span>£{carpetResult.adjustedSubtotal}</span>
+                          </div>
+                          {carpetResult.bundle.saving > 0 && (
+                            <div className="flex justify-between text-xs text-navy-700">
+                              <span>Discounted subtotal</span>
+                              <span>£{carpetResult.discountedSubtotal}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-xs font-semibold text-amber-700">
+                            <span>Minimum booking charge</span>
+                            <span>£{CARPET_MIN_BOOKING}</span>
+                          </div>
+                          <div className="flex justify-between text-xs font-bold text-navy-900 border-t border-amber-200 pt-1 mt-1">
+                            <span>Final price</span>
+                            <span>£{carpetResult.finalTotal}</span>
+                          </div>
+                          {promoCode && (
+                            <p className="text-amber-700 text-[10px] leading-relaxed pt-1">{DISCOUNT_MIN_NOTE}</p>
+                          )}
+                        </div>
+                      )}
 
                       {/* Next-tier nudge — hidden when a promo already beats all tiers */}
                       {isCarpet && (carpetResult?.bundle.toNextTier ?? 0) > 0 && carpetResult!.bundle.source !== 'promo' && (
@@ -926,14 +974,14 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                       ? '—'
                       : `${isCarpet && carpetCondition === 'heavy' ? '~' : ''}£${Math.round(price)}`}
               </div>
-              {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
+              {isCarpet && carpetResult?.showSaving && (
                 <div className="text-green-400 text-xs font-semibold mb-1">
                   {carpetResult!.bundle.source === 'promo' ? 'Leaflet offer' : 'Bundle saving'} — £{carpetResult!.bundle.saving} off
                 </div>
               )}
               {minApplied && (
                 <div className="text-amber-400 text-xs mb-2 flex items-center gap-1">
-                  <Info size={11} /> Min. charge applied
+                  <Info size={11} /> £{CARPET_MIN_BOOKING} minimum booking charge applies
                 </div>
               )}
               <div className="text-silver-400 text-sm mb-4">
@@ -1021,24 +1069,28 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                           <span className="text-white font-semibold">£{l.lineTotal}</span>
                         </div>
                       ))}
-                      {carpetResult!.minApplied && (
-                        <div className="flex justify-between text-xs border-t border-white/10 pt-1 mt-1">
-                          <span className="text-amber-300">Min. booking adj.</span>
-                          <span className="text-amber-300 font-semibold">+£{carpetResult!.minAdjustment}</span>
-                        </div>
-                      )}
                       {carpetResult!.heavySurcharge > 0 && (
                         <div className="flex justify-between text-xs">
                           <span className="text-amber-300">Heavy stain surcharge</span>
                           <span className="text-amber-300 font-semibold">+£{carpetResult!.heavySurcharge}</span>
                         </div>
                       )}
-                      {carpetResult!.bundle.saving > 0 && (
+                      {/* Discount line only shown when it genuinely reduced the
+                          final price — never alongside the min-charge line below,
+                          since the £85 floor overriding the discount means no
+                          saving was actually applied. */}
+                      {carpetResult!.showSaving && (
                         <div className="flex justify-between text-xs">
                           <span className="text-green-300">
                             {carpetResult!.bundle.source === 'promo' ? 'Leaflet offer' : 'Bundle saving'}
                           </span>
                           <span className="text-green-300 font-semibold">−£{carpetResult!.bundle.saving}</span>
+                        </div>
+                      )}
+                      {carpetResult!.minApplied && (
+                        <div className="flex justify-between text-xs border-t border-white/10 pt-1 mt-1">
+                          <span className="text-amber-300">Minimum booking charge</span>
+                          <span className="text-amber-300 font-semibold">£{CARPET_MIN_BOOKING}</span>
                         </div>
                       )}
                     </div>

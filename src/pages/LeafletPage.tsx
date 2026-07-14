@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Shield, Star } from 'lucide-react';
 import QuoteCalculator, { type BookingSelection } from '../components/QuoteCalculator';
 import { setLeafletAttribution } from '../lib/attribution';
+import { DISCOUNT_MIN_NOTE } from '../data/carpetPricing';
 
 const WA_NUMBER = '447845451111';
 
@@ -130,10 +131,15 @@ export default function LeafletPage() {
             <p className="text-sm font-semibold mb-3" style={{ color: '#78610d' }}>
               Your leaflet offer is automatically applied. No code needed.
             </p>
+            <p className="text-xs font-semibold mb-3" style={{ color: '#92700a' }}>
+              {DISCOUNT_MIN_NOTE}
+            </p>
             <p className="text-xs leading-relaxed" style={{ color: '#a07a15' }}>
               Available to new residential customers only. Applies to carpet, sofa and upholstery cleaning bookings.
               One offer per household. Cannot be combined with another offer. Parking, congestion charge and extra
               access charges are not discounted. Final price depends on size, material, condition and access.
+              If your discounted total falls below the minimum booking charge, the minimum charge applies instead
+              of the discounted price.
             </p>
           </div>
         </div>

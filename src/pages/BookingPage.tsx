@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import QuoteCalculator, { type BookingSelection } from '../components/QuoteCalculator';
 import { getAttribution } from '../lib/attribution';
+import { CARPET_MIN_BOOKING, DISCOUNT_MIN_NOTE } from '../data/carpetPricing';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -120,11 +121,13 @@ function ServiceCard({ selection, onChangeService }: {
         </button>
       </div>
 
-      {/* Offer breakdown */}
+      {/* Offer breakdown — only rendered when the discount genuinely reduced
+          the final price (QuoteCalculator omits offerCode/discountAmount
+          entirely when the £85 minimum booking charge overrode it) */}
       {hasOffer && (
         <div className="px-5 py-3 border-t border-[#E3E7EE] space-y-1" style={{ background: '#f0fdf4' }}>
           <div className="flex justify-between text-xs text-silver-600">
-            <span>Standard price</span>
+            <span>Service subtotal</span>
             <span className="line-through">{money(selection.standardPrice ?? selection.price)}</span>
           </div>
           <div className="flex justify-between text-xs font-semibold text-green-700">
@@ -136,9 +139,35 @@ function ServiceCard({ selection, onChangeService }: {
             <span>−{money(selection.discountAmount ?? 0)}</span>
           </div>
           <div className="flex justify-between text-xs font-bold text-navy-900 border-t border-green-200 pt-1 mt-1">
-            <span>Your price</span>
+            <span>Final price</span>
             <span>{money(selection.price)}</span>
           </div>
+          {isLeaflet && (
+            <p className="text-[10px] text-silver-500 pt-1">{DISCOUNT_MIN_NOTE}</p>
+          )}
+        </div>
+      )}
+
+      {/* Minimum booking charge breakdown — shown instead of the offer
+          breakdown above when the £85 floor is what actually set the price,
+          so no discount is claimed that the customer didn't receive. */}
+      {!hasOffer && selection.minimumApplied && (
+        <div className="px-5 py-3 border-t border-[#E3E7EE] space-y-1" style={{ background: '#fffbeb' }}>
+          <div className="flex justify-between text-xs text-silver-600">
+            <span>Service subtotal</span>
+            <span>{money(selection.subtotalBeforeMinimum ?? selection.price)}</span>
+          </div>
+          <div className="flex justify-between text-xs font-semibold text-amber-700">
+            <span>Minimum booking charge</span>
+            <span>{money(CARPET_MIN_BOOKING)}</span>
+          </div>
+          <div className="flex justify-between text-xs font-bold text-navy-900 border-t border-amber-200 pt-1 mt-1">
+            <span>Final price</span>
+            <span>{money(selection.price)}</span>
+          </div>
+          {isLeaflet && (
+            <p className="text-[10px] text-amber-700 pt-1">{DISCOUNT_MIN_NOTE}</p>
+          )}
         </div>
       )}
 

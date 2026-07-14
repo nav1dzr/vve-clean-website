@@ -3,6 +3,11 @@
 
 export const CARPET_MIN_BOOKING = 85;
 
+// Shared, single copy of the discount disclosure — reused wherever a leaflet/
+// promo discount or the minimum booking charge is shown, so the wording never
+// drifts out of sync between the calculator, booking summary and leaflet page.
+export const DISCOUNT_MIN_NOTE = `20% off eligible services. £${CARPET_MIN_BOOKING} minimum booking applies.`;
+
 // Bundle discount tiers applied to the carpet/upholstery eligible subtotal
 const BUNDLE_TIERS = [
   { min: 400, pct: 12 },
@@ -86,16 +91,23 @@ export interface CarpetPriceLine {
 }
 
 export interface CarpetPriceResult {
-  lines:            CarpetPriceLine[];
-  subtotal:         number;
-  heavySurcharge:   number;  // 0 unless heavy condition
-  adjustedSubtotal: number;  // subtotal + heavySurcharge
-  bundle:           BundleInfo;
-  minAdjustment:    number;  // 0 unless min booking applies
-  finalTotal:       number;
-  minApplied:       boolean;
-  totalItems:       number;
-  isPhotoQuote:     boolean; // true when condition === 'delicate'
+  lines:              CarpetPriceLine[];
+  subtotal:           number;
+  heavySurcharge:     number;  // 0 unless heavy condition
+  adjustedSubtotal:   number;  // subtotal + heavySurcharge — the "service subtotal"
+  bundle:             BundleInfo;
+  discountedSubtotal: number;  // adjustedSubtotal minus the discount, BEFORE the minimum-charge floor
+  minAdjustment:      number;  // 0 unless min booking applies
+  finalTotal:         number;
+  minApplied:         boolean;
+  // True only when a discount was calculated AND the minimum booking charge did
+  // NOT override it — i.e. the customer's final price genuinely reflects the
+  // full discount. When the minimum charge overrides the discount, this is
+  // false and no "you save £X" figure should be shown anywhere (it would be
+  // fictitious — the customer is paying the £85 floor, not the discounted price).
+  showSaving:         boolean;
+  totalItems:         number;
+  isPhotoQuote:       boolean; // true when condition === 'delicate'
 }
 
 /**
@@ -168,10 +180,16 @@ export function computeCarpetPrice(
       ? Math.max(discountedSubtotal, CARPET_MIN_BOOKING)
       : 0;
 
+  // The discount is only "real" if the minimum charge didn't override it —
+  // otherwise the customer pays the £85 floor regardless of the calculated
+  // discount, and showing that discount amount as a saving would be false.
+  const showSaving = finalSaving > 0 && !minApplied;
+
   const totalItems = Object.values(counts).reduce<number>((s, v) => s + (v ?? 0), 0);
 
   return {
     lines, subtotal, heavySurcharge, adjustedSubtotal,
-    bundle, minAdjustment, finalTotal, minApplied, totalItems, isPhotoQuote,
+    bundle, discountedSubtotal, minAdjustment, finalTotal, minApplied, showSaving,
+    totalItems, isPhotoQuote,
   };
 }
