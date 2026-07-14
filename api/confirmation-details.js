@@ -18,7 +18,7 @@ import { createClient } from '@supabase/supabase-js';
 export const config = { api: { bodyParser: false } };
 
 // Only expose these fields to the confirmation page — never return raw notes or full address.
-const SAFE_SELECT = 'full_name, email, service, preferred_date, payment_status, stripe_session_id';
+const SAFE_SELECT = 'full_name, email, service, preferred_date, preferred_time, payment_status, status, stripe_session_id';
 
 function getSupabase() {
   const url = process.env.VITE_SUPABASE_URL;
@@ -42,6 +42,10 @@ function fromStripeSession(session, overrideRef) {
     service:    meta.service  || '',
     price:      meta.price    || '',
     date:       meta.date     || '',
+    time:       meta.time     || '',
+    // No Supabase row to read an operational status from — status is only
+    // ever set/updated via the admin CRM, so treat as not-yet-confirmed.
+    status:     '',
   };
 }
 
@@ -99,6 +103,10 @@ export default async function handler(req, res) {
           let name    = data.full_name      || '';
           let service = data.service        || '';
           let date    = data.preferred_date || '';
+          let time    = data.preferred_time || '';
+          // Operational booking status — 'new' by default, only ever changed
+          // to 'confirmed' etc. via the admin CRM. Never fabricated here.
+          const status = data.status || '';
 
           const stripeId = data.stripe_session_id ||
             (hasSid ? sid : null);
@@ -112,12 +120,13 @@ export default async function handler(req, res) {
               if (!name)    name    = meta.fullName || '';
               if (!service) service = meta.service  || '';
               if (!date)    date    = meta.date     || '';
+              if (!time)    time    = meta.time     || '';
             } catch (e) {
               console.error('[confirmation-details] Stripe retrieve failed:', e.message);
             }
           }
 
-          return ok(res, { paid, bookingRef: ref, name, service, price, date });
+          return ok(res, { paid, bookingRef: ref, name, service, price, date, time, status });
         }
 
         // Token not matched — could be a tampered token or pre-migration booking.
@@ -147,6 +156,8 @@ export default async function handler(req, res) {
           let name    = data.full_name      || '';
           let service = data.service        || '';
           let date    = data.preferred_date || '';
+          let time    = data.preferred_time || '';
+          const status = data.status || '';
 
           try {
             const session = await stripe.checkout.sessions.retrieve(sid);
@@ -156,6 +167,7 @@ export default async function handler(req, res) {
             if (!name)    name    = meta.fullName || '';
             if (!service) service = meta.service  || '';
             if (!date)    date    = meta.date     || '';
+            if (!time)    time    = meta.time     || '';
           } catch (e) {
             console.error('[confirmation-details] Stripe retrieve failed:', e.message);
           }
@@ -167,6 +179,8 @@ export default async function handler(req, res) {
             service,
             price,
             date,
+            time,
+            status,
           });
         }
       }

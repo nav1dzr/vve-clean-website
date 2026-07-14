@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Booking confirmed — VVE Clean</title>
+<title>Booking request received — VVE Clean</title>
 <meta name="robots" content="noindex" />
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
 <!-- Google tag (gtag.js) — AW-18214693277 -->
@@ -257,8 +257,8 @@
       Payment received
     </div>
 
-    <h1>You&rsquo;re all booked in!</h1>
-    <p class="lede">Thanks <strong id="name">there</strong> — your £30 deposit is paid and your slot is secured. We'll be in touch shortly to confirm your exact time.</p>
+    <h1 id="hero-heading">Payment received — we&rsquo;re checking your requested date</h1>
+    <p class="lede">Thanks <strong id="name">there</strong> — <span id="hero-lede-text">your booking request has been received. We will confirm availability within one business hour.</span></p>
   </div>
 
   <!-- Booking reference -->
@@ -272,8 +272,9 @@
   <div class="card">
     <div class="card-head">Booking summary</div>
     <div class="dline"><span class="dline-key">Service</span>   <span class="dline-val" id="service">—</span></div>
-    <div class="dline"><span class="dline-key">Estimate</span>  <span class="dline-val" id="price">—</span></div>
-    <div class="dline"><span class="dline-key">Preferred date</span><span class="dline-val" id="date">To be arranged</span></div>
+    <div class="dline"><span class="dline-key">Total</span>  <span class="dline-val" id="price">—</span></div>
+    <div class="dline"><span class="dline-key">Requested date</span><span class="dline-val" id="date">To be arranged</span></div>
+    <div class="dline"><span class="dline-key">Requested arrival window</span><span class="dline-val" id="window">To be arranged</span></div>
     <div class="dline"><span class="dline-key">Deposit paid</span><span class="dline-val" style="color:var(--ok)">£30 ✓</span></div>
     <div class="dline"><span class="dline-key">Remaining balance</span><span class="dline-val" id="remaining">—</span></div>
   </div>
@@ -298,8 +299,8 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
         <div class="next-body">
-          <div class="next-label">Deposit paid — slot held</div>
-          <div class="next-sub">Your booking is secured. No one else can take your slot.</div>
+          <div class="next-label">£30 deposit received</div>
+          <div class="next-sub">Your booking request has been received and comes off your final bill.</div>
         </div>
       </div>
       <div class="next-step">
@@ -307,8 +308,8 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.36 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 5.91 5.91l.82-.82a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
         </div>
         <div class="next-body">
-          <div class="next-label">We'll confirm your time</div>
-          <div class="next-sub">Our team will call or message within 24 hours to lock in your exact arrival time.</div>
+          <div class="next-label" id="next-step-2-label">We'll confirm availability</div>
+          <div class="next-sub">Our team will call or message within one business hour to confirm your requested date and arrival window.</div>
         </div>
       </div>
       <div class="next-step">
@@ -395,12 +396,36 @@
   document.getElementById("wa").href =
     "https://wa.me/" + WHATSAPP_NUMBER + "?text=" + encodeURIComponent(waText);
 
+  // ── Status-driven headline/lede copy ──────────────────────────────────────
+  // Only ever call the appointment "confirmed" when the booking's operational
+  // status (set exclusively via the admin CRM — never by the payment flow
+  // itself) genuinely says so. Every other state — including the default
+  // 'new' status every booking starts in — uses honest "request received"
+  // wording. tests/confirmationStatusCopy.test.js extracts and executes this
+  // exact function from this file (rather than duplicating it), so keep it
+  // self-contained (no closures over outer variables) if you edit it.
+  function statusCopy(status) {
+    if (status === "confirmed") {
+      return {
+        heading: "You’re all booked in!",
+        lede: "your appointment is confirmed. We will see you on your requested date.",
+        nextStepLabel: "Appointment confirmed",
+      };
+    }
+    return {
+      heading: "Payment received — we’re checking your requested date",
+      lede: "your booking request has been received. We will confirm availability within one business hour.",
+      nextStepLabel: "We'll confirm availability",
+    };
+  }
+
   // ── Populate details from API response ───────────────────────────────────
   function populateDetails(d) {
     set("name",    d.name,              "there");
     set("contact", d.email || "",       "you");
     set("service", d.service,           "—");
     set("ref",     d.bookingRef || ref, "—");
+    set("window",  d.time,              "To be arranged");
 
     var priceRaw = String(d.price || "");
     set("price", priceRaw ? "£" + priceRaw : null, "—");
@@ -418,6 +443,14 @@
         : dt.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
       set("date", formatted, "To be arranged");
     }
+
+    // textContent only — never innerHTML — since copy.lede is safe (hardcoded
+    // in statusCopy above) but the customer's name (already set via set()
+    // above) must never be interpolated into HTML.
+    var copy = statusCopy(d.status);
+    set("hero-heading",    copy.heading);
+    set("hero-lede-text",  copy.lede);
+    set("next-step-2-label", copy.nextStepLabel);
 
     hideLoadingIndicator();
   }
@@ -453,7 +486,7 @@
           if (el) {
             el.innerHTML =
               '<em style="color:var(--muted);font-size:13px">' +
-              "Your booking is confirmed — full details will be in your confirmation email." +
+              "Your payment was received — full details will be in your confirmation email." +
               "</em>";
           }
         }

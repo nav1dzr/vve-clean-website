@@ -208,7 +208,7 @@ function telegramText(meta, bookingRef) {
     `📧 <b>Email:</b> ${escHtml(meta.email) || '—'}`,
     `🏠 <b>Address:</b> ${escHtml(location)}`,
     `🧹 <b>Service:</b> ${escHtml(meta.service)}`,
-    `📅 <b>Date/Time:</b> ${escHtml(datetime)}`,
+    `📅 <b>Requested date/time:</b> ${escHtml(datetime)}`,
     ...priceLines,
     ...sourceLines,
   ].join('\n');
@@ -347,7 +347,7 @@ async function sendTelegram(text) {
 
 function customerEmailHtml(meta, bookingRef) {
   const dateRow = meta.date
-    ? `<tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px">Date / time</td>` +
+    ? `<tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px">Requested date / time</td>` +
       `<td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#020b24;font-weight:600;font-size:14px">` +
       `${meta.date}${meta.time ? ' · ' + meta.time : ''}</td></tr>`
     : '';
@@ -360,6 +360,12 @@ function customerEmailHtml(meta, bookingRef) {
   const remainingBalance = meta.price
     ? `£${Math.max(0, Number(meta.price) - 30).toLocaleString('en-GB')}`
     : 'to be confirmed';
+  // Required wording — the appointment is a request until the business
+  // confirms availability separately (never claimed here, since this email
+  // is sent immediately on payment, before any manual confirmation).
+  const requestFor = meta.date
+    ? `your request for ${meta.date}${meta.time ? ' during ' + meta.time : ''}`
+    : 'your booking request';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -374,13 +380,13 @@ function customerEmailHtml(meta, bookingRef) {
     <span style="font-size:10px;letter-spacing:0.22em;color:rgba(255,255,255,0.55);font-weight:600;font-family:Arial,sans-serif;margin-left:8px">CLEAN</span>
   </td></tr>
   <tr><td style="background:#fff;padding:32px;border:1px solid #E3E7EE;border-top:none;border-radius:0 0 12px 12px">
-    <h1 style="font-size:22px;color:#020b24;margin:0 0 8px;font-family:Georgia,serif">Booking confirmed</h1>
-    <p style="color:#6B7280;margin:0 0 24px;font-size:15px">Hi ${meta.fullName || 'there'}, your £30 deposit is in and your slot is held. We'll be in touch shortly to confirm the exact time.</p>
+    <h1 style="font-size:22px;color:#020b24;margin:0 0 8px;font-family:Georgia,serif">Payment received — booking request submitted</h1>
+    <p style="color:#6B7280;margin:0 0 24px;font-size:15px">Hi ${meta.fullName || 'there'}, we have received your £30 deposit and ${requestFor}. We will confirm availability within one business hour.</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E3E7EE;border-radius:8px;overflow:hidden;margin:0 0 24px">
-      <tr style="background:#f7f8fa"><td colspan="2" style="padding:10px 16px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#b8960c;font-weight:700">Your booking</td></tr>
+      <tr style="background:#f7f8fa"><td colspan="2" style="padding:10px 16px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#b8960c;font-weight:700">Your booking request</td></tr>
       <tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px;width:40%">Service</td>
           <td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#020b24;font-weight:600;font-size:14px">${meta.service || '—'}</td></tr>
-      <tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px">Estimate</td>
+      <tr><td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#6B7280;font-size:14px">Total</td>
           <td style="padding:10px 16px;border-top:1px solid #E3E7EE;color:#020b24;font-weight:600;font-size:14px">${meta.price ? '£' + meta.price : (isManualQuote ? 'Quote to be confirmed' : '—')}</td></tr>
       ${dateRow}
       ${addressRow}
@@ -408,8 +414,8 @@ function businessEmailHtml(meta, bookingRef) {
     ['Phone',          meta.phone    || '—'],
     ['Address',        [meta.address, meta.postcode].filter(Boolean).join(', ') || '—'],
     ['Service',        meta.service  || '—'],
-    ['Estimate',       meta.price    ? `£${meta.price}` : (meta.quote_mode === 'manual_quote' ? 'Quote to be confirmed' : '—')],
-    ['Date / time',    meta.date     ? `${meta.date}${meta.time ? ' · ' + meta.time : ''}` : '—'],
+    ['Total',          meta.price    ? `£${meta.price}` : (meta.quote_mode === 'manual_quote' ? 'Quote to be confirmed' : '—')],
+    ['Requested date / time', meta.date ? `${meta.date}${meta.time ? ' · ' + meta.time : ''}` : '—'],
     ['Deposit paid',   '£30'],
     ['Remaining',      meta.price    ? `£${Math.max(0, Number(meta.price) - 30)}` : '—'],
     ['Notes',          meta.message  || '—'],
@@ -685,7 +691,7 @@ export default async function handler(req, res) {
         await transport.sendMail({
           from:    `"VVE Clean" <${process.env.GMAIL_SENDER}>`,
           to:      meta.email,
-          subject: `Your booking is confirmed — ${meta.service || 'VVE Clean'}`,
+          subject: `We've received your booking request — ${meta.service || 'VVE Clean'}`,
           html:    customerEmailHtml(meta, bookingRef),
         });
         console.log('[webhook] Customer confirmation sent');
