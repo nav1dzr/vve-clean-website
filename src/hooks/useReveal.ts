@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+}
+
 export function useReveal() {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -7,6 +11,14 @@ export function useReveal() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // Reduced motion: show content immediately instead of animating it in —
+    // this is the single guard point for nearly every scroll-reveal
+    // animation on the site (Hero, Gallery, Reviews, Services, Guarantee,
+    // OurKit, FAQ, Areas, QuoteCalculator all use this hook).
+    if (prefersReducedMotion()) {
+      setVisible(true);
+      return;
+    }
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -28,6 +40,10 @@ export function useCounter(target: number, duration = 2000, start = false) {
 
   useEffect(() => {
     if (!start) return;
+    if (prefersReducedMotion()) {
+      setCount(target);
+      return;
+    }
     let startTime: number;
     const step = (timestamp: number) => {
       if (!startTime) startTime = timestamp;
