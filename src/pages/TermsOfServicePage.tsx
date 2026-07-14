@@ -1,9 +1,14 @@
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { TERMS_VERSION } from '../lib/termsVersion';
 
 const CONTACT_EMAIL = 'contact@vveclean.co.uk';
-const LAST_UPDATED = '6 July 2026';
+// Derived from TERMS_VERSION (single source of truth, shared with the
+// booking page's terms-acceptance record) so this display date can never
+// drift out of sync with the version actually being recorded.
+const LAST_UPDATED = new Date(`${TERMS_VERSION}T00:00:00Z`)
+  .toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 
 interface Section {
   id: string;
@@ -69,6 +74,10 @@ const sections: Section[] = [
           pet accidents, strong odours, or large or permanent stains. In such cases, we will explain the
           issue and confirm any revised price with you before proceeding.
         </p>
+        <p className="mt-3">
+          No extra work will begin, and no price change will apply, without your agreement. If we believe the
+          job differs materially from what was quoted, we will pause and discuss it with you before continuing.
+        </p>
       </>
     ),
   },
@@ -78,16 +87,20 @@ const sections: Section[] = [
     content: (
       <>
         <p>
-          To secure a booking slot, a <strong>£30 deposit</strong> may be required at the time of booking.
-          This deposit is processed securely by Stripe and comes off your final bill.
+          When you pay online, you are paying a <strong>£30 deposit</strong> — not the full price of your
+          clean. This deposit is processed securely by Stripe and is deducted from your final total; it is
+          not an extra charge.
+        </p>
+        <p className="mt-3">
+          Paying the deposit submits a <strong>booking request</strong> for your preferred date and arrival
+          window. It does not, by itself, guarantee that date or time. We aim to confirm availability within
+          one business hour of receiving your request, and will contact you to confirm the appointment
+          separately. Until we have confirmed your appointment, please treat your requested date and time as
+          provisional rather than fixed.
         </p>
         <p className="mt-3">
           The remaining balance is due after the service has been completed and you have had the opportunity
           to check the work, unless a different payment arrangement has been agreed in writing in advance.
-        </p>
-        <p className="mt-3">
-          A booking is confirmed once we have acknowledged it and, where applicable, received the deposit.
-          Until confirmed, dates are not guaranteed.
         </p>
       </>
     ),
