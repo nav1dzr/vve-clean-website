@@ -225,7 +225,7 @@ export default function LeafletPage() {
             ))}
           </nav>
           <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.65)' }}>
-            © {new Date().getFullYear()} VVE Clean Ltd. All rights reserved. Registered in England &amp; Wales.
+            © {new Date().getFullYear()} VVE Limited trading as VVE Clean. Registered in England and Wales. Company No. 17234391.
           </p>
         </div>
       </footer>
