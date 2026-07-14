@@ -14,8 +14,37 @@ export interface BookingCard {
   serviceDate: string | null;
   status: string | null;
   paymentStatus: string | null;
+  balanceStatus: string | null;
   totalPrice: number | null;
   createdAt: string;
+}
+
+export interface InternalNote {
+  id: string;
+  note: string;
+  createdAt: string;
+  author: {
+    id: string | null;
+    displayName: string;
+  };
+}
+
+export interface NotesResponse {
+  notes: InternalNote[];
+}
+
+export interface StatusUpdateResponse {
+  id: string;
+  status: string;
+  updatedAt: string;
+}
+
+export interface BalanceUpdateResponse {
+  id: string;
+  balanceStatus: string;
+  balancePaidAt: string | null;
+  balancePaymentMethod: string | null;
+  updatedAt: string;
 }
 
 export interface BookingDetail {
@@ -96,6 +125,10 @@ export const BOOKING_STATUS_VALUES = [
 ] as const;
 
 export const PAYMENT_STATUS_VALUES = ['pending_payment', 'paid'] as const;
+
+export const BALANCE_STATUS_VALUES = ['not_due', 'outstanding', 'paid', 'waived'] as const;
+
+export const BALANCE_PAYMENT_METHOD_VALUES = ['card', 'bank_transfer', 'cash', 'stripe', 'other'] as const;
 
 export const SORT_VALUES = ['newest', 'oldest', 'service_date', 'highest_value'] as const;
 export type SortValue = (typeof SORT_VALUES)[number];

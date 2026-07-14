@@ -3,6 +3,7 @@ import { corsHeaders } from '../_lib/cors.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
 import { DETAIL_SELECT, toDetail } from '../_lib/bookingFields.js';
 import { isValidUuid } from '../_lib/normalise.js';
+import { extractIdParam } from '../_lib/routeParams.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -31,10 +32,7 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: auth.error }));
   }
 
-  // Vercel populates req.query for a [id].js dynamic route; also accept a
-  // manually parsed path segment as a fallback so this handler is testable
-  // (and correct) independent of the Vercel routing layer.
-  const id = req.query?.id || new URL(req.url, 'https://x').pathname.split('/').filter(Boolean).pop();
+  const id = extractIdParam(req);
 
   if (!isValidUuid(id)) {
     res.writeHead(400, headers);
