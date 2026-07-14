@@ -222,17 +222,17 @@ export default function CommercialPage() {
                 href={WA_COMMERCIAL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold px-7 py-3.5 rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base w-full sm:w-auto justify-center"
+                className="inline-flex items-center gap-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 {WA_SVG}
                 Book a free site visit
               </a>
               <a
                 href={EMAIL}
-                className="inline-flex items-center gap-2 border-2 border-white/40 hover:border-white text-white font-semibold px-7 py-3.5 rounded-xl transition-all duration-200 hover:bg-white/10 text-base w-full sm:w-auto justify-center"
+                className="inline-flex items-center gap-2 border-2 border-white/40 hover:border-white text-white font-semibold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:bg-white/10 text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                Email us
+                Email your requirements
               </a>
             </div>
           </div>
@@ -426,17 +426,17 @@ export default function CommercialPage() {
                 href={WA_COMMERCIAL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold px-7 py-3.5 rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base w-full sm:w-auto justify-center"
+                className="inline-flex items-center gap-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 {WA_SVG}
                 WhatsApp us your address
               </a>
               <a
                 href={EMAIL}
-                className="inline-flex items-center gap-2 border-2 border-white/40 hover:border-white text-white font-semibold px-7 py-3.5 rounded-xl transition-all duration-200 hover:bg-white/10 text-base w-full sm:w-auto justify-center"
+                className="inline-flex items-center gap-2 border-2 border-white/40 hover:border-white text-white font-semibold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:bg-white/10 text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                Email us
+                Email your requirements
               </a>
             </div>
           </div>

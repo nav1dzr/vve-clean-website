@@ -355,15 +355,18 @@ export default function PricingPage() {
           <p className="text-silver-400 mb-8 text-base">We confirm every slot within 1 hour during business hours.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a href={WA_SIMPLE} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2.5 bg-[#22C55E] hover:opacity-90 text-white font-bold px-8 py-4 rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base">
+              className="inline-flex items-center justify-center gap-2.5 bg-[#22C55E] hover:opacity-90 text-white font-bold px-8 py-4 min-h-[44px] rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
               {WA_SVG}
               Book on WhatsApp
             </a>
             <a href="tel:02080502233"
-              className="inline-flex items-center justify-center gap-2 border-2 border-white/30 hover:border-white text-white font-bold px-8 py-4 rounded-full transition-all duration-300 hover:bg-white hover:text-navy-900 text-base">
+              className="inline-flex items-center justify-center gap-2 border-2 border-white/30 hover:border-white text-white font-bold px-8 py-4 min-h-[44px] rounded-full transition-all duration-300 hover:bg-white hover:text-navy-900 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
               Call 020 8050 2233
             </a>
           </div>
+          <a href="/#quote" className="inline-block mt-5 text-sky-300 hover:text-sky-200 text-sm font-semibold underline underline-offset-2">
+            Or get an instant online quote and book now →
+          </a>
         </div>
       </section>
 

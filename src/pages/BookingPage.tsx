@@ -361,7 +361,9 @@ export default function BookingPage() {
 
   // ── CSS helpers ────────────────────────────────────────────────────────────
   const inputCls = (field: keyof FormData) =>
-    `w-full rounded-xl border-[1.5px] px-3.5 py-3 text-[15px] outline-none transition-colors font-sans ${
+    // 16px minimum on mobile — below this, iOS Safari auto-zooms the page on
+    // focus, which is jarring mid-checkout.
+    `w-full rounded-xl border-[1.5px] px-3.5 py-3 text-[16px] outline-none transition-colors font-sans ${
       errors[field]
         ? 'border-[#D14343] bg-red-50 text-navy-900'
         : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0ea5e9]'
@@ -493,7 +495,7 @@ export default function BookingPage() {
                 <input id="booking-date" type="date" value={form.date} onChange={setField('date')}
                   aria-invalid={!!errors.date}
                   aria-describedby={errors.date ? 'date-error' : undefined}
-                  className={`w-full rounded-xl border-[1.5px] px-3.5 py-3 text-[15px] outline-none transition-colors font-sans ${
+                  className={`w-full rounded-xl border-[1.5px] px-3.5 py-3 text-[16px] outline-none transition-colors font-sans ${
                     errors.date
                       ? 'border-[#D14343] bg-red-50 text-navy-900'
                       : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0ea5e9]'
@@ -507,7 +509,7 @@ export default function BookingPage() {
                 <select id="booking-time" value={form.time} onChange={setField('time')}
                   aria-invalid={!!errors.time}
                   aria-describedby={errors.time ? 'time-error' : undefined}
-                  className={`w-full rounded-xl border-[1.5px] px-3.5 py-3 text-[15px] outline-none transition-colors font-sans ${
+                  className={`w-full rounded-xl border-[1.5px] px-3.5 py-3 text-[16px] outline-none transition-colors font-sans ${
                     errors.time
                       ? 'border-[#D14343] bg-red-50 text-navy-900'
                       : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0ea5e9]'
@@ -527,7 +529,7 @@ export default function BookingPage() {
               </label>
               <textarea value={form.message} onChange={setField('message')} rows={3}
                 placeholder="Access notes, number of rooms, pets, parking, anything we should know…"
-                className="w-full rounded-xl border-[1.5px] border-[#E3E7EE] bg-white px-3.5 py-3 text-[15px] text-navy-900 outline-none focus:border-[#0ea5e9] transition-colors font-sans resize-none" />
+                className="w-full rounded-xl border-[1.5px] border-[#E3E7EE] bg-white px-3.5 py-3 text-[16px] text-navy-900 outline-none focus:border-[#0ea5e9] transition-colors font-sans resize-none" />
             </div>
           </div>
 
@@ -535,7 +537,7 @@ export default function BookingPage() {
           <div className="rounded-2xl overflow-hidden" style={{ background: '#020b24' }}>
             <div className="flex justify-between items-center px-5 py-4 gap-3">
               <div>
-                <div className="text-[9px] font-bold tracking-widest uppercase mb-0.5" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                <div className="text-[11px] font-bold tracking-widest uppercase mb-0.5" style={{ color: 'rgba(255,255,255,0.9)' }}>
                   Today — booking request deposit
                 </div>
                 <div className="text-sm" style={{ color: '#fff' }}>
@@ -549,7 +551,7 @@ export default function BookingPage() {
               <div className="flex justify-between items-center px-5 py-4 gap-3"
                 style={{ borderTop: '1px solid rgba(255,255,255,0.09)' }}>
                 <div>
-                  <div className="text-[9px] font-bold tracking-widest uppercase mb-0.5" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                  <div className="text-[11px] font-bold tracking-widest uppercase mb-0.5" style={{ color: 'rgba(255,255,255,0.9)' }}>
                     After your clean
                   </div>
                   <div className="text-sm" style={{ color: '#fff' }}>
@@ -570,7 +572,7 @@ export default function BookingPage() {
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
-              <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
+              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.85)' }}>
                 Secured by Stripe · Bank-level encryption · We never store card details
               </span>
             </div>
@@ -625,7 +627,7 @@ export default function BookingPage() {
 
           {/* ── Submit button ───────────────────────────────────────────────── */}
           <button type="submit" disabled={submitting}
-            className="w-full py-4 rounded-full font-bold text-white text-base transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+            className="w-full py-4 min-h-[44px] rounded-full font-bold text-white text-base transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
             style={{ backgroundColor: '#0ea5e9' }}>
             {submitting ? (
               'Taking you to secure payment…'

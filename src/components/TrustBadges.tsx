@@ -1,22 +1,22 @@
-import { Shield, Clock, CheckCircle, MapPin, PoundSterling } from 'lucide-react';
+import { Shield, CheckCircle, Star, Lock } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
 
+// Exactly four verified items per the design spec — this is the site's one
+// trust row; other sections should not repeat these same claims.
 const badges = [
-  { icon: Shield,         label: 'Fully Insured',          sub: '£5M Public Liability' },
-  { icon: CheckCircle,    label: 'Vetted Professionals',    sub: 'Background-Checked Team' },
-  { icon: Clock,          label: 'Same-Day Available',      sub: 'Book by 12pm' },
-  { icon: PoundSterling,  label: 'Transparent Pricing',     sub: 'Clear Quotes, No Hidden Fees' },
-  { icon: MapPin,         label: 'Local London Service',    sub: 'Providing Reliability Near You' },
-  { icon: CheckCircle,    label: 'Satisfaction Guaranteed', sub: 'Or We Return Free' },
+  { icon: Shield,      label: '£5m Public Liability',  sub: 'Fully insured' },
+  { icon: CheckCircle, label: 'DBS Checked',            sub: 'Every cleaner vetted' },
+  { icon: Star,        label: 'Real Google Reviews',    sub: '5.0 average rating' },
+  { icon: Lock,        label: 'Secure Stripe Payment',  sub: 'Your card is never stored' },
 ];
 
 export default function TrustBadges() {
   const { ref, visible } = useReveal();
 
   return (
-    <section ref={ref} className="bg-sky-50 py-10 border-b border-sky-200">
+    <section ref={ref} className="bg-surface py-10 border-b border-line">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {badges.map((badge, i) => (
             <div
               key={i}

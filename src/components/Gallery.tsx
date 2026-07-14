@@ -1,62 +1,47 @@
-import { useState } from 'react';
 import { useReveal } from '../hooks/useReveal';
 import { BEFORE_AFTER_PAIRS } from '../data/services';
 
 const beforeAfterPairs = BEFORE_AFTER_PAIRS;
 
-function BeforeAfterCard({ pair, delay }: { pair: typeof beforeAfterPairs[0]; delay: number }) {
-  const [showAfter, setShowAfter] = useState(false);
-
+// Always-visible side-by-side comparison — no hover/tap interaction required
+// to see the result, so it reads correctly on first glance on mobile too.
+// Standardised aspect ratio, crop and card height across every pair.
+function BeforeAfterCard({ pair }: { pair: typeof beforeAfterPairs[number] }) {
   return (
-    <div
-      className="relative rounded-2xl overflow-hidden shadow-lg cursor-pointer select-none"
-      onMouseEnter={() => setShowAfter(true)}
-      onMouseLeave={() => setShowAfter(false)}
-      onClick={() => setShowAfter((v) => !v)}
-      style={{ animationDelay: `${delay}ms` }}
-    >
-      {/* Before image — always mounted, fades out */}
-      <img
-        src={pair.before}
-        alt={`${pair.label} before`}
-        width={600}
-        height={400}
-        loading="lazy"
-        className={`w-full h-64 object-cover absolute inset-0 transition-opacity duration-500 ${showAfter ? 'opacity-0' : 'opacity-100'}`}
-        draggable={false}
-      />
-      {/* After image — always mounted, fades in */}
-      <img
-        src={pair.after}
-        alt={`${pair.label} after`}
-        width={600}
-        height={400}
-        loading="lazy"
-        className={`w-full h-64 object-cover transition-opacity duration-500 ${showAfter ? 'opacity-100' : 'opacity-0'}`}
-        draggable={false}
-      />
-
-      {/* Dark gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-navy-950/80 via-transparent to-transparent pointer-events-none" />
-
-      {/* Bottom row: title + badge */}
-      <div className="absolute bottom-0 left-0 right-0 px-4 py-3 flex items-end justify-between pointer-events-none">
-        <span className="text-white font-semibold text-sm drop-shadow">{pair.label}</span>
-        <span
-          className={`text-[10px] font-bold tracking-widest uppercase px-3 py-1 rounded-full backdrop-blur-sm border transition-all duration-400 ${
-            showAfter
-              ? 'bg-green-500/80 border-green-400 text-white'
-              : 'bg-white/15 border-white/30 text-white'
-          }`}
-        >
-          {showAfter ? 'AFTER' : 'BEFORE'}
-        </span>
+    <div className="rounded-2xl overflow-hidden shadow-lg border border-line bg-white">
+      <div className="grid grid-cols-2">
+        <div className="relative aspect-[4/3]">
+          <img
+            src={pair.before}
+            alt={`${pair.label} — before cleaning`}
+            width={600}
+            height={450}
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <span className="absolute top-2 left-2 text-[11px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full bg-navy-950/75 text-white">
+            Before
+          </span>
+        </div>
+        <div className="relative aspect-[4/3] border-l-2 border-white">
+          <img
+            src={pair.after}
+            alt={`${pair.label} — after cleaning`}
+            width={600}
+            height={450}
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <span className="absolute top-2 right-2 text-[11px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full bg-success text-white">
+            After
+          </span>
+        </div>
       </div>
-
-      {/* Top-right hint on hover */}
-      <div
-        className={`absolute top-3 right-3 pointer-events-none transition-opacity duration-300 ${showAfter ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}
-      />
+      <div className="px-4 py-3">
+        <span className="text-navy-900 font-semibold text-sm">{pair.label}</span>
+      </div>
     </div>
   );
 }
@@ -75,8 +60,6 @@ export default function Gallery() {
           </div>
           <h2 className="section-heading mb-4"> Real jobs, real results</h2>
           <p className="section-subheading mx-auto">
-            Hover over any card — or tap on mobile — to reveal
-            <br />
             Every photo below is from our own work — no stock images.
           </p>
         </div>
@@ -88,7 +71,7 @@ export default function Gallery() {
               className={`transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
               style={{ transitionDelay: `${i * 100}ms` }}
             >
-              <BeforeAfterCard pair={pair} delay={i * 100} />
+              <BeforeAfterCard pair={pair} />
             </div>
           ))}
         </div>

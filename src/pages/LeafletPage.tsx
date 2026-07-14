@@ -149,7 +149,7 @@ export default function LeafletPage() {
       <section className="px-4 pb-6">
         <div className="max-w-xl mx-auto">
           <div className="bg-white rounded-2xl border border-[#E3E7EE] p-5 shadow-sm">
-            <div className="text-[9px] font-bold tracking-widest uppercase mb-3" style={{ color: '#adb5bd' }}>
+            <div className="text-[11px] font-bold tracking-widest uppercase mb-3" style={{ color: '#adb5bd' }}>
               What to expect
             </div>
             <div className="space-y-2.5">
@@ -174,7 +174,7 @@ export default function LeafletPage() {
       <section className="px-4 pb-8">
         <div className="max-w-xl mx-auto">
           <div className="bg-white rounded-2xl border border-[#E3E7EE] p-5 shadow-sm">
-            <div className="text-[9px] font-bold tracking-widest uppercase mb-3" style={{ color: '#adb5bd' }}>
+            <div className="text-[11px] font-bold tracking-widest uppercase mb-3" style={{ color: '#adb5bd' }}>
               Example saving
             </div>
             <div className="space-y-1.5 text-sm">
@@ -225,7 +225,7 @@ export default function LeafletPage() {
             ))}
           </nav>
           <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.65)' }}>
-            © 2026 VVE Clean Ltd. All rights reserved. Registered in England &amp; Wales.
+            © {new Date().getFullYear()} VVE Clean Ltd. All rights reserved. Registered in England &amp; Wales.
           </p>
         </div>
       </footer>

@@ -1,5 +1,4 @@
-import { ArrowRight, ShieldCheck, Star, Clock } from 'lucide-react';
-import { CheckCircle2 } from 'lucide-react';
+import { ArrowRight, CheckCircle2 } from 'lucide-react';
 
 export default function Hero() {
   return (
@@ -7,9 +6,19 @@ export default function Hero() {
 
       {/* Background image — full bleed */}
       <div className="absolute inset-0">
+        {/* LCP element — eager-loaded (no loading="lazy") with fetchPriority
+            "high" and explicit dimensions so it doesn't compete with
+            below-fold images and doesn't cause layout shift. */}
         <img
           src="/photo_2026-06-02_16-48-38.jpg"
           alt="Professional end-of-tenancy cleaning result — spotless kitchen"
+          width={1536}
+          height={1024}
+          // @ts-expect-error — fetchpriority is a valid HTML attribute; this
+          // React/react-dom version doesn't type it yet, but passes lowercase
+          // attribute names through to the DOM untouched.
+          fetchpriority="high"
+          decoding="async"
           className="w-full h-full object-cover object-center"
         />
       </div>
@@ -39,7 +48,7 @@ export default function Hero() {
             Get your full deposit back — or we{' '}
             <span className="text-sky-300">re-clean</span>
             {' '}free within{' '}
-            <span className="text-gradient-gold">48 hours.</span>
+            <span className="text-royal-300">48 hours.</span>
           </h1>
 
           {/* Supporting text */}
@@ -74,52 +83,17 @@ export default function Hero() {
           >
             <a
               href="#quote"
-              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-royal-500 hover:bg-royal-600 text-white font-semibold rounded-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base w-full sm:w-auto"
+              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 min-h-[44px] bg-royal-500 hover:bg-royal-600 text-white font-semibold rounded-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base w-full sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
               Get my price
               <ArrowRight size={18} />
             </a>
             <a
               href="/pricing"
-              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 border-2 border-white/60 text-white font-semibold rounded-lg transition-all duration-300 hover:bg-white hover:text-navy-900 hover:border-white text-base w-full sm:w-auto"
+              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 min-h-[44px] border-2 border-white/60 text-white font-semibold rounded-lg transition-all duration-300 hover:bg-white hover:text-navy-900 hover:border-white text-base w-full sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
               See all prices
             </a>
-          </div>
-
-          {/* Trust strip — verified facts only */}
-          <div
-            className="flex flex-row flex-wrap gap-5 sm:gap-8 mt-8 pt-7 border-t border-white/20 animate-fade-in-up"
-            style={{ animationDelay: '0.72s', opacity: 0 }}
-          >
-            <div className="flex items-center gap-2">
-              <ShieldCheck size={16} className="text-royal-400 flex-shrink-0" />
-              <div>
-                <div className="font-display text-base font-bold text-white leading-none mb-0.5">£5m</div>
-                <div className="text-silver-400 text-xs tracking-wide">Public liability</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Star size={16} className="text-amber-400 flex-shrink-0" />
-              <div>
-                <div className="font-display text-base font-bold text-white leading-none mb-0.5">5-star</div>
-                <div className="text-silver-400 text-xs tracking-wide">Google reviews</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
-              <div>
-                <div className="font-display text-base font-bold text-white leading-none mb-0.5">DBS</div>
-                <div className="text-silver-400 text-xs tracking-wide">Checked staff</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock size={16} className="text-sky-400 flex-shrink-0" />
-              <div>
-                <div className="font-display text-base font-bold text-white leading-none mb-0.5">48hr</div>
-                <div className="text-silver-400 text-xs tracking-wide">Re-clean guarantee</div>
-              </div>
-            </div>
           </div>
 
         </div>

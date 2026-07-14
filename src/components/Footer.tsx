@@ -4,21 +4,14 @@ import { useCookieConsent } from '../context/CookieConsentContext';
 
 const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
 
-const serviceLinks = [
-  'Window Cleaning',
-  'Move-In / Move-Out Deep Clean',
-  'End of Tenancy',
-  'Office & Commercial',
-];
-
-const quickLinks = [
-  { label: 'Get a Quote', href: '/#quote', external: false },
-  { label: 'Price Guide', href: '/pricing', external: false },
-  { label: 'Book via WhatsApp', href: WA_LINK, external: true },
-  { label: 'Our Services', href: '/#services', external: false },
-  { label: 'Before & After', href: '/#gallery', external: false },
-  { label: 'Areas We Cover', href: '/#areas', external: false },
-  { label: 'Contact Us', href: '/#contact', external: false },
+// Only the useful links per the design spec — Services/Pricing/Commercial/
+// Contact/Privacy/Terms/Cookie settings — rather than a longer grab-bag of
+// anchors, several of which used to point at the same #services anchor.
+const footerLinks = [
+  { label: 'Services',   href: '/#services' },
+  { label: 'Pricing',    href: '/pricing' },
+  { label: 'Commercial', href: '/commercial' },
+  { label: 'Contact',    href: '/#contact' },
 ];
 
 function WhatsAppIcon({ size = 16 }: { size?: number }) {
@@ -35,7 +28,7 @@ export default function Footer() {
   return (
     <footer className="bg-navy-950 border-t border-white/5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
           {/* Brand column */}
           <div>
             <div className="flex flex-col leading-none gap-0.5 mb-4">
@@ -68,32 +61,15 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Services */}
+          {/* Links */}
           <div>
-            <h4 className="text-white font-semibold text-sm tracking-widest uppercase mb-5">Services</h4>
+            <h4 className="text-white font-semibold text-sm tracking-widest uppercase mb-5">Links</h4>
             <ul className="space-y-2.5">
-              {serviceLinks.map((s) => (
-                <li key={s}>
-                  <a href="/#services" className="text-silver-400 text-sm hover:text-white transition-colors flex items-center gap-2 group">
-                    <span className="w-1 h-1 rounded-full bg-royal-500 group-hover:bg-royal-300 transition-colors flex-shrink-0" />
-                    {s}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Quick links */}
-          <div>
-            <h4 className="text-white font-semibold text-sm tracking-widest uppercase mb-5">Quick Links</h4>
-            <ul className="space-y-2.5">
-              {quickLinks.map((l) => (
+              {footerLinks.map((l) => (
                 <li key={l.href}>
                   <a
                     href={l.href}
-                    target={l.external ? '_blank' : undefined}
-                    rel={l.external ? 'noopener noreferrer' : undefined}
-                    className="text-silver-400 text-sm hover:text-white transition-colors flex items-center gap-2 group"
+                    className="text-silver-400 text-sm hover:text-white transition-colors flex items-center gap-2 group min-h-[44px] sm:min-h-0"
                   >
                     <span className="w-1 h-1 rounded-full bg-royal-500 group-hover:bg-royal-300 transition-colors flex-shrink-0" />
                     {l.label}
@@ -151,11 +127,8 @@ export default function Footer() {
               <li className="flex items-start gap-3">
                 <MapPin className="text-royal-400 flex-shrink-0 mt-0.5" size={15} />
                 <div>
-                  <span className="text-silver-300 text-sm block">VVE Limited</span>
                   <span className="text-silver-300 text-sm block">23-25 Queensway</span>
-                  <span className="text-silver-500 text-xs block">London, W2 4QP</span>
-                  <span className="text-silver-500 text-xs block">Company Registration Number 17234391</span>
-                  
+                  <span className="text-silver-300 text-sm block">London, W2 4QP</span>
                   <span className="text-silver-600 text-xs italic mt-1 block">Visits by appointment only. Please book before visiting.</span>
                 </div>
               </li>
@@ -164,21 +137,20 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* Bottom bar */}
+      {/* Bottom bar — standardised company info, minimum 14px */}
       <div className="border-t border-white/5 py-5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-silver-600 text-xs">
-          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
-            <span>&copy; {new Date().getFullYear()} VVE Clean Ltd. All rights reserved. Registered in England &amp; Wales.</span>
-            <span className="hidden sm:inline text-silver-800">|</span>
-            <span className="text-silver-500">Company Registration Number: <span className="text-silver-400 font-medium">17234391</span></span>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link to="/privacy-policy" className="hover:text-silver-300 transition-colors">Privacy Policy</Link>
-            <Link to="/terms-of-service" className="hover:text-silver-300 transition-colors">Terms of Service</Link>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-silver-400 text-sm">
+          <p className="text-center sm:text-left leading-relaxed">
+            &copy; {new Date().getFullYear()} VVE Limited trading as VVE Clean.{' '}
+            <span className="text-silver-500">Registered in England and Wales. Company No. 17234391.</span>
+          </p>
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <Link to="/privacy-policy" className="min-h-[44px] flex items-center hover:text-white transition-colors">Privacy</Link>
+            <Link to="/terms-of-service" className="min-h-[44px] flex items-center hover:text-white transition-colors">Terms</Link>
             <button
               type="button"
               onClick={openSettings}
-              className="min-h-[44px] hover:text-silver-300 transition-colors underline-offset-2 hover:underline"
+              className="min-h-[44px] flex items-center hover:text-white transition-colors underline-offset-2 hover:underline"
             >
               Cookie settings
             </button>

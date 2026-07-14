@@ -41,8 +41,11 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<!-- Bricolage Grotesque replaces Playfair Display as the heading font,
+     matching the rest of the site (index.html / tailwind.config.js). -->
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
+  /* Matches the site-wide design tokens in tailwind.config.js */
   :root {
     --navy:      #020b24;
     --navy-soft: #1e3a5f;
@@ -50,11 +53,12 @@
     --blue:      #0ea5e9;
     --green:     #22C55E;
     --green-dk:  #16a34a;
-    --ink:       #1c1917;
-    --muted:     #6B7280;
-    --line:      #E3E7EE;
-    --surface:   #F7F8FA;
-    --ok:        #2E9B6B;
+    --ink:       #10243E;
+    --muted:     #5B6B7C;
+    --line:      #DCE5EC;
+    --surface:   #F7FAFC;
+    --ok:        #15803D;
+    --error:     #B42318;
     --radius:    14px;
   }
 
@@ -81,7 +85,7 @@
   .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
   .brand-logo { display: flex; flex-direction: column; gap: 2px; }
   .brand-vve {
-    font-family: 'Playfair Display', Georgia, serif;
+    font-family: 'Bricolage Grotesque', system-ui, sans-serif;
     font-weight: 700; font-size: 26px; letter-spacing: 0.2em; line-height: 1; color: #1c1917;
   }
   .brand-vve .gv { color: var(--gold); }
@@ -124,7 +128,7 @@
   .paid-badge svg { width: 12px; height: 12px; }
 
   h1 {
-    font-family: 'Playfair Display', Georgia, serif;
+    font-family: 'Bricolage Grotesque', system-ui, sans-serif;
     font-size: 28px; color: var(--navy); margin: 0 0 10px; font-weight: 700; line-height: 1.2;
   }
   .lede {
@@ -142,7 +146,7 @@
     color: rgba(255,255,255,0.9); margin-bottom: 8px;
   }
   .ref-number {
-    font-family: 'Playfair Display', Georgia, serif;
+    font-family: 'Bricolage Grotesque', system-ui, sans-serif;
     font-size: 30px; font-weight: 700; color: #fff; letter-spacing: 0.05em;
     margin-bottom: 8px; word-break: break-all;
   }
@@ -238,7 +242,7 @@
     display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center;
   }
   .footer-vve {
-    font-family: 'Playfair Display', Georgia, serif;
+    font-family: 'Bricolage Grotesque', system-ui, sans-serif;
     font-weight: 700; font-size: 24px; letter-spacing: 0.2em; color: #fff; line-height: 1;
   }
   .footer-vve .gv { color: var(--gold); }
@@ -249,7 +253,7 @@
   .footer-links a { color: rgba(255,255,255,0.8); font-size: 13px; text-decoration: none; transition: color .15s; }
   .footer-links a:hover { color: #fff; }
   .footer-hr { width: 100%; max-width: 440px; border: none; border-top: 1px solid rgba(255,255,255,0.06); }
-  .footer-copy { color: rgba(255,255,255,0.65); font-size: 11px; }
+  .footer-copy { color: rgba(255,255,255,0.65); font-size: 13px; }
 
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
@@ -270,6 +274,32 @@
 </header>
 
 <main class="wrap">
+
+  <!-- Unverified state — shown only when the URL carries no proof of payment
+       at all (no ref/token/sid). Never shown alongside the success content
+       below; toggled by the small script block near the end of the page.
+       This is the one path where the page used to show the success
+       checkmark unconditionally, before any verification signal existed. -->
+  <div id="unverified-state" style="display:none; text-align:center; padding: 20px 0 8px">
+    <div class="check-ring" aria-hidden="true" style="background:#FDEDEB; border-color:#F3C6BE">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--error)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L14.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+    </div>
+    <h1>We couldn&rsquo;t verify this payment</h1>
+    <p class="lede">This link is missing the details we need to look up a booking. If you've just paid, check your
+      confirmation email — or message us your booking reference and we'll sort it out.</p>
+    <div class="btns" style="margin-top:24px">
+      <a class="btn btn-wa" id="wa-unverified" href="https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%20paid%20a%20deposit%20but%20this%20confirmation%20link%20isn%27t%20showing%20my%20booking.">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.5 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.5-2.6-1.1-4.2-3.7-4.4-3.9-.1-.2-1-1.3-1-2.5s.6-1.8.9-2c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2.1.4 0 .5l-.3.5-.3.4c-.1.1-.3.3-.1.5.1.3.6 1 1.3 1.6.9.8 1.6 1 1.9 1.2.2.1.4.1.5-.1l.7-.8c.2-.2.3-.2.5-.1l1.8.9c.3.1.4.2.5.3 0 .2 0 .7-.2 1.3Z"/></svg>
+        Message us on WhatsApp
+      </a>
+      <a class="btn btn-home" href="/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Back to home
+      </a>
+    </div>
+  </div>
+
+  <div id="verified-content">
 
   <!-- Success hero -->
   <div class="success-hero">
@@ -361,6 +391,8 @@
     </a>
   </div>
 
+  </div><!-- /#verified-content -->
+
 </main>
 
 <footer class="site-footer">
@@ -376,7 +408,7 @@
       <a href="/#contact">Contact</a>
     </nav>
     <hr class="footer-hr" />
-    <p class="footer-copy">&copy; 2026 VVE Clean Ltd. All rights reserved. Registered in England &amp; Wales.</p>
+    <p class="footer-copy" id="footer-copy">&copy; 2026 VVE Limited trading as VVE Clean. Registered in England and Wales. Company No. 17234391.</p>
   </div>
 </footer>
 
@@ -412,6 +444,12 @@
 
   // ── Show booking reference immediately from URL ──────────────────────────
   set("ref", ref, "—");
+
+  // ── Footer year ────────────────────────────────────────────────────────
+  var footerCopyEl = document.getElementById("footer-copy");
+  if (footerCopyEl) {
+    footerCopyEl.textContent = footerCopyEl.textContent.replace(/©\s*\d{4}/, "© " + new Date().getFullYear());
+  }
 
   // ── WhatsApp link ────────────────────────────────────────────────────────
   var WHATSAPP_NUMBER = "447845451111";
@@ -527,10 +565,22 @@
       });
   }
 
+  // ── Verified vs unverified content toggle ─────────────────────────────────
+  // Presentation only — does not affect payment verification, the Ads
+  // conversion pipeline, or the API calls above. Arriving with a ref/token/
+  // sid in the URL is only possible via Stripe's own success_url redirect,
+  // so the existing "Payment received — we're checking your requested date"
+  // wording is honest in that case. With none of the three present, there is
+  // no evidence of payment at all, so the success checkmark is swapped for
+  // an explicit "couldn't verify" state instead of being shown regardless.
   if (ref || sid) {
     fetchDetails(0);
   } else {
     hideLoadingIndicator();
+    var verified   = document.getElementById("verified-content");
+    var unverified = document.getElementById("unverified-state");
+    if (verified)   verified.style.display   = "none";
+    if (unverified) unverified.style.display = "";
   }
 
   // ── Conversion tracking — Google Ads "Booking Deposit Paid" ─────────────

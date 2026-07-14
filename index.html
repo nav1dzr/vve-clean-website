@@ -57,7 +57,12 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- Bricolage Grotesque is now the single heading font (font-hero AND
+         font-display — see tailwind.config.js). Requesting the full 400..800
+         variable-weight range covers every Tailwind font-weight utility used
+         on headings (font-semibold/bold/extrabold). Playfair Display removed
+         — nothing references it any more. -->
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
     <script type="application/ld+json">
     {
