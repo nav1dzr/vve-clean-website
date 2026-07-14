@@ -6,9 +6,19 @@ export default function Hero() {
 
       {/* Background image — full bleed */}
       <div className="absolute inset-0">
+        {/* LCP element — eager-loaded (no loading="lazy") with fetchPriority
+            "high" and explicit dimensions so it doesn't compete with
+            below-fold images and doesn't cause layout shift. */}
         <img
           src="/photo_2026-06-02_16-48-38.jpg"
           alt="Professional end-of-tenancy cleaning result — spotless kitchen"
+          width={1536}
+          height={1024}
+          // @ts-expect-error — fetchpriority is a valid HTML attribute; this
+          // React/react-dom version doesn't type it yet, but passes lowercase
+          // attribute names through to the DOM untouched.
+          fetchpriority="high"
+          decoding="async"
           className="w-full h-full object-cover object-center"
         />
       </div>

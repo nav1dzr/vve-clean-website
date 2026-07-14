@@ -25,11 +25,12 @@ export default function OurKit() {
           <div className="relative">
             <div className="absolute -inset-3 rounded-3xl opacity-20" style={{ background: 'radial-gradient(circle, #c9a84c 0%, transparent 70%)' }} />
             <img
-              src="/gallery/van-equipment.png"
+              src="/gallery/van-equipment.webp"
               alt="VVE Clean van and professional cleaning equipment"
               width={780}
               height={520}
               loading="lazy"
+              decoding="async"
               className="relative w-full rounded-2xl shadow-2xl object-cover"
             />
           </div>
