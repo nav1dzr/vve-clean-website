@@ -59,3 +59,32 @@ export function isValidDateString(value) {
   const d = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(d.getTime());
 }
+
+export function isValidIsoTimestamp(value) {
+  if (typeof value !== 'string' || !value.trim()) return false;
+  const d = new Date(value);
+  return !Number.isNaN(d.getTime());
+}
+
+// Internal notes are append-only free text with a sensible ceiling — long
+// enough for a real handover note, short enough to stay a note rather than
+// a document.
+const MAX_NOTE_LENGTH = 2000;
+
+export function validateNote(raw) {
+  if (typeof raw !== 'string') {
+    return { ok: false, error: 'note must be a string' };
+  }
+
+  const trimmed = raw.trim();
+
+  if (!trimmed) {
+    return { ok: false, error: 'note must not be empty' };
+  }
+
+  if (trimmed.length > MAX_NOTE_LENGTH) {
+    return { ok: false, error: `note must be ${MAX_NOTE_LENGTH} characters or fewer` };
+  }
+
+  return { ok: true, value: trimmed };
+}

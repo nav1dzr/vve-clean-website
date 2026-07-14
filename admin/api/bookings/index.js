@@ -1,7 +1,9 @@
 import { verifyAdminRequest } from '../_lib/adminAuth.js';
 import { corsHeaders } from '../_lib/cors.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
-import { CARD_SELECT, toCard, BOOKING_STATUS_VALUES, PAYMENT_STATUS_VALUES, SORT_VALUES } from '../_lib/bookingFields.js';
+import {
+  CARD_SELECT, toCard, BOOKING_STATUS_VALUES, PAYMENT_STATUS_VALUES, BALANCE_STATUS_VALUES, SORT_VALUES,
+} from '../_lib/bookingFields.js';
 import { sanitiseFreeTextFilter, isValidDateString } from '../_lib/normalise.js';
 
 export const config = { api: { bodyParser: false } };
@@ -25,6 +27,7 @@ function buildQuery(supabase, filters) {
 
   if (filters.status) query = query.eq('status', filters.status);
   if (filters.paymentStatus) query = query.eq('payment_status', filters.paymentStatus);
+  if (filters.balanceStatus) query = query.eq('balance_status', filters.balanceStatus);
   if (filters.service) query = query.eq('service', filters.service);
   if (filters.source) query = query.eq('last_source', filters.source);
   if (filters.postcode) query = query.ilike('postcode', `%${filters.postcode}%`);
@@ -98,6 +101,12 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: `paymentStatus must be one of: ${PAYMENT_STATUS_VALUES.join(', ')}` }));
   }
 
+  const balanceStatus = params.get('balanceStatus') || null;
+  if (balanceStatus && !BALANCE_STATUS_VALUES.includes(balanceStatus)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: `balanceStatus must be one of: ${BALANCE_STATUS_VALUES.join(', ')}` }));
+  }
+
   const rawService = params.get('service');
   const service = rawService ? sanitiseFreeTextFilter(rawService) : null;
   if (rawService && !service) {
@@ -141,8 +150,9 @@ export default async function handler(req, res) {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const query = buildQuery(supabase, { status, paymentStatus, service, source, postcode, dateFrom, dateTo, sort })
-      .range(from, to);
+    const query = buildQuery(supabase, {
+      status, paymentStatus, balanceStatus, service, source, postcode, dateFrom, dateTo, sort,
+    }).range(from, to);
 
     const { data, error, count } = await query;
 

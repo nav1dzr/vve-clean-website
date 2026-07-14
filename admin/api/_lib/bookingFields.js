@@ -19,6 +19,8 @@ export const PAYMENT_STATUS_VALUES = ['pending_payment', 'paid'];
 
 export const BALANCE_STATUS_VALUES = ['not_due', 'outstanding', 'paid', 'waived'];
 
+export const BALANCE_PAYMENT_METHOD_VALUES = ['card', 'bank_transfer', 'cash', 'stripe', 'other'];
+
 export const SORT_VALUES = ['newest', 'oldest', 'service_date', 'highest_value'];
 
 // Card projection — used by dashboard-summary, search, and the booking list.
@@ -27,7 +29,7 @@ export const SORT_VALUES = ['newest', 'oldest', 'service_date', 'highest_value']
 export const CARD_SELECT = [
   'id', 'booking_ref', 'full_name', 'phone', 'postcode', 'service',
   'preferred_date', 'preferred_time', 'service_date',
-  'status', 'payment_status', 'total_price', 'created_at',
+  'status', 'payment_status', 'balance_status', 'total_price', 'created_at',
 ].join(', ');
 
 // Detail projection — every field ADMIN_CRM_PLAN.md §19 calls for, and
@@ -59,8 +61,24 @@ export function toCard(row) {
     serviceDate: row.service_date,
     status: row.status,
     paymentStatus: row.payment_status,
+    balanceStatus: row.balance_status,
     totalPrice: row.total_price,
     createdAt: row.created_at,
+  };
+}
+
+// Internal-notes projection. Never exposes anything beyond note text,
+// timestamp, and the author's id/display name — internal_notes has no other
+// columns, but this keeps the shape explicit and stable regardless.
+export function toNote(row) {
+  return {
+    id: row.id,
+    note: row.note,
+    createdAt: row.created_at,
+    author: {
+      id: row.author?.id ?? null,
+      displayName: row.author?.display_name ?? 'Unknown',
+    },
   };
 }
 

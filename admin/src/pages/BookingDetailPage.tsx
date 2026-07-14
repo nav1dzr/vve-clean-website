@@ -1,16 +1,16 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
-import type { BookingDetail } from '../types/booking';
+import type { BookingDetail, BalanceUpdateResponse } from '../types/booking';
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import { CardListSkeleton } from '../components/Skeleton';
 import StatusBadge from '../components/StatusBadge';
+import StatusControl from '../components/StatusControl';
+import BalanceControl from '../components/BalanceControl';
+import InternalNotesSection from '../components/InternalNotesSection';
 import {
-  bookingStatusBadge,
   paymentStatusBadge,
-  balanceStatusBadge,
-  formatCurrency,
   formatServiceDate,
   formatPreferred,
   formatDateTime,
@@ -49,6 +49,27 @@ export default function BookingDetailPage() {
   }
 
   useEffect(load, [id]);
+
+  function handleStatusUpdated(status: string, updatedAt: string) {
+    setState((prev) => (prev.status === 'success' ? { status: 'success', data: { ...prev.data, status, updatedAt } } : prev));
+  }
+
+  function handleBalanceUpdated(result: BalanceUpdateResponse) {
+    setState((prev) =>
+      prev.status === 'success'
+        ? {
+            status: 'success',
+            data: {
+              ...prev.data,
+              balanceStatus: result.balanceStatus,
+              balancePaidAt: result.balancePaidAt,
+              balancePaymentMethod: result.balancePaymentMethod,
+              updatedAt: result.updatedAt,
+            },
+          }
+        : prev,
+    );
+  }
 
   if (state.status === 'loading') {
     return (
@@ -108,11 +129,12 @@ export default function BookingDetailPage() {
           <h1 className="truncate font-semibold text-xl text-navy-950">{b.bookingRef || 'Reference not recorded'}</h1>
           <p className="truncate text-xs text-navy-500">Internal ID: {b.id}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <StatusBadge {...bookingStatusBadge(b.status)} />
-          <StatusBadge {...paymentStatusBadge(b.paymentStatus)} />
-        </div>
+        <StatusBadge {...paymentStatusBadge(b.paymentStatus)} />
       </div>
+
+      <Section title="Status">
+        <StatusControl bookingId={b.id} status={b.status} onUpdated={handleStatusUpdated} />
+      </Section>
 
       <Section title="Customer">
         <p className="font-medium text-navy-950">{b.fullName || 'Name not recorded'}</p>
@@ -144,24 +166,25 @@ export default function BookingDetailPage() {
         )}
       </Section>
 
-      <Section title="Payment">
-        <dl className="grid grid-cols-2 gap-y-1.5 text-sm">
-          <dt className="text-navy-700">Total</dt>
-          <dd className="text-right text-navy-950">{formatCurrency(b.totalPrice)}</dd>
-          <dt className="text-navy-700">Deposit</dt>
-          <dd className="text-right text-navy-950">{formatCurrency(b.depositAmount)}</dd>
-          <dt className="text-navy-700">Balance</dt>
-          <dd className="text-right text-navy-950">{b.balance === null ? 'Balance unavailable' : formatCurrency(b.balance)}</dd>
-          <dt className="text-navy-700">Balance status</dt>
-          <dd className="text-right">
-            <StatusBadge {...balanceStatusBadge(b.balanceStatus)} />
-          </dd>
-        </dl>
+      <Section title="Balance">
+        <BalanceControl
+          bookingId={b.id}
+          totalPrice={b.totalPrice}
+          depositAmount={b.depositAmount}
+          balance={b.balance}
+          paymentStatus={b.paymentStatus}
+          balanceStatus={b.balanceStatus}
+          balancePaidAt={b.balancePaidAt}
+          balancePaymentMethod={b.balancePaymentMethod}
+          onUpdated={handleBalanceUpdated}
+        />
       </Section>
 
       <Section title="Customer notes">
         <p className="whitespace-pre-wrap text-sm text-navy-700">{b.notes || 'No notes recorded'}</p>
       </Section>
+
+      <InternalNotesSection bookingId={b.id} />
 
       <Section title="Attribution & source">
         <dl className="grid grid-cols-2 gap-y-1.5 text-sm">

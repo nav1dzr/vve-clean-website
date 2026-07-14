@@ -1,6 +1,13 @@
 import { Link } from 'react-router-dom';
 import type { BookingCard } from '../types/booking';
-import { bookingStatusBadge, paymentStatusBadge, formatCurrency, formatServiceDate, formatPreferred } from '../lib/format';
+import {
+  bookingStatusBadge,
+  paymentStatusBadge,
+  balanceStatusBadge,
+  formatCurrency,
+  formatServiceDate,
+  formatPreferred,
+} from '../lib/format';
 import StatusBadge from './StatusBadge';
 
 // Shared compact card used on the dashboard, search results, and the
@@ -24,6 +31,10 @@ export default function BookingCardItem({ booking }: { booking: BookingCard }) {
         <div className="flex shrink-0 flex-col items-end gap-1">
           <StatusBadge {...bookingStatusBadge(booking.status)} />
           <StatusBadge {...paymentStatusBadge(booking.paymentStatus)} />
+          {/* Only shown once balance data actually exists for this booking —
+              omitted rather than showing "Balance unavailable" on every
+              historical card (ADMIN_CRM_PLAN.md Phase 3 8). */}
+          {booking.balanceStatus && <StatusBadge {...balanceStatusBadge(booking.balanceStatus)} />}
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-navy-700">
