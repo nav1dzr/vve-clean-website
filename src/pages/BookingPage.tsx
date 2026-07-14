@@ -414,34 +414,40 @@ export default function BookingPage() {
             </div>
 
             <div data-error={!!errors.fullName}>
-              <label className="block text-navy-900 font-semibold text-sm mb-1.5">
+              <label htmlFor="booking-fullName" className="block text-navy-900 font-semibold text-sm mb-1.5">
                 Full name <span style={{ color: '#D14343' }}>*</span>
               </label>
-              <input type="text" value={form.fullName} onChange={setField('fullName')}
+              <input id="booking-fullName" type="text" value={form.fullName} onChange={setField('fullName')}
                 placeholder="Jane Smith" autoComplete="name"
+                aria-invalid={!!errors.fullName}
+                aria-describedby={errors.fullName ? 'fullName-error' : undefined}
                 className={inputCls('fullName')} />
-              {errors.fullName && <p className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.fullName}</p>}
+              {errors.fullName && <p id="fullName-error" role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.fullName}</p>}
             </div>
 
             <div data-error={!!errors.address}>
-              <label className="block text-navy-900 font-semibold text-sm mb-1.5">
+              <label htmlFor="booking-address" className="block text-navy-900 font-semibold text-sm mb-1.5">
                 Address <span style={{ color: '#D14343' }}>*</span>
               </label>
-              <input type="text" value={form.address} onChange={setField('address')}
+              <input id="booking-address" type="text" value={form.address} onChange={setField('address')}
                 placeholder="12 High Street, London" autoComplete="street-address"
+                aria-invalid={!!errors.address}
+                aria-describedby={errors.address ? 'address-error' : undefined}
                 className={inputCls('address')} />
-              {errors.address && <p className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.address}</p>}
+              {errors.address && <p id="address-error" role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.address}</p>}
             </div>
 
             <div data-error={!!errors.postcode}>
-              <label className="block text-navy-900 font-semibold text-sm mb-1.5">
+              <label htmlFor="booking-postcode" className="block text-navy-900 font-semibold text-sm mb-1.5">
                 Postcode <span style={{ color: '#D14343' }}>*</span>
               </label>
-              <input type="text" value={form.postcode} onChange={setField('postcode')}
+              <input id="booking-postcode" type="text" value={form.postcode} onChange={setField('postcode')}
                 placeholder="E8 1AA" autoComplete="postal-code" inputMode="text"
                 style={{ textTransform: 'uppercase' }}
+                aria-invalid={!!errors.postcode}
+                aria-describedby={errors.postcode ? 'postcode-error' : undefined}
                 className={inputCls('postcode')} />
-              {errors.postcode && <p className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.postcode}</p>}
+              {errors.postcode && <p id="postcode-error" role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.postcode}</p>}
             </div>
           </div>
 
@@ -453,26 +459,30 @@ export default function BookingPage() {
             </div>
 
             {errors.contact && (
-              <div className="rounded-xl px-3.5 py-2.5 text-sm border"
+              <div role="alert" className="rounded-xl px-3.5 py-2.5 text-sm border"
                 style={{ background: '#EBF5FE', borderColor: '#BDE0FB', color: '#1e4d7b' }}>
                 {errors.contact}
               </div>
             )}
 
             <div data-error={!!errors.phone}>
-              <label className="block text-navy-900 font-semibold text-sm mb-1.5">Phone number</label>
-              <input type="tel" value={form.phone} onChange={setField('phone')}
+              <label htmlFor="booking-phone" className="block text-navy-900 font-semibold text-sm mb-1.5">Phone number</label>
+              <input id="booking-phone" type="tel" value={form.phone} onChange={setField('phone')}
                 placeholder="07700 900000" autoComplete="tel" inputMode="tel"
+                aria-invalid={!!errors.phone}
+                aria-describedby={errors.phone ? 'phone-error' : undefined}
                 className={inputCls('phone')} />
-              {errors.phone && <p className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.phone}</p>}
+              {errors.phone && <p id="phone-error" role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.phone}</p>}
             </div>
 
             <div data-error={!!errors.email}>
-              <label className="block text-navy-900 font-semibold text-sm mb-1.5">Email address</label>
-              <input type="email" value={form.email} onChange={setField('email')}
+              <label htmlFor="booking-email" className="block text-navy-900 font-semibold text-sm mb-1.5">Email address</label>
+              <input id="booking-email" type="email" value={form.email} onChange={setField('email')}
                 placeholder="you@example.com" autoComplete="email" inputMode="email"
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? 'email-error' : undefined}
                 className={inputCls('email')} />
-              {errors.email && <p className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.email}</p>}
+              {errors.email && <p id="email-error" role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.email}</p>}
             </div>
           </div>
 
@@ -675,7 +685,7 @@ export default function BookingPage() {
             ))}
           </nav>
           <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.65)' }}>
-            © 2026 VVE Clean Ltd. All rights reserved. Registered in England &amp; Wales.
+            © {new Date().getFullYear()} VVE Limited trading as VVE Clean. Registered in England and Wales. Company No. 17234391.
           </p>
         </div>
       </footer>
