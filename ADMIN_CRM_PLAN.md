@@ -1,9 +1,17 @@
 # VVE Clean — Admin CRM / Booking Dashboard: Plan & Architecture
 
-Status: Architecture approved. **Phase 1 (application foundation, authentication, authorisation, security) in progress on this branch.** Booking search/list/detail/notes/status editing (§11 items 2–7) are **not** built yet — see the Phase 1 scope note in §36.
+Status: Phase 1 (foundation/auth/authorisation) **complete**. Phase 2 (dashboard, search, booking list, booking detail — read-only) **complete on this branch**. Internal notes, status editing, and balance tracking (Phase 3) are **not** built yet.
 Branch: `feat/admin-crm-dashboard`
 
-This document was corrected after the Phase 1 review to reflect approved decisions on routes, authentication, data access, and the operational-status model — see the inline "Approved correction" notes throughout (§6, §13, §21, §22, §24, §35).
+This document was corrected after the Phase 1 review to reflect approved decisions on routes, authentication, data access, and the operational-status model — see the inline "Approved correction" notes throughout (§6, §13, §21, §22, §24, §35). See the "Phase 2 implementation decisions" note below for what was actually built in Phase 2 versus what remained design-only in the original plan.
+
+> **Phase 2 implementation decisions** (read-only CRM: dashboard, search, booking list, booking detail):
+> - **Migrations applied**: `20260717000000_add_crm_booking_fields.sql` (bookings.status + the six approved future fields from §24 item 7 — total_price, quote_config, service_date, balance_status, balance_paid_at, balance_payment_method — all created together in Phase 2, since the API layer needed them to exist to be buildable at all) and `20260718000000_add_booking_search_support.sql` (pg_trgm, matching indexes, `search_bookings()`).
+> - **All four §25 API routes exist**: `/api/dashboard-summary`, `/api/search`, `/api/bookings`, `/api/bookings/:id` — each reusing `verifyAdminRequest()` (§9), each with an explicit column allowlist (`CARD_SELECT`/`DETAIL_SELECT` in `admin/api/_lib/bookingFields.js`) so `confirmation_token` can never leak even if a future column is added carelessly.
+> - **Postcode list-filter scope note** (§18): the dedicated `/api/search` endpoint does full postcode normalisation (spaces/case, via `search_bookings()`) as originally specified in §17. The **booking list's** `postcode` filter, by contrast, is a simpler case-insensitive partial match on the stored column as-is — it does not independently re-normalise spacing between the query and stored data. This was a deliberate, documented scope reduction (see the comment in `admin/api/bookings/index.js`) to avoid building two separate normalisation code paths for a filter versus a search; use `/search` when a postcode's exact stored format is uncertain.
+> - **Pagination**: page/pageSize with a hard cap of 50 per page, `range()`-based, returning `totalCount` (via Supabase's `count: 'exact'`) and `hasMore`. UI uses Previous/Next rather than infinite "load more" — both satisfy "pagination" without needing to accumulate result arrays across pages.
+> - **"Today"/"upcoming" honesty**: driven exclusively by the structured `service_date` column, never by parsing `preferred_date`. A booking with no `service_date` is counted separately as `unscheduledCount` rather than guessed at or silently dropped.
+> - **Root ESLint scope**: `admin/` was added to the root `eslint.config.js` ignore list during Phase 2 — a dev-tooling-only change (zero effect on the built public site) that fixes an inconsistency where the same admin file produced different lint results depending on which of the two independent configs ran against it.
 
 ---
 
