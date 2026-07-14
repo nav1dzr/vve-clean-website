@@ -10,7 +10,6 @@ function loadStatusCopy() {
   const html = readFileSync(resolve(process.cwd(), 'public/confirmation.html'), 'utf8');
   const match = html.match(/function statusCopy\(status\) \{[\s\S]*?\n  \}/);
   if (!match) throw new Error('Could not find statusCopy() in public/confirmation.html');
-  // eslint-disable-next-line no-new-func
   return new Function(`return (${match[0]});`)();
 }
 

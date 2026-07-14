@@ -10,7 +10,14 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    setupFiles: ['./src/setupTests.ts'],
+    // Named vitestSetup.ts, NOT setupTests.ts — admin/ has its own
+    // vite.config.ts with setupFiles: ['./src/setupTests.ts'], and giving
+    // this file the identical relative path (src/setupTests.ts) causes
+    // Vite's workspace-root resolution to load THIS file when running
+    // admin's own `npm test` from within admin/, instead of admin's own
+    // setup file — silently breaking every admin test. Confirmed by
+    // reproducing and fixing during this change; keep the names distinct.
+    setupFiles: ['./src/vitestSetup.ts'],
     globals: true,
     // admin/ is a fully separate app with its own vite.config.ts and test
     // suite (its own `npm test` inside admin/) — keep the two projects'
