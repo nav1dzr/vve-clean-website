@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import QuoteCalculator, { type BookingSelection } from '../components/QuoteCalculator';
 import { getAttribution } from '../lib/attribution';
 import { CARPET_MIN_BOOKING, DISCOUNT_MIN_NOTE } from '../data/carpetPricing';
+import { TERMS_VERSION, CANCELLATION_POLICY_VERSION } from '../lib/termsVersion';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -195,8 +197,9 @@ interface FormData {
   message:  string;
 }
 
-const REQUIRED_DATE_ERROR = 'Please choose your preferred date.';
-const REQUIRED_TIME_ERROR = 'Please choose your preferred arrival window.';
+const REQUIRED_DATE_ERROR  = 'Please choose your preferred date.';
+const REQUIRED_TIME_ERROR  = 'Please choose your preferred arrival window.';
+const REQUIRED_TERMS_ERROR = 'Please read and accept the booking and cancellation terms.';
 
 type FormErrors = Partial<Record<keyof FormData | 'contact', string>>;
 
@@ -206,9 +209,11 @@ export default function BookingPage() {
   const [form,         setForm]         = useState<FormData>({
     fullName: '', address: '', postcode: '', phone: '', email: '', date: '', time: '', message: '',
   });
-  const [errors,      setErrors]      = useState<FormErrors>({});
-  const [submitting,  setSubmitting]  = useState(false);
-  const [submitError, setSubmitError] = useState('');
+  const [errors,        setErrors]        = useState<FormErrors>({});
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError,    setTermsError]    = useState('');
+  const [submitting,    setSubmitting]    = useState(false);
+  const [submitError,   setSubmitError]   = useState('');
   const formTopRef = useRef<HTMLDivElement>(null);
 
   // ── Load selection from sessionStorage or fall back to URL params ──────────
@@ -274,7 +279,12 @@ export default function BookingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate() || !selection) {
+
+    const fieldsValid = validate();
+    const termsValid   = termsAccepted;
+    setTermsError(termsValid ? '' : REQUIRED_TERMS_ERROR);
+
+    if (!fieldsValid || !termsValid || !selection) {
       // Scroll to first error
       const el = formTopRef.current?.querySelector('[data-error="true"]');
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -298,6 +308,11 @@ export default function BookingPage() {
       date:        form.date,
       time:        form.time,
       message:     form.message.trim(),
+      // Terms acceptance — recorded at the moment of submission.
+      termsAccepted:             true,
+      termsAcceptedAt:           new Date().toISOString(),
+      termsVersion:              TERMS_VERSION,
+      cancellationPolicyVersion: CANCELLATION_POLICY_VERSION,
       // Offer data (present when a discount was applied)
       ...(selection.offerCode ? {
         offer_code:                 selection.offerCode,
@@ -559,6 +574,45 @@ export default function BookingPage() {
                 Secured by Stripe · Bank-level encryption · We never store card details
               </span>
             </div>
+          </div>
+
+          {/* ── Terms acceptance ────────────────────────────────────────────── */}
+          <div data-error={!!termsError}>
+            <label
+              htmlFor="terms-checkbox"
+              className="flex items-start gap-3 min-h-[44px] py-2 px-1 rounded-xl cursor-pointer select-none"
+            >
+              <input
+                id="terms-checkbox"
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => {
+                  setTermsAccepted(e.target.checked);
+                  if (e.target.checked) setTermsError('');
+                }}
+                aria-invalid={!!termsError}
+                aria-describedby={termsError ? 'terms-error' : undefined}
+                className="mt-0.5 h-5 w-5 flex-shrink-0 rounded border-[1.5px] border-[#E3E7EE] text-[#0ea5e9] focus:ring-2 focus:ring-[#0ea5e9]"
+              />
+              <span className="text-navy-800 text-sm leading-relaxed">
+                I agree to the{' '}
+                <Link to="/terms-of-service" target="_blank" rel="noopener noreferrer"
+                  className="font-semibold text-[#0ea5e9] hover:underline">
+                  Terms of Service
+                </Link>{' '}
+                and cancellation policy. I understand that the £{DEPOSIT} deposit is deducted from the final
+                total and may be retained for late cancellation or failed access as explained in the terms.
+                {' '}(<Link to="/privacy-policy" target="_blank" rel="noopener noreferrer"
+                  className="font-semibold text-[#0ea5e9] hover:underline">
+                  Privacy Policy
+                </Link>)
+              </span>
+            </label>
+            {termsError && (
+              <p id="terms-error" role="alert" className="text-xs mt-1 px-1" style={{ color: '#D14343' }}>
+                {termsError}
+              </p>
+            )}
           </div>
 
           {/* ── Submit error ────────────────────────────────────────────────── */}

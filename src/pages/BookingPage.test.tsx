@@ -41,6 +41,12 @@ async function fillContactDetails(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByPlaceholderText('07700 900000'), '07700900000');
 }
 
+async function fillAllRequiredFields(user: ReturnType<typeof userEvent.setup>) {
+  await fillContactDetails(user);
+  await user.type(screen.getByLabelText(/preferred date/i), '2026-08-01');
+  await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
+}
+
 describe('BookingPage — booking request wording', () => {
   beforeEach(() => {
     sessionStorage.clear();
@@ -132,5 +138,107 @@ describe('BookingPage — required preferred date and arrival window', () => {
     });
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+});
+
+describe('BookingPage — required terms acceptance', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    seedSelection();
+  });
+
+  it('shows the terms checkbox unticked by default', () => {
+    renderBookingPage();
+    const checkbox = screen.getByRole('checkbox', { name: /terms of service/i });
+    expect(checkbox).not.toBeChecked();
+  });
+
+  it('blocks payment and shows the accessible error when terms are not accepted', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const user = userEvent.setup();
+    renderBookingPage();
+    await fillAllRequiredFields(user);
+
+    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
+
+    expect(
+      await screen.findByText('Please read and accept the booking and cancellation terms.'),
+    ).toBeInTheDocument();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it('properly associates the checkbox with its error message for assistive tech', async () => {
+    const user = userEvent.setup();
+    renderBookingPage();
+    await fillAllRequiredFields(user);
+    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
+
+    const checkbox = await screen.findByRole('checkbox', { name: /terms of service/i });
+    const error     = screen.getByText('Please read and accept the booking and cancellation terms.');
+
+    expect(checkbox).toHaveAttribute('aria-invalid', 'true');
+    expect(checkbox.getAttribute('aria-describedby')).toBe(error.id);
+    expect(error).toHaveAttribute('role', 'alert');
+  });
+
+  it('has a properly associated label so clicking the text toggles the checkbox (44px+ tap target)', async () => {
+    const user = userEvent.setup();
+    renderBookingPage();
+    const checkbox = screen.getByRole('checkbox', { name: /terms of service/i });
+    const label     = checkbox.closest('label');
+
+    expect(label).not.toBeNull();
+    expect(label).toHaveClass('min-h-[44px]');
+
+    await user.click(screen.getByText(/I agree to the/));
+    expect(checkbox).toBeChecked();
+  });
+
+  it('links to both the Terms of Service and Privacy Policy', () => {
+    renderBookingPage();
+    expect(screen.getByRole('link', { name: 'Terms of Service' })).toHaveAttribute('href', '/terms-of-service');
+    expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy-policy');
+  });
+
+  it('clears the terms error once the checkbox is ticked', async () => {
+    const user = userEvent.setup();
+    renderBookingPage();
+    await fillAllRequiredFields(user);
+    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
+    await screen.findByText('Please read and accept the booking and cancellation terms.');
+
+    await user.click(screen.getByRole('checkbox', { name: /terms of service/i }));
+
+    expect(screen.queryByText('Please read and accept the booking and cancellation terms.')).not.toBeInTheDocument();
+  });
+
+  it('submits termsAccepted, termsAcceptedAt, termsVersion and cancellationPolicyVersion alongside the booking once accepted', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({ checkoutUrl: 'https://checkout.stripe.com/test' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const user = userEvent.setup();
+    renderBookingPage();
+    await fillAllRequiredFields(user);
+    await user.click(screen.getByRole('checkbox', { name: /terms of service/i }));
+    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    const [, requestInit] = fetchMock.mock.calls[0];
+    const body = JSON.parse(requestInit.body as string);
+
+    expect(body.termsAccepted).toBe(true);
+    expect(typeof body.termsAcceptedAt).toBe('string');
+    expect(new Date(body.termsAcceptedAt).toString()).not.toBe('Invalid Date');
+    expect(body.termsVersion).toBeTruthy();
+    expect(body.cancellationPolicyVersion).toBeTruthy();
+    // Preferred date and arrival window must still reach the backend.
+    expect(body.date).toBe('2026-08-01');
+    expect(body.time).toBe('Flexible');
+
+    vi.unstubAllGlobals();
   });
 });
