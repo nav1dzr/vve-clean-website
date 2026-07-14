@@ -11,7 +11,7 @@ export default function LoadingScreen() {
     >
       <span className="sr-only">Loading…</span>
       <div
-        className="h-8 w-8 animate-spin rounded-full border-4 border-sky-200 border-t-sky-500"
+        className="h-8 w-8 animate-spin rounded-full border-4 border-sky-200 border-t-sky-500 motion-reduce:animate-none"
         aria-hidden="true"
       />
     </div>

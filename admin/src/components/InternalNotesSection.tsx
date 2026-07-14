@@ -116,7 +116,7 @@ export default function InternalNotesSection({ bookingId }: { bookingId: string 
               onChange={(e) => setNoteText(e.target.value.slice(0, MAX_NOTE_LENGTH))}
               rows={4}
               maxLength={MAX_NOTE_LENGTH}
-              className="w-full rounded-lg border border-silver-300 px-3 py-2 text-sm text-navy-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+              className="w-full rounded-lg border border-silver-300 px-3 py-2 text-base text-navy-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
             />
             <p className="mt-1 text-right text-xs text-navy-500">
               {noteText.length}/{MAX_NOTE_LENGTH}

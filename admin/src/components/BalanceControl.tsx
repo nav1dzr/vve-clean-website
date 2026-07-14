@@ -109,7 +109,7 @@ export default function BalanceControl({
         value={nextStatus}
         onChange={(e) => setNextStatus(e.target.value)}
         disabled={saving}
-        className="mb-2 min-h-11 w-full rounded-lg border border-silver-300 bg-white px-3 text-sm text-navy-950 outline-none focus:border-sky-500 disabled:opacity-60"
+        className="mb-2 min-h-11 w-full rounded-lg border border-silver-300 bg-white px-3 text-base text-navy-950 outline-none focus:border-sky-500 disabled:opacity-60"
       >
         {BALANCE_STATUS_VALUES.map((v) => (
           <option key={v} value={v}>
@@ -128,7 +128,7 @@ export default function BalanceControl({
             value={nextMethod}
             onChange={(e) => setNextMethod(e.target.value)}
             disabled={saving}
-            className="mb-2 min-h-11 w-full rounded-lg border border-silver-300 bg-white px-3 text-sm text-navy-950 outline-none focus:border-sky-500 disabled:opacity-60"
+            className="mb-2 min-h-11 w-full rounded-lg border border-silver-300 bg-white px-3 text-base text-navy-950 outline-none focus:border-sky-500 disabled:opacity-60"
           >
             <option value="">Not specified</option>
             {BALANCE_PAYMENT_METHOD_VALUES.map((v) => (

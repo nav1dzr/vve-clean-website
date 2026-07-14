@@ -7,7 +7,19 @@
     font-family: 'Inter', system-ui, sans-serif;
     @apply bg-silver-100 text-navy-950 antialiased;
   }
+  /* Prevents iOS Safari's auto-zoom on focus, which triggers for any form
+     control computing under 16px. Tailwind's preflight sets
+     `font-size: 100%` (inherit from the nearest ancestor) on select/
+     textarea/button/input — a wrapping label or container styled with a
+     smaller text utility (e.g. text-sm) would otherwise leak its size into
+     the control. This rule and the preflight rule are both in the `base`
+     layer, so normal source order applies: written after `@tailwind base`,
+     this wins. It does NOT override a text-size utility applied directly
+     to the control itself (utilities layer always beats base) — those are
+     set to text-base explicitly at each call site instead. */
   input,
+  select,
+  textarea,
   button {
     font-size: 16px;
   }

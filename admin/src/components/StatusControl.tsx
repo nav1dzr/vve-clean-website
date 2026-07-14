@@ -66,7 +66,7 @@ export default function StatusControl({ bookingId, status, onUpdated }: Props) {
         value={status ?? ''}
         onChange={(e) => handleChange(e.target.value)}
         disabled={saving}
-        className="min-h-11 w-full rounded-lg border border-silver-300 bg-white px-3 text-sm text-navy-950 outline-none focus:border-sky-500 disabled:opacity-60"
+        className="min-h-11 w-full rounded-lg border border-silver-300 bg-white px-3 text-base text-navy-950 outline-none focus:border-sky-500 disabled:opacity-60"
       >
         {BOOKING_STATUS_VALUES.map((v) => (
           <option key={v} value={v}>
