@@ -2,22 +2,7 @@
 // API route. Holds the only code path in this app that touches the
 // service-role key — never imported from admin/src/.
 
-import { createClient } from '@supabase/supabase-js';
-import { checkServerEnv } from './env.js';
-
-// Deliberately not cached at module scope — keeps each invocation's
-// behaviour independent of what ran before it (important both for
-// serverless cold/warm-start correctness and for test isolation), at the
-// cost of one cheap client construction per request.
-function getServiceClient() {
-  if (!checkServerEnv()) return null;
-
-  return createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { persistSession: false } },
-  );
-}
+import { getServiceClient } from './supabaseAdmin.js';
 
 function extractBearerToken(req) {
   const header = req.headers['authorization'] || req.headers['Authorization'] || '';
