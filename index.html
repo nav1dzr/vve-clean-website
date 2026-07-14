@@ -20,11 +20,37 @@
     <meta property="og:url" content="https://vveclean.co.uk" />
     <meta property="og:image" content="https://vveclean.co.uk/android-chrome-512x512.png" />
     
-    <!-- Google tag (gtag.js) — AW-18214693277 -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18214693277"></script>
+    <!-- Google Consent Mode v2 — default to denied until the visitor makes a
+         choice in the cookie banner (src/context/CookieConsentContext.tsx).
+         Must run before the gtag.js loader below. -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
+      gtag('consent', 'default', {
+        ad_storage: 'denied',
+        analytics_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+      });
+      // A returning visitor's earlier choice (src/lib/consent.ts, key "vve_consent")
+      // is applied immediately so they are not reset to denied on every visit.
+      try {
+        var storedConsent = JSON.parse(localStorage.getItem('vve_consent') || 'null');
+        if (storedConsent && typeof storedConsent.analytics === 'boolean' && typeof storedConsent.advertising === 'boolean') {
+          var adState = storedConsent.advertising ? 'granted' : 'denied';
+          gtag('consent', 'update', {
+            ad_storage: adState,
+            ad_user_data: adState,
+            ad_personalization: adState,
+            analytics_storage: storedConsent.analytics ? 'granted' : 'denied',
+          });
+        }
+      } catch (e) { /* localStorage unavailable — stay at default denied */ }
+    </script>
+
+    <!-- Google tag (gtag.js) — AW-18214693277 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18214693277"></script>
+    <script>
       gtag('js', new Date());
       gtag('config', 'AW-18214693277');
     </script>
