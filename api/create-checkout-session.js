@@ -244,7 +244,7 @@ export default async function handler(req, res) {
             currency: 'gbp',
             product_data: {
               name: `Booking deposit — ${service || 'Cleaning service'}`,
-              description: 'Secures your slot. The £30 deposit comes off your final bill.',
+              description: 'Deposit for your booking request. We confirm availability within one business hour. Comes off your final bill.',
             },
             unit_amount: 3000,
           },

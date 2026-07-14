@@ -195,6 +195,9 @@ interface FormData {
   message:  string;
 }
 
+const REQUIRED_DATE_ERROR = 'Please choose your preferred date.';
+const REQUIRED_TIME_ERROR = 'Please choose your preferred arrival window.';
+
 type FormErrors = Partial<Record<keyof FormData | 'contact', string>>;
 
 export default function BookingPage() {
@@ -263,6 +266,8 @@ export default function BookingPage() {
     if (noContact)                      e.contact  = 'Please provide a phone number or email address.';
     if (form.phone && !validPhone(form.phone))   e.phone = 'Please enter a valid phone number.';
     if (form.email && !validEmail(form.email))   e.email = 'Please enter a valid email address.';
+    if (!form.date)                     e.date = REQUIRED_DATE_ERROR;
+    if (!form.time)                     e.time = REQUIRED_TIME_ERROR;
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -372,8 +377,11 @@ export default function BookingPage() {
       <main className="max-w-xl mx-auto px-4 py-7 pb-24" ref={formTopRef}>
         {/* Page title */}
         <div className="mb-5">
-          <h1 className="font-display text-2xl font-bold text-navy-900 mb-1">Almost done — your slot is nearly secured.</h1>
-          <p className="text-silver-600 text-sm">Complete your details and pay the £{DEPOSIT} deposit. It comes straight off your final bill — it is not an extra charge.</p>
+          <h1 className="font-display text-2xl font-bold text-navy-900 mb-1">Complete your booking request</h1>
+          <p className="text-silver-600 text-sm">
+            Choose your preferred date, add your details and pay the £{DEPOSIT} deposit. We will confirm
+            availability within one business hour. Your deposit comes off the final total.
+          </p>
         </div>
 
         {/* Selected service card */}
@@ -455,26 +463,46 @@ export default function BookingPage() {
           <div className="bg-white border border-[#E3E7EE] rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-[#0ea5e9] text-white text-xs font-bold flex items-center justify-center">3</span>
-              <span className="text-navy-900 text-sm font-semibold">
-                When? <span className="font-normal text-silver-500">(optional)</span>
-              </span>
+              <span className="text-navy-900 text-sm font-semibold">When?</span>
             </div>
 
+            <p className="text-silver-600 text-xs -mt-2">
+              Choose your preferred date and arrival window. We will confirm availability within one business hour.
+            </p>
+
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-navy-900 font-semibold text-sm mb-1.5">Preferred date</label>
-                <input type="date" value={form.date} onChange={setField('date')}
-                  className="w-full rounded-xl border-[1.5px] border-[#E3E7EE] bg-white px-3.5 py-3 text-[15px] text-navy-900 outline-none focus:border-[#0ea5e9] transition-colors font-sans" />
+              <div data-error={!!errors.date}>
+                <label htmlFor="booking-date" className="block text-navy-900 font-semibold text-sm mb-1.5">
+                  Preferred date <span style={{ color: '#D14343' }}>*</span>
+                </label>
+                <input id="booking-date" type="date" value={form.date} onChange={setField('date')}
+                  aria-invalid={!!errors.date}
+                  aria-describedby={errors.date ? 'date-error' : undefined}
+                  className={`w-full rounded-xl border-[1.5px] px-3.5 py-3 text-[15px] outline-none transition-colors font-sans ${
+                    errors.date
+                      ? 'border-[#D14343] bg-red-50 text-navy-900'
+                      : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0ea5e9]'
+                  }`} />
+                {errors.date && <p id="date-error" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.date}</p>}
               </div>
-              <div>
-                <label className="block text-navy-900 font-semibold text-sm mb-1.5">Preferred time</label>
-                <select value={form.time} onChange={setField('time')}
-                  className="w-full rounded-xl border-[1.5px] border-[#E3E7EE] bg-white px-3.5 py-3 text-[15px] text-navy-900 outline-none focus:border-[#0ea5e9] transition-colors font-sans">
-                  <option value="">Any time</option>
+              <div data-error={!!errors.time}>
+                <label htmlFor="booking-time" className="block text-navy-900 font-semibold text-sm mb-1.5">
+                  Preferred arrival window <span style={{ color: '#D14343' }}>*</span>
+                </label>
+                <select id="booking-time" value={form.time} onChange={setField('time')}
+                  aria-invalid={!!errors.time}
+                  aria-describedby={errors.time ? 'time-error' : undefined}
+                  className={`w-full rounded-xl border-[1.5px] px-3.5 py-3 text-[15px] outline-none transition-colors font-sans ${
+                    errors.time
+                      ? 'border-[#D14343] bg-red-50 text-navy-900'
+                      : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0ea5e9]'
+                  }`}>
+                  <option value="">Select a window</option>
                   <option value="Morning (8am–12pm)">Morning (8am–12pm)</option>
                   <option value="Afternoon (12pm–5pm)">Afternoon (12pm–5pm)</option>
                   <option value="Flexible">Flexible</option>
                 </select>
+                {errors.time && <p id="time-error" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.time}</p>}
               </div>
             </div>
 
@@ -493,7 +521,7 @@ export default function BookingPage() {
             <div className="flex justify-between items-center px-5 py-4 gap-3">
               <div>
                 <div className="text-[9px] font-bold tracking-widest uppercase mb-0.5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  Today — secures your slot
+                  Today — booking request deposit
                 </div>
                 <div className="text-sm" style={{ color: '#fff' }}>
                   Deposit · fully deducted from your final bill
@@ -554,7 +582,7 @@ export default function BookingPage() {
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                   <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                 </svg>
-                Pay £{DEPOSIT} deposit &amp; confirm booking
+                Pay £{DEPOSIT} deposit
               </>
             )}
           </button>

@@ -21,7 +21,7 @@ const FAQS = [
   },
   {
     q: 'When do I pay?',
-    a: "A £30 deposit secures your slot, paid by secure card link when you book (it comes off your total). The balance is due on completion, after you've checked the work — card link, bank transfer or cash. Businesses are invoiced monthly with 14-day payment terms.",
+    a: "A £30 deposit is paid by secure card link when you submit your booking request (it comes off your total) — we confirm availability within one business hour. The balance is due on completion, after you've checked the work — card link, bank transfer or cash. Businesses are invoiced monthly with 14-day payment terms.",
   },
   {
     q: 'Can the price change?',

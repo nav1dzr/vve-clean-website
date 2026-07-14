@@ -9,7 +9,9 @@ export default defineConfig({
     exclude: ['lucide-react'],
   },
   test: {
-    environment: 'node',
+    environment: 'jsdom',
+    setupFiles: ['./src/setupTests.ts'],
+    globals: true,
     // admin/ is a fully separate app with its own vite.config.ts and test
     // suite (its own `npm test` inside admin/) — keep the two projects'
     // test runs independent rather than have the root config sweep into it.
