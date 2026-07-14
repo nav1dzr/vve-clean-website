@@ -15,17 +15,10 @@ function GoogleIcon({ size = 20 }: { size?: number }) {
   );
 }
 
+// Three strong reviews, one per service line, shown near the quote decision
+// (this section sits directly below the calculator) — the full set is one
+// click away via "Read our Google reviews" below.
 const REVIEWS = [
-  {
-    name: 'Panos',
-    initial: 'P',
-    color: '#d81b60',
-    location: 'Watford',
-    service: 'End of Tenancy',
-    date: 'June 2026',
-    isLocalGuide: false,
-    text: 'Great price, Great job. Job was completed to a high standard and very professional. Prompt arrival. Highly recommend for any cleaning needs.',
-  },
   {
     name: 'Hannah M.',
     initial: 'H',
@@ -55,16 +48,6 @@ const REVIEWS = [
     date: 'June 2026',
     isLocalGuide: false,
     text: 'Really happy with the service. The team did a brilliant job on my end of tenancy carpet clean. The carpets looked fresh and like new again. Friendly, professional, and great results. Would definitely recommend.',
-  },
-  {
-    name: 'Milad S.',
-    initial: 'MS',
-    color: '#0369a1',
-    location: 'East London',
-    service: 'End of Tenancy',
-    date: 'May 2026',
-    isLocalGuide: false,
-    text: "Great job, really nice doing business with you — I'm super happy. The place was absolutely spotless when they finished. Professional team and great communication throughout.",
   },
 ];
 
@@ -96,11 +79,8 @@ export default function Reviews() {
             <span className="text-silver-600 text-sm font-medium">Google Reviews</span>
           </div>
 
-          <p
-            className="text-xs font-semibold tracking-[0.18em] uppercase mb-3"
-            style={{ color: '#0E5E47' }}
-          >
-            ✦ Verified on Google
+          <p className="text-xs font-semibold tracking-[0.18em] uppercase mb-3 text-success">
+            Verified on Google
           </p>
 
           <h2
@@ -192,7 +172,7 @@ export default function Reviews() {
             href={GOOGLE_PROFILE_LINK}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2.5 border-2 border-navy-900 text-navy-900 font-bold px-7 py-3.5 rounded-full transition-all duration-300 hover:bg-navy-900 hover:text-white text-sm"
+            className="inline-flex items-center gap-2.5 border-2 border-navy-900 text-navy-900 font-bold px-7 py-3.5 min-h-[44px] rounded-full transition-all duration-300 hover:bg-navy-900 hover:text-white text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
           >
             <GoogleIcon size={17} />
             Read our Google reviews
@@ -201,10 +181,9 @@ export default function Reviews() {
             href={GOOGLE_REVIEW_LINK}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 font-bold text-navy-900 px-7 py-3.5 rounded-full transition-all duration-300 hover:opacity-90 hover:shadow-lg hover:-translate-y-0.5 text-sm"
-            style={{ background: 'linear-gradient(135deg, #d4a843 0%, #f0c85a 50%, #d4a843 100%)' }}
+            className="inline-flex items-center gap-2 font-bold text-white bg-royal-500 hover:bg-royal-600 px-7 py-3.5 min-h-[44px] rounded-full transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-900"
           >
-            <Star size={14} className="fill-navy-900 text-navy-900" />
+            <Star size={14} className="fill-white text-white" />
             Leave us a review
           </a>
         </div>
