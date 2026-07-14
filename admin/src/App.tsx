@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { AuthProvider } from './auth/AuthContext';
+import { AuthProvider } from './auth/AuthProvider';
 import RequireAuth from './auth/RequireAuth';
 import ProtectedShell from './components/ProtectedShell';
 import LoginPage from './pages/LoginPage';

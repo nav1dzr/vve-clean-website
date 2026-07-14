@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 
 // Deliberately generic — never reveals whether an email is registered, or
 // whether the failure was a bad password vs. an unknown account.

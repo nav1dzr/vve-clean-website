@@ -17,6 +17,12 @@ function isErrorBody(value: unknown): value is ErrorBody {
   return typeof value === 'object' && value !== null && 'error' in value;
 }
 
+// A hung connection (e.g. a dead network with no OS-level reset) would
+// otherwise never resolve or reject, leaving a page stuck on its loading
+// state forever. This bounds every request so it always eventually
+// surfaces as a catchable, retryable error.
+const REQUEST_TIMEOUT_MS = 20_000;
+
 // Every admin data fetch goes through this — attaches the current Supabase
 // session's access token as a Bearer header, matching what every admin API
 // route requires (ADMIN_CRM_PLAN.md §8-9). Never called before a session
@@ -30,7 +36,20 @@ export async function authFetch<T>(path: string, init: RequestInit = {}): Promis
   if (token) headers.Authorization = `Bearer ${token}`;
   if (init.body) headers['Content-Type'] = 'application/json';
 
-  const res = await fetch(path, { ...init, headers });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(path, { ...init, headers, signal: controller.signal });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new ApiError(0, 'The request timed out. Check your connection and try again.');
+    }
+    throw new ApiError(0, 'Could not reach the server. Check your connection and try again.');
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   let body: unknown = null;
   try {

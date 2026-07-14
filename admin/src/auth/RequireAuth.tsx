@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from './AuthContext';
+import { useAuth } from './useAuth';
 import LoadingScreen from '../components/LoadingScreen';
 import ErrorScreen from '../components/ErrorScreen';
 import UnauthorisedPage from '../pages/UnauthorisedPage';

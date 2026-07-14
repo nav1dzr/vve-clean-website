@@ -1,4 +1,4 @@
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 
 // Shown when a Supabase session is valid but the account is not present in
 // admin_users. Never renders any booking/customer data — there is none to
