@@ -195,3 +195,15 @@ details[open] > .faq-summary .faq-icon {
   .faq-icon { transition: none; }
 }
 
+/* Global safety net — covers CSS-driven animations that aren't gated by
+   useReveal.ts's JS check (the area-name marquee ticker, the hero badge's
+   pulsing dot, any future keyframe animation) in one place. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
