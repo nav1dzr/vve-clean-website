@@ -137,6 +137,7 @@ export default async function handler(req, res) {
     offer_code, discount_percent, standard_total, discount_amount, final_total_after_discount,
     first_source, last_source, landing_page,
     utm_source, utm_medium, utm_campaign, utm_content, gclid,
+    termsAccepted, termsAcceptedAt, termsVersion, cancellationPolicyVersion,
   } = payload;
 
   // ── Server-side price authority ─────────────────────────────────────────────
@@ -192,6 +193,25 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'fullName and at least one of phone or email are required' }));
   }
 
+  // The business needs a requested date and arrival window to confirm
+  // availability — the booking page requires these client-side, but the
+  // server must not trust that and enforce it too.
+  if (!date) {
+    res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'A preferred date is required' }));
+  }
+  if (!time) {
+    res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'A preferred arrival window is required' }));
+  }
+
+  // Payment must not proceed without the customer accepting the booking and
+  // cancellation terms — enforced server-side, not just by disabling the button.
+  if (termsAccepted !== true) {
+    res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'You must accept the booking and cancellation terms' }));
+  }
+
   // ── Resolve a SAFE site URL ─────────────────────────────────────────────────
   const extractUrl = (v) => {
     const m = String(v || '').match(/https?:\/\/[^\s\]\)<>"']+/);
@@ -244,7 +264,7 @@ export default async function handler(req, res) {
             currency: 'gbp',
             product_data: {
               name: `Booking deposit — ${service || 'Cleaning service'}`,
-              description: 'Secures your slot. The £30 deposit comes off your final bill.',
+              description: 'Deposit for your booking request. We confirm availability within one business hour. Comes off your final bill.',
             },
             unit_amount: 3000,
           },
@@ -267,6 +287,11 @@ export default async function handler(req, res) {
         message:                    (message     || '').slice(0, 500),
         booking_ref:                (bookingRef  || '').slice(0, 500),
         confirmation_token:         confirmationToken,
+        // Terms acceptance
+        terms_accepted:             'true',
+        terms_accepted_at:          (termsAcceptedAt || '').slice(0, 100),
+        terms_version:              (termsVersion || '').slice(0, 100),
+        cancellation_policy_version: (cancellationPolicyVersion || '').slice(0, 100),
         // Offer / discount
         offer_code:                 (offer_code  || '').slice(0, 500),
         discount_percent:           discount_percent != null ? String(discount_percent) : '',
@@ -311,6 +336,10 @@ export default async function handler(req, res) {
           preferred_date:     date     || null,
           preferred_time:     time     || null,
           notes:              message  || null,
+          terms_accepted:              true,
+          terms_accepted_at:           termsAcceptedAt || null,
+          terms_version:                termsVersion || null,
+          cancellation_policy_version: cancellationPolicyVersion || null,
         });
         if (dbErr) {
           console.error('[checkout] Supabase insert error — code:', dbErr.code, '| message:', dbErr.message);

@@ -157,7 +157,7 @@ export default function LeafletPage() {
                 { icon: <Shield size={15} style={{ color: '#0ea5e9' }} />,   text: 'Fully insured — public liability cover on every job' },
                 { icon: <CheckCircle2 size={15} style={{ color: '#22C55E' }} />, text: 'Professional truck-mounted or portable extraction equipment' },
                 { icon: <CheckCircle2 size={15} style={{ color: '#22C55E' }} />, text: 'Clear written quote before any work starts' },
-                { icon: <CheckCircle2 size={15} style={{ color: '#22C55E' }} />, text: '£30 deposit to secure your booking — deducted from final bill' },
+                { icon: <CheckCircle2 size={15} style={{ color: '#22C55E' }} />, text: '£30 deposit to submit your booking request — deducted from final bill' },
                 { icon: <CheckCircle2 size={15} style={{ color: '#22C55E' }} />, text: 'Balance payable after the clean — not before' },
               ].map(({ icon, text }) => (
                 <div key={text} className="flex items-start gap-2.5">
