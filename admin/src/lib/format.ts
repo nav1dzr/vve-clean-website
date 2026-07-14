@@ -84,6 +84,50 @@ export function balanceStatusBadge(status: string | null | undefined): Badge {
   return { label: 'Balance unavailable', className: 'bg-silver-200 text-navy-700' };
 }
 
+const BALANCE_PAYMENT_METHOD_LABELS: Record<string, string> = {
+  card: 'Card',
+  bank_transfer: 'Bank transfer',
+  cash: 'Cash',
+  stripe: 'Stripe',
+  other: 'Other',
+};
+
+export function balancePaymentMethodLabel(method: string | null | undefined): string {
+  if (method && BALANCE_PAYMENT_METHOD_LABELS[method]) return BALANCE_PAYMENT_METHOD_LABELS[method];
+  return 'Not specified';
+}
+
+const BOOKING_STATUS_LABELS: Record<string, string> = {
+  new: 'New',
+  confirmed: 'Confirmed',
+  scheduled: 'Scheduled',
+  in_progress: 'In progress',
+  completed: 'Completed',
+  rescheduled: 'Rescheduled',
+  cancelled: 'Cancelled',
+  no_show: 'No-show',
+};
+
+export function bookingStatusLabel(status: string): string {
+  return BOOKING_STATUS_LABELS[status] || status;
+}
+
+const BALANCE_STATUS_LABELS: Record<string, string> = {
+  not_due: 'Not due',
+  outstanding: 'Outstanding',
+  paid: 'Paid',
+  waived: 'Waived',
+};
+
+export function balanceStatusLabel(status: string): string {
+  return BALANCE_STATUS_LABELS[status] || status;
+}
+
+// Statuses where changing to that value is hard to casually undo in
+// practice (the customer may already have been told, or a slot released) —
+// these get an inline confirmation step before the update is sent.
+export const STATUS_VALUES_REQUIRING_CONFIRMATION = new Set(['cancelled', 'no_show']);
+
 // Strips everything except digits and a leading '+'. Used before building
 // tel:/wa.me links so click-to-call/WhatsApp work regardless of how the
 // phone number was originally typed (ADMIN_CRM_PLAN.md §17).
