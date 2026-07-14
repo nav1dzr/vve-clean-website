@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { isValidUuid, validateSearchQuery, sanitiseFreeTextFilter, isValidDateString } from './normalise.js';
+import {
+  isValidUuid,
+  validateSearchQuery,
+  sanitiseFreeTextFilter,
+  isValidDateString,
+  isValidIsoTimestamp,
+  validateNote,
+} from './normalise.js';
 
 describe('isValidUuid', () => {
   it('accepts a well-formed UUID', () => {
@@ -90,6 +97,48 @@ describe('sanitiseFreeTextFilter', () => {
   it('rejects non-string input', () => {
     expect(sanitiseFreeTextFilter(42)).toBeNull();
     expect(sanitiseFreeTextFilter(null)).toBeNull();
+  });
+});
+
+describe('isValidIsoTimestamp', () => {
+  it('accepts a valid ISO timestamp', () => {
+    expect(isValidIsoTimestamp('2026-07-18T10:00:00.000Z')).toBe(true);
+  });
+
+  it('rejects malformed or missing input', () => {
+    expect(isValidIsoTimestamp('not-a-timestamp')).toBe(false);
+    expect(isValidIsoTimestamp('')).toBe(false);
+    expect(isValidIsoTimestamp(null)).toBe(false);
+    expect(isValidIsoTimestamp(undefined)).toBe(false);
+  });
+});
+
+describe('validateNote', () => {
+  it('trims and accepts a normal note', () => {
+    const result = validateNote('  Called to confirm access.  ');
+    expect(result.ok).toBe(true);
+    expect(result.value).toBe('Called to confirm access.');
+  });
+
+  it('rejects an empty or whitespace-only note', () => {
+    expect(validateNote('').ok).toBe(false);
+    expect(validateNote('   ').ok).toBe(false);
+    expect(validateNote('\n\t ').ok).toBe(false);
+  });
+
+  it('rejects a non-string note', () => {
+    expect(validateNote(null).ok).toBe(false);
+    expect(validateNote(42).ok).toBe(false);
+  });
+
+  it('accepts a note right at the maximum length', () => {
+    expect(validateNote('a'.repeat(2000)).ok).toBe(true);
+  });
+
+  it('rejects a note over the maximum length', () => {
+    const result = validateNote('a'.repeat(2001));
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/2000/);
   });
 });
 

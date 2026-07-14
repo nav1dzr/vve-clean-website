@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CARD_SELECT, DETAIL_SELECT, toCard, toDetail } from './bookingFields.js';
+import { CARD_SELECT, DETAIL_SELECT, toCard, toDetail, toNote } from './bookingFields.js';
 
 describe('CARD_SELECT / DETAIL_SELECT', () => {
   it('never includes confirmation_token', () => {
@@ -22,6 +22,7 @@ describe('toCard', () => {
       service_date: '2026-07-18',
       status: 'confirmed',
       payment_status: 'paid',
+      balance_status: 'outstanding',
       total_price: 249,
       created_at: '2026-07-01T00:00:00.000Z',
       // Fields that must never leak through, even if present on the row:
@@ -44,6 +45,7 @@ describe('toCard', () => {
       serviceDate: '2026-07-18',
       status: 'confirmed',
       paymentStatus: 'paid',
+      balanceStatus: 'outstanding',
       totalPrice: 249,
       createdAt: '2026-07-01T00:00:00.000Z',
     });
@@ -154,5 +156,28 @@ describe('toDetail', () => {
       telegramSent: true,
       sheetsSent: true,
     });
+  });
+});
+
+describe('toNote', () => {
+  it('maps a note row with its embedded author', () => {
+    const note = toNote({
+      id: 'note-1',
+      note: 'Called to confirm access.',
+      created_at: '2026-07-11T14:02:00.000Z',
+      author: { id: 'admin-1', display_name: 'Sam Wilson' },
+    });
+
+    expect(note).toEqual({
+      id: 'note-1',
+      note: 'Called to confirm access.',
+      createdAt: '2026-07-11T14:02:00.000Z',
+      author: { id: 'admin-1', displayName: 'Sam Wilson' },
+    });
+  });
+
+  it('falls back to an honest "Unknown" author rather than a blank name', () => {
+    const note = toNote({ id: 'note-1', note: 'x', created_at: '2026-07-11T14:02:00.000Z', author: null });
+    expect(note.author).toEqual({ id: null, displayName: 'Unknown' });
   });
 });
