@@ -16,6 +16,7 @@ export default {
           800: '#071d52',
           900: '#04123a',
           950: '#020b24',
+          secondary: '#0B1F3A',
         },
         // Fresh sky-blue brand palette
         royal: {
@@ -45,10 +46,25 @@ export default {
           600: '#8d97a0',
           700: '#6c757d',
         },
+        // VVE brand tokens (feat/visual-polish) — exact hex values from the
+        // design spec. Additive only: existing navy/royal/silver scales above
+        // are left in place (389+ call sites already reference them, and
+        // navy-950/royal-500/royal-600 already match the spec exactly), so
+        // nothing that already renders correctly needs to change.
+        ink:     '#10243E', // main text
+        muted:   '#5B6B7C', // secondary/muted text
+        line:    '#DCE5EC', // borders/dividers
+        surface: '#F7FAFC', // light section background
+        success: '#15803D',
+        error:   '#B42318',
       },
       fontFamily: {
+        // Bricolage Grotesque is the single heading font (spec: "Remove
+        // Playfair Display from active use if safe"). Redirecting the
+        // `display` token here retypesets all 57+ existing font-display call
+        // sites in one place, instead of touching every component.
         hero: ['Bricolage Grotesque', 'system-ui', 'sans-serif'],
-        display: ['Playfair Display', 'Georgia', 'serif'],
+        display: ['Bricolage Grotesque', 'system-ui', 'sans-serif'],
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       animation: {

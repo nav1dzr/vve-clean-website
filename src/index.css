@@ -36,24 +36,18 @@
 }
 
 @layer utilities {
-  /* Kept for hero/navbar — dark backgrounds only */
+  /* Kept for hero/navbar — dark backgrounds only. No shimmer animation
+     (feat/visual-polish removes decorative motion from heading text). */
   .text-gradient-metallic {
     background: linear-gradient(135deg, #c8cdd6 0%, #ffffff 30%, #b8bec8 50%, #e8eaed 70%, #c0c6d0 100%);
     background-size: 200% auto;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    animation: shimmer 3s infinite linear;
   }
   /* Blue gradient text — use on light backgrounds */
   .text-gradient-blue {
     background: linear-gradient(135deg, #0369a1 0%, #0ea5e9 60%, #38bdf8 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  .text-gradient-gold {
-    background: linear-gradient(135deg, #c8a45a 0%, #f0d078 30%, #c8a45a 60%, #e8c060 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

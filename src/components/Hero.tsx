@@ -39,7 +39,7 @@ export default function Hero() {
             Get your full deposit back — or we{' '}
             <span className="text-sky-300">re-clean</span>
             {' '}free within{' '}
-            <span className="text-gradient-gold">48 hours.</span>
+            <span className="text-royal-300">48 hours.</span>
           </h1>
 
           {/* Supporting text */}
