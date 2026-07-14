@@ -161,6 +161,140 @@ describe('stripe-webhook — customer/business notification wording', () => {
   });
 });
 
+describe('stripe-webhook — HTML-escapes user-controlled booking data in emails (XSS)', () => {
+  const IMG_PAYLOAD  = '<img src=x onerror=alert(1)>';
+  const LINK_PAYLOAD = '<a href="https://evil.example/phish">Click to confirm your booking</a>';
+
+  beforeEach(() => {
+    sendMailMock.mockClear();
+    verifyMock.mockClear();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, text: async () => '' }));
+    process.env.STRIPE_SECRET_KEY    = 'sk_test_123';
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
+    process.env.GMAIL_SENDER          = 'sender@example.com';
+    process.env.GMAIL_APP_PASSWORD    = 'app-password';
+    process.env.BUSINESS_EMAIL        = 'business@example.com';
+    delete process.env.VITE_SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  });
+
+  function malicious(overrides = {}) {
+    return makeEvent({
+      fullName: IMG_PAYLOAD,
+      address:  LINK_PAYLOAD,
+      postcode: '<script>alert(2)</script>',
+      date:     '<b>2026-08-01</b>',
+      time:     '<i>Flexible</i>',
+      service:  '<u>Carpet clean</u>',
+      booking_ref: '<svg onload=alert(3)>REF01',
+      ...overrides,
+    });
+  }
+
+  it('renders an <img onerror> payload in the full name as inert text, not a live tag, in both emails', async () => {
+    constructEventMock.mockReturnValue(malicious());
+    const res = makeRes();
+    await handler(makeReq(), res);
+
+    const customerCall = sendMailMock.mock.calls.find((c) => c[0].to === 'jane@example.com');
+    const businessCall = sendMailMock.mock.calls.find((c) => c[0].to === 'business@example.com');
+
+    for (const html of [customerCall[0].html, businessCall[0].html]) {
+      expect(html).not.toContain(IMG_PAYLOAD);
+      expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+    }
+  });
+
+  it('renders a spoofed <a href> payload in the address as inert text, not a real link', async () => {
+    constructEventMock.mockReturnValue(malicious());
+    const res = makeRes();
+    await handler(makeReq(), res);
+
+    const customerCall = sendMailMock.mock.calls.find((c) => c[0].to === 'jane@example.com');
+    const businessCall = sendMailMock.mock.calls.find((c) => c[0].to === 'business@example.com');
+
+    for (const html of [customerCall[0].html, businessCall[0].html]) {
+      expect(html).not.toContain(LINK_PAYLOAD);
+      expect(html).toContain('&lt;a href="https://evil.example/phish"&gt;Click to confirm your booking&lt;/a&gt;');
+    }
+  });
+
+  it('escapes a <script> payload in the postcode (also used to build booking_ref)', async () => {
+    constructEventMock.mockReturnValue(malicious());
+    const res = makeRes();
+    await handler(makeReq(), res);
+
+    const customerCall = sendMailMock.mock.calls.find((c) => c[0].to === 'jane@example.com');
+    const businessCall = sendMailMock.mock.calls.find((c) => c[0].to === 'business@example.com');
+
+    for (const html of [customerCall[0].html, businessCall[0].html]) {
+      expect(html).not.toContain('<script>alert(2)</script>');
+    }
+  });
+
+  it('escapes HTML in preferred date and arrival window', async () => {
+    constructEventMock.mockReturnValue(malicious());
+    const res = makeRes();
+    await handler(makeReq(), res);
+
+    const customerCall = sendMailMock.mock.calls.find((c) => c[0].to === 'jane@example.com');
+    const businessCall = sendMailMock.mock.calls.find((c) => c[0].to === 'business@example.com');
+
+    for (const html of [customerCall[0].html, businessCall[0].html]) {
+      expect(html).not.toContain('<b>2026-08-01</b>');
+      expect(html).not.toContain('<i>Flexible</i>');
+      expect(html).toContain('&lt;b&gt;2026-08-01&lt;/b&gt;');
+      expect(html).toContain('&lt;i&gt;Flexible&lt;/i&gt;');
+    }
+  });
+
+  it('escapes HTML in the customer notes/message field (business email Notes row)', async () => {
+    constructEventMock.mockReturnValue(malicious({ message: '<img src=x onerror=alert(4)>urgent call me' }));
+    const res = makeRes();
+    await handler(makeReq(), res);
+
+    const businessCall = sendMailMock.mock.calls.find((c) => c[0].to === 'business@example.com');
+    expect(businessCall[0].html).not.toContain('<img src=x onerror=alert(4)>');
+    expect(businessCall[0].html).toContain('&lt;img src=x onerror=alert(4)&gt;urgent call me');
+  });
+
+  it('escapes HTML in the service text (business email subtitle)', async () => {
+    constructEventMock.mockReturnValue(malicious());
+    const res = makeRes();
+    await handler(makeReq(), res);
+
+    const businessCall = sendMailMock.mock.calls.find((c) => c[0].to === 'business@example.com');
+    expect(businessCall[0].html).not.toContain('<u>Carpet clean</u>');
+    expect(businessCall[0].html).toContain('&lt;u&gt;Carpet clean&lt;/u&gt;');
+  });
+
+  it('escapes HTML in the booking reference in both emails', async () => {
+    constructEventMock.mockReturnValue(malicious());
+    const res = makeRes();
+    await handler(makeReq(), res);
+
+    const customerCall = sendMailMock.mock.calls.find((c) => c[0].to === 'jane@example.com');
+    const businessCall = sendMailMock.mock.calls.find((c) => c[0].to === 'business@example.com');
+
+    for (const html of [customerCall[0].html, businessCall[0].html]) {
+      expect(html).not.toContain('<svg onload=alert(3)>');
+      expect(html).toContain('&lt;svg onload=alert(3)&gt;REF01');
+    }
+  });
+
+  it('still renders the malicious full name as readable plain text once escaped (content is preserved, not stripped)', async () => {
+    constructEventMock.mockReturnValue(malicious({ fullName: 'Jane "Bob" O\'Brien <VIP>' }));
+    const res = makeRes();
+    await handler(makeReq(), res);
+
+    const customerCall = sendMailMock.mock.calls.find((c) => c[0].to === 'jane@example.com');
+    // escHtml only neutralises &, < and > (the characters that can break out of
+    // an HTML text node here) — quotes/apostrophes are left as-is since none
+    // of these values are ever placed inside an HTML attribute.
+    expect(customerCall[0].html).toContain('Jane "Bob" O\'Brien &lt;VIP&gt;');
+  });
+});
+
 describe('stripe-webhook — Telegram notification wording', () => {
   beforeEach(() => {
     process.env.STRIPE_SECRET_KEY    = 'sk_test_123';

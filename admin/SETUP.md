@@ -15,6 +15,21 @@ Supabase dashboard → **Authentication → Providers → Email** → turn **off
 the control that actually prevents someone from registering an account
 directly against the Supabase Auth API, bypassing the app entirely.
 
+**This setting is not optional and covers more than just admin access.**
+Two legacy tables from an earlier version of the public site —
+`quote_requests` and `contact_messages` — used to carry an `authenticated
+USING (true)` read policy that predated the current admin/RLS model. That
+policy has been removed (see `supabase/migrations/20260721000000_remove_
+stale_quote_contact_select_policies.sql` and `SECURITY_AUDIT_REPORT.md`
+finding F2), so a self-registered account can no longer read either table
+via RLS regardless of this setting. **Verify this setting is off anyway**,
+as defense-in-depth: it's a project-level dashboard setting no migration or
+code change in this repository can enforce or confirm from source alone,
+and it's the control that stops a self-registered account from being able
+to attempt authentication against the admin API in the first place (that
+attempt would still fail the `admin_users` allowlist check, but public
+sign-up should stay off regardless).
+
 ## 2. Configure the Site URL and redirect allow-list
 
 Supabase dashboard → **Authentication → URL Configuration**.
