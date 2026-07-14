@@ -1,9 +1,29 @@
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { useCookieConsent } from '../context/CookieConsentContext';
+import { CONSENT_VERSION } from '../lib/consentVersion';
 
 const CONTACT_EMAIL = 'contact@vveclean.co.uk';
-const LAST_UPDATED = '6 July 2026';
+const LAST_UPDATED = new Date(`${CONSENT_VERSION}T00:00:00Z`).toLocaleDateString('en-GB', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+function CookieSettingsLink() {
+  const { openSettings } = useCookieConsent();
+  return (
+    <button
+      type="button"
+      onClick={openSettings}
+      className="text-royal-600 underline hover:text-royal-800 font-semibold"
+    >
+      cookie settings
+    </button>
+  );
+}
 
 interface Section {
   id: string;
@@ -172,16 +192,47 @@ const sections: Section[] = [
     content: (
       <>
         <p>
-          Our website may use cookies and similar tracking technologies, including those set by Google for
-          analytics and advertising purposes. These help us understand how visitors use our site and to show
-          relevant adverts.
+          When you first visit our website, we ask you to choose which of the cookie categories below you're
+          happy for us to use. You can change your choice at any time — see{' '}
+          <strong>&ldquo;How to change your choice&rdquo;</strong> below.
         </p>
-        <p className="mt-3">
-          You can manage or disable cookies at any time through your browser settings. Disabling cookies may
-          affect some functionality of the website.
+
+        <h3 className="font-semibold text-navy-900 text-sm mt-5 mb-2">Essential storage (always on)</h3>
+        <p>
+          Some storage on your device is required for the website to work at all, and is not switched off by
+          your cookie choice. This includes: remembering your quote and booking selections as you move between
+          pages, restoring your booking details if you leave and come back, keeping your visit to our booking
+          and payment pages working correctly, and remembering which leaflet or advert brought you to the site
+          so we can honour any associated discount. None of this is used for advertising on its own.
         </p>
-        <p className="mt-3">
-          Where required by law, we will ask for your consent before setting non-essential cookies.
+
+        <h3 className="font-semibold text-navy-900 text-sm mt-5 mb-2">Analytics storage (optional)</h3>
+        <p>
+          If you agree, we use analytics storage to understand how visitors use our site — for example, which
+          pages are viewed — so we can improve it. This is switched off until you agree to it.
+        </p>
+
+        <h3 className="font-semibold text-navy-900 text-sm mt-5 mb-2">Advertising storage (optional)</h3>
+        <p>
+          If you agree, we allow Google to use advertising storage to measure and improve the relevance of our
+          adverts (for example, Google Ads). This is switched off until you agree to it.
+        </p>
+
+        <h3 className="font-semibold text-navy-900 text-sm mt-5 mb-2">Google Consent Mode</h3>
+        <p>
+          We use a Google feature called <strong>Consent Mode</strong>. In plain terms: until you tell us
+          otherwise, Google's advertising and analytics tools are set to a "no cookies, no storage" mode by
+          default. If you accept analytics and/or advertising cookies, we tell Google to switch the relevant
+          storage on for you. If you reject them, Google's tools stay in that reduced, cookie-free mode — we do
+          not separately load or duplicate Google's tracking tag to work around your choice.
+        </p>
+
+        <h3 className="font-semibold text-navy-900 text-sm mt-5 mb-2">How to change your choice</h3>
+        <p>
+          You can accept all cookies, reject optional cookies, or choose exactly which categories to allow, at
+          any time, using the <CookieSettingsLink /> link in the website footer. You can also manage or disable
+          cookies through your browser settings. Disabling essential storage may prevent parts of the booking
+          and payment process from working correctly.
         </p>
       </>
     ),
