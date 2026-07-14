@@ -5,8 +5,9 @@ import ProtectedShell from './components/ProtectedShell';
 import LoginPage from './pages/LoginPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardHome from './pages/DashboardHome';
-import BookingsPlaceholder from './pages/BookingsPlaceholder';
-import SearchPlaceholder from './pages/SearchPlaceholder';
+import BookingListPage from './pages/BookingListPage';
+import BookingDetailPage from './pages/BookingDetailPage';
+import SearchPage from './pages/SearchPage';
 
 export default function App() {
   return (
@@ -24,8 +25,9 @@ export default function App() {
             }
           >
             <Route path="/" element={<DashboardHome />} />
-            <Route path="/bookings" element={<BookingsPlaceholder />} />
-            <Route path="/search" element={<SearchPlaceholder />} />
+            <Route path="/bookings" element={<BookingListPage />} />
+            <Route path="/bookings/:id" element={<BookingDetailPage />} />
+            <Route path="/search" element={<SearchPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
