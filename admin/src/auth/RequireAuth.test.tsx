@@ -6,7 +6,7 @@ import type { AuthStatus } from './AuthContext';
 
 const useAuthMock = vi.fn();
 
-vi.mock('./AuthContext', () => ({
+vi.mock('./useAuth', () => ({
   useAuth: () => useAuthMock(),
 }));
 

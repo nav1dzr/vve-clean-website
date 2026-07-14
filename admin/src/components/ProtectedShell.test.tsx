@@ -6,7 +6,7 @@ import ProtectedShell from './ProtectedShell';
 
 const useAuthMock = vi.fn();
 
-vi.mock('../auth/AuthContext', () => ({
+vi.mock('../auth/useAuth', () => ({
   useAuth: () => useAuthMock(),
 }));
 
