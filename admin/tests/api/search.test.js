@@ -4,10 +4,10 @@ const verifyAdminRequestMock = vi.fn();
 const getServiceClientMock = vi.fn();
 const rpcMock = vi.fn();
 
-vi.mock('./_lib/adminAuth.js', () => ({ verifyAdminRequest: (...args) => verifyAdminRequestMock(...args) }));
-vi.mock('./_lib/supabaseAdmin.js', () => ({ getServiceClient: (...args) => getServiceClientMock(...args) }));
+vi.mock('../../api/_lib/adminAuth.js', () => ({ verifyAdminRequest: (...args) => verifyAdminRequestMock(...args) }));
+vi.mock('../../api/_lib/supabaseAdmin.js', () => ({ getServiceClient: (...args) => getServiceClientMock(...args) }));
 
-const { default: handler } = await import('./search.js');
+const { default: handler } = await import('../../api/search.js');
 
 function makeRes() {
   const res = {

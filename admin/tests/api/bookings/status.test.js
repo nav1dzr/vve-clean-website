@@ -3,10 +3,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const verifyAdminRequestMock = vi.fn();
 const getServiceClientMock = vi.fn();
 
-vi.mock('../../_lib/adminAuth.js', () => ({ verifyAdminRequest: (...args) => verifyAdminRequestMock(...args) }));
-vi.mock('../../_lib/supabaseAdmin.js', () => ({ getServiceClient: (...args) => getServiceClientMock(...args) }));
+vi.mock('../../../api/_lib/adminAuth.js', () => ({ verifyAdminRequest: (...args) => verifyAdminRequestMock(...args) }));
+vi.mock('../../../api/_lib/supabaseAdmin.js', () => ({ getServiceClient: (...args) => getServiceClientMock(...args) }));
 
-const { default: handler } = await import('./status.js');
+const { default: handler } = await import('../../../api/bookings/[id]/status.js');
 
 function makeRes() {
   const res = {

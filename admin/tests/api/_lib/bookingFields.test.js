@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CARD_SELECT, DETAIL_SELECT, toCard, toDetail, toNote } from './bookingFields.js';
+import { CARD_SELECT, DETAIL_SELECT, toCard, toDetail, toNote } from '../../../api/_lib/bookingFields.js';
 
 describe('CARD_SELECT / DETAIL_SELECT', () => {
   it('never includes confirmation_token', () => {

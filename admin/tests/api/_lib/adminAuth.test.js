@@ -13,7 +13,7 @@ vi.mock('@supabase/supabase-js', () => ({
   })),
 }));
 
-const { verifyAdminRequest } = await import('./adminAuth.js');
+const { verifyAdminRequest } = await import('../../../api/_lib/adminAuth.js');
 
 function makeReq(headers) {
   return { headers };

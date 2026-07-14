@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const verifyAdminRequestMock = vi.fn();
 
-vi.mock('./_lib/adminAuth.js', () => ({
+vi.mock('../../api/_lib/adminAuth.js', () => ({
   verifyAdminRequest: verifyAdminRequestMock,
 }));
 
-const { default: handler } = await import('./me.js');
+const { default: handler } = await import('../../api/me.js');
 
 function makeRes() {
   const res = {

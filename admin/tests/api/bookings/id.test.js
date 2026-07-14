@@ -3,14 +3,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const verifyAdminRequestMock = vi.fn();
 const getServiceClientMock = vi.fn();
 
-vi.mock('../_lib/adminAuth.js', () => ({ verifyAdminRequest: (...args) => verifyAdminRequestMock(...args) }));
-vi.mock('../_lib/supabaseAdmin.js', () => ({ getServiceClient: (...args) => getServiceClientMock(...args) }));
+vi.mock('../../../api/_lib/adminAuth.js', () => ({ verifyAdminRequest: (...args) => verifyAdminRequestMock(...args) }));
+vi.mock('../../../api/_lib/supabaseAdmin.js', () => ({ getServiceClient: (...args) => getServiceClientMock(...args) }));
 
 // The file under test is named [id].js (Vercel's dynamic-route convention).
 // Importing it by its literal path works fine as an ES module specifier —
 // only the test file itself avoids brackets, to sidestep any glob-pattern
 // ambiguity in file discovery tooling.
-const { default: handler } = await import('./[id].js');
+const { default: handler } = await import('../../../api/bookings/[id].js');
 
 function makeRes() {
   const res = {

@@ -6,7 +6,7 @@ import {
   isValidDateString,
   isValidIsoTimestamp,
   validateNote,
-} from './normalise.js';
+} from '../../../api/_lib/normalise.js';
 
 describe('isValidUuid', () => {
   it('accepts a well-formed UUID', () => {
