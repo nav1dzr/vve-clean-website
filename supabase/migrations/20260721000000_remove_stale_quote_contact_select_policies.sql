@@ -1,0 +1,92 @@
+-- Removes the broad `authenticated`-role SELECT policies on `quote_requests`
+-- and `contact_messages` — the same "authenticated_read_bookings" pattern
+-- already removed from `bookings` in 20260716000000_remove_broad_bookings_
+-- select_policy.sql, applied here to the two tables it was never cleaned up
+-- on. See SECURITY_AUDIT_REPORT.md finding F2.
+--
+-- Why this is safe (confirmed by inspecting every current Supabase client
+-- usage in the repo, not assumed):
+--   - Neither `quote_requests` nor `contact_messages` is referenced anywhere
+--     in current application code (src/, api/, admin/) — both are orphaned
+--     from an earlier version of the site, before the current booking/
+--     contact flow existed. api/contact.js today emails/Telegrams/Sheets
+--     directly and never touches Supabase.
+--   - No admin feature reads either table today, so there is no replacement
+--     read path to add — unlike `bookings`, these two have no server-side
+--     API route standing in for the removed direct-read access.
+--
+-- Why this was flagged (impact of leaving the old policies in place):
+--   - Both tables still carry a public `TO anon, authenticated` INSERT
+--     policy (`public_insert_quote_requests` / `public_insert_contact_
+--     messages`, from 20260604225617_fix_rls_insert_policies.sql) — left
+--     untouched by this migration, since it isn't a SELECT/read path.
+--   - The SELECT policies dropped below used `USING (true)` for the
+--     `authenticated` role — the same role any visitor gets after a normal
+--     Supabase Auth sign-up. If public sign-ups are enabled on this
+--     Supabase project (a project-level dashboard setting, not something
+--     any migration controls — see admin/SETUP.md §1), any self-
+--     registered internet user could read every row of both tables
+--     directly via PostgREST using only the public anon key, bypassing the
+--     admin_users allowlist and every line of application code, because
+--     RLS — not the app — was what granted that access.
+--
+-- After this migration:
+--   - RLS remains enabled on both tables (unchanged).
+--   - `anon` has zero SELECT access on either table (unchanged — no SELECT
+--     policy for `anon` was ever created on these tables).
+--   - `authenticated` has zero SELECT access on either table (changed —
+--     previously `USING (true)` on each; now nothing).
+--   - INSERT policies (`public_insert_quote_requests`, `public_insert_
+--     contact_messages`) are unaffected by this migration.
+--   - `service_role` is unaffected — it bypasses RLS regardless of
+--     policies, and no table GRANT is touched by this migration.
+--   - No table is dropped and no row is deleted or modified — this
+--     migration only removes two policy definitions.
+--
+-- No replacement policy is added, by design — nothing in the current
+-- application reads these tables, so there is nothing to preserve access
+-- for. If these tables are ever put back into active use, add an
+-- admin_users-gated policy following the same pattern used for `bookings`
+-- (server-side API route using the service-role key), not a broad
+-- `authenticated USING (true)` policy.
+
+-- quote_requests: drop every SELECT policy variant that has ever existed
+-- for this table across earlier migrations (one table was re-created twice
+-- with `CREATE TABLE IF NOT EXISTS`, each attempt adding its own SELECT
+-- policy under a different name).
+DROP POLICY IF EXISTS "Authenticated users can view quotes"       ON quote_requests;
+DROP POLICY IF EXISTS "Authenticated users can read quote requests" ON quote_requests;
+
+-- contact_messages: same pattern, both name variants.
+DROP POLICY IF EXISTS "Authenticated users can view contact messages" ON contact_messages;
+DROP POLICY IF EXISTS "Authenticated users can read contact messages" ON contact_messages;
+
+-- ── Verification (run manually against the live database after applying) ──
+--
+-- 1. RLS remains enabled on both tables:
+--   SELECT relname, relrowsecurity
+--   FROM pg_class
+--   WHERE relname IN ('quote_requests', 'contact_messages');
+--   -- expected: relrowsecurity = true for both rows
+--
+-- 2. No SELECT policy exists for `authenticated` on either table:
+--   SELECT tablename, policyname, cmd, roles
+--   FROM pg_policies
+--   WHERE tablename IN ('quote_requests', 'contact_messages')
+--     AND cmd = 'SELECT';
+--   -- expected: zero rows
+--
+-- 3. Row counts are unchanged (this migration only drops policies, never
+--    touches data — run before and after applying to compare):
+--   SELECT 'quote_requests' AS table_name, count(*) FROM quote_requests
+--   UNION ALL
+--   SELECT 'contact_messages', count(*) FROM contact_messages;
+--
+-- 4. Remaining policies on both tables (INSERT policies should still be
+--    present, confirming public form submission — if this feature is ever
+--    reused — still works):
+--   SELECT tablename, policyname, cmd, roles
+--   FROM pg_policies
+--   WHERE tablename IN ('quote_requests', 'contact_messages')
+--   ORDER BY tablename, cmd;
+--   -- expected: only the two "public_insert_*" INSERT policies remain
