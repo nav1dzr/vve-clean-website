@@ -31,14 +31,11 @@ function seedSelection(overrides: Partial<typeof VALID_SELECTION> = {}) {
   sessionStorage.setItem('vve_booking', JSON.stringify({ ...VALID_SELECTION, ...overrides }));
 }
 
-// Note: fullName/address/postcode/phone labels are not yet programmatically
-// associated with their inputs (pre-existing gap, out of scope for this fix)
-// — use placeholder text to locate them instead of getByLabelText.
 async function fillContactDetails(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByPlaceholderText('Jane Smith'), 'Jane Smith');
-  await user.type(screen.getByPlaceholderText('12 High Street, London'), '12 High Street');
-  await user.type(screen.getByPlaceholderText('E8 1AA'), 'E8 1AA');
-  await user.type(screen.getByPlaceholderText('07700 900000'), '07700900000');
+  await user.type(screen.getByLabelText(/full name/i), 'Jane Smith');
+  await user.type(screen.getByLabelText(/^address/i), '12 High Street');
+  await user.type(screen.getByLabelText(/postcode/i), 'E8 1AA');
+  await user.type(screen.getByLabelText(/phone number/i), '07700900000');
 }
 
 async function fillAllRequiredFields(user: ReturnType<typeof userEvent.setup>) {
@@ -87,6 +84,39 @@ describe('BookingPage — booking request wording', () => {
     expect(bodyText).not.toMatch(/slot is secured/i);
     expect(bodyText).not.toMatch(/confirm booking/i);
     expect(bodyText).not.toMatch(/no one else can take your slot/i);
+  });
+});
+
+describe('BookingPage — accessible labels on property/contact fields', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    seedSelection();
+  });
+
+  it('programmatically associates full name, address, postcode and phone with their labels', () => {
+    renderBookingPage();
+    expect(screen.getByLabelText(/full name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^address/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/postcode/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/phone number/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
+  });
+
+  it('associates the full name error with its input via aria-describedby when invalid', async () => {
+    const user = userEvent.setup();
+    renderBookingPage();
+    await user.type(screen.getByLabelText(/^address/i), '12 High Street');
+    await user.type(screen.getByLabelText(/postcode/i), 'E8 1AA');
+    await user.type(screen.getByLabelText(/preferred date/i), '2026-08-01');
+    await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
+    await user.click(screen.getByRole('checkbox', { name: /agree to the/i }));
+    await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
+
+    const fullNameInput = screen.getByLabelText(/full name/i);
+    await waitFor(() => expect(fullNameInput).toHaveAttribute('aria-invalid', 'true'));
+    const describedBy = fullNameInput.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy!)).toHaveAttribute('role', 'alert');
   });
 });
 
