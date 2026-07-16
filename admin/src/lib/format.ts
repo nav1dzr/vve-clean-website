@@ -166,3 +166,84 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     return false;
   }
 }
+
+// formatCurrency() above rounds to whole pounds (fine for a booking's
+// headline total) — invoice/receipt amounts need pence precision since
+// partial payments and deposits are routinely non-whole-pound values.
+export function formatMoney(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return 'Not recorded';
+  return new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency: 'GBP',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+const INVOICE_DOCUMENT_STATUS: Record<string, Badge> = {
+  draft: { label: 'Draft', className: 'bg-silver-200 text-navy-900' },
+  issued: { label: 'Issued', className: 'bg-sky-100 text-sky-700' },
+  void: { label: 'Void', className: 'bg-red-100 text-red-700' },
+  cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-700' },
+};
+
+export function invoiceDocumentStatusBadge(status: string | null | undefined): Badge {
+  if (status && INVOICE_DOCUMENT_STATUS[status]) return INVOICE_DOCUMENT_STATUS[status];
+  return { label: 'Status unknown', className: 'bg-silver-200 text-navy-700' };
+}
+
+const INVOICE_PAYMENT_STATUS: Record<string, Badge> = {
+  unpaid: { label: 'Unpaid', className: 'bg-amber-100 text-amber-800' },
+  partially_paid: { label: 'Partially paid', className: 'bg-amber-100 text-amber-800' },
+  paid: { label: 'Paid', className: 'bg-green-100 text-green-800' },
+};
+
+export function invoicePaymentStatusBadge(status: string | null | undefined): Badge {
+  if (status && INVOICE_PAYMENT_STATUS[status]) return INVOICE_PAYMENT_STATUS[status];
+  return { label: 'Payment status unknown', className: 'bg-silver-200 text-navy-700' };
+}
+
+// Overdue is derived client-side purely for display — the server is the
+// authority on document/payment status; this never gets written back.
+export function isInvoiceOverdue(documentStatus: string, amountDue: number, dueDate: string | null): boolean {
+  if (documentStatus !== 'issued') return false;
+  if (!(amountDue > 0)) return false;
+  if (!dueDate) return false;
+  return new Date(`${dueDate}T23:59:59`).getTime() < Date.now();
+}
+
+const INVOICE_PAYMENT_METHOD_LABELS: Record<string, string> = {
+  bank_transfer: 'Bank transfer',
+  card: 'Card',
+  stripe: 'Stripe',
+  cash: 'Cash',
+  other: 'Other',
+};
+
+export function invoicePaymentMethodLabel(method: string | null | undefined): string {
+  if (method && INVOICE_PAYMENT_METHOD_LABELS[method]) return INVOICE_PAYMENT_METHOD_LABELS[method];
+  return 'Not specified';
+}
+
+const INVOICE_EVENT_LABELS: Record<string, string> = {
+  created: 'Created',
+  updated: 'Updated',
+  issued: 'Issued',
+  previewed: 'Previewed',
+  pdf_generated: 'PDF generated',
+  sent: 'Sent',
+  resent: 'Resent',
+  send_failed: 'Send failed',
+  payment_recorded: 'Payment recorded',
+  payment_reversed: 'Payment reversed',
+  paid: 'Paid',
+  receipt_created: 'Receipt created',
+  downloaded: 'Downloaded',
+  duplicated: 'Duplicated',
+  voided: 'Voided',
+  cancelled: 'Cancelled',
+};
+
+export function invoiceEventLabel(eventType: string): string {
+  return INVOICE_EVENT_LABELS[eventType] || eventType;
+}

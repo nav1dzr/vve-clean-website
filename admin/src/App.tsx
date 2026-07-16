@@ -8,6 +8,11 @@ import DashboardHome from './pages/DashboardHome';
 import BookingListPage from './pages/BookingListPage';
 import BookingDetailPage from './pages/BookingDetailPage';
 import SearchPage from './pages/SearchPage';
+import InvoiceListPage from './pages/InvoiceListPage';
+import InvoiceEditorPage from './pages/InvoiceEditorPage';
+import InvoiceDetailPage from './pages/InvoiceDetailPage';
+import ReceiptListPage from './pages/ReceiptListPage';
+import ReceiptDetailPage from './pages/ReceiptDetailPage';
 
 export default function App() {
   return (
@@ -28,6 +33,11 @@ export default function App() {
             <Route path="/bookings" element={<BookingListPage />} />
             <Route path="/bookings/:id" element={<BookingDetailPage />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/invoices" element={<InvoiceListPage />} />
+            <Route path="/invoices/new" element={<InvoiceEditorPage />} />
+            <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
+            <Route path="/receipts" element={<ReceiptListPage />} />
+            <Route path="/receipts/:id" element={<ReceiptDetailPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

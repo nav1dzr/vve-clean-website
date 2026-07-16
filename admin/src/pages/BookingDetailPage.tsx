@@ -9,6 +9,7 @@ import StatusBadge from '../components/StatusBadge';
 import StatusControl from '../components/StatusControl';
 import BalanceControl from '../components/BalanceControl';
 import InternalNotesSection from '../components/InternalNotesSection';
+import BookingInvoicesSection from '../components/BookingInvoicesSection';
 import {
   paymentStatusBadge,
   formatServiceDate,
@@ -179,6 +180,8 @@ export default function BookingDetailPage() {
           onUpdated={handleBalanceUpdated}
         />
       </Section>
+
+      <BookingInvoicesSection bookingId={b.id} />
 
       <Section title="Customer notes">
         <p className="whitespace-pre-wrap text-sm text-navy-700">{b.notes || 'No notes recorded'}</p>
