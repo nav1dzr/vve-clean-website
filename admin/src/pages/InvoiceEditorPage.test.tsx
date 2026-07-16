@@ -35,6 +35,18 @@ function renderEditor(initialEntries = ['/invoices/new']) {
   );
 }
 
+async function fillMinimalValidForm(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByLabelText('Name *'), 'Jane Doe');
+  await user.type(screen.getByLabelText('Email'), 'jane@example.com');
+  await user.type(screen.getByLabelText('Description'), 'Deep clean');
+  const qtyInput = screen.getByLabelText('Qty');
+  await user.clear(qtyInput);
+  await user.type(qtyInput, '1');
+  const priceInput = screen.getByLabelText('Unit price (£)');
+  await user.clear(priceInput);
+  await user.type(priceInput, '100');
+}
+
 describe('InvoiceEditorPage', () => {
   beforeEach(() => {
     authFetchMock.mockReset();
@@ -93,5 +105,75 @@ describe('InvoiceEditorPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/email or phone/i);
     expect(authFetchMock).not.toHaveBeenCalled();
+  });
+
+  it('defaults to bank_transfer and submits without a stripe link', async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockResolvedValue({ id: 'new-invoice-id', documentStatus: 'draft' });
+    renderEditor();
+    await fillMinimalValidForm(user);
+
+    await user.click(screen.getByRole('button', { name: /save draft/i }));
+
+    await waitFor(() => {
+      const postCall = authFetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === 'POST');
+      const body = JSON.parse((postCall?.[1] as RequestInit).body as string);
+      expect(body.paymentOption).toBe('bank_transfer');
+      expect(body.stripePaymentLinkUrl).toBeNull();
+    });
+  });
+
+  it('requires a stripe link when "Stripe payment link" is selected, and submits it when provided', async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockResolvedValue({ id: 'new-invoice-id', documentStatus: 'draft' });
+    renderEditor();
+    await fillMinimalValidForm(user);
+
+    await user.click(screen.getByRole('radio', { name: 'Stripe payment link' }));
+    await user.click(screen.getByRole('button', { name: /save draft/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/stripe payment-link/i);
+    expect(authFetchMock.mock.calls.some((c) => (c[1] as RequestInit)?.method === 'POST')).toBe(false);
+
+    await user.type(screen.getByPlaceholderText(/buy\.stripe\.com/i), 'https://buy.stripe.com/test_1');
+    await user.click(screen.getByRole('button', { name: /save draft/i }));
+
+    await waitFor(() => {
+      const postCall = authFetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === 'POST');
+      const body = JSON.parse((postCall?.[1] as RequestInit).body as string);
+      expect(body.paymentOption).toBe('stripe_payment_link');
+      expect(body.stripePaymentLinkUrl).toBe('https://buy.stripe.com/test_1');
+    });
+  });
+
+  it('sends a service contact only when the "different address" checkbox is enabled', async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockResolvedValue({ id: 'new-invoice-id', documentStatus: 'draft' });
+    renderEditor();
+    await fillMinimalValidForm(user);
+
+    await user.click(screen.getByRole('button', { name: /save draft/i }));
+    await waitFor(() => {
+      const postCall = authFetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === 'POST');
+      const body = JSON.parse((postCall?.[1] as RequestInit).body as string);
+      expect(body.serviceContact).toBeNull();
+    });
+  });
+
+  it('prefills the billing contact and billingCustomerId when ?customerId= is present', async () => {
+    authFetchMock.mockResolvedValue({
+      id: 'cust-1', name: 'Acme Lettings', email: 'ops@acme.example.com', phone: null, address: null, postcode: 'E1 6AN',
+      customerType: 'letting_agent', source: 'referral', preferredContactMethod: null, notes: null,
+      createdByAdminId: 'admin-1', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+    });
+    render(
+      <MemoryRouter initialEntries={['/invoices/new?customerId=cust-1']}>
+        <Routes>
+          <Route path="/invoices/new" element={<InvoiceEditorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByDisplayValue('Acme Lettings')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('ops@acme.example.com')).toBeInTheDocument();
   });
 });

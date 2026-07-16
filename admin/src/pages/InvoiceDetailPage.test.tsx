@@ -45,6 +45,8 @@ const draftInvoice: InvoiceDetail = {
   customerNotes: null, internalNotes: null, paymentTerms: 'Payment due within 14 days.',
   documentStatus: 'draft', paymentStatus: 'unpaid', voidReason: null,
   createdByAdminId: 'admin-1', issuedByAdminId: null, documentVersion: 1, duplicatedFromId: null,
+  paymentOption: 'bank_transfer', stripePaymentLinkUrl: null, serviceContact: null,
+  invoiceRecipientEmail: null, receiptRecipientEmail: null, billingCustomerId: null, serviceCustomerId: null,
   createdAt: '2026-07-16T00:00:00.000Z', updatedAt: '2026-07-16T00:00:00.000Z',
   issuedAt: null, sentAt: null, paidAt: null, voidAt: null,
   items: [{ id: 'item-1', description: 'Deep clean', quantity: 1, unitPrice: 100, lineDiscount: 0, lineTotal: 100, sortOrder: 0 }],
