@@ -4,6 +4,7 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isValidUuid } from '../../api/_lib/normalise.js';
 import { invoicePdfPath, receiptPdfPath } from '../../api/_lib/invoiceStorage.js';
+import { validateStripePaymentLinkUrl } from '../../api/_lib/paymentOptions.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SRC_DIR = resolve(__dirname, '../../src');
@@ -50,6 +51,34 @@ describe('invoice/receipt secrets never referenced from admin/src (client bundle
 
   it('never imports admin/api/_lib/supabaseAdmin.js (the only module that touches the service-role client)', () => {
     expect(sources).not.toMatch(/from ['"].*_lib\/supabaseAdmin\.js['"]/);
+  });
+
+  it('never references the bank-reference-instructions env var name', () => {
+    expect(sources).not.toMatch(/INVOICE_BANK_REFERENCE_INSTRUCTIONS/);
+  });
+});
+
+describe('Stripe payment-link validation (untrusted URL rejection)', () => {
+  it('rejects every non-Stripe-hosted, non-https, or script-scheme URL', () => {
+    const rejected = [
+      'javascript:alert(document.cookie)',
+      'data:text/html,<script>alert(1)</script>',
+      'vbscript:msgbox(1)',
+      'http://buy.stripe.com/test_1', // http, not https
+      'https://buy.stripe.com.evil.com/test_1', // lookalike host
+      'https://evil.example.com/buy.stripe.com', // stripe string in path, not host
+      'https://xn--stripe-yqa.com/', // homoglyph-style trick, still not the real host
+      '',
+      'not a url at all',
+    ];
+    for (const url of rejected) {
+      expect(validateStripePaymentLinkUrl(url).ok).toBe(false);
+    }
+  });
+
+  it('accepts only the two approved Stripe hosts', () => {
+    expect(validateStripePaymentLinkUrl('https://buy.stripe.com/test_1').ok).toBe(true);
+    expect(validateStripePaymentLinkUrl('https://checkout.stripe.com/pay/cs_1').ok).toBe(true);
   });
 });
 

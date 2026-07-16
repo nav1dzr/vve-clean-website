@@ -80,7 +80,29 @@ export function createFakeSupabase(initialData = {}) {
 
     const builder = {
       select() { return builder; },
-      or() { return builder; }, // not implemented — search filtering is exercised in higher-level route tests via the q param's validation branch, not the .or() query itself
+      // Real (small) implementation of Postgrest-style .or('a.ilike.%x%,b.eq.y')
+      // strings — comma-separated clauses, each `column.operator.value`,
+      // combined as a logical OR and AND-ed with every other filter already
+      // on the builder. Supports exactly the two operators this codebase's
+      // .or() calls ever use (ilike with %wildcard%, eq) — extend
+      // deliberately if a new operator shape appears.
+      or(expr) {
+        const clauses = expr.split(',').map((c) => {
+          const [col, op, ...rest] = c.split('.');
+          return { col, op, value: rest.join('.') };
+        });
+        filters.push((r) => clauses.some(({ col, op, value }) => {
+          const cell = r[col];
+          if (op === 'eq') return String(cell) === value;
+          if (op === 'ilike') {
+            if (cell == null) return false;
+            const pattern = value.replace(/%/g, '.*');
+            return new RegExp(`^${pattern}$`, 'i').test(String(cell));
+          }
+          return false;
+        }));
+        return builder;
+      },
       range(from, to) { rangeSpec = { from, to }; return builder; },
       insert(rowOrRows) {
         pendingInsert = Array.isArray(rowOrRows) ? rowOrRows : [rowOrRows];
@@ -89,6 +111,21 @@ export function createFakeSupabase(initialData = {}) {
       update(patch) { pendingUpdate = patch; return builder; },
       delete() { pendingDelete = true; return builder; },
       eq(col, val) { filters.push((r) => r[col] === val); return builder; },
+      neq(col, val) { filters.push((r) => r[col] !== val); return builder; },
+      // SQL LIKE semantics (case-sensitive, % wildcard) — used by
+      // customerLifecycle.js's manual-booking-ref uniqueness check
+      // (`booking_ref LIKE 'BASE%'`), mirroring api/create-checkout-
+      // session.js's real query.
+      like(col, pattern) {
+        const regex = new RegExp(`^${pattern.replace(/%/g, '.*')}$`);
+        filters.push((r) => r[col] != null && regex.test(String(r[col])));
+        return builder;
+      },
+      ilike(col, pattern) {
+        const regex = new RegExp(`^${pattern.replace(/%/g, '.*')}$`, 'i');
+        filters.push((r) => r[col] != null && regex.test(String(r[col])));
+        return builder;
+      },
       in(col, vals) { filters.push((r) => vals.includes(r[col])); return builder; },
       // `?? null` treats an unset column the same as an explicit NULL,
       // matching real Postgres — a nullable column that was never written

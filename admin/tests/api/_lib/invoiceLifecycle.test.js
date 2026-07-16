@@ -385,3 +385,110 @@ describe('reversePayment', () => {
     expect(result.ok).toBe(false);
   });
 });
+
+describe('payment options', () => {
+  it('defaults a new draft to bank_transfer with no stripe link', async () => {
+    const supabase = createFakeSupabase();
+    const { invoiceId } = await createDraftInvoice(supabase, draftInput(), ADMIN_ID);
+    const invoice = supabase._tables.invoices.find((i) => i.id === invoiceId);
+    expect(invoice.payment_option).toBe('bank_transfer');
+    expect(invoice.stripe_payment_link_url).toBeNull();
+  });
+
+  it('accepts stripe_payment_link with an approved, validated URL', async () => {
+    const supabase = createFakeSupabase();
+    const result = await createDraftInvoice(supabase, draftInput({
+      paymentOption: 'stripe_payment_link', stripePaymentLinkUrl: 'https://buy.stripe.com/test_abc',
+    }), ADMIN_ID);
+    expect(result.ok).toBe(true);
+    const invoice = supabase._tables.invoices.find((i) => i.id === result.invoiceId);
+    expect(invoice.payment_option).toBe('stripe_payment_link');
+    expect(invoice.stripe_payment_link_url).toBe('https://buy.stripe.com/test_abc');
+  });
+
+  it('rejects stripe_payment_link with a missing or untrusted URL on create', async () => {
+    const supabase = createFakeSupabase();
+    const missing = await createDraftInvoice(supabase, draftInput({ paymentOption: 'stripe_payment_link' }), ADMIN_ID);
+    expect(missing.ok).toBe(false);
+
+    const untrusted = await createDraftInvoice(supabase, draftInput({
+      paymentOption: 'stripe_payment_link', stripePaymentLinkUrl: 'https://evil.example.com/x',
+    }), ADMIN_ID);
+    expect(untrusted.ok).toBe(false);
+
+    const jsUrl = await createDraftInvoice(supabase, draftInput({
+      paymentOption: 'both', stripePaymentLinkUrl: 'javascript:alert(1)',
+    }), ADMIN_ID);
+    expect(jsUrl.ok).toBe(false);
+  });
+
+  it('rejects an unknown payment option on update', async () => {
+    const supabase = createFakeSupabase();
+    const { invoiceId } = await createDraftInvoice(supabase, draftInput(), ADMIN_ID);
+    const result = await updateDraftInvoice(supabase, invoiceId, draftInput({ paymentOption: 'paypal' }), ADMIN_ID);
+    expect(result.ok).toBe(false);
+  });
+
+  it('issuing freezes a payment_instructions_snapshot reflecting the chosen option', async () => {
+    const supabase = createFakeSupabase();
+    const { invoiceId } = await createDraftInvoice(supabase, draftInput({
+      paymentOption: 'both', stripePaymentLinkUrl: 'https://checkout.stripe.com/pay/cs_1',
+    }), ADMIN_ID);
+
+    const result = await issueInvoice(supabase, invoiceId, ADMIN_ID);
+    expect(result.ok).toBe(true);
+
+    const invoice = supabase._tables.invoices.find((i) => i.id === invoiceId);
+    expect(invoice.payment_instructions_snapshot.paymentOption).toBe('both');
+    expect(invoice.payment_instructions_snapshot.stripePaymentLinkUrl).toBe('https://checkout.stripe.com/pay/cs_1');
+    // No INVOICE_BANK_* env vars are set in the test environment, so the
+    // bank block is correctly frozen as null, not fabricated.
+    expect(invoice.payment_instructions_snapshot.bankDetails).toBeNull();
+  });
+});
+
+describe('separate service/billing contacts and per-document recipients', () => {
+  it('stores an optional service contact separate from the billing contact', async () => {
+    const supabase = createFakeSupabase();
+    const result = await createDraftInvoice(supabase, draftInput({
+      serviceContact: { name: 'Tenant Name', email: 'tenant@example.com', address: '2 Flat Rd', postcode: 'E1 6AN' },
+      invoiceRecipientEmail: 'agency@example.com',
+      receiptRecipientEmail: 'landlord@example.com',
+    }), ADMIN_ID);
+    expect(result.ok).toBe(true);
+
+    const invoice = supabase._tables.invoices.find((i) => i.id === result.invoiceId);
+    expect(invoice.service_contact_name).toBe('Tenant Name');
+    expect(invoice.service_address).toBe('2 Flat Rd');
+    expect(invoice.service_contact_postcode).toBe('E1 6AN');
+    expect(invoice.invoice_recipient_email).toBe('agency@example.com');
+    expect(invoice.receipt_recipient_email).toBe('landlord@example.com');
+    // Billing contact (customer_*) is untouched by the service contact.
+    expect(invoice.customer_email).toBe('jane@example.com');
+  });
+
+  it('rejects an invalid invoiceRecipientEmail/receiptRecipientEmail', async () => {
+    const supabase = createFakeSupabase();
+    const result = await createDraftInvoice(supabase, draftInput({ invoiceRecipientEmail: 'not-an-email' }), ADMIN_ID);
+    expect(result.ok).toBe(false);
+  });
+
+  it('duplicateInvoiceAsDraft carries forward payment option and contact fields, not the frozen snapshot', async () => {
+    const supabase = createFakeSupabase();
+    const { invoiceId } = await createDraftInvoice(supabase, draftInput({
+      paymentOption: 'stripe_payment_link',
+      stripePaymentLinkUrl: 'https://buy.stripe.com/test_1',
+      invoiceRecipientEmail: 'agency@example.com',
+    }), ADMIN_ID);
+    await issueInvoice(supabase, invoiceId, ADMIN_ID);
+
+    const result = await duplicateInvoiceAsDraft(supabase, invoiceId, ADMIN_ID);
+    expect(result.ok).toBe(true);
+
+    const copy = supabase._tables.invoices.find((i) => i.id === result.invoiceId);
+    expect(copy.payment_option).toBe('stripe_payment_link');
+    expect(copy.stripe_payment_link_url).toBe('https://buy.stripe.com/test_1');
+    expect(copy.invoice_recipient_email).toBe('agency@example.com');
+    expect(copy.payment_instructions_snapshot).toBeUndefined();
+  });
+});

@@ -68,6 +68,48 @@ describe('invoiceEmail', () => {
     // No stray empty <p></p> from an unset customMessage.
     expect(html).not.toMatch(/<p><\/p>/);
   });
+
+  it('shows a "Pay securely by Stripe" link for stripe_payment_link and no bank block when unconfigured', () => {
+    const { html, text } = invoiceEmail(invoice({ payment_option: 'stripe_payment_link', stripe_payment_link_url: 'https://buy.stripe.com/test_1' }), settings);
+    expect(html).toContain('Pay securely by Stripe');
+    expect(html).toContain('https://buy.stripe.com/test_1');
+    expect(html).not.toContain('Bank transfer');
+    expect(text).toContain('Pay by card (Stripe)');
+    expect(text).toContain('https://buy.stripe.com/test_1');
+  });
+
+  it('shows bank details (and escapes reference instructions) for bank_transfer when configured', () => {
+    const withBank = {
+      ...settings, bankAccountName: 'VVE Limited', bankSortCode: '12-34-56', bankAccountNumber: '12345678',
+      bankReferenceInstructions: 'Use <b>your</b> invoice number as reference',
+    };
+    const { html, text } = invoiceEmail(invoice({ payment_option: 'bank_transfer' }), withBank);
+    expect(html).toContain('12-34-56');
+    expect(html).toContain('&lt;b&gt;your&lt;/b&gt;');
+    expect(html).not.toContain('<b>your</b>');
+    expect(text).toContain('12-34-56');
+  });
+
+  it('omits all payment instructions when bank_transfer is chosen but no bank details are configured', () => {
+    const { html } = invoiceEmail(invoice({ payment_option: 'bank_transfer' }), settings);
+    expect(html).not.toContain('Bank transfer');
+    expect(html).not.toContain('Pay securely by Stripe');
+  });
+
+  it('uses the frozen payment_instructions_snapshot when present, ignoring live settings', () => {
+    const frozenInvoice = invoice({
+      payment_option: 'bank_transfer',
+      payment_instructions_snapshot: {
+        paymentOption: 'bank_transfer',
+        bankDetails: { accountName: 'Frozen Ltd', sortCode: '00-00-00', accountNumber: '00000000', referenceInstructions: null },
+        stripePaymentLinkUrl: null,
+      },
+    });
+    const liveSettings = { ...settings, bankAccountName: 'Live Ltd', bankSortCode: '99-99-99', bankAccountNumber: '99999999' };
+    const { html } = invoiceEmail(frozenInvoice, liveSettings);
+    expect(html).toContain('00-00-00');
+    expect(html).not.toContain('99-99-99');
+  });
 });
 
 describe('receiptEmail', () => {

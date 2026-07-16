@@ -125,6 +125,59 @@ describe('generateInvoicePdfBuffer', () => {
     const buffer = await generateInvoicePdfBuffer(weirdInvoice, items(), settings, { isDraft: false });
     expect(buffer.subarray(0, 5).toString('ascii')).toBe('%PDF-');
   });
+
+  it('shows the Stripe payment link for stripe_payment_link, and no bank block, when no bank details are configured', async () => {
+    const buffer = await generateInvoicePdfBuffer(
+      invoice({ payment_option: 'stripe_payment_link', stripe_payment_link_url: 'https://buy.stripe.com/test_1' }),
+      items(), settings, { isDraft: false },
+    );
+    const text = asText(buffer);
+    expect(text).toContain('Pay securely by Stripe');
+    expect(text).not.toContain('bank transfer');
+  });
+
+  it('shows both bank details and the Stripe link for "both"', async () => {
+    const withBank = { ...settings, bankAccountName: 'VVE Limited', bankSortCode: '12-34-56', bankAccountNumber: '12345678' };
+    const buffer = await generateInvoicePdfBuffer(
+      invoice({ payment_option: 'both', stripe_payment_link_url: 'https://buy.stripe.com/test_1' }),
+      items(), withBank, { isDraft: false },
+    );
+    const text = asText(buffer);
+    expect(text).toContain('Pay securely by Stripe');
+    expect(text).toContain('12-34-56');
+  });
+
+  it('uses the frozen payment_instructions_snapshot when present, ignoring live settings', async () => {
+    const buffer = await generateInvoicePdfBuffer(
+      invoice({
+        payment_option: 'bank_transfer',
+        payment_instructions_snapshot: {
+          paymentOption: 'bank_transfer',
+          bankDetails: { accountName: 'Frozen Ltd', sortCode: '00-00-00', accountNumber: '00000000', referenceInstructions: null },
+          stripePaymentLinkUrl: null,
+        },
+      }),
+      items(),
+      { ...settings, bankAccountName: 'Live Ltd', bankSortCode: '99-99-99', bankAccountNumber: '99999999' },
+      { isDraft: false },
+    );
+    const text = asText(buffer);
+    expect(text).toContain('00-00-00');
+    expect(text).not.toContain('99-99-99');
+  });
+
+  it('renders a Service address block only when service contact fields are present, and never for billing-only invoices', async () => {
+    const withoutService = await generateInvoicePdfBuffer(invoice(), items(), settings, { isDraft: false });
+    expect(asText(withoutService)).not.toContain('Service address');
+
+    const withService = await generateInvoicePdfBuffer(
+      invoice({ service_contact_name: 'Tenant Name', service_address: '2 Flat Rd' }), items(), settings, { isDraft: false },
+    );
+    const text = asText(withService);
+    expect(text).toContain('Service address');
+    expect(text).toContain('Tenant Name');
+    expect(text).toContain('2 Flat Rd');
+  });
 });
 
 describe('generateReceiptPdfBuffer', () => {

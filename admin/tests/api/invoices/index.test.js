@@ -139,4 +139,52 @@ describe('POST /api/invoices', () => {
     await handler(makeReq({ url: '/api/invoices', method: 'DELETE' }), res);
     expect(res.statusCode).toBe(405);
   });
+
+  it('creates a draft with a payment option, stripe link, service contact, and recipient overrides', async () => {
+    verifyAdminRequestMock.mockResolvedValue(ADMIN);
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+
+    const res = makeRes();
+    await handler(makeReq({
+      url: '/api/invoices',
+      method: 'POST',
+      bodyObj: {
+        customer: { name: 'Acme Lettings', email: 'ops@acme.example.com' },
+        items: [{ description: 'Deep clean', quantity: 1, unitPrice: 100 }],
+        paymentOption: 'both',
+        stripePaymentLinkUrl: 'https://buy.stripe.com/test_1',
+        serviceContact: { name: 'Tenant Name', address: '2 Flat Rd', postcode: 'E1 6AN' },
+        invoiceRecipientEmail: 'agency@example.com',
+        receiptRecipientEmail: 'landlord@example.com',
+      },
+    }), res);
+
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.body);
+    expect(body.paymentOption).toBe('both');
+    expect(body.stripePaymentLinkUrl).toBe('https://buy.stripe.com/test_1');
+    expect(body.serviceContact.name).toBe('Tenant Name');
+    expect(body.invoiceRecipientEmail).toBe('agency@example.com');
+    expect(body.receiptRecipientEmail).toBe('landlord@example.com');
+  });
+
+  it('rejects an untrusted stripePaymentLinkUrl host', async () => {
+    verifyAdminRequestMock.mockResolvedValue(ADMIN);
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+
+    const res = makeRes();
+    await handler(makeReq({
+      url: '/api/invoices',
+      method: 'POST',
+      bodyObj: {
+        customer: { name: 'Jane', email: 'jane@example.com' },
+        items: [{ description: 'Deep clean', quantity: 1, unitPrice: 100 }],
+        paymentOption: 'stripe_payment_link',
+        stripePaymentLinkUrl: 'https://evil.example.com/x',
+      },
+    }), res);
+    expect(res.statusCode).toBe(400);
+  });
 });

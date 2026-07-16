@@ -345,6 +345,18 @@ describe('invoices/[id]/[[...action]] dispatcher', () => {
     expect(invoice.customer_email).toBe('jane@example.com'); // unchanged
   });
 
+  it('POST send defaults to invoiceRecipientEmail over the billing customer_email when no body.to override is given', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase, { invoiceRecipientEmail: 'agency@example.com' });
+    await issueInvoice(supabase, invoiceId, 'admin-1');
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}/send`, method: 'POST', bodyObj: {} }), res);
+    expect(res.statusCode).toBe(200);
+    expect(sendMailMock.mock.calls[0][0].to).toBe('agency@example.com');
+  });
+
   it('POST resend logs a "resent" event rather than "sent"', async () => {
     const supabase = createFakeSupabase();
     getServiceClientMock.mockReturnValue(supabase);
