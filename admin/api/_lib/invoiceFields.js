@@ -23,6 +23,9 @@ export const INVOICE_DETAIL_SELECT = [
   'document_status', 'payment_status', 'void_reason',
   'created_by_admin_id', 'issued_by_admin_id',
   'pdf_storage_path', 'document_version', 'business_snapshot', 'duplicated_from_id',
+  'payment_option', 'stripe_payment_link_url', 'payment_instructions_snapshot',
+  'service_contact_name', 'service_contact_email', 'service_contact_phone', 'service_address', 'service_contact_postcode',
+  'invoice_recipient_email', 'receipt_recipient_email', 'billing_customer_id', 'service_customer_id',
   'created_at', 'updated_at', 'issued_at', 'sent_at', 'paid_at', 'void_at',
 ].join(', ');
 
@@ -88,16 +91,32 @@ export function toInvoiceDetail(row) {
     issuedByAdminId: row.issued_by_admin_id,
     documentVersion: row.document_version,
     duplicatedFromId: row.duplicated_from_id,
+    paymentOption: row.payment_option,
+    stripePaymentLinkUrl: row.stripe_payment_link_url,
+    serviceContact: (row.service_contact_name || row.service_contact_email || row.service_contact_phone || row.service_address || row.service_contact_postcode)
+      ? {
+        name: row.service_contact_name,
+        email: row.service_contact_email,
+        phone: row.service_contact_phone,
+        address: row.service_address,
+        postcode: row.service_contact_postcode,
+      }
+      : null,
+    invoiceRecipientEmail: row.invoice_recipient_email,
+    receiptRecipientEmail: row.receipt_recipient_email,
+    billingCustomerId: row.billing_customer_id,
+    serviceCustomerId: row.service_customer_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     issuedAt: row.issued_at,
     sentAt: row.sent_at,
     paidAt: row.paid_at,
     voidAt: row.void_at,
-    // pdf_storage_path and business_snapshot are intentionally excluded —
-    // the storage path is an internal detail (downloads go through the
-    // signed-URL endpoint, never this raw path) and business_snapshot is
-    // only needed by the PDF renderer itself, not the list/detail JSON API.
+    // pdf_storage_path, business_snapshot, and payment_instructions_snapshot
+    // are intentionally excluded — the storage path is an internal detail
+    // (downloads go through the signed-URL endpoint, never this raw path)
+    // and both snapshots are only needed by the PDF/email renderers
+    // themselves, not the list/detail JSON API.
   };
 }
 

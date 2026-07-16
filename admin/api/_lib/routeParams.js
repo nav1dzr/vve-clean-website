@@ -34,3 +34,26 @@ export function extractIdAndAction(req) {
   const segments = new URL(req.url, 'https://x').pathname.split('/').filter(Boolean);
   return { id: segments[2], action: segments.slice(3) };
 }
+
+// Companion helper for a *root-level* optional catch-all — routes shaped
+// /api/<resource>/[[...segments]], where the resource itself has no fixed
+// [id] segment in its path (unlike extractIdAndAction above). Used by
+// admin/api/receipts/[[...segments]].js and
+// admin/api/customers/[[...segments]].js to stay within the admin Vercel
+// project's function-count budget by folding "list/create" and
+// "detail/action" into one file each (INVOICE_RECEIPT_IMPLEMENTATION_
+// PLAN.md §7 explains the same budget constraint this addresses).
+//
+// Returns a plain array: [] for /api/<resource>, [id] for
+// /api/<resource>/:id, [id, action] for /api/<resource>/:id/<action>, etc.
+// `paramName` matches whatever the bracket directory names its catch-all
+// (e.g. [[...segments]] -> req.query.segments); `fixedPrefixLength` is how
+// many fixed path segments (e.g. "api", "receipts") precede it.
+export function extractSegments(req, paramName, fixedPrefixLength) {
+  if (req.query?.[paramName] !== undefined) {
+    const raw = req.query[paramName];
+    return Array.isArray(raw) ? raw : (raw ? [raw] : []);
+  }
+  const segments = new URL(req.url, 'https://x').pathname.split('/').filter(Boolean);
+  return segments.slice(fixedPrefixLength);
+}

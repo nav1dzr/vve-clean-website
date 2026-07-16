@@ -24,9 +24,50 @@ import {
   validateNewPaymentAmount,
   derivePaymentStatus,
 } from './invoiceCalculations.js';
-import { getBusinessSettings } from './businessSettings.js';
+import { getBusinessSettings, hasBankDetails } from './businessSettings.js';
+import { validatePaymentOptionInput, buildPaymentInstructionsSnapshot } from './paymentOptions.js';
+import { isValidEmail, isValidUuid } from './normalise.js';
 
 const MAX_ITEMS_PER_INVOICE = 100;
+
+// Shared by createDraftInvoice/updateDraftInvoice/duplicateInvoiceAsDraft —
+// validates the payment-option pair and every optional service/billing
+// contact field, returning the exact column values to persist. Never
+// trusts a client-sent combination without re-checking (see
+// paymentOptions.js's own header).
+function validateDraftPaymentAndContactFields(input) {
+  const paymentCheck = validatePaymentOptionInput(input.paymentOption, input.stripePaymentLinkUrl);
+  if (!paymentCheck.ok) return { ok: false, error: paymentCheck.error };
+
+  if (input.invoiceRecipientEmail && !isValidEmail(input.invoiceRecipientEmail)) {
+    return { ok: false, error: 'invoiceRecipientEmail must be a valid email address' };
+  }
+  if (input.receiptRecipientEmail && !isValidEmail(input.receiptRecipientEmail)) {
+    return { ok: false, error: 'receiptRecipientEmail must be a valid email address' };
+  }
+  if (input.billingCustomerId && !isValidUuid(input.billingCustomerId)) {
+    return { ok: false, error: 'billingCustomerId must be a valid UUID' };
+  }
+  if (input.serviceCustomerId && !isValidUuid(input.serviceCustomerId)) {
+    return { ok: false, error: 'serviceCustomerId must be a valid UUID' };
+  }
+
+  const serviceContact = input.serviceContact || {};
+  return {
+    ok: true,
+    paymentOption: paymentCheck.paymentOption,
+    stripePaymentLinkUrl: paymentCheck.stripePaymentLinkUrl,
+    serviceContactName: serviceContact.name || null,
+    serviceContactEmail: serviceContact.email || null,
+    serviceContactPhone: serviceContact.phone || null,
+    serviceAddress: serviceContact.address || null,
+    serviceContactPostcode: serviceContact.postcode || null,
+    invoiceRecipientEmail: input.invoiceRecipientEmail || null,
+    receiptRecipientEmail: input.receiptRecipientEmail || null,
+    billingCustomerId: input.billingCustomerId || null,
+    serviceCustomerId: input.serviceCustomerId || null,
+  };
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -91,6 +132,9 @@ export async function createDraftInvoice(supabase, input, adminId) {
   });
   if (!totalsResult.ok) return { ok: false, error: totalsResult.error };
 
+  const fieldsCheck = validateDraftPaymentAndContactFields(input);
+  if (!fieldsCheck.ok) return { ok: false, error: fieldsCheck.error };
+
   const { data: invoiceRow, error: invoiceErr } = await supabase
     .from('invoices')
     .insert({
@@ -118,6 +162,17 @@ export async function createDraftInvoice(supabase, input, adminId) {
       document_status: 'draft',
       payment_status: 'unpaid',
       created_by_admin_id: adminId,
+      payment_option: fieldsCheck.paymentOption,
+      stripe_payment_link_url: fieldsCheck.stripePaymentLinkUrl,
+      service_contact_name: fieldsCheck.serviceContactName,
+      service_contact_email: fieldsCheck.serviceContactEmail,
+      service_contact_phone: fieldsCheck.serviceContactPhone,
+      service_address: fieldsCheck.serviceAddress,
+      service_contact_postcode: fieldsCheck.serviceContactPostcode,
+      invoice_recipient_email: fieldsCheck.invoiceRecipientEmail,
+      receipt_recipient_email: fieldsCheck.receiptRecipientEmail,
+      billing_customer_id: fieldsCheck.billingCustomerId,
+      service_customer_id: fieldsCheck.serviceCustomerId,
     })
     .select('id')
     .single();
@@ -186,6 +241,9 @@ export async function updateDraftInvoice(supabase, invoiceId, input, adminId) {
   });
   if (!totalsResult.ok) return { ok: false, error: totalsResult.error };
 
+  const fieldsCheck = validateDraftPaymentAndContactFields(input);
+  if (!fieldsCheck.ok) return { ok: false, error: fieldsCheck.error };
+
   const { error: updateErr } = await supabase
     .from('invoices')
     .update({
@@ -207,6 +265,17 @@ export async function updateDraftInvoice(supabase, invoiceId, input, adminId) {
       customer_notes: input.customerNotes || null,
       internal_notes: input.internalNotes || null,
       payment_terms: input.paymentTerms || null,
+      payment_option: fieldsCheck.paymentOption,
+      stripe_payment_link_url: fieldsCheck.stripePaymentLinkUrl,
+      service_contact_name: fieldsCheck.serviceContactName,
+      service_contact_email: fieldsCheck.serviceContactEmail,
+      service_contact_phone: fieldsCheck.serviceContactPhone,
+      service_address: fieldsCheck.serviceAddress,
+      service_contact_postcode: fieldsCheck.serviceContactPostcode,
+      invoice_recipient_email: fieldsCheck.invoiceRecipientEmail,
+      receipt_recipient_email: fieldsCheck.receiptRecipientEmail,
+      billing_customer_id: fieldsCheck.billingCustomerId,
+      service_customer_id: fieldsCheck.serviceCustomerId,
       updated_at: nowIso(),
     })
     .eq('id', invoiceId)
@@ -267,7 +336,7 @@ export async function deleteDraftInvoice(supabase, invoiceId) {
 export async function issueInvoice(supabase, invoiceId, adminId, { generateAndStorePdf } = {}) {
   const { data: invoice, error: fetchErr } = await supabase
     .from('invoices')
-    .select('id, document_status, customer_name, customer_email, customer_phone, customer_address, customer_postcode, po_reference, service_date, booking_ref_snapshot, subtotal, document_discount, tax_total, total, deposit_applied, amount_paid, amount_due, payment_terms, customer_notes, due_date, issue_date')
+    .select('id, document_status, customer_name, customer_email, customer_phone, customer_address, customer_postcode, po_reference, service_date, booking_ref_snapshot, subtotal, document_discount, tax_total, total, deposit_applied, amount_paid, amount_due, payment_terms, customer_notes, due_date, issue_date, payment_option, stripe_payment_link_url')
     .eq('id', invoiceId)
     .maybeSingle();
 
@@ -293,6 +362,12 @@ export async function issueInvoice(supabase, invoiceId, adminId, { generateAndSt
   }
 
   const businessSnapshot = getBusinessSettings();
+  const paymentInstructionsSnapshot = buildPaymentInstructionsSnapshot({
+    paymentOption: invoice.payment_option || 'bank_transfer',
+    stripePaymentLinkUrl: invoice.stripe_payment_link_url,
+    settings: businessSnapshot,
+    hasBankDetails: hasBankDetails(businessSnapshot),
+  });
   const issueDate = invoice.issue_date || nowIso().slice(0, 10);
   const nowTs = nowIso();
 
@@ -306,6 +381,7 @@ export async function issueInvoice(supabase, invoiceId, adminId, { generateAndSt
       issued_at: nowTs,
       updated_at: nowTs,
       business_snapshot: businessSnapshot,
+      payment_instructions_snapshot: paymentInstructionsSnapshot,
     })
     .eq('id', invoiceId)
     .eq('document_status', 'draft')
@@ -388,7 +464,7 @@ export async function voidInvoice(supabase, invoiceId, reason, adminId) {
 export async function duplicateInvoiceAsDraft(supabase, invoiceId, adminId) {
   const { data: original, error: fetchErr } = await supabase
     .from('invoices')
-    .select('booking_id, customer_name, customer_email, customer_phone, customer_address, customer_postcode, po_reference, due_date, service_date, booking_ref_snapshot, document_discount, deposit_applied, customer_notes, internal_notes, payment_terms')
+    .select('booking_id, customer_name, customer_email, customer_phone, customer_address, customer_postcode, po_reference, due_date, service_date, booking_ref_snapshot, document_discount, deposit_applied, customer_notes, internal_notes, payment_terms, payment_option, stripe_payment_link_url, service_contact_name, service_contact_email, service_contact_phone, service_address, service_contact_postcode, invoice_recipient_email, receipt_recipient_email, billing_customer_id, service_customer_id')
     .eq('id', invoiceId)
     .maybeSingle();
 
@@ -437,6 +513,21 @@ export async function duplicateInvoiceAsDraft(supabase, invoiceId, adminId) {
       payment_status: 'unpaid',
       created_by_admin_id: adminId,
       duplicated_from_id: invoiceId,
+      payment_option: original.payment_option,
+      stripe_payment_link_url: original.stripe_payment_link_url,
+      service_contact_name: original.service_contact_name,
+      service_contact_email: original.service_contact_email,
+      service_contact_phone: original.service_contact_phone,
+      service_address: original.service_address,
+      service_contact_postcode: original.service_contact_postcode,
+      invoice_recipient_email: original.invoice_recipient_email,
+      receipt_recipient_email: original.receipt_recipient_email,
+      billing_customer_id: original.billing_customer_id,
+      service_customer_id: original.service_customer_id,
+      // payment_instructions_snapshot is deliberately NOT carried forward —
+      // it is frozen only at issue time (see the migration file header) and
+      // will be rebuilt fresh, from then-current settings, when this new
+      // draft is itself issued.
     })
     .select('id')
     .single();
@@ -478,7 +569,7 @@ export async function duplicateInvoiceAsDraft(supabase, invoiceId, adminId) {
 export async function recordPayment(supabase, invoiceId, input, adminId, { createReceiptIfPaid, generateAndStoreReceiptPdf } = {}) {
   const { data: invoice, error: fetchErr } = await supabase
     .from('invoices')
-    .select('id, document_status, invoice_number, total, deposit_applied, booking_id, customer_name, customer_email, customer_phone, customer_address, customer_postcode')
+    .select('id, document_status, invoice_number, total, deposit_applied, booking_id, customer_name, customer_email, customer_phone, customer_address, customer_postcode, receipt_recipient_email')
     .eq('id', invoiceId)
     .maybeSingle();
 
@@ -568,6 +659,7 @@ export async function recordPayment(supabase, invoiceId, input, adminId, { creat
       paymentDate: input.paymentDate,
       paymentMethod: input.method,
       paymentReference: input.reference || null,
+      recipientEmailOverride: invoice.receipt_recipient_email || null,
     }, adminId, { generateAndStorePdf: generateAndStoreReceiptPdf });
     if (receiptResult?.ok) receiptId = receiptResult.receiptId;
   }

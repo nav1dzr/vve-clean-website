@@ -1,23 +1,39 @@
-import { verifyAdminRequest } from '../../_lib/adminAuth.js';
-import { corsHeaders } from '../../_lib/cors.js';
-import { getServiceClient } from '../../_lib/supabaseAdmin.js';
-import { readJsonBody } from '../../_lib/body.js';
-import { extractIdAndAction } from '../../_lib/routeParams.js';
-import { isValidUuid, isValidEmail } from '../../_lib/normalise.js';
-import { toReceiptDetail, toInvoiceEvent } from '../../_lib/invoiceFields.js';
-import { generateReceiptPdfBuffer } from '../../_lib/invoicePdf.js';
-import { receiptPdfPath, uploadPdf, getSignedDownloadUrl, downloadPdfBuffer } from '../../_lib/invoiceStorage.js';
-import { getBusinessSettings } from '../../_lib/businessSettings.js';
-import { receiptEmail } from '../../_lib/invoiceEmailTemplates.js';
-import { sendMail, isMailerConfigured } from '../../_lib/mailer.js';
+import { verifyAdminRequest } from '../_lib/adminAuth.js';
+import { corsHeaders } from '../_lib/cors.js';
+import { getServiceClient } from '../_lib/supabaseAdmin.js';
+import { readJsonBody } from '../_lib/body.js';
+import { extractSegments } from '../_lib/routeParams.js';
+import { isValidUuid, isValidEmail, sanitiseFreeTextFilter } from '../_lib/normalise.js';
+import { RECEIPT_CARD_SELECT, toReceiptCard, toReceiptDetail, toInvoiceEvent } from '../_lib/invoiceFields.js';
+import { generateReceiptPdfBuffer } from '../_lib/invoicePdf.js';
+import { receiptPdfPath, uploadPdf, getSignedDownloadUrl, downloadPdfBuffer } from '../_lib/invoiceStorage.js';
+import { getBusinessSettings } from '../_lib/businessSettings.js';
+import { receiptEmail } from '../_lib/invoiceEmailTemplates.js';
+import { sendMail, isMailerConfigured } from '../_lib/mailer.js';
 
 export const config = { api: { bodyParser: false } };
 
-// Same optional-catch-all dispatcher pattern as
-// admin/api/invoices/[id]/[[...action]].js (see that file's header
-// comment and INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §7). Receipts have no
-// draft state, so there is no preview action — only detail, events,
-// download, and send/resend.
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 50;
+
+function parsePositiveInt(value, fallback) {
+  const n = Number.parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+// One dispatcher file handles /api/receipts (list) and every
+// /api/receipts/:id[/<action>] route, via Vercel's optional catch-all
+// segment at the *resource root* — see extractSegments()'s header and
+// INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §7. This folds what used to be
+// admin/api/receipts/index.js and admin/api/receipts/[id]/[[...action]].js
+// into one file, freeing a function slot for admin/api/customers/
+// [[...segments]].js within the admin Vercel project's 12-function budget
+// (see admin/INVOICES_SETUP.md's function-count note).
+//
+// Receipts have no draft state and are never created directly (only ever
+// auto-generated when an invoice reaches a zero balance — see
+// admin/api/_lib/receiptLifecycle.js), so there is no POST /api/receipts
+// and no preview action, unlike the invoices dispatcher.
 export default async function handler(req, res) {
   const origin = req.headers.origin || '';
   const headers = { ...corsHeaders(origin), 'Cache-Control': 'no-store', 'Content-Type': 'application/json' };
@@ -33,19 +49,24 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: auth.error }));
   }
 
-  const { id: receiptId, action } = extractIdAndAction(req);
-  if (!isValidUuid(receiptId)) {
-    res.writeHead(400, headers);
-    return res.end(JSON.stringify({ error: 'Invalid receipt id' }));
-  }
-
   const supabase = getServiceClient();
   if (!supabase) {
     res.writeHead(500, headers);
     return res.end(JSON.stringify({ error: 'Server misconfiguration' }));
   }
 
+  const segments = extractSegments(req, 'segments', 2);
+
   try {
+    if (segments.length === 0) return await handleList(req, res, headers, supabase);
+
+    const receiptId = segments[0];
+    if (!isValidUuid(receiptId)) {
+      res.writeHead(400, headers);
+      return res.end(JSON.stringify({ error: 'Invalid receipt id' }));
+    }
+    const action = segments.slice(1);
+
     if (action.length === 0) return await handleDetail(req, res, headers, supabase, receiptId);
     if (action.length === 1 && action[0] === 'events') return await handleEvents(req, res, headers, supabase, receiptId);
     if (action.length === 1 && action[0] === 'download') return await handleDownload(req, res, headers, supabase, receiptId);
@@ -56,6 +77,73 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'Not found' }));
   } catch (err) {
     console.error('[admin/api] receipt route unexpected error:', err?.message);
+    res.writeHead(500, headers);
+    res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
+}
+
+// GET /api/receipts — filtered, sorted, paginated receipt list.
+async function handleList(req, res, headers, supabase) {
+  if (req.method !== 'GET') {
+    res.writeHead(405, headers);
+    return res.end(JSON.stringify({ error: 'Method not allowed' }));
+  }
+
+  const params = new URL(req.url, 'https://x').searchParams;
+  const page = parsePositiveInt(params.get('page'), 1);
+  const pageSize = Math.min(parsePositiveInt(params.get('pageSize'), DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
+
+  const invoiceId = params.get('invoiceId') || null;
+  if (invoiceId && !isValidUuid(invoiceId)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'invoiceId must be a valid UUID' }));
+  }
+
+  const bookingId = params.get('bookingId') || null;
+  if (bookingId && !isValidUuid(bookingId)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'bookingId must be a valid UUID' }));
+  }
+
+  const rawQ = params.get('q');
+  const q = rawQ ? sanitiseFreeTextFilter(rawQ) : null;
+  if (rawQ && !q) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'q filter is invalid' }));
+  }
+
+  try {
+    let query = supabase.from('receipts').select(RECEIPT_CARD_SELECT, { count: 'exact' });
+    if (invoiceId) query = query.eq('invoice_id', invoiceId);
+    if (bookingId) query = query.eq('booking_id', bookingId);
+    if (q) {
+      const escaped = q.replace(/[%,]/g, '');
+      query = query.or([
+        `receipt_number.ilike.%${escaped}%`,
+        `customer_name.ilike.%${escaped}%`,
+      ].join(','));
+    }
+    query = query.order('created_at', { ascending: false });
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    const { data, error, count } = await query.range(from, to);
+
+    if (error) {
+      console.error('[admin/api] receipts list query failed:', error.code, error.message);
+      res.writeHead(500, headers);
+      return res.end(JSON.stringify({ error: 'Failed to load receipts' }));
+    }
+
+    const totalCount = count ?? 0;
+    const results = (data || []).map(toReceiptCard);
+
+    res.writeHead(200, headers);
+    res.end(JSON.stringify({
+      results, page, pageSize, totalCount, hasMore: from + results.length < totalCount,
+    }));
+  } catch (err) {
+    console.error('[admin/api] receipts list unexpected error:', err?.message);
     res.writeHead(500, headers);
     res.end(JSON.stringify({ error: 'Internal server error' }));
   }

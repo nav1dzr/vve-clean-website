@@ -16,6 +16,8 @@
 // concept of "unescaped" text to begin with.
 
 import PDFDocument from 'pdfkit';
+import { buildPaymentInstructionsSnapshot } from './paymentOptions.js';
+import { hasBankDetails } from './businessSettings.js';
 
 const PAGE_MARGIN = 50;
 const NAVY = '#020b24';
@@ -146,6 +148,75 @@ function drawItemsTable(doc, items, settings, startY) {
   return y + 10;
 }
 
+// An issued invoice carries its own frozen payment_instructions_snapshot
+// (set at issue time — see the migration file header); a draft preview (or
+// any older issued row from before this field existed) has none yet, so
+// it's computed on the fly from the invoice's own payment_option/
+// stripe_payment_link_url plus the settings already passed in — the same
+// "live for a draft, frozen for issued" split every other field in this
+// renderer already follows.
+function resolvePaymentInstructions(invoice, settings) {
+  if (invoice.payment_instructions_snapshot) return invoice.payment_instructions_snapshot;
+  return buildPaymentInstructionsSnapshot({
+    paymentOption: invoice.payment_option || 'bank_transfer',
+    stripePaymentLinkUrl: invoice.stripe_payment_link_url,
+    settings,
+    hasBankDetails: hasBankDetails(settings),
+  });
+}
+
+function drawServiceAddressBlock(doc, invoice, x, y, width) {
+  const hasServiceInfo = invoice.service_contact_name || invoice.service_address
+    || invoice.service_contact_email || invoice.service_contact_phone || invoice.service_contact_postcode;
+  if (!hasServiceInfo) return y;
+
+  doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY).text('Service address', x, y);
+  doc.font('Helvetica').fontSize(9.5).fillColor('#222222').text(
+    [invoice.service_contact_name, invoice.service_address, invoice.service_contact_postcode, invoice.service_contact_email, invoice.service_contact_phone]
+      .filter(Boolean).join('\n'),
+    x, y + 14, { width },
+  );
+  return y + 14 + doc.heightOfString('x', { width }) * 5 + 14;
+}
+
+// Renders the bank-transfer block and/or the "Pay securely by Stripe" link,
+// governed entirely by resolvePaymentInstructions() — never both unless
+// paymentOption is 'both', never a blank/broken section when nothing is
+// configured (same "omit, don't fabricate" rule as the business block).
+function drawPaymentInstructionsBlock(doc, invoice, settings, startY) {
+  const instructions = resolvePaymentInstructions(invoice, settings);
+  let y = startY;
+
+  if (instructions.bankDetails) {
+    y += 20;
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY).text('Payment details — bank transfer', PAGE_MARGIN, y);
+    y += 14;
+    doc.font('Helvetica').fontSize(9).fillColor('#222222').text(
+      `${instructions.bankDetails.accountName} · Sort code ${instructions.bankDetails.sortCode} · Account ${instructions.bankDetails.accountNumber}`,
+      PAGE_MARGIN, y,
+    );
+    y += 14;
+    if (instructions.bankDetails.referenceInstructions) {
+      doc.text(instructions.bankDetails.referenceInstructions, PAGE_MARGIN, y, { width: doc.page.width - PAGE_MARGIN * 2 });
+      y += 14;
+    }
+  }
+
+  if (instructions.stripePaymentLinkUrl) {
+    y += instructions.bankDetails ? 10 : 20;
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY).text('Payment details — card', PAGE_MARGIN, y);
+    y += 14;
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#0a5cd8').text(
+      'Pay securely by Stripe',
+      PAGE_MARGIN, y,
+      { link: instructions.stripePaymentLinkUrl, underline: true },
+    );
+    y += 14;
+  }
+
+  return y;
+}
+
 function drawTotalsBlock(doc, invoice, settings, startY) {
   const width = 220;
   const x = doc.page.width - PAGE_MARGIN - width;
@@ -227,6 +298,8 @@ export async function generateInvoicePdfBuffer(invoice, items, settings, { isDra
 
   y = Math.max(y + 14 + doc.heightOfString('x', { width: colWidth }) * 5, detailY) + 20;
 
+  y = drawServiceAddressBlock(doc, invoice, billToX, y, colWidth);
+
   y = drawItemsTable(doc, items, settings, y);
   y = drawTotalsBlock(doc, invoice, settings, y + 10);
 
@@ -239,15 +312,7 @@ export async function generateInvoicePdfBuffer(invoice, items, settings, { isDra
     if (invoice.customer_notes) { doc.text(invoice.customer_notes, PAGE_MARGIN, y, { width: doc.page.width - PAGE_MARGIN * 2 }); }
   }
 
-  if (settings.bankAccountName && settings.bankSortCode && settings.bankAccountNumber) {
-    y += 30;
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY).text('Payment details', PAGE_MARGIN, y);
-    y += 14;
-    doc.font('Helvetica').fontSize(9).fillColor('#222222').text(
-      `${settings.bankAccountName} · Sort code ${settings.bankSortCode} · Account ${settings.bankAccountNumber}`,
-      PAGE_MARGIN, y,
-    );
-  }
+  y = drawPaymentInstructionsBlock(doc, invoice, settings, y);
 
   addFooter(doc, settings);
   doc.end();

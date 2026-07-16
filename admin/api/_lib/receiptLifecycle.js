@@ -53,7 +53,13 @@ export async function createReceiptIfPaid(supabase, input, adminId, { generateAn
       invoice_number_snapshot: input.invoiceNumber || null,
       booking_id: input.bookingId || null,
       customer_name: input.customer.name,
-      customer_email: input.customer.email || null,
+      // The receipt's send-to address defaults to the billing contact's
+      // email, but an invoice's receiptRecipientEmail (e.g. "invoice the
+      // agency, receipt the landlord") takes precedence when set — snapshot
+      // it here, at the moment the receipt is created, exactly like every
+      // other receipt field, so a later change to the invoice or customer
+      // record never alters an already-created receipt.
+      customer_email: input.recipientEmailOverride || input.customer.email || null,
       customer_phone: input.customer.phone || null,
       customer_address: input.customer.address || null,
       customer_postcode: input.customer.postcode || null,
@@ -104,7 +110,7 @@ export async function createReceiptIfPaid(supabase, input, adminId, { generateAn
         invoice_id: input.invoiceId,
         invoice_number_snapshot: input.invoiceNumber || null,
         customer_name: input.customer.name,
-        customer_email: input.customer.email || null,
+        customer_email: input.recipientEmailOverride || input.customer.email || null,
         customer_phone: input.customer.phone || null,
         customer_address: input.customer.address || null,
         customer_postcode: input.customer.postcode || null,

@@ -33,6 +33,11 @@ export function getBusinessSettings() {
     bankAccountName: process.env.INVOICE_BANK_ACCOUNT_NAME || null,
     bankSortCode: process.env.INVOICE_BANK_SORT_CODE || null,
     bankAccountNumber: process.env.INVOICE_BANK_ACCOUNT_NUMBER || null,
+    // Free-text instructions for what a customer should use as their
+    // payment reference (e.g. "Please use your invoice number as
+    // reference"). Optional — shown alongside bank details when set, never
+    // fabricated when unset.
+    bankReferenceInstructions: process.env.INVOICE_BANK_REFERENCE_INSTRUCTIONS || null,
 
     // VAT — disabled by default; see file header. Never inferred from any
     // other signal (price, customer type, etc).

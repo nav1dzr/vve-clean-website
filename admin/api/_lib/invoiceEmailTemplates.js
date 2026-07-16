@@ -12,6 +12,8 @@
 // alternative — see admin/api/_lib/mailer.js's header comment for why.
 
 import { escHtml } from './escHtml.js';
+import { buildPaymentInstructionsSnapshot } from './paymentOptions.js';
+import { hasBankDetails } from './businessSettings.js';
 
 function wordmarkHtml() {
   return '<span style="font-weight:700;font-size:20px;color:#020b24;">V<span style="color:#b8960c;">V</span>E</span>'
@@ -43,6 +45,63 @@ function wrapHtml(bodyHtml, settings) {
 </html>`;
 }
 
+// Same "frozen at issue time, computed on the fly otherwise" resolution as
+// invoicePdf.js's resolvePaymentInstructions — see that file's comment.
+function resolvePaymentInstructions(invoice, settings) {
+  if (invoice.payment_instructions_snapshot) return invoice.payment_instructions_snapshot;
+  return buildPaymentInstructionsSnapshot({
+    paymentOption: invoice.payment_option || 'bank_transfer',
+    stripePaymentLinkUrl: invoice.stripe_payment_link_url,
+    settings,
+    hasBankDetails: hasBankDetails(settings),
+  });
+}
+
+function paymentInstructionsHtml(invoice, settings) {
+  const instructions = resolvePaymentInstructions(invoice, settings);
+  const parts = [];
+
+  if (instructions.bankDetails) {
+    parts.push(`
+      <p style="margin:12px 0 4px 0;"><strong>Bank transfer</strong><br/>
+      ${escHtml(instructions.bankDetails.accountName)} &middot; Sort code ${escHtml(instructions.bankDetails.sortCode)} &middot; Account ${escHtml(instructions.bankDetails.accountNumber)}
+      ${instructions.bankDetails.referenceInstructions ? `<br/><span style="color:#666;font-size:12px;">${escHtml(instructions.bankDetails.referenceInstructions)}</span>` : ''}
+      </p>`);
+  }
+
+  if (instructions.stripePaymentLinkUrl) {
+    // href is the same validated, allowlisted-host URL stored on the
+    // invoice (see admin/api/_lib/paymentOptions.js) — never raw
+    // user/customer-controlled input, so no escHtml() is needed for the
+    // URL itself (it is not customer text); the visible label is a fixed
+    // string, not interpolated at all.
+    parts.push(`
+      <p style="margin:12px 0 4px 0;"><strong>Pay by card</strong><br/>
+      <a href="${instructions.stripePaymentLinkUrl}" style="color:#0a5cd8;font-weight:bold;">Pay securely by Stripe</a>
+      </p>`);
+  }
+
+  return parts.join('');
+}
+
+function paymentInstructionsText(invoice, settings) {
+  const instructions = resolvePaymentInstructions(invoice, settings);
+  const lines = [];
+
+  if (instructions.bankDetails) {
+    lines.push('Bank transfer:');
+    lines.push(`${instructions.bankDetails.accountName} · Sort code ${instructions.bankDetails.sortCode} · Account ${instructions.bankDetails.accountNumber}`);
+    if (instructions.bankDetails.referenceInstructions) lines.push(instructions.bankDetails.referenceInstructions);
+  }
+  if (instructions.stripePaymentLinkUrl) {
+    if (lines.length) lines.push('');
+    lines.push('Pay by card (Stripe):');
+    lines.push(instructions.stripePaymentLinkUrl);
+  }
+
+  return lines.join('\n');
+}
+
 export function invoiceEmail(invoice, settings, { customMessage } = {}) {
   const subject = `Invoice ${invoice.invoice_number} from ${settings.tradingName}`;
   const greetingName = escHtml(invoice.customer_name) || 'there';
@@ -57,9 +116,12 @@ export function invoiceEmail(invoice, settings, { customMessage } = {}) {
       <tr><td style="color:#666;">Amount due</td><td align="right"><strong>${money(settings, invoice.amount_due)}</strong></td></tr>
       <tr><td style="color:#666;">Due date</td><td align="right">${escHtml(invoice.due_date || '—')}</td></tr>
     </table>
+    ${paymentInstructionsHtml(invoice, settings)}
     <p style="color:#666;font-size:12px;">${escHtml(invoice.payment_terms || settings.defaultPaymentTermsText)}</p>
     <p>Thanks,<br/>${escHtml(settings.emailSignature)}</p>
   `;
+
+  const paymentText = paymentInstructionsText(invoice, settings);
 
   const text = [
     `Invoice ${invoice.invoice_number} from ${settings.tradingName}`,
@@ -72,6 +134,8 @@ export function invoiceEmail(invoice, settings, { customMessage } = {}) {
     `Invoice total: ${money(settings, invoice.total)}`,
     `Amount due: ${money(settings, invoice.amount_due)}`,
     `Due date: ${invoice.due_date || '—'}`,
+    '',
+    paymentText,
     '',
     invoice.payment_terms || settings.defaultPaymentTermsText,
     '',

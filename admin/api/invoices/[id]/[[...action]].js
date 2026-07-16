@@ -422,7 +422,10 @@ async function handleSend(req, res, headers, supabase, invoiceId, auth, eventTyp
     return res.end(JSON.stringify({ error: 'Only an issued invoice can be emailed' }));
   }
 
-  const recipient = body.to || invoice.customer_email;
+  // Precedence: an explicit per-send override (body.to) always wins; then
+  // the invoice's own stored default recipient (invoice_recipient_email —
+  // e.g. "always invoice the agency"); then the billing contact's email.
+  const recipient = body.to || invoice.invoice_recipient_email || invoice.customer_email;
   if (!recipient || !isValidEmail(recipient)) {
     res.writeHead(400, headers);
     return res.end(JSON.stringify({ error: 'No valid recipient email is available for this invoice' }));
