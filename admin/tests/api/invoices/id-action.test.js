@@ -1,0 +1,228 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createFakeSupabase } from '../_lib/fakeSupabase.js';
+
+const verifyAdminRequestMock = vi.fn();
+const getServiceClientMock = vi.fn();
+
+vi.mock('../../../api/_lib/adminAuth.js', () => ({ verifyAdminRequest: (...args) => verifyAdminRequestMock(...args) }));
+vi.mock('../../../api/_lib/supabaseAdmin.js', () => ({ getServiceClient: (...args) => getServiceClientMock(...args) }));
+
+const { default: handler } = await import('../../../api/invoices/[id]/[[...action]].js');
+const { createDraftInvoice, issueInvoice } = await import('../../../api/_lib/invoiceLifecycle.js');
+
+function makeRes() {
+  const res = {
+    statusCode: null,
+    headers: null,
+    body: '',
+    writeHead(status, headers) { res.statusCode = status; res.headers = headers; },
+    end(body) { res.body = body || ''; },
+  };
+  return res;
+}
+
+function makeReq({ url, bodyObj, headers = { authorization: 'Bearer t' }, method = 'GET' } = {}) {
+  const raw = bodyObj === undefined ? '' : JSON.stringify(bodyObj);
+  return {
+    method,
+    url,
+    headers,
+    on(event, cb) {
+      if (event === 'data' && raw) cb(Buffer.from(raw));
+      if (event === 'end') cb();
+    },
+  };
+}
+
+const ADMIN = { ok: true, admin: { id: 'admin-1' } };
+const VALID_UUID = '123e4567-e89b-12d3-a456-426614174000';
+
+async function seedDraft(supabase, overrides = {}) {
+  const { invoiceId } = await createDraftInvoice(supabase, {
+    customer: { name: 'Jane Doe', email: 'jane@example.com' },
+    items: [{ description: 'Deep clean', quantity: 1, unitPrice: 100 }],
+    ...overrides,
+  }, 'admin-1');
+  return invoiceId;
+}
+
+describe('invoices/[id]/[[...action]] dispatcher', () => {
+  beforeEach(() => {
+    verifyAdminRequestMock.mockReset();
+    getServiceClientMock.mockReset();
+    verifyAdminRequestMock.mockResolvedValue(ADMIN);
+  });
+
+  it('rejects an invalid invoice id', async () => {
+    const res = makeRes();
+    await handler(makeReq({ url: '/api/invoices/not-a-uuid' }), res);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('GET detail returns 404 for a missing invoice', async () => {
+    getServiceClientMock.mockReturnValue(createFakeSupabase());
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${VALID_UUID}` }), res);
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('GET detail returns the invoice with items and payments', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}` }), res);
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.id).toBe(invoiceId);
+    expect(body.items).toHaveLength(1);
+    expect(body.payments).toHaveLength(0);
+  });
+
+  it('PATCH updates a draft', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+
+    const res = makeRes();
+    await handler(makeReq({
+      url: `/api/invoices/${invoiceId}`,
+      method: 'PATCH',
+      bodyObj: { customer: { name: 'Jane Doe', email: 'jane@example.com' }, items: [{ description: 'Updated', quantity: 1, unitPrice: 200 }] },
+    }), res);
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('DELETE removes a draft', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}`, method: 'DELETE' }), res);
+    expect(res.statusCode).toBe(204);
+  });
+
+  it('POST issue allocates a number and marks the invoice issued', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}/issue`, method: 'POST' }), res);
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.invoiceNumber).toMatch(/^INV-\d{4}-000001$/);
+  });
+
+  it('POST issue on an already-issued invoice returns 409', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+    await issueInvoice(supabase, invoiceId, 'admin-1');
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}/issue`, method: 'POST' }), res);
+    expect(res.statusCode).toBe(409);
+  });
+
+  it('POST void requires a reason and voids the invoice', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+
+    const missingReason = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}/void`, method: 'POST', bodyObj: {} }), missingReason);
+    expect(missingReason.statusCode).toBe(400);
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}/void`, method: 'POST', bodyObj: { reason: 'Cancelled' } }), res);
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('POST duplicate creates a new draft', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+    await issueInvoice(supabase, invoiceId, 'admin-1');
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}/duplicate`, method: 'POST' }), res);
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.body);
+    expect(body.invoiceId).not.toBe(invoiceId);
+  });
+
+  it('POST payments records a payment and returns the recalculated balance', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+    await issueInvoice(supabase, invoiceId, 'admin-1');
+
+    const res = makeRes();
+    await handler(makeReq({
+      url: `/api/invoices/${invoiceId}/payments`,
+      method: 'POST',
+      bodyObj: { amount: 100, paymentDate: '2026-07-16', method: 'card' },
+    }), res);
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.body);
+    expect(body.paymentStatus).toBe('paid');
+    expect(body.receiptId).toBeTruthy(); // createReceiptIfPaid was wired through and fired
+  });
+
+  it('POST payments/:paymentId/reverse reverses a payment', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+    await issueInvoice(supabase, invoiceId, 'admin-1');
+
+    const paymentRes = makeRes();
+    await handler(makeReq({
+      url: `/api/invoices/${invoiceId}/payments`,
+      method: 'POST',
+      bodyObj: { amount: 100, paymentDate: '2026-07-16', method: 'card' },
+    }), paymentRes);
+    const { paymentId } = JSON.parse(paymentRes.body);
+
+    const res = makeRes();
+    await handler(makeReq({
+      url: `/api/invoices/${invoiceId}/payments/${paymentId}/reverse`,
+      method: 'POST',
+      bodyObj: { reason: 'Bounced' },
+    }), res);
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('GET events returns the audit trail', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+    await issueInvoice(supabase, invoiceId, 'admin-1');
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}/events` }), res);
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.results.map((e) => e.eventType)).toEqual(['issued', 'created']);
+  });
+
+  it('an unknown action segment returns 404', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}/bogus-action`, method: 'POST' }), res);
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('rejects unauthenticated requests before touching the database', async () => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: false, status: 401, error: 'Missing bearer token' });
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${VALID_UUID}/issue`, method: 'POST' }), res);
+    expect(res.statusCode).toBe(401);
+    expect(getServiceClientMock).not.toHaveBeenCalled();
+  });
+});
