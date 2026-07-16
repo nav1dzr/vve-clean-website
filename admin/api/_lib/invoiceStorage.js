@@ -36,3 +36,17 @@ export async function getSignedDownloadUrl(supabase, path) {
   }
   return { ok: true, url: data.signedUrl };
 }
+
+// Fetches the actual PDF bytes — used when attaching to an outgoing email
+// (Nodemailer needs a real Buffer, not a signed URL). Supabase Storage's
+// download() returns a Blob-like object; converted to a Buffer here so
+// this is the only place in the codebase that needs to know that detail.
+export async function downloadPdfBuffer(supabase, path) {
+  const { data, error } = await supabase.storage.from(BUCKET).download(path);
+  if (error || !data) {
+    console.error('[admin/api] PDF download failed:', error?.message);
+    return { ok: false, error: 'Failed to fetch the stored PDF' };
+  }
+  const arrayBuffer = await data.arrayBuffer();
+  return { ok: true, buffer: Buffer.from(arrayBuffer) };
+}

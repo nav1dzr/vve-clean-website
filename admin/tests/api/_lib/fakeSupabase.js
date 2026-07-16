@@ -130,6 +130,11 @@ export function createFakeSupabase(initialData = {}) {
         }
         return { data: { signedUrl: `https://fake-storage.test/${bucket}/${path}?signed=1` }, error: null };
       },
+      async download(path) {
+        const buffer = storedFiles[`${bucket}/${path}`];
+        if (!buffer) return { data: null, error: new Error('object not found') };
+        return { data: { arrayBuffer: async () => buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) }, error: null };
+      },
     };
   }
 

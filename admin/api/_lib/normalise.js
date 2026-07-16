@@ -66,6 +66,15 @@ export function isValidIsoTimestamp(value) {
   return !Number.isNaN(d.getTime());
 }
 
+// Deliberately simple — good enough to catch obvious typos/empty strings
+// before an email send attempt, not a full RFC 5322 validator. The mail
+// provider itself is the real source of truth on deliverability.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidEmail(value) {
+  return typeof value === 'string' && EMAIL_RE.test(value.trim());
+}
+
 // Internal notes are append-only free text with a sensible ceiling — long
 // enough for a real handover note, short enough to stay a note rather than
 // a document.

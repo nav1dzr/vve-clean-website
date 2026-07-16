@@ -13,8 +13,13 @@ import {
 } from '../../_lib/invoiceLifecycle.js';
 import { createReceiptIfPaid } from '../../_lib/receiptLifecycle.js';
 import { generateInvoicePdfBuffer, generateReceiptPdfBuffer } from '../../_lib/invoicePdf.js';
-import { invoicePdfPath, receiptPdfPath, uploadPdf, getSignedDownloadUrl } from '../../_lib/invoiceStorage.js';
+import {
+  invoicePdfPath, receiptPdfPath, uploadPdf, getSignedDownloadUrl, downloadPdfBuffer,
+} from '../../_lib/invoiceStorage.js';
 import { getBusinessSettings } from '../../_lib/businessSettings.js';
+import { invoiceEmail } from '../../_lib/invoiceEmailTemplates.js';
+import { sendMail, isMailerConfigured } from '../../_lib/mailer.js';
+import { isValidEmail } from '../../_lib/normalise.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -49,8 +54,8 @@ function makeReceiptPdfGenerator(supabase) {
 // :paymentId/reverse, events, preview (draft PDF, generated on demand,
 // never stored), download (issued invoice — short-lived signed URL to the
 // stored PDF, generating it on the fly first if a pre-existing invoice
-// somehow doesn't have one yet). send/resend are added in Phase 6 once
-// email sending exists — this file is extended then, not duplicated.
+// somehow doesn't have one yet), send and resend (email the stored PDF —
+// only ever marked sent after the mail provider accepts the message).
 export default async function handler(req, res) {
   const origin = req.headers.origin || '';
   const headers = { ...corsHeaders(origin), 'Cache-Control': 'no-store', 'Content-Type': 'application/json' };
@@ -90,6 +95,8 @@ export default async function handler(req, res) {
     if (action.length === 1 && action[0] === 'events') return await handleEvents(req, res, headers, supabase, invoiceId);
     if (action.length === 1 && action[0] === 'preview') return await handlePreview(req, res, headers, supabase, invoiceId);
     if (action.length === 1 && action[0] === 'download') return await handleDownload(req, res, headers, supabase, invoiceId);
+    if (action.length === 1 && action[0] === 'send') return await handleSend(req, res, headers, supabase, invoiceId, auth, 'sent');
+    if (action.length === 1 && action[0] === 'resend') return await handleSend(req, res, headers, supabase, invoiceId, auth, 'resent');
 
     res.writeHead(404, headers);
     return res.end(JSON.stringify({ error: 'Not found' }));
@@ -370,4 +377,105 @@ async function handleDownload(req, res, headers, supabase, invoiceId) {
 
   res.writeHead(200, headers);
   return res.end(JSON.stringify({ url: signedResult.url }));
+}
+
+// POST /api/invoices/:id/send and /:id/resend — only ever marks the
+// invoice sent after the mail provider accepts the message (a failure
+// leaves it exactly as it was, still issued, never silently "sent"). The
+// recipient can be corrected per-send via body.to without altering the
+// invoice's own stored customer_email — see
+// INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §9.
+async function handleSend(req, res, headers, supabase, invoiceId, auth, eventType) {
+  if (req.method !== 'POST') {
+    res.writeHead(405, headers);
+    return res.end(JSON.stringify({ error: 'Method not allowed' }));
+  }
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch (err) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: err.message || 'Invalid request body' }));
+  }
+
+  if (body.to !== undefined && !isValidEmail(body.to)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'to must be a valid email address' }));
+  }
+  if (!isMailerConfigured()) {
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: 'Email is not configured on this deployment' }));
+  }
+
+  const { data: invoice, error } = await supabase.from('invoices').select('*').eq('id', invoiceId).maybeSingle();
+  if (error) {
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: 'Failed to load invoice' }));
+  }
+  if (!invoice) {
+    res.writeHead(404, headers);
+    return res.end(JSON.stringify({ error: 'Invoice not found' }));
+  }
+  if (invoice.document_status !== 'issued') {
+    res.writeHead(409, headers);
+    return res.end(JSON.stringify({ error: 'Only an issued invoice can be emailed' }));
+  }
+
+  const recipient = body.to || invoice.customer_email;
+  if (!recipient || !isValidEmail(recipient)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'No valid recipient email is available for this invoice' }));
+  }
+
+  let path = invoice.pdf_storage_path;
+  if (!path) {
+    const { data: items } = await supabase
+      .from('invoice_items').select('*').eq('invoice_id', invoiceId).order('sort_order', { ascending: true });
+    const buffer = await generateInvoicePdfBuffer(invoice, items || [], invoice.business_snapshot || getBusinessSettings(), { isDraft: false });
+    const uploadResult = await uploadPdf(supabase, invoicePdfPath(invoiceId, invoice.document_version || 1), buffer);
+    if (!uploadResult.ok) {
+      res.writeHead(500, headers);
+      return res.end(JSON.stringify({ error: uploadResult.error }));
+    }
+    path = uploadResult.path;
+    await supabase.from('invoices').update({ pdf_storage_path: path }).eq('id', invoiceId);
+  }
+
+  const pdfResult = await downloadPdfBuffer(supabase, path);
+  if (!pdfResult.ok) {
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: pdfResult.error }));
+  }
+
+  const settings = invoice.business_snapshot || getBusinessSettings();
+  const { subject, html, text } = invoiceEmail(invoice, settings, { customMessage: body.message });
+
+  const sendResult = await sendMail({
+    to: recipient,
+    subject,
+    html,
+    text,
+    fromName: settings.emailFromName,
+    attachments: [{ filename: `${invoice.invoice_number}.pdf`, content: pdfResult.buffer, contentType: 'application/pdf' }],
+  });
+
+  if (!sendResult.ok) {
+    await supabase.from('invoice_events').insert({
+      document_type: 'invoice', document_id: invoiceId, event_type: 'send_failed', admin_id: auth.admin.id,
+      metadata: { to: recipient, error: sendResult.error },
+    });
+    res.writeHead(502, headers);
+    return res.end(JSON.stringify({ error: 'Failed to send the email' }));
+  }
+
+  const nowTs = new Date().toISOString();
+  await supabase.from('invoices').update({ sent_at: nowTs, updated_at: nowTs }).eq('id', invoiceId);
+  await supabase.from('invoice_events').insert({
+    document_type: 'invoice', document_id: invoiceId, event_type: eventType, admin_id: auth.admin.id,
+    metadata: { to: recipient, messageId: sendResult.messageId },
+  });
+
+  res.writeHead(200, headers);
+  return res.end(JSON.stringify({ ok: true, to: recipient }));
 }
