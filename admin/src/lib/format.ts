@@ -247,3 +247,15 @@ const INVOICE_EVENT_LABELS: Record<string, string> = {
 export function invoiceEventLabel(eventType: string): string {
   return INVOICE_EVENT_LABELS[eventType] || eventType;
 }
+
+const CUSTOMER_TYPE_LABELS: Record<string, string> = {
+  individual: 'Individual',
+  landlord: 'Landlord',
+  letting_agent: 'Letting agent',
+  agency: 'Agency',
+  business: 'Business',
+};
+
+export function customerTypeLabel(type: string): string {
+  return CUSTOMER_TYPE_LABELS[type] || type;
+}

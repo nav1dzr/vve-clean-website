@@ -1,6 +1,15 @@
 import { useState, type FormEvent } from 'react';
-import type { InvoiceCustomer, InvoiceDraftInput, InvoiceDraftItemInput } from '../types/invoice';
+import type {
+  InvoiceCustomer, InvoiceDraftInput, InvoiceDraftItemInput, InvoiceServiceContact, PaymentOptionValue,
+} from '../types/invoice';
+import { PAYMENT_OPTION_VALUES } from '../types/invoice';
 import { formatMoney } from '../lib/format';
+
+const PAYMENT_OPTION_LABELS: Record<PaymentOptionValue, string> = {
+  bank_transfer: 'Bank transfer',
+  stripe_payment_link: 'Stripe payment link',
+  both: 'Both',
+};
 
 const MAX_ITEMS = 100;
 
@@ -18,6 +27,8 @@ function emptyItem(): FormItem {
   return { key: newKey(), description: '', quantity: 1, unitPrice: 0, lineDiscount: 0 };
 }
 
+const emptyServiceContact: InvoiceServiceContact = { name: '', email: '', phone: '', address: '', postcode: '' };
+
 export interface InvoiceItemsFormValue {
   customer: InvoiceCustomer;
   items: FormItem[];
@@ -30,6 +41,13 @@ export interface InvoiceItemsFormValue {
   customerNotes: string;
   internalNotes: string;
   paymentTerms: string;
+  paymentOption: PaymentOptionValue;
+  stripePaymentLinkUrl: string;
+  serviceContact: InvoiceServiceContact;
+  invoiceRecipientEmail: string;
+  receiptRecipientEmail: string;
+  billingCustomerId: string | null;
+  serviceCustomerId: string | null;
 }
 
 export function emptyFormValue(prefill?: Partial<InvoiceItemsFormValue>): InvoiceItemsFormValue {
@@ -45,6 +63,13 @@ export function emptyFormValue(prefill?: Partial<InvoiceItemsFormValue>): Invoic
     customerNotes: '',
     internalNotes: '',
     paymentTerms: 'Payment due within 14 days.',
+    paymentOption: 'bank_transfer',
+    stripePaymentLinkUrl: '',
+    serviceContact: emptyServiceContact,
+    invoiceRecipientEmail: '',
+    receiptRecipientEmail: '',
+    billingCustomerId: null,
+    serviceCustomerId: null,
     ...prefill,
   };
 }
@@ -70,9 +95,14 @@ interface Props {
   secondaryAction?: { label: string; onClick: () => void; disabled?: boolean };
 }
 
+function hasAnyServiceContactField(sc: InvoiceServiceContact): boolean {
+  return Boolean(sc.name?.trim() || sc.email?.trim() || sc.phone?.trim() || sc.address?.trim() || sc.postcode?.trim());
+}
+
 export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submitting, error, secondaryAction }: Props) {
   const [value, setValue] = useState<InvoiceItemsFormValue>(initial);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [serviceContactEnabled, setServiceContactEnabled] = useState(() => hasAnyServiceContactField(initial.serviceContact));
 
   const totals = previewTotals(value);
 
@@ -120,6 +150,21 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
       setValidationError('Every line item needs a quantity greater than zero.');
       return;
     }
+    const requiresStripeLink = value.paymentOption === 'stripe_payment_link' || value.paymentOption === 'both';
+    if (requiresStripeLink && !value.stripePaymentLinkUrl.trim()) {
+      setValidationError('Enter a Stripe payment-link URL, or choose a different payment option.');
+      return;
+    }
+
+    const serviceContact = serviceContactEnabled
+      ? {
+        name: value.serviceContact.name?.trim() || null,
+        email: value.serviceContact.email?.trim() || null,
+        phone: value.serviceContact.phone?.trim() || null,
+        address: value.serviceContact.address?.trim() || null,
+        postcode: value.serviceContact.postcode?.trim() || null,
+      }
+      : null;
 
     const input: InvoiceDraftInput = {
       customer: {
@@ -141,6 +186,13 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
       customerNotes: value.customerNotes.trim() || null,
       internalNotes: value.internalNotes.trim() || null,
       paymentTerms: value.paymentTerms.trim() || null,
+      paymentOption: value.paymentOption,
+      stripePaymentLinkUrl: requiresStripeLink ? value.stripePaymentLinkUrl.trim() : null,
+      serviceContact,
+      invoiceRecipientEmail: value.invoiceRecipientEmail.trim() || null,
+      receiptRecipientEmail: value.receiptRecipientEmail.trim() || null,
+      billingCustomerId: value.billingCustomerId,
+      serviceCustomerId: serviceContactEnabled ? value.serviceCustomerId : null,
     };
 
     await onSubmit(input);
@@ -272,6 +324,85 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
               </p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="mb-4 rounded-xl border border-silver-300 bg-white p-4">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-navy-500">Payment options</h2>
+        <p className="mb-3 text-sm text-navy-700">How should the customer pay? Shown on the PDF and in the invoice email.</p>
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:gap-4">
+          {PAYMENT_OPTION_VALUES.map((option) => (
+            <label key={option} className="flex items-center gap-2 text-sm text-navy-900">
+              <input
+                type="radio"
+                name="paymentOption"
+                checked={value.paymentOption === option}
+                onChange={() => setValue((v) => ({ ...v, paymentOption: option }))}
+              />
+              {PAYMENT_OPTION_LABELS[option]}
+            </label>
+          ))}
+        </div>
+        {(value.paymentOption === 'stripe_payment_link' || value.paymentOption === 'both') && (
+          <label>
+            <span className={labelClass}>Stripe payment-link URL *</span>
+            <input
+              type="url"
+              placeholder="https://buy.stripe.com/…"
+              value={value.stripePaymentLinkUrl}
+              onChange={(e) => setValue((v) => ({ ...v, stripePaymentLinkUrl: e.target.value }))}
+              className={inputClass}
+            />
+            <span className="mt-1 block text-xs text-navy-500">Must be a buy.stripe.com or checkout.stripe.com link. This never creates a charge automatically.</span>
+          </label>
+        )}
+      </section>
+
+      <section className="mb-4 rounded-xl border border-silver-300 bg-white p-4">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-navy-500">Service address & recipients</h2>
+        <label className="mb-3 flex items-center gap-2 text-sm text-navy-900">
+          <input
+            type="checkbox"
+            checked={serviceContactEnabled}
+            onChange={(e) => setServiceContactEnabled(e.target.checked)}
+          />
+          The service was for a different person/address than the billing contact above
+        </label>
+        {serviceContactEnabled && (
+          <div className="mb-3 grid grid-cols-1 gap-3 rounded-lg border border-silver-200 p-3 sm:grid-cols-2">
+            <label>
+              <span className={labelClass}>Service contact name</span>
+              <input type="text" value={value.serviceContact.name ?? ''} onChange={(e) => setValue((v) => ({ ...v, serviceContact: { ...v.serviceContact, name: e.target.value } }))} className={inputClass} />
+            </label>
+            <label>
+              <span className={labelClass}>Service contact email</span>
+              <input type="email" value={value.serviceContact.email ?? ''} onChange={(e) => setValue((v) => ({ ...v, serviceContact: { ...v.serviceContact, email: e.target.value } }))} className={inputClass} />
+            </label>
+            <label>
+              <span className={labelClass}>Service contact phone</span>
+              <input type="tel" value={value.serviceContact.phone ?? ''} onChange={(e) => setValue((v) => ({ ...v, serviceContact: { ...v.serviceContact, phone: e.target.value } }))} className={inputClass} />
+            </label>
+            <label>
+              <span className={labelClass}>Service postcode</span>
+              <input type="text" value={value.serviceContact.postcode ?? ''} onChange={(e) => setValue((v) => ({ ...v, serviceContact: { ...v.serviceContact, postcode: e.target.value } }))} className={inputClass} />
+            </label>
+            <label className="sm:col-span-2">
+              <span className={labelClass}>Service address</span>
+              <input type="text" value={value.serviceContact.address ?? ''} onChange={(e) => setValue((v) => ({ ...v, serviceContact: { ...v.serviceContact, address: e.target.value } }))} className={inputClass} />
+            </label>
+          </div>
+        )}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label>
+            <span className={labelClass}>Invoice recipient email (optional override)</span>
+            <input type="email" placeholder={value.customer.email || 'Defaults to billing email'} value={value.invoiceRecipientEmail} onChange={(e) => setValue((v) => ({ ...v, invoiceRecipientEmail: e.target.value }))} className={inputClass} />
+            <span className="mt-1 block text-xs text-navy-500">e.g. send the invoice to an agency instead of the tenant.</span>
+          </label>
+          <label>
+            <span className={labelClass}>Receipt recipient email (optional override)</span>
+            <input type="email" placeholder={value.customer.email || 'Defaults to billing email'} value={value.receiptRecipientEmail} onChange={(e) => setValue((v) => ({ ...v, receiptRecipientEmail: e.target.value }))} className={inputClass} />
+            <span className="mt-1 block text-xs text-navy-500">e.g. send the receipt to a landlord instead.</span>
+          </label>
         </div>
       </section>
 

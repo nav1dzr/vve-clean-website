@@ -19,6 +19,12 @@ import {
   formatMoney, formatDateTime, isInvoiceOverdue,
 } from '../lib/format';
 
+const PAYMENT_OPTION_LABELS: Record<string, string> = {
+  bank_transfer: 'Bank transfer',
+  stripe_payment_link: 'Stripe payment link',
+  both: 'Bank transfer and Stripe payment link',
+};
+
 type State =
   | { status: 'loading' }
   | { status: 'not-found' }
@@ -221,6 +227,19 @@ export default function InvoiceDetailPage() {
       customerNotes: inv.customerNotes || '',
       internalNotes: inv.internalNotes || '',
       paymentTerms: inv.paymentTerms || '',
+      paymentOption: inv.paymentOption,
+      stripePaymentLinkUrl: inv.stripePaymentLinkUrl || '',
+      serviceContact: {
+        name: inv.serviceContact?.name || '',
+        email: inv.serviceContact?.email || '',
+        phone: inv.serviceContact?.phone || '',
+        address: inv.serviceContact?.address || '',
+        postcode: inv.serviceContact?.postcode || '',
+      },
+      invoiceRecipientEmail: inv.invoiceRecipientEmail || '',
+      receiptRecipientEmail: inv.receiptRecipientEmail || '',
+      billingCustomerId: inv.billingCustomerId,
+      serviceCustomerId: inv.serviceCustomerId,
     });
 
     return (
@@ -318,11 +337,38 @@ export default function InvoiceDetailPage() {
         </dl>
       </Section>
 
-      <Section title="Customer">
+      <Section title="Billing contact">
         <p className="font-medium text-navy-950">{inv.customer.name}</p>
         <p className="text-sm text-navy-700">{inv.customer.email || 'Email not recorded'}</p>
         <p className="text-sm text-navy-700">{inv.customer.phone || 'Phone not recorded'}</p>
         <p className="text-sm text-navy-700">{[inv.customer.address, inv.customer.postcode].filter(Boolean).join(', ') || 'Address not recorded'}</p>
+        {(inv.invoiceRecipientEmail || inv.receiptRecipientEmail) && (
+          <dl className="mt-2 space-y-1 border-t border-silver-200 pt-2 text-sm">
+            {inv.invoiceRecipientEmail && <Row label="Invoice sent to" value={inv.invoiceRecipientEmail} />}
+            {inv.receiptRecipientEmail && <Row label="Receipt sent to" value={inv.receiptRecipientEmail} />}
+          </dl>
+        )}
+      </Section>
+
+      {inv.serviceContact && (
+        <Section title="Service address">
+          {inv.serviceContact.name && <p className="font-medium text-navy-950">{inv.serviceContact.name}</p>}
+          {inv.serviceContact.email && <p className="text-sm text-navy-700">{inv.serviceContact.email}</p>}
+          {inv.serviceContact.phone && <p className="text-sm text-navy-700">{inv.serviceContact.phone}</p>}
+          <p className="text-sm text-navy-700">{[inv.serviceContact.address, inv.serviceContact.postcode].filter(Boolean).join(', ') || 'Address not recorded'}</p>
+        </Section>
+      )}
+
+      <Section title="Payment instructions">
+        <Row label="Payment option" value={PAYMENT_OPTION_LABELS[inv.paymentOption] || inv.paymentOption} />
+        {inv.stripePaymentLinkUrl && (
+          <p className="mt-2 text-sm">
+            <a href={inv.stripePaymentLinkUrl} target="_blank" rel="noopener noreferrer" className="text-sky-600 hover:text-sky-700">
+              Open Stripe payment link ↗
+            </a>
+          </p>
+        )}
+        <p className="mt-2 text-xs text-navy-500">Bank details (if configured) appear on the PDF and in the email — not repeated here.</p>
       </Section>
 
       <Section title="Line items">

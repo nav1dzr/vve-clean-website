@@ -13,6 +13,9 @@ import InvoiceEditorPage from './pages/InvoiceEditorPage';
 import InvoiceDetailPage from './pages/InvoiceDetailPage';
 import ReceiptListPage from './pages/ReceiptListPage';
 import ReceiptDetailPage from './pages/ReceiptDetailPage';
+import CustomerListPage from './pages/CustomerListPage';
+import CustomerFormPage from './pages/CustomerFormPage';
+import CustomerDetailPage from './pages/CustomerDetailPage';
 
 export default function App() {
   return (
@@ -38,6 +41,10 @@ export default function App() {
             <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
             <Route path="/receipts" element={<ReceiptListPage />} />
             <Route path="/receipts/:id" element={<ReceiptDetailPage />} />
+            <Route path="/customers" element={<CustomerListPage />} />
+            <Route path="/customers/new" element={<CustomerFormPage />} />
+            <Route path="/customers/:id" element={<CustomerDetailPage />} />
+            <Route path="/customers/:id/edit" element={<CustomerFormPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -24,6 +24,23 @@ export interface InvoiceCustomer {
   postcode: string | null;
 }
 
+export interface InvoiceServiceContact {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  postcode: string | null;
+}
+
+export const PAYMENT_OPTION_VALUES = ['bank_transfer', 'stripe_payment_link', 'both'] as const;
+export type PaymentOptionValue = (typeof PAYMENT_OPTION_VALUES)[number];
+
+export interface PaymentInstructionsSnapshot {
+  paymentOption: PaymentOptionValue;
+  bankDetails: { accountName: string; sortCode: string; accountNumber: string; referenceInstructions: string | null } | null;
+  stripePaymentLinkUrl: string | null;
+}
+
 export interface InvoiceDetail {
   id: string;
   bookingId: string | null;
@@ -52,6 +69,13 @@ export interface InvoiceDetail {
   issuedByAdminId: string | null;
   documentVersion: number;
   duplicatedFromId: string | null;
+  paymentOption: PaymentOptionValue;
+  stripePaymentLinkUrl: string | null;
+  serviceContact: InvoiceServiceContact | null;
+  invoiceRecipientEmail: string | null;
+  receiptRecipientEmail: string | null;
+  billingCustomerId: string | null;
+  serviceCustomerId: string | null;
   createdAt: string;
   updatedAt: string;
   issuedAt: string | null;
@@ -158,6 +182,13 @@ export interface InvoiceDraftInput {
   customerNotes?: string | null;
   internalNotes?: string | null;
   paymentTerms?: string | null;
+  paymentOption?: PaymentOptionValue;
+  stripePaymentLinkUrl?: string | null;
+  serviceContact?: InvoiceServiceContact | null;
+  invoiceRecipientEmail?: string | null;
+  receiptRecipientEmail?: string | null;
+  billingCustomerId?: string | null;
+  serviceCustomerId?: string | null;
 }
 
 export const INVOICE_DOCUMENT_STATUS_VALUES = ['draft', 'issued', 'void', 'cancelled'] as const;
