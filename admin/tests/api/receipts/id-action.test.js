@@ -70,4 +70,28 @@ describe('receipts/[id]/[[...action]] dispatcher', () => {
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body).results.map((e) => e.eventType)).toEqual(['receipt_created']);
   });
+
+  it('GET download generates a PDF on the fly if none is stored yet, and returns a signed URL', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const { receiptId } = await createReceiptIfPaid(supabase, {
+      invoiceId: 'inv-1', customer: { name: 'Jane', email: 'jane@example.com' }, invoiceTotal: 100, totalPaid: 100, paymentDate: '2026-07-16', paymentMethod: 'card',
+    }, 'admin-1'); // no PDF generator injected — download must generate on the fly
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/receipts/${receiptId}/download` }), res);
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.url).toMatch(/^https:\/\/fake-storage\.test\/financial-documents\/receipts\//);
+
+    const receipt = supabase._tables.receipts.find((r) => r.id === receiptId);
+    expect(receipt.pdf_storage_path).toBeTruthy();
+  });
+
+  it('GET download returns 404 for a missing receipt', async () => {
+    getServiceClientMock.mockReturnValue(createFakeSupabase());
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/receipts/${VALID_UUID}/download` }), res);
+    expect(res.statusCode).toBe(404);
+  });
 });

@@ -55,6 +55,26 @@ describe('createReceiptIfPaid', () => {
     expect(supabase._tables.receipts.filter((r) => r.invoice_id === 'invoice-1')).toHaveLength(1);
   });
 
+  it('calls the injected generateAndStorePdf and saves the returned path', async () => {
+    const supabase = createFakeSupabase();
+    let received = null;
+    const generateAndStorePdf = async (receipt) => { received = receipt; return { ok: true, path: `receipts/${receipt.id}/receipt-v1.pdf` }; };
+
+    const result = await createReceiptIfPaid(supabase, receiptInput({ invoiceNumber: 'INV-2026-000001' }), ADMIN_ID, { generateAndStorePdf });
+    expect(received.receipt_number).toBe(result.receiptNumber);
+    expect(received.invoice_number_snapshot).toBe('INV-2026-000001');
+
+    const receipt = supabase._tables.receipts.find((r) => r.id === result.receiptId);
+    expect(receipt.pdf_storage_path).toBe(`receipts/${result.receiptId}/receipt-v1.pdf`);
+  });
+
+  it('still creates the receipt even if PDF generation throws', async () => {
+    const supabase = createFakeSupabase();
+    const generateAndStorePdf = async () => { throw new Error('pdf render failed'); };
+    const result = await createReceiptIfPaid(supabase, receiptInput(), ADMIN_ID, { generateAndStorePdf });
+    expect(result.ok).toBe(true);
+  });
+
   it('allocates independent, sequential numbers per invoice', async () => {
     const supabase = createFakeSupabase();
     const r1 = await createReceiptIfPaid(supabase, receiptInput({ invoiceId: 'invoice-1' }), ADMIN_ID);

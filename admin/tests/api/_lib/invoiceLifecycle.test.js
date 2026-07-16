@@ -177,6 +177,42 @@ describe('issueInvoice', () => {
     expect(result.ok).toBe(false);
     expect(result.status).toBe(409);
   });
+
+  it('calls the injected generateAndStorePdf with the issued invoice and items, and saves the returned path', async () => {
+    const supabase = createFakeSupabase();
+    const { invoiceId } = await createDraftInvoice(supabase, draftInput(), ADMIN_ID);
+
+    let receivedInvoice = null;
+    let receivedItems = null;
+    const generateAndStorePdf = async (inv, its) => {
+      receivedInvoice = inv;
+      receivedItems = its;
+      return { ok: true, path: `invoices/${invoiceId}/invoice-v1.pdf` };
+    };
+
+    const result = await issueInvoice(supabase, invoiceId, ADMIN_ID, { generateAndStorePdf });
+    expect(result.ok).toBe(true);
+    expect(receivedInvoice.invoice_number).toBe(result.invoiceNumber);
+    expect(receivedItems).toHaveLength(1);
+
+    const invoice = supabase._tables.invoices.find((i) => i.id === invoiceId);
+    expect(invoice.pdf_storage_path).toBe(`invoices/${invoiceId}/invoice-v1.pdf`);
+
+    const events = supabase._tables.invoice_events.filter((e) => e.document_id === invoiceId);
+    expect(events.map((e) => e.event_type)).toEqual(['created', 'issued', 'pdf_generated']);
+  });
+
+  it('still issues successfully even if PDF generation throws (issuing is not rolled back)', async () => {
+    const supabase = createFakeSupabase();
+    const { invoiceId } = await createDraftInvoice(supabase, draftInput(), ADMIN_ID);
+    const generateAndStorePdf = async () => { throw new Error('pdf render failed'); };
+
+    const result = await issueInvoice(supabase, invoiceId, ADMIN_ID, { generateAndStorePdf });
+    expect(result.ok).toBe(true);
+    const invoice = supabase._tables.invoices.find((i) => i.id === invoiceId);
+    expect(invoice.document_status).toBe('issued');
+    expect(invoice.pdf_storage_path).toBeUndefined(); // no path recorded — safe to regenerate later
+  });
 });
 
 describe('voidInvoice', () => {

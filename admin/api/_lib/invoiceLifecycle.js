@@ -264,10 +264,10 @@ export async function deleteDraftInvoice(supabase, invoiceId) {
 // Atomically (see file header) issues a draft invoice: revalidates
 // calculations, allocates the formal number, snapshots business/customer/
 // item/total data, and marks it issued.
-export async function issueInvoice(supabase, invoiceId, adminId) {
+export async function issueInvoice(supabase, invoiceId, adminId, { generateAndStorePdf } = {}) {
   const { data: invoice, error: fetchErr } = await supabase
     .from('invoices')
-    .select('id, document_status, customer_name, customer_email, customer_phone, customer_address, customer_postcode, subtotal, document_discount, tax_total, total, deposit_applied, amount_due, due_date, issue_date')
+    .select('id, document_status, customer_name, customer_email, customer_phone, customer_address, customer_postcode, po_reference, service_date, booking_ref_snapshot, subtotal, document_discount, tax_total, total, deposit_applied, amount_paid, amount_due, payment_terms, customer_notes, due_date, issue_date')
     .eq('id', invoiceId)
     .maybeSingle();
 
@@ -329,6 +329,27 @@ export async function issueInvoice(supabase, invoiceId, adminId) {
     adminId,
     metadata: { invoiceNumber: issued.invoice_number },
   });
+
+  // PDF generation is injected (same pattern as recordPayment's
+  // createReceiptIfPaid) rather than imported directly, so this module
+  // stays testable without mocking pdfkit/Supabase Storage. A failure here
+  // does not roll back the issue — the invoice is validly issued with a
+  // real number either way; the PDF can be regenerated for the same
+  // version on demand (admin/api/invoices/[id]/[[...action]].js's
+  // download action falls back to generating on the fly if
+  // pdf_storage_path is still empty).
+  if (typeof generateAndStorePdf === 'function') {
+    try {
+      const pdfResult = await generateAndStorePdf({ ...invoice, ...issued, issue_date: issueDate, business_snapshot: businessSnapshot }, items);
+      if (pdfResult?.ok) {
+        await supabase.from('invoices').update({ pdf_storage_path: pdfResult.path }).eq('id', invoiceId);
+        await logEvent(supabase, { documentType: 'invoice', documentId: invoiceId, eventType: 'pdf_generated', adminId, metadata: { path: pdfResult.path } });
+      }
+    } catch (err) {
+      // Genuinely never roll back the issue for this — see comment above.
+      console.error('[admin/api] PDF generation after issue failed:', err?.message);
+    }
+  }
 
   return { ok: true, invoiceNumber: issued.invoice_number };
 }
@@ -454,10 +475,10 @@ export async function duplicateInvoiceAsDraft(supabase, invoiceId, adminId) {
 // same call (INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §6) — receipt creation
 // itself lives in receiptLifecycle.js and is invoked from here to keep the
 // "did this payment complete the invoice" decision in one place.
-export async function recordPayment(supabase, invoiceId, input, adminId, { createReceiptIfPaid } = {}) {
+export async function recordPayment(supabase, invoiceId, input, adminId, { createReceiptIfPaid, generateAndStoreReceiptPdf } = {}) {
   const { data: invoice, error: fetchErr } = await supabase
     .from('invoices')
-    .select('id, document_status, total, deposit_applied, booking_id, customer_name, customer_email, customer_phone, customer_address, customer_postcode')
+    .select('id, document_status, invoice_number, total, deposit_applied, booking_id, customer_name, customer_email, customer_phone, customer_address, customer_postcode')
     .eq('id', invoiceId)
     .maybeSingle();
 
@@ -533,6 +554,7 @@ export async function recordPayment(supabase, invoiceId, input, adminId, { creat
   if (paymentStatus === 'paid' && typeof createReceiptIfPaid === 'function') {
     const receiptResult = await createReceiptIfPaid(supabase, {
       invoiceId,
+      invoiceNumber: invoice.invoice_number,
       bookingId: invoice.booking_id,
       customer: {
         name: invoice.customer_name,
@@ -546,7 +568,7 @@ export async function recordPayment(supabase, invoiceId, input, adminId, { creat
       paymentDate: input.paymentDate,
       paymentMethod: input.method,
       paymentReference: input.reference || null,
-    }, adminId);
+    }, adminId, { generateAndStorePdf: generateAndStoreReceiptPdf });
     if (receiptResult?.ok) receiptId = receiptResult.receiptId;
   }
 

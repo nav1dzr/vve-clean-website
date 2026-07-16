@@ -208,6 +208,7 @@ CREATE TABLE IF NOT EXISTS receipts (
   customer_address     text,
   customer_postcode    text,
 
+  invoice_number_snapshot text,
   invoice_total        numeric,
   total_paid           numeric     NOT NULL DEFAULT 0,
   payment_date         date,

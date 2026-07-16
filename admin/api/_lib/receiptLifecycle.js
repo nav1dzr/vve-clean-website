@@ -30,7 +30,7 @@ async function logEvent(supabase, { documentId, eventType, adminId, metadata }) 
 // first — recordPayment only calls this on the specific update that
 // transitioned the status to 'paid', but this check makes the function
 // itself safe to call more than once regardless.
-export async function createReceiptIfPaid(supabase, input, adminId) {
+export async function createReceiptIfPaid(supabase, input, adminId, { generateAndStorePdf } = {}) {
   const { data: existing, error: existingErr } = await supabase
     .from('receipts')
     .select('id')
@@ -50,6 +50,7 @@ export async function createReceiptIfPaid(supabase, input, adminId) {
     .insert({
       receipt_number: numberResult,
       invoice_id: input.invoiceId,
+      invoice_number_snapshot: input.invoiceNumber || null,
       booking_id: input.bookingId || null,
       customer_name: input.customer.name,
       customer_email: input.customer.email || null,
@@ -89,6 +90,37 @@ export async function createReceiptIfPaid(supabase, input, adminId) {
   });
   if (invoiceEventErr) {
     console.error('[admin/api] invoice_events (paid invoice → receipt link) insert failed:', invoiceEventErr.code, invoiceEventErr.message);
+  }
+
+  // Same injected-dependency pattern as issueInvoice's PDF generation
+  // (invoiceLifecycle.js) — keeps this module testable without mocking
+  // pdfkit/Supabase Storage, and a PDF failure never blocks the receipt
+  // itself from existing.
+  if (typeof generateAndStorePdf === 'function') {
+    try {
+      const pdfResult = await generateAndStorePdf({
+        id: receiptRow.id,
+        receipt_number: receiptRow.receipt_number,
+        invoice_id: input.invoiceId,
+        invoice_number_snapshot: input.invoiceNumber || null,
+        customer_name: input.customer.name,
+        customer_email: input.customer.email || null,
+        customer_phone: input.customer.phone || null,
+        customer_address: input.customer.address || null,
+        customer_postcode: input.customer.postcode || null,
+        invoice_total: input.invoiceTotal,
+        total_paid: input.totalPaid,
+        payment_date: input.paymentDate,
+        payment_method: input.paymentMethod,
+        payment_reference: input.paymentReference || null,
+      });
+      if (pdfResult?.ok) {
+        await supabase.from('receipts').update({ pdf_storage_path: pdfResult.path }).eq('id', receiptRow.id);
+        await logEvent(supabase, { documentId: receiptRow.id, eventType: 'pdf_generated', adminId, metadata: { path: pdfResult.path } });
+      }
+    } catch (err) {
+      console.error('[admin/api] PDF generation after receipt creation failed:', err?.message);
+    }
   }
 
   return { ok: true, receiptId: receiptRow.id, receiptNumber: receiptRow.receipt_number };

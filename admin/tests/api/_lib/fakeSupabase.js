@@ -114,5 +114,24 @@ export function createFakeSupabase(initialData = {}) {
     return { data: null, error: new Error(`fakeSupabase: unknown rpc ${fnName}`) };
   }
 
-  return { from, rpc, _tables: tables };
+  // Minimal fake of the Storage API surface admin/api/_lib/invoiceStorage.js
+  // uses: upload() and createSignedUrl(). Files are kept in memory only —
+  // no real bytes ever touch disk or a network call in tests.
+  const storedFiles = {};
+  function storageFrom(bucket) {
+    return {
+      async upload(path, buffer) {
+        storedFiles[`${bucket}/${path}`] = buffer;
+        return { data: { path }, error: null };
+      },
+      async createSignedUrl(path) {
+        if (!storedFiles[`${bucket}/${path}`]) {
+          return { data: null, error: new Error('object not found') };
+        }
+        return { data: { signedUrl: `https://fake-storage.test/${bucket}/${path}?signed=1` }, error: null };
+      },
+    };
+  }
+
+  return { from, rpc, storage: { from: storageFrom }, _tables: tables, _storedFiles: storedFiles };
 }

@@ -225,4 +225,74 @@ describe('invoices/[id]/[[...action]] dispatcher', () => {
     expect(res.statusCode).toBe(401);
     expect(getServiceClientMock).not.toHaveBeenCalled();
   });
+
+  it('GET preview streams a PDF for a draft, with a DRAFT watermark, and logs a previewed event', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}/preview` }), res);
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['Content-Type']).toBe('application/pdf');
+    expect(Buffer.isBuffer(res.body)).toBe(true);
+    expect(res.body.subarray(0, 5).toString('ascii')).toBe('%PDF-');
+
+    const events = supabase._tables.invoice_events.filter((e) => e.document_id === invoiceId);
+    expect(events.map((e) => e.event_type)).toContain('previewed');
+  });
+
+  it('GET preview returns 400 for an invoice with no line items', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+    supabase._tables.invoice_items = supabase._tables.invoice_items.filter((i) => i.invoice_id !== invoiceId);
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}/preview` }), res);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('GET download on a draft is rejected (only an issued invoice has a final PDF)', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}/download` }), res);
+    expect(res.statusCode).toBe(409);
+  });
+
+  it('GET download on an issued invoice returns a signed URL and logs a downloaded event', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+    await issueInvoice(supabase, invoiceId, 'admin-1'); // no PDF generator injected here — download must generate on the fly
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}/download` }), res);
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.url).toMatch(/^https:\/\/fake-storage\.test\/financial-documents\/invoices\//);
+
+    const invoice = supabase._tables.invoices.find((i) => i.id === invoiceId);
+    expect(invoice.pdf_storage_path).toBeTruthy(); // generated and saved on first download
+
+    const events = supabase._tables.invoice_events.filter((e) => e.document_id === invoiceId);
+    expect(events.map((e) => e.event_type)).toContain('downloaded');
+  });
+
+  it('POST issue generates and stores a PDF automatically (download reuses it rather than regenerating)', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}/issue`, method: 'POST' }), makeRes());
+    const invoice = supabase._tables.invoices.find((i) => i.id === invoiceId);
+    expect(invoice.pdf_storage_path).toBe(`invoices/${invoiceId}/invoice-v1.pdf`);
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}/download` }), res);
+    expect(res.statusCode).toBe(200);
+  });
 });

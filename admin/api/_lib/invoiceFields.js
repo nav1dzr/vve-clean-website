@@ -33,7 +33,7 @@ export const RECEIPT_CARD_SELECT = [
 export const RECEIPT_DETAIL_SELECT = [
   'id', 'receipt_number', 'invoice_id', 'booking_id',
   'customer_name', 'customer_email', 'customer_phone', 'customer_address', 'customer_postcode',
-  'invoice_total', 'total_paid', 'payment_date', 'payment_method', 'payment_reference',
+  'invoice_number_snapshot', 'invoice_total', 'total_paid', 'payment_date', 'payment_method', 'payment_reference',
   'business_snapshot', 'created_by_admin_id', 'pdf_storage_path', 'document_version',
   'created_at', 'sent_at',
 ].join(', ');
@@ -153,6 +153,7 @@ export function toReceiptDetail(row) {
       address: row.customer_address,
       postcode: row.customer_postcode,
     },
+    invoiceNumberSnapshot: row.invoice_number_snapshot,
     invoiceTotal: row.invoice_total,
     totalPaid: row.total_paid,
     paymentDate: row.payment_date,

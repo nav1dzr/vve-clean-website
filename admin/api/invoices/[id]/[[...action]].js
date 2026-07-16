@@ -12,21 +12,45 @@ import {
   duplicateInvoiceAsDraft, recordPayment, reversePayment,
 } from '../../_lib/invoiceLifecycle.js';
 import { createReceiptIfPaid } from '../../_lib/receiptLifecycle.js';
+import { generateInvoicePdfBuffer, generateReceiptPdfBuffer } from '../../_lib/invoicePdf.js';
+import { invoicePdfPath, receiptPdfPath, uploadPdf, getSignedDownloadUrl } from '../../_lib/invoiceStorage.js';
+import { getBusinessSettings } from '../../_lib/businessSettings.js';
 
 export const config = { api: { bodyParser: false } };
 
 const MAX_BODY_BYTES = 64 * 1024;
+
+// Both factories return a closure matching the `generateAndStorePdf`
+// dependency the lifecycle functions expect (see invoiceLifecycle.js's
+// issueInvoice and receiptLifecycle.js's createReceiptIfPaid) — this is
+// where the "real" PDF renderer + storage upload get wired in, keeping
+// those lifecycle modules themselves free of any pdfkit/Storage import.
+function makeInvoicePdfGenerator(supabase) {
+  return async function generateAndStoreInvoicePdf(invoice, items) {
+    const buffer = await generateInvoicePdfBuffer(invoice, items, getBusinessSettings(), { isDraft: false });
+    return uploadPdf(supabase, invoicePdfPath(invoice.id, invoice.document_version || 1), buffer);
+  };
+}
+
+function makeReceiptPdfGenerator(supabase) {
+  return async function generateAndStoreReceiptPdf(receipt) {
+    const buffer = await generateReceiptPdfBuffer(receipt, getBusinessSettings());
+    return uploadPdf(supabase, receiptPdfPath(receipt.id, receipt.document_version || 1), buffer);
+  };
+}
 
 // One dispatcher file handles /api/invoices/:id and every /api/invoices/
 // :id/<action...> route, via Vercel's optional catch-all segment — see
 // INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §7 for why (the admin Vercel
 // project's function-count budget does not allow one file per action).
 //
-// Actions implemented so far: detail (GET, no action), update (PATCH),
-// delete (DELETE), issue, void, duplicate, payments (record), payments/
-// :paymentId/reverse, events. Preview/download/send/resend are added in
-// later phases once PDF generation (Phase 5) and email sending (Phase 6)
-// exist — this file is extended then, not duplicated.
+// Actions implemented: detail (GET, no action), update (PATCH), delete
+// (DELETE), issue, void, duplicate, payments (record), payments/
+// :paymentId/reverse, events, preview (draft PDF, generated on demand,
+// never stored), download (issued invoice — short-lived signed URL to the
+// stored PDF, generating it on the fly first if a pre-existing invoice
+// somehow doesn't have one yet). send/resend are added in Phase 6 once
+// email sending exists — this file is extended then, not duplicated.
 export default async function handler(req, res) {
   const origin = req.headers.origin || '';
   const headers = { ...corsHeaders(origin), 'Cache-Control': 'no-store', 'Content-Type': 'application/json' };
@@ -64,6 +88,8 @@ export default async function handler(req, res) {
       return await handleReversePayment(req, res, headers, supabase, action[1], auth);
     }
     if (action.length === 1 && action[0] === 'events') return await handleEvents(req, res, headers, supabase, invoiceId);
+    if (action.length === 1 && action[0] === 'preview') return await handlePreview(req, res, headers, supabase, invoiceId);
+    if (action.length === 1 && action[0] === 'download') return await handleDownload(req, res, headers, supabase, invoiceId);
 
     res.writeHead(404, headers);
     return res.end(JSON.stringify({ error: 'Not found' }));
@@ -135,7 +161,7 @@ async function handleIssue(req, res, headers, supabase, invoiceId, auth) {
     res.writeHead(405, headers);
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
   }
-  const result = await issueInvoice(supabase, invoiceId, auth.admin.id);
+  const result = await issueInvoice(supabase, invoiceId, auth.admin.id, { generateAndStorePdf: makeInvoicePdfGenerator(supabase) });
   if (!result.ok) {
     res.writeHead(result.status || 400, headers);
     return res.end(JSON.stringify({ error: result.error }));
@@ -191,7 +217,10 @@ async function handleRecordPayment(req, res, headers, supabase, invoiceId, auth)
     res.writeHead(400, headers);
     return res.end(JSON.stringify({ error: err.message || 'Invalid request body' }));
   }
-  const result = await recordPayment(supabase, invoiceId, body, auth.admin.id, { createReceiptIfPaid });
+  const result = await recordPayment(supabase, invoiceId, body, auth.admin.id, {
+    createReceiptIfPaid,
+    generateAndStoreReceiptPdf: makeReceiptPdfGenerator(supabase),
+  });
   if (!result.ok) {
     res.writeHead(result.status || 400, headers);
     return res.end(JSON.stringify({ error: result.error }));
@@ -249,4 +278,96 @@ async function handleEvents(req, res, headers, supabase, invoiceId) {
   }
   res.writeHead(200, headers);
   return res.end(JSON.stringify({ results: (data || []).map(toInvoiceEvent) }));
+}
+
+// GET /api/invoices/:id/preview — always generated on demand, never
+// stored (INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §8). Works for a draft
+// (renders with the DRAFT watermark) or an issued invoice (renders
+// exactly as issued, without touching pdf_storage_path/document_version —
+// this is a preview endpoint, not the immutable stored document).
+async function handlePreview(req, res, headers, supabase, invoiceId) {
+  if (req.method !== 'GET') {
+    res.writeHead(405, headers);
+    return res.end(JSON.stringify({ error: 'Method not allowed' }));
+  }
+  const { data: invoice, error } = await supabase.from('invoices').select('*').eq('id', invoiceId).maybeSingle();
+  if (error) {
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: 'Failed to load invoice' }));
+  }
+  if (!invoice) {
+    res.writeHead(404, headers);
+    return res.end(JSON.stringify({ error: 'Invoice not found' }));
+  }
+  const { data: items, error: itemsErr } = await supabase
+    .from('invoice_items').select('*').eq('invoice_id', invoiceId).order('sort_order', { ascending: true });
+  if (itemsErr || !items || items.length === 0) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'Cannot preview an invoice with no line items' }));
+  }
+
+  await supabase.from('invoice_events').insert({ document_type: 'invoice', document_id: invoiceId, event_type: 'previewed' });
+
+  const settings = invoice.document_status === 'issued' && invoice.business_snapshot ? invoice.business_snapshot : getBusinessSettings();
+  const buffer = await generateInvoicePdfBuffer(invoice, items, settings, { isDraft: invoice.document_status === 'draft' });
+
+  res.writeHead(200, {
+    ...headers,
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `inline; filename="invoice-preview-${invoiceId}.pdf"`,
+  });
+  return res.end(buffer);
+}
+
+// GET /api/invoices/:id/download — only for an issued invoice's exact
+// stored PDF (never regenerated from possibly-changed data — that would
+// violate immutability). Returns a short-lived signed URL rather than the
+// bytes directly, per the storage design in
+// INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §8. If an older issued invoice
+// somehow has no pdf_storage_path yet (e.g. issued before this endpoint
+// existed), it is generated once, from its own immutable business_
+// snapshot, and stored — never from live/current settings.
+async function handleDownload(req, res, headers, supabase, invoiceId) {
+  if (req.method !== 'GET') {
+    res.writeHead(405, headers);
+    return res.end(JSON.stringify({ error: 'Method not allowed' }));
+  }
+  const { data: invoice, error } = await supabase.from('invoices').select('*').eq('id', invoiceId).maybeSingle();
+  if (error) {
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: 'Failed to load invoice' }));
+  }
+  if (!invoice) {
+    res.writeHead(404, headers);
+    return res.end(JSON.stringify({ error: 'Invoice not found' }));
+  }
+  if (invoice.document_status !== 'issued') {
+    res.writeHead(409, headers);
+    return res.end(JSON.stringify({ error: 'Only an issued invoice has a final PDF to download' }));
+  }
+
+  let path = invoice.pdf_storage_path;
+  if (!path) {
+    const { data: items } = await supabase
+      .from('invoice_items').select('*').eq('invoice_id', invoiceId).order('sort_order', { ascending: true });
+    const buffer = await generateInvoicePdfBuffer(invoice, items || [], invoice.business_snapshot || getBusinessSettings(), { isDraft: false });
+    const uploadResult = await uploadPdf(supabase, invoicePdfPath(invoiceId, invoice.document_version || 1), buffer);
+    if (!uploadResult.ok) {
+      res.writeHead(500, headers);
+      return res.end(JSON.stringify({ error: uploadResult.error }));
+    }
+    path = uploadResult.path;
+    await supabase.from('invoices').update({ pdf_storage_path: path }).eq('id', invoiceId);
+  }
+
+  const signedResult = await getSignedDownloadUrl(supabase, path);
+  if (!signedResult.ok) {
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: signedResult.error }));
+  }
+
+  await supabase.from('invoice_events').insert({ document_type: 'invoice', document_id: invoiceId, event_type: 'downloaded' });
+
+  res.writeHead(200, headers);
+  return res.end(JSON.stringify({ url: signedResult.url }));
 }
