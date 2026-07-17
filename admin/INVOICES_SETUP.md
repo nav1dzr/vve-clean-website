@@ -127,6 +127,42 @@ Until both are set, `admin/api/_lib/mailer.js`'s `isMailerConfigured()`
 returns `false` and the send/resend routes return a clear 500 rather than
 attempting a send and failing silently or partially.
 
+### Payment communication emails
+
+Every invoice/receipt email is admin-triggered — nothing in this feature
+ever sends an email on its own as a side effect of a status change (see
+`admin/api/invoices/[id].js`'s `handleSend`/`handleRemind`/
+`handlePaymentAck` and `admin/api/_lib/invoiceEmailTemplates.js`):
+
+- **Unpaid/issued invoice** (`invoiceEmail`) — "Send"/"Resend". Blocked once
+  `payment_status` is `paid` (409, "send the receipt instead") — the
+  receipt has its own send flow with the correct "Thank you for your
+  payment" wording and the receipt PDF attached, not the invoice's.
+- **Partial payment** (`paymentAcknowledgementEmail`) — optional, offered as
+  a checkbox on the "Record payment" form only when the amount entered
+  would leave a balance. States the amount received and the remaining
+  balance; no attachment (there is nothing new to attach until the balance
+  reaches zero).
+- **Full payment** (`receiptEmail`) — "Thank you for your payment", the
+  receipt PDF attached. Unchanged by this pass; already correct.
+- **Manual reminder** (`paymentReminderEmail`) — "Send payment reminder",
+  available on any issued invoice with `amount_due > 0` (covers sent,
+  partially paid, and overdue — overdue is derived from `due_date`, never
+  its own stored status). Reuses the original issued invoice PDF, never
+  regenerates it.
+
+**Automatic scheduled reminders are not built** — every reminder above is a
+single admin click, never triggered by a cron job or a passing due date.
+If this becomes a real requirement, the natural place to add it is a new
+Vercel Cron job (see `vercel.json` if one exists, or Vercel's Cron Jobs
+dashboard) calling a dedicated endpoint that queries `amount_due > 0 AND
+document_status = 'issued' AND due_date < today`, batches through the same
+`paymentReminderEmail`/PDF-reuse logic `handleRemind` already has, and
+records a `reminder_sent` event per invoice exactly as the manual path
+does — the eligibility check and email are already shared and reusable;
+only the trigger (cron vs. click) and rate-limiting/cadence rules (e.g.
+"at most one automatic reminder per invoice per week") would be new.
+
 ## 4. Create the private storage bucket (if the migration couldn't)
 
 The migration attempts `INSERT INTO storage.buckets (id, name, public)

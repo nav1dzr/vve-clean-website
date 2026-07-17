@@ -102,17 +102,34 @@ function paymentInstructionsText(invoice, settings) {
   return lines.join('\n');
 }
 
-export function invoiceEmail(invoice, settings, { customMessage } = {}) {
+// A one-line "for your ___" summary of what the invoice is for, derived
+// from the line items actually on the invoice — there is no separate
+// "service" field on the invoices table. Returns null (never a made-up
+// value) when there's nothing to summarise, so callers fall back to
+// generic wording rather than printing "for your ." or similar.
+function serviceSummary(items) {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  const first = typeof items[0]?.description === 'string' ? items[0].description.trim() : '';
+  if (!first) return null;
+  return items.length > 1 ? `${first} (+${items.length - 1} more)` : first;
+}
+
+export function invoiceEmail(invoice, settings, { customMessage, items } = {}) {
   const subject = `Invoice ${invoice.invoice_number} from ${settings.tradingName}`;
   const greetingName = escHtml(invoice.customer_name) || 'there';
+  const service = serviceSummary(items);
+  const intro = service
+    ? `Please find your invoice attached for your ${escHtml(service)}.`
+    : `Please find your invoice attached${invoice.booking_ref_snapshot ? ` for booking ${escHtml(invoice.booking_ref_snapshot)}` : ''}.`;
 
   const bodyHtml = `
     <p>Hi ${greetingName},</p>
-    <p>Please find attached invoice <strong>${escHtml(invoice.invoice_number)}</strong> for ${escHtml(invoice.booking_ref_snapshot || '')
-      ? `booking ${escHtml(invoice.booking_ref_snapshot)}` : 'the work below'}.</p>
+    <p>${intro}</p>
     ${customMessage ? `<p>${escHtml(customMessage)}</p>` : ''}
     <table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;margin:16px 0;">
-      <tr><td style="color:#666;">Invoice total</td><td align="right"><strong>${money(settings, invoice.total)}</strong></td></tr>
+      <tr><td style="color:#666;">Invoice number</td><td align="right"><strong>${escHtml(invoice.invoice_number)}</strong></td></tr>
+      <tr><td style="color:#666;">Invoice total</td><td align="right">${money(settings, invoice.total)}</td></tr>
+      ${invoice.deposit_applied ? `<tr><td style="color:#666;">Deposit paid</td><td align="right">-${money(settings, invoice.deposit_applied)}</td></tr>` : ''}
       <tr><td style="color:#666;">Amount due</td><td align="right"><strong>${money(settings, invoice.amount_due)}</strong></td></tr>
       <tr><td style="color:#666;">Due date</td><td align="right">${escHtml(invoice.due_date || '—')}</td></tr>
     </table>
@@ -128,10 +145,11 @@ export function invoiceEmail(invoice, settings, { customMessage } = {}) {
     '',
     `Hi ${invoice.customer_name || 'there'},`,
     '',
-    `Please find attached invoice ${invoice.invoice_number}.`,
+    service ? `Please find your invoice attached for your ${service}.` : `Please find your invoice attached${invoice.booking_ref_snapshot ? ` for booking ${invoice.booking_ref_snapshot}` : ''}.`,
     customMessage || '',
     '',
     `Invoice total: ${money(settings, invoice.total)}`,
+    invoice.deposit_applied ? `Deposit paid: -${money(settings, invoice.deposit_applied)}` : '',
     `Amount due: ${money(settings, invoice.amount_due)}`,
     `Due date: ${invoice.due_date || '—'}`,
     '',
@@ -146,15 +164,93 @@ export function invoiceEmail(invoice, settings, { customMessage } = {}) {
   return { subject, html: wrapHtml(bodyHtml, settings), text };
 }
 
+// Optional, admin-triggered acknowledgement for a *partial* payment — never
+// sent automatically (matches this codebase's "nothing emails itself"
+// pattern — see admin/api/invoices/[id].js's handleSend). No PDF attached:
+// there is nothing new to attach yet (the receipt only exists once the
+// balance reaches zero — see receiptLifecycle.js's createReceiptIfPaid).
+export function paymentAcknowledgementEmail(invoice, payment, settings) {
+  const subject = `Payment received — Invoice ${invoice.invoice_number}`;
+  const greetingName = escHtml(invoice.customer_name) || 'there';
+
+  const bodyHtml = `
+    <p>Hi ${greetingName},</p>
+    <p>Thank you for your payment of <strong>${money(settings, payment.amount)}</strong>. The remaining balance is <strong>${money(settings, invoice.amount_due)}</strong>.</p>
+    <table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;margin:16px 0;">
+      <tr><td style="color:#666;">Invoice</td><td align="right">${escHtml(invoice.invoice_number)}</td></tr>
+      <tr><td style="color:#666;">Amount received</td><td align="right">${money(settings, payment.amount)}</td></tr>
+      <tr><td style="color:#666;">Remaining balance</td><td align="right"><strong>${money(settings, invoice.amount_due)}</strong></td></tr>
+      ${invoice.due_date ? `<tr><td style="color:#666;">Due date</td><td align="right">${escHtml(invoice.due_date)}</td></tr>` : ''}
+    </table>
+    <p>Thanks,<br/>${escHtml(settings.emailSignature)}</p>
+  `;
+
+  const text = [
+    `Payment received — Invoice ${invoice.invoice_number}`,
+    '',
+    `Hi ${invoice.customer_name || 'there'},`,
+    '',
+    `Thank you for your payment of ${money(settings, payment.amount)}. The remaining balance is ${money(settings, invoice.amount_due)}.`,
+    '',
+    `Invoice: ${invoice.invoice_number}`,
+    `Amount received: ${money(settings, payment.amount)}`,
+    `Remaining balance: ${money(settings, invoice.amount_due)}`,
+    invoice.due_date ? `Due date: ${invoice.due_date}` : '',
+    '',
+    'Thanks,',
+    settings.emailSignature,
+  ].filter(Boolean).join('\n');
+
+  return { subject, html: wrapHtml(bodyHtml, settings), text };
+}
+
+// Manual "Send payment reminder" — never automatic (see
+// admin/INVOICES_SETUP.md's "Automatic scheduled reminders" note for the
+// documented, not-yet-built option). Reuses the invoice's own payment
+// instructions block so a reminder is just as actionable as the original
+// invoice email; the PDF attached is the caller's responsibility (the
+// route reuses the original issued invoice PDF — see
+// admin/api/invoices/[id].js's handleRemind).
+export function paymentReminderEmail(invoice, settings, { customMessage } = {}) {
+  const subject = `Payment reminder — Invoice ${invoice.invoice_number}`;
+  const greetingName = escHtml(invoice.customer_name) || 'there';
+
+  const bodyHtml = `
+    <p>Hi ${greetingName},</p>
+    <p>This is a friendly reminder that <strong>${money(settings, invoice.amount_due)}</strong> remains outstanding on invoice <strong>${escHtml(invoice.invoice_number)}</strong>, due on ${escHtml(invoice.due_date || '—')}.</p>
+    ${customMessage ? `<p>${escHtml(customMessage)}</p>` : ''}
+    ${paymentInstructionsHtml(invoice, settings)}
+    <p>Thanks,<br/>${escHtml(settings.emailSignature)}</p>
+  `;
+
+  const paymentText = paymentInstructionsText(invoice, settings);
+
+  const text = [
+    `Payment reminder — Invoice ${invoice.invoice_number}`,
+    '',
+    `Hi ${invoice.customer_name || 'there'},`,
+    '',
+    `This is a friendly reminder that ${money(settings, invoice.amount_due)} remains outstanding on invoice ${invoice.invoice_number}, due on ${invoice.due_date || '—'}.`,
+    customMessage || '',
+    '',
+    paymentText,
+    '',
+    'Thanks,',
+    settings.emailSignature,
+  ].filter(Boolean).join('\n');
+
+  return { subject, html: wrapHtml(bodyHtml, settings), text };
+}
+
 export function receiptEmail(receipt, settings, { customMessage } = {}) {
   const subject = `Receipt ${receipt.receipt_number} from ${settings.tradingName}`;
   const greetingName = escHtml(receipt.customer_name) || 'there';
 
   const bodyHtml = `
     <p>Hi ${greetingName},</p>
-    <p>Thank you for your payment. Please find attached receipt <strong>${escHtml(receipt.receipt_number)}</strong>${
-      receipt.invoice_number_snapshot ? ` for invoice ${escHtml(receipt.invoice_number_snapshot)}` : ''
-    }.</p>
+    <p>Thank you for your payment. Please find your receipt attached (<strong>${escHtml(receipt.receipt_number)}</strong>${
+      receipt.invoice_number_snapshot ? `, for invoice ${escHtml(receipt.invoice_number_snapshot)}` : ''
+    }).</p>
     ${customMessage ? `<p>${escHtml(customMessage)}</p>` : ''}
     <table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;margin:16px 0;">
       <tr><td style="color:#666;">Amount received</td><td align="right"><strong>${money(settings, receipt.total_paid)}</strong></td></tr>

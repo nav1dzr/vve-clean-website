@@ -466,6 +466,148 @@ describe('/api/invoices/:id[?action=] dispatcher', () => {
     expect(res.statusCode).toBe(500);
     expect(sendMailMock).not.toHaveBeenCalled();
   });
+
+  it('POST ?action=send is blocked once the invoice is fully paid — send the receipt instead', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase, { items: [{ description: 'Deep clean', quantity: 1, unitPrice: 100 }] });
+    await issueInvoice(supabase, invoiceId, 'admin-1');
+    await handler(makeReq({
+      url: `/api/invoices/${invoiceId}?action=payments`, method: 'POST',
+      bodyObj: { amount: 100, paymentDate: '2026-07-16', method: 'card' },
+    }), makeRes());
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}?action=send`, method: 'POST', bodyObj: {} }), res);
+    expect(res.statusCode).toBe(409);
+    expect(JSON.parse(res.body).error).toMatch(/send the receipt instead/i);
+    expect(sendMailMock).not.toHaveBeenCalled();
+  });
+
+  it('POST ?action=send mentions the service (first line item) in the email body', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase, { items: [{ description: 'End of tenancy deep clean', quantity: 1, unitPrice: 100 }] });
+    await issueInvoice(supabase, invoiceId, 'admin-1');
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}?action=send`, method: 'POST', bodyObj: {} }), res);
+    expect(res.statusCode).toBe(200);
+    expect(sendMailMock.mock.calls[0][0].html).toContain('End of tenancy deep clean');
+  });
+
+  it('POST ?action=remind sends the payment-reminder email with the original issued PDF and logs reminder_sent', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase, { items: [{ description: 'Deep clean', quantity: 1, unitPrice: 310 }], depositApplied: 30 });
+    await issueInvoice(supabase, invoiceId, 'admin-1');
+    await handler(makeReq({
+      url: `/api/invoices/${invoiceId}?action=payments`, method: 'POST',
+      bodyObj: { amount: 100, paymentDate: '2026-07-16', method: 'card' },
+    }), makeRes());
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}?action=remind`, method: 'POST', bodyObj: {} }), res);
+    expect(res.statusCode).toBe(200);
+    expect(sendMailMock.mock.calls[0][0].subject).toMatch(/reminder/i);
+    expect(sendMailMock.mock.calls[0][0].attachments[0].contentType).toBe('application/pdf');
+
+    const events = supabase._tables.invoice_events.filter((e) => e.document_id === invoiceId);
+    expect(events.map((e) => e.event_type)).toContain('reminder_sent');
+  });
+
+  it('POST ?action=remind is rejected once the balance is zero', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase, { items: [{ description: 'Deep clean', quantity: 1, unitPrice: 100 }] });
+    await issueInvoice(supabase, invoiceId, 'admin-1');
+    await handler(makeReq({
+      url: `/api/invoices/${invoiceId}?action=payments`, method: 'POST',
+      bodyObj: { amount: 100, paymentDate: '2026-07-16', method: 'card' },
+    }), makeRes());
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}?action=remind`, method: 'POST', bodyObj: {} }), res);
+    expect(res.statusCode).toBe(409);
+    expect(sendMailMock).not.toHaveBeenCalled();
+  });
+
+  it('POST ?action=remind is rejected for a draft invoice', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}?action=remind`, method: 'POST', bodyObj: {} }), res);
+    expect(res.statusCode).toBe(409);
+    expect(sendMailMock).not.toHaveBeenCalled();
+  });
+
+  it('POST ?action=paymentAck sends the acknowledgement email for a partial payment and logs payment_ack_sent', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase, { items: [{ description: 'Deep clean', quantity: 1, unitPrice: 310 }], depositApplied: 30 });
+    await issueInvoice(supabase, invoiceId, 'admin-1');
+    const paymentRes = makeRes();
+    await handler(makeReq({
+      url: `/api/invoices/${invoiceId}?action=payments`, method: 'POST',
+      bodyObj: { amount: 100, paymentDate: '2026-07-16', method: 'card' },
+    }), paymentRes);
+    const { paymentId, paymentStatus } = JSON.parse(paymentRes.body);
+    expect(paymentStatus).toBe('partially_paid');
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}?action=paymentAck`, method: 'POST', bodyObj: { paymentId } }), res);
+    expect(res.statusCode).toBe(200);
+    expect(sendMailMock.mock.calls[0][0].html).toContain('£100.00');
+    expect(sendMailMock.mock.calls[0][0].attachments).toBeUndefined(); // no receipt exists yet
+
+    const events = supabase._tables.invoice_events.filter((e) => e.document_id === invoiceId);
+    expect(events.map((e) => e.event_type)).toContain('payment_ack_sent');
+  });
+
+  it('POST ?action=paymentAck is rejected once the invoice is fully paid', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase, { items: [{ description: 'Deep clean', quantity: 1, unitPrice: 100 }] });
+    await issueInvoice(supabase, invoiceId, 'admin-1');
+    const paymentRes = makeRes();
+    await handler(makeReq({
+      url: `/api/invoices/${invoiceId}?action=payments`, method: 'POST',
+      bodyObj: { amount: 100, paymentDate: '2026-07-16', method: 'card' },
+    }), paymentRes);
+    const { paymentId } = JSON.parse(paymentRes.body);
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}?action=paymentAck`, method: 'POST', bodyObj: { paymentId } }), res);
+    expect(res.statusCode).toBe(409);
+    expect(sendMailMock).not.toHaveBeenCalled();
+  });
+
+  it('POST ?action=paymentAck rejects a paymentId that does not belong to this invoice', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase, { items: [{ description: 'Deep clean', quantity: 1, unitPrice: 310 }], depositApplied: 30 });
+    await issueInvoice(supabase, invoiceId, 'admin-1');
+    await handler(makeReq({
+      url: `/api/invoices/${invoiceId}?action=payments`, method: 'POST',
+      bodyObj: { amount: 100, paymentDate: '2026-07-16', method: 'card' },
+    }), makeRes());
+
+    const otherInvoiceId = await seedDraft(supabase, { items: [{ description: 'Other', quantity: 1, unitPrice: 310 }], depositApplied: 30 });
+    await issueInvoice(supabase, otherInvoiceId, 'admin-1');
+    const otherPaymentRes = makeRes();
+    await handler(makeReq({
+      url: `/api/invoices/${otherInvoiceId}?action=payments`, method: 'POST',
+      bodyObj: { amount: 100, paymentDate: '2026-07-16', method: 'card' },
+    }), otherPaymentRes);
+    const { paymentId: otherPaymentId } = JSON.parse(otherPaymentRes.body);
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}?action=paymentAck`, method: 'POST', bodyObj: { paymentId: otherPaymentId } }), res);
+    expect(res.statusCode).toBe(404);
+    expect(sendMailMock).not.toHaveBeenCalled();
+  });
 });
 
 // This section directly targets the confirmed regression class: real

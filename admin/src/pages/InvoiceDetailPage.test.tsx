@@ -62,9 +62,10 @@ const issuedInvoice = {
   issuedAt: '2026-07-16T00:00:00.000Z',
 };
 
-function mockRouteBasedFetch(invoice: typeof draftInvoice, events: unknown[] = []) {
+function mockRouteBasedFetch(invoice: typeof draftInvoice, events: unknown[] = [], receipts: Array<Record<string, unknown>> = []) {
   authFetchMock.mockImplementation((path: string) => {
     if (path.includes('action=events')) return Promise.resolve({ results: events });
+    if (path.startsWith('/api/receipts')) return Promise.resolve({ results: receipts, page: 1, pageSize: 1, totalCount: receipts.length, hasMore: false });
     return Promise.resolve(invoice);
   });
 }
@@ -158,6 +159,95 @@ describe('InvoiceDetailPage — issued', () => {
     mockRouteBasedFetch(issuedInvoice);
     renderDetail();
     expect(await screen.findByText('No payments recorded yet.')).toBeInTheDocument();
+  });
+
+  it('shows "Send payment reminder" while there is an outstanding balance', async () => {
+    mockRouteBasedFetch(issuedInvoice); // amountDue: 100, inherited from draftInvoice
+    renderDetail();
+    expect(await screen.findByRole('button', { name: /send payment reminder/i })).toBeInTheDocument();
+  });
+
+  it('sending a payment reminder shows the recipient/invoice/service/amount/date summary and calls ?action=remind', async () => {
+    mockRouteBasedFetch(issuedInvoice);
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: /send payment reminder/i }));
+    const dialog = await screen.findByRole('dialog', { name: /send payment reminder/i });
+    expect(within(dialog).getByText('INV-2026-000001')).toBeInTheDocument();
+    expect(within(dialog).getByText('Deep clean')).toBeInTheDocument();
+    expect(within(dialog).getByText('£100.00')).toBeInTheDocument();
+    expect(within(dialog).getByText('2026-07-30')).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: /send reminder/i }));
+
+    await waitFor(() => {
+      const remindCalls = authFetchMock.mock.calls.filter((c) => (c[0] as string).includes('action=remind'));
+      expect(remindCalls.length).toBeGreaterThanOrEqual(1);
+      expect(remindCalls[0][1]).toEqual(expect.objectContaining({ method: 'POST' }));
+    });
+  });
+
+  it('once fully paid: hides Send/Resend and "Send payment reminder", and links to the receipt instead', async () => {
+    const paidInvoice = { ...issuedInvoice, amountPaid: 100, amountDue: 0, paymentStatus: 'paid' };
+    mockRouteBasedFetch(paidInvoice, [], [{ id: 'rec-1', receiptNumber: 'REC-2026-000001', customerName: 'Jane Doe', totalPaid: 100, paymentDate: '2026-07-20', createdAt: '2026-07-20T00:00:00.000Z' }]);
+    renderDetail();
+
+    const receiptLink = await screen.findByRole('link', { name: /view.*send receipt/i });
+    expect(receiptLink).toHaveAttribute('href', '/receipts/rec-1');
+    expect(screen.queryByRole('button', { name: /^send$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^resend$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /send payment reminder/i })).not.toBeInTheDocument();
+  });
+
+  it('recording a partial payment with the acknowledgement checkbox ticked sends ?action=paymentAck with the new paymentId', async () => {
+    authFetchMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      if (path.includes('action=payments')) {
+        return Promise.resolve({ ok: true, paymentId: 'payment-1', amountPaid: 40, amountDue: 60, paymentStatus: 'partially_paid', receiptId: null });
+      }
+      if (path.includes('action=paymentAck')) return Promise.resolve({ ok: true, to: 'jane@example.com' });
+      void init;
+      return Promise.resolve(issuedInvoice);
+    });
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: /record payment/i }));
+    const dialog = await screen.findByRole('dialog', { name: /record payment/i });
+    await user.clear(within(dialog).getByLabelText(/amount/i));
+    await user.type(within(dialog).getByLabelText(/amount/i), '40');
+    await user.click(within(dialog).getByLabelText(/send payment acknowledgement email/i));
+    await user.click(within(dialog).getByRole('button', { name: /^record payment$/i }));
+
+    await waitFor(() => {
+      const ackCalls = authFetchMock.mock.calls.filter((c) => (c[0] as string).includes('action=paymentAck'));
+      expect(ackCalls.length).toBe(1);
+      expect(JSON.parse((ackCalls[0][1] as RequestInit).body as string)).toEqual({ paymentId: 'payment-1' });
+    });
+  });
+
+  it('does not send an acknowledgement email when the checkbox is left unticked', async () => {
+    authFetchMock.mockImplementation((path: string) => {
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      if (path.includes('action=payments')) {
+        return Promise.resolve({ ok: true, paymentId: 'payment-1', amountPaid: 40, amountDue: 60, paymentStatus: 'partially_paid', receiptId: null });
+      }
+      return Promise.resolve(issuedInvoice);
+    });
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: /record payment/i }));
+    const dialog = await screen.findByRole('dialog', { name: /record payment/i });
+    await user.clear(within(dialog).getByLabelText(/amount/i));
+    await user.type(within(dialog).getByLabelText(/amount/i), '40');
+    await user.click(within(dialog).getByRole('button', { name: /^record payment$/i }));
+
+    await waitFor(() => {
+      expect(authFetchMock.mock.calls.some((c) => (c[0] as string).includes('action=payments'))).toBe(true);
+    });
+    expect(authFetchMock.mock.calls.some((c) => (c[0] as string).includes('action=paymentAck'))).toBe(false);
   });
 });
 

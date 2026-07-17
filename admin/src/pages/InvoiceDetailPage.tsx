@@ -5,6 +5,7 @@ import { openPdfBlob } from '../lib/pdf';
 import type {
   InvoiceDetail, InvoiceDraftInput, IssueResponse, DownloadUrlResponse,
   RecordPaymentResponse, DuplicateResponse, InvoiceEvent, InvoiceEventsResponse, SendResponse,
+  ReceiptListResponse,
 } from '../types/invoice';
 import InvoiceItemsForm, { emptyFormValue } from '../components/InvoiceItemsForm';
 import RecordPaymentModal from '../components/RecordPaymentModal';
@@ -36,20 +37,30 @@ export default function InvoiceDetailPage() {
   const navigate = useNavigate();
   const [state, setState] = useState<State>({ status: 'loading' });
   const [events, setEvents] = useState<InvoiceEvent[] | null>(null);
+  const [receiptId, setReceiptId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [modal, setModal] = useState<null | 'payment' | 'void' | 'send'>(null);
+  const [modal, setModal] = useState<null | 'payment' | 'void' | 'send' | 'remind'>(null);
   const [pendingAction, setPendingAction] = useState<null | 'issue' | 'delete'>(null);
 
   function load() {
     if (!id) return;
     setState({ status: 'loading' });
+    setReceiptId(null);
     authFetch<InvoiceDetail>(`/api/invoices/${id}`)
       .then((data) => {
         setState({ status: 'success', data });
         authFetch<InvoiceEventsResponse>(`/api/invoices/${id}?action=events`)
           .then((r) => setEvents(r.results))
           .catch(() => setEvents([]));
+        // Fully paid — the "send invoice" flow is retired in favour of the
+        // receipt (see handleSend's paid-invoice block on the server); look
+        // it up so the UI can link straight to it.
+        if (data.paymentStatus === 'paid') {
+          authFetch<ReceiptListResponse>(`/api/receipts?invoiceId=${id}&pageSize=1`)
+            .then((r) => setReceiptId(r.results[0]?.id || null))
+            .catch(() => setReceiptId(null));
+        }
       })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 404) setState({ status: 'not-found' });
@@ -153,12 +164,37 @@ export default function InvoiceDetailPage() {
     load();
   }
 
-  async function handleRecordPayment(input: { amount: number; paymentDate: string; method: string; reference: string; notes: string }) {
+  async function handleRemind(to: string, message: string) {
     if (!id) return;
-    await authFetch<RecordPaymentResponse>(`/api/invoices/${id}?action=payments`, {
+    await authFetch<SendResponse>(`/api/invoices/${id}?action=remind`, {
       method: 'POST',
-      body: JSON.stringify(input),
+      body: JSON.stringify({ to, message: message || undefined }),
     });
+    setModal(null);
+    load();
+  }
+
+  async function handleRecordPayment(input: { amount: number; paymentDate: string; method: string; reference: string; notes: string; sendAcknowledgement: boolean }) {
+    if (!id) return;
+    const { sendAcknowledgement, ...rest } = input;
+    const result = await authFetch<RecordPaymentResponse>(`/api/invoices/${id}?action=payments`, {
+      method: 'POST',
+      body: JSON.stringify(rest),
+    });
+    // Best-effort: the payment is already recorded regardless of whether
+    // this succeeds — never let an acknowledgement-email failure look like
+    // the payment itself failed to save.
+    if (sendAcknowledgement && result.paymentStatus === 'partially_paid') {
+      try {
+        await authFetch(`/api/invoices/${id}?action=paymentAck`, {
+          method: 'POST',
+          body: JSON.stringify({ paymentId: result.paymentId }),
+        });
+      } catch {
+        // Swallowed deliberately — see comment above. The event log
+        // (payment_ack_failed) is the record of this, not a UI error here.
+      }
+    }
     setModal(null);
     load();
   }
@@ -393,12 +429,26 @@ export default function InvoiceDetailPage() {
           <div className="flex flex-wrap gap-2">
             <ActionButton label="Preview" onClick={() => void handlePreview()} disabled={busy} />
             <ActionButton label="Download" onClick={() => void handleDownload()} disabled={busy} />
-            <ActionButton label={inv.sentAt ? 'Resend' : 'Send'} onClick={() => setModal('send')} disabled={busy} />
+            {inv.paymentStatus === 'paid' ? (
+              receiptId && (
+                <Link
+                  to={`/receipts/${receiptId}`}
+                  className="min-h-11 flex items-center rounded-lg border border-silver-300 px-3.5 text-sm font-medium text-navy-900 hover:bg-silver-100"
+                >
+                  View / send receipt
+                </Link>
+              )
+            ) : (
+              <ActionButton label={inv.sentAt ? 'Resend' : 'Send'} onClick={() => setModal('send')} disabled={busy} />
+            )}
             <ActionButton label="Record payment" onClick={() => setModal('payment')} disabled={busy || inv.amountDue <= 0} primary />
+            {inv.amountDue > 0 && (
+              <ActionButton label="Send payment reminder" onClick={() => setModal('remind')} disabled={busy} />
+            )}
             <ActionButton label="Duplicate as corrected draft" onClick={() => void handleDuplicate()} disabled={busy} />
             <ActionButton label="Void" onClick={() => setModal('void')} disabled={busy} danger />
           </div>
-          {inv.sentAt && <p className="mt-2 text-xs text-navy-500">Last sent {formatDateTime(inv.sentAt)}</p>}
+          {inv.sentAt && inv.paymentStatus !== 'paid' && <p className="mt-2 text-xs text-navy-500">Last sent {formatDateTime(inv.sentAt)}</p>}
         </Section>
       )}
 
@@ -463,6 +513,25 @@ export default function InvoiceDetailPage() {
           defaultRecipient={inv.customer.email || ''}
           onClose={() => setModal(null)}
           onSend={handleSend}
+        />
+      )}
+      {modal === 'remind' && (
+        <SendDocumentModal
+          titleId="remind-invoice-title"
+          title="Send payment reminder"
+          defaultRecipient={inv.customer.email || ''}
+          onClose={() => setModal(null)}
+          onSend={handleRemind}
+          submitLabel="Send reminder"
+          submittingLabel="Sending reminder…"
+          summary={
+            <dl className="space-y-1">
+              <Row label="Invoice" value={inv.invoiceNumber || '—'} />
+              <Row label="Service" value={inv.items[0]?.description || '—'} />
+              <Row label="Amount due" value={formatMoney(inv.amountDue)} strong />
+              <Row label="Due date" value={inv.dueDate || '—'} />
+            </dl>
+          }
         />
       )}
     </div>

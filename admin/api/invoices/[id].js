@@ -17,7 +17,7 @@ import {
   invoicePdfPath, receiptPdfPath, uploadPdf, getSignedDownloadUrl, downloadPdfBuffer,
 } from '../_lib/invoiceStorage.js';
 import { getBusinessSettings } from '../_lib/businessSettings.js';
-import { invoiceEmail } from '../_lib/invoiceEmailTemplates.js';
+import { invoiceEmail, paymentReminderEmail, paymentAcknowledgementEmail } from '../_lib/invoiceEmailTemplates.js';
 import { sendMail, isMailerConfigured } from '../_lib/mailer.js';
 
 export const config = { api: { bodyParser: false } };
@@ -80,7 +80,10 @@ function makeReceiptPdfGenerator(supabase) {
 // invoice — short-lived signed URL to the stored PDF, generating it on the
 // fly first if a pre-existing invoice somehow doesn't have one yet), send
 // and resend (email the stored PDF — only ever marked sent after the mail
-// provider accepts the message).
+// provider accepts the message; blocked once payment_status is 'paid' —
+// see handleSend), remind (manual "Send payment reminder", reusing the
+// original issued PDF — see handleRemind), and paymentAck (optional
+// acknowledgement email for a partial payment — see handlePaymentAck).
 export default async function handler(req, res) {
   const origin = req.headers.origin || '';
   const headers = { ...corsHeaders(origin), 'Cache-Control': 'no-store', 'Content-Type': 'application/json' };
@@ -143,6 +146,8 @@ export default async function handler(req, res) {
     if (action === 'download') return await handleDownload(req, res, headers, supabase, invoiceId);
     if (action === 'send') return await handleSend(req, res, headers, supabase, invoiceId, auth, 'sent');
     if (action === 'resend') return await handleSend(req, res, headers, supabase, invoiceId, auth, 'resent');
+    if (action === 'remind') return await handleRemind(req, res, headers, supabase, invoiceId, auth);
+    if (action === 'paymentAck') return await handlePaymentAck(req, res, headers, supabase, invoiceId, auth);
 
     console.log('[invoices route debug] dispatch=none (unknown action)', action);
     res.writeHead(404, headers);
@@ -507,10 +512,134 @@ async function handleSend(req, res, headers, supabase, invoiceId, auth, eventTyp
     res.writeHead(409, headers);
     return res.end(JSON.stringify({ error: 'Only an issued invoice can be emailed' }));
   }
+  // Once fully paid, "send the invoice" no longer makes sense — the
+  // customer should get the receipt instead (correct wording, correct
+  // attachment, already implemented in admin/api/receipts/[[...segments]].js's
+  // own send/resend). Blocking here is what stops an admin from
+  // accidentally re-sending a "please pay" email after the balance is
+  // already zero.
+  if (invoice.payment_status === 'paid') {
+    res.writeHead(409, headers);
+    return res.end(JSON.stringify({ error: 'This invoice is fully paid — send the receipt instead' }));
+  }
 
   // Precedence: an explicit per-send override (body.to) always wins; then
   // the invoice's own stored default recipient (invoice_recipient_email —
   // e.g. "always invoice the agency"); then the billing contact's email.
+  const recipient = body.to || invoice.invoice_recipient_email || invoice.customer_email;
+  if (!recipient || !isValidEmail(recipient)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'No valid recipient email is available for this invoice' }));
+  }
+
+  // Loaded regardless of whether the PDF needs regenerating — used to
+  // build the email's one-line service summary (invoiceEmail()'s `items`
+  // option), not just for PDF generation.
+  const { data: items } = await supabase
+    .from('invoice_items').select('*').eq('invoice_id', invoiceId).order('sort_order', { ascending: true });
+
+  let path = invoice.pdf_storage_path;
+  if (!path) {
+    const buffer = await generateInvoicePdfBuffer(invoice, items || [], invoice.business_snapshot || getBusinessSettings(), { isDraft: false });
+    const uploadResult = await uploadPdf(supabase, invoicePdfPath(invoiceId, invoice.document_version || 1), buffer);
+    if (!uploadResult.ok) {
+      res.writeHead(500, headers);
+      return res.end(JSON.stringify({ error: uploadResult.error }));
+    }
+    path = uploadResult.path;
+    await supabase.from('invoices').update({ pdf_storage_path: path }).eq('id', invoiceId);
+  }
+
+  const pdfResult = await downloadPdfBuffer(supabase, path);
+  if (!pdfResult.ok) {
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: pdfResult.error }));
+  }
+
+  const settings = invoice.business_snapshot || getBusinessSettings();
+  const { subject, html, text } = invoiceEmail(invoice, settings, { customMessage: body.message, items: items || [] });
+
+  const sendResult = await sendMail({
+    to: recipient,
+    subject,
+    html,
+    text,
+    fromName: settings.emailFromName,
+    attachments: [{ filename: `${invoice.invoice_number}.pdf`, content: pdfResult.buffer, contentType: 'application/pdf' }],
+  });
+
+  if (!sendResult.ok) {
+    await supabase.from('invoice_events').insert({
+      document_type: 'invoice', document_id: invoiceId, event_type: 'send_failed', admin_id: auth.admin.id,
+      metadata: { to: recipient, error: sendResult.error },
+    });
+    res.writeHead(502, headers);
+    return res.end(JSON.stringify({ error: 'Failed to send the email' }));
+  }
+
+  const nowTs = new Date().toISOString();
+  await supabase.from('invoices').update({ sent_at: nowTs, updated_at: nowTs }).eq('id', invoiceId);
+  await supabase.from('invoice_events').insert({
+    document_type: 'invoice', document_id: invoiceId, event_type: eventType, admin_id: auth.admin.id,
+    metadata: { to: recipient, messageId: sendResult.messageId },
+  });
+
+  res.writeHead(200, headers);
+  return res.end(JSON.stringify({ ok: true, to: recipient }));
+}
+
+// POST /api/invoices/:id?action=remind — a manual "Send payment reminder",
+// never automatic (see admin/INVOICES_SETUP.md's note on the documented,
+// not-yet-built automatic-scheduling option). Eligible for any issued
+// invoice with a positive balance — this single condition already covers
+// "sent", "partially paid", and "overdue", since overdue is derived from
+// due_date at read time (invoiceCalculations.js's isOverdue) rather than
+// stored as its own status. Reuses the original issued invoice PDF —
+// deliberately never regenerated from current data, unlike send/resend's
+// on-the-fly generation for a pre-existing invoice with no stored PDF yet
+// (a reminder is about a document the customer already has; it must stay
+// byte-identical, not reflect any change since issue).
+async function handleRemind(req, res, headers, supabase, invoiceId, auth) {
+  if (req.method !== 'POST') {
+    res.writeHead(405, headers);
+    return res.end(JSON.stringify({ error: 'Method not allowed' }));
+  }
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch (err) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: err.message || 'Invalid request body' }));
+  }
+
+  if (body.to !== undefined && !isValidEmail(body.to)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'to must be a valid email address' }));
+  }
+  if (!isMailerConfigured()) {
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: 'Email is not configured on this deployment' }));
+  }
+
+  const { data: invoice, error } = await supabase.from('invoices').select('*').eq('id', invoiceId).maybeSingle();
+  if (error) {
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: 'Failed to load invoice' }));
+  }
+  if (!invoice) {
+    res.writeHead(404, headers);
+    return res.end(JSON.stringify({ error: 'Invoice not found' }));
+  }
+  if (invoice.document_status !== 'issued') {
+    res.writeHead(409, headers);
+    return res.end(JSON.stringify({ error: 'Only an issued invoice can receive a payment reminder' }));
+  }
+  if (!(invoice.amount_due > 0)) {
+    res.writeHead(409, headers);
+    return res.end(JSON.stringify({ error: 'This invoice has no outstanding balance' }));
+  }
+
   const recipient = body.to || invoice.invoice_recipient_email || invoice.customer_email;
   if (!recipient || !isValidEmail(recipient)) {
     res.writeHead(400, headers);
@@ -538,7 +667,7 @@ async function handleSend(req, res, headers, supabase, invoiceId, auth, eventTyp
   }
 
   const settings = invoice.business_snapshot || getBusinessSettings();
-  const { subject, html, text } = invoiceEmail(invoice, settings, { customMessage: body.message });
+  const { subject, html, text } = paymentReminderEmail(invoice, settings, { customMessage: body.message });
 
   const sendResult = await sendMail({
     to: recipient,
@@ -551,18 +680,109 @@ async function handleSend(req, res, headers, supabase, invoiceId, auth, eventTyp
 
   if (!sendResult.ok) {
     await supabase.from('invoice_events').insert({
-      document_type: 'invoice', document_id: invoiceId, event_type: 'send_failed', admin_id: auth.admin.id,
+      document_type: 'invoice', document_id: invoiceId, event_type: 'reminder_failed', admin_id: auth.admin.id,
       metadata: { to: recipient, error: sendResult.error },
     });
     res.writeHead(502, headers);
-    return res.end(JSON.stringify({ error: 'Failed to send the email' }));
+    return res.end(JSON.stringify({ error: 'Failed to send the reminder email' }));
   }
 
-  const nowTs = new Date().toISOString();
-  await supabase.from('invoices').update({ sent_at: nowTs, updated_at: nowTs }).eq('id', invoiceId);
   await supabase.from('invoice_events').insert({
-    document_type: 'invoice', document_id: invoiceId, event_type: eventType, admin_id: auth.admin.id,
+    document_type: 'invoice', document_id: invoiceId, event_type: 'reminder_sent', admin_id: auth.admin.id,
     metadata: { to: recipient, messageId: sendResult.messageId },
+  });
+
+  res.writeHead(200, headers);
+  return res.end(JSON.stringify({ ok: true, to: recipient }));
+}
+
+// POST /api/invoices/:id?action=paymentAck — an optional, admin-triggered
+// acknowledgement email for a *partial* payment. Never sent automatically —
+// recordPayment() (invoiceLifecycle.js) never emails anything itself,
+// matching this feature's existing "nothing emails itself" pattern (see
+// handleSend above). Requires the paymentId returned by the
+// ?action=payments call that just recorded the payment, so the email's
+// "amount received" always reflects a real, specific payment row rather
+// than trusting a client-supplied number.
+async function handlePaymentAck(req, res, headers, supabase, invoiceId, auth) {
+  if (req.method !== 'POST') {
+    res.writeHead(405, headers);
+    return res.end(JSON.stringify({ error: 'Method not allowed' }));
+  }
+
+  let body;
+  try {
+    body = await readJsonBody(req);
+  } catch (err) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: err.message || 'Invalid request body' }));
+  }
+
+  if (!body.paymentId || !isValidUuid(body.paymentId)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'paymentId is required and must be a valid UUID' }));
+  }
+  if (body.to !== undefined && !isValidEmail(body.to)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'to must be a valid email address' }));
+  }
+  if (!isMailerConfigured()) {
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: 'Email is not configured on this deployment' }));
+  }
+
+  const { data: invoice, error } = await supabase.from('invoices').select('*').eq('id', invoiceId).maybeSingle();
+  if (error) {
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: 'Failed to load invoice' }));
+  }
+  if (!invoice) {
+    res.writeHead(404, headers);
+    return res.end(JSON.stringify({ error: 'Invoice not found' }));
+  }
+  // Deliberately partially_paid only — once the balance reaches zero this
+  // wording ("remaining balance is £X") no longer makes sense; the receipt
+  // (with its own "thank you for your payment, paid in full" email) is the
+  // correct document at that point, not this one.
+  if (invoice.payment_status !== 'partially_paid') {
+    res.writeHead(409, headers);
+    return res.end(JSON.stringify({ error: 'A payment acknowledgement can only be sent while the invoice is partially paid' }));
+  }
+
+  const { data: payment, error: paymentErr } = await supabase
+    .from('invoice_payments').select('*').eq('id', body.paymentId).eq('invoice_id', invoiceId).maybeSingle();
+  if (paymentErr) {
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: 'Failed to load payment' }));
+  }
+  if (!payment || payment.reversed_at) {
+    res.writeHead(404, headers);
+    return res.end(JSON.stringify({ error: 'Payment not found' }));
+  }
+
+  const recipient = body.to || invoice.receipt_recipient_email || invoice.customer_email;
+  if (!recipient || !isValidEmail(recipient)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'No valid recipient email is available for this invoice' }));
+  }
+
+  const settings = invoice.business_snapshot || getBusinessSettings();
+  const { subject, html, text } = paymentAcknowledgementEmail(invoice, payment, settings);
+
+  const sendResult = await sendMail({ to: recipient, subject, html, text, fromName: settings.emailFromName });
+
+  if (!sendResult.ok) {
+    await supabase.from('invoice_events').insert({
+      document_type: 'invoice', document_id: invoiceId, event_type: 'payment_ack_failed', admin_id: auth.admin.id,
+      metadata: { to: recipient, paymentId: body.paymentId, error: sendResult.error },
+    });
+    res.writeHead(502, headers);
+    return res.end(JSON.stringify({ error: 'Failed to send the acknowledgement email' }));
+  }
+
+  await supabase.from('invoice_events').insert({
+    document_type: 'invoice', document_id: invoiceId, event_type: 'payment_ack_sent', admin_id: auth.admin.id,
+    metadata: { to: recipient, paymentId: body.paymentId, messageId: sendResult.messageId },
   });
 
   res.writeHead(200, headers);

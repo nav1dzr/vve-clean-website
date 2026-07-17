@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import Modal from './Modal';
 
 interface Props {
@@ -7,13 +7,22 @@ interface Props {
   defaultRecipient: string;
   onClose: () => void;
   onSend: (to: string, message: string) => Promise<void>;
+  /** Optional read-only context shown above the form — e.g. a payment
+   * reminder's "recipient, invoice number, service, amount due, due date"
+   * summary, so the admin can confirm what's about to be sent. */
+  summary?: ReactNode;
+  /** Overrides the submit button's default "Send"/"Sending…" label pair. */
+  submitLabel?: string;
+  submittingLabel?: string;
 }
 
-// Shared by invoice and receipt detail pages for both "send" and "resend" —
-// lets the admin correct the recipient for this specific send without
-// altering the document's own stored customer email
+// Shared by invoice and receipt detail pages for "send"/"resend"/"send
+// payment reminder" — lets the admin correct the recipient for this
+// specific send without altering the document's own stored customer email
 // (INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §9).
-export default function SendDocumentModal({ titleId, title, defaultRecipient, onClose, onSend }: Props) {
+export default function SendDocumentModal({
+  titleId, title, defaultRecipient, onClose, onSend, summary, submitLabel = 'Send', submittingLabel = 'Sending…',
+}: Props) {
   const [to, setTo] = useState(defaultRecipient);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -39,6 +48,12 @@ export default function SendDocumentModal({ titleId, title, defaultRecipient, on
   return (
     <Modal titleId={titleId} title={title} onClose={onClose}>
       <form onSubmit={handleSubmit}>
+        {summary && (
+          <div className="mb-3 rounded-lg border border-silver-300 bg-silver-50 p-3 text-sm">
+            {summary}
+          </div>
+        )}
+
         <label htmlFor="send-to" className="mb-1.5 block text-sm font-medium text-navy-900">
           Send to
         </label>
@@ -77,7 +92,7 @@ export default function SendDocumentModal({ titleId, title, defaultRecipient, on
             disabled={sending}
             className="min-h-11 rounded-lg bg-navy-950 px-4 text-sm font-semibold text-white transition-colors hover:bg-navy-900 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {sending ? 'Sending…' : 'Send'}
+            {sending ? submittingLabel : submitLabel}
           </button>
         </div>
       </form>
