@@ -47,7 +47,7 @@ export default function InvoiceDetailPage() {
     authFetch<InvoiceDetail>(`/api/invoices/${id}`)
       .then((data) => {
         setState({ status: 'success', data });
-        authFetch<InvoiceEventsResponse>(`/api/invoices/${id}/events`)
+        authFetch<InvoiceEventsResponse>(`/api/invoices/${id}?action=events`)
           .then((r) => setEvents(r.results))
           .catch(() => setEvents([]));
       })
@@ -71,7 +71,7 @@ export default function InvoiceDetailPage() {
     setBusy(true);
     setActionError(null);
     try {
-      await authFetch<IssueResponse>(`/api/invoices/${id}/issue`, { method: 'POST' });
+      await authFetch<IssueResponse>(`/api/invoices/${id}?action=issue`, { method: 'POST' });
       setPendingAction(null);
       load();
     } catch (err) {
@@ -99,7 +99,7 @@ export default function InvoiceDetailPage() {
     setBusy(true);
     setActionError(null);
     try {
-      const result = await authFetch<DuplicateResponse>(`/api/invoices/${id}/duplicate`, { method: 'POST' });
+      const result = await authFetch<DuplicateResponse>(`/api/invoices/${id}?action=duplicate`, { method: 'POST' });
       navigate(`/invoices/${result.invoiceId}`);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Could not duplicate this invoice.');
@@ -109,7 +109,7 @@ export default function InvoiceDetailPage() {
 
   async function handleVoid(reason: string) {
     if (!id) return;
-    await authFetch(`/api/invoices/${id}/void`, { method: 'POST', body: JSON.stringify({ reason }) });
+    await authFetch(`/api/invoices/${id}?action=void`, { method: 'POST', body: JSON.stringify({ reason }) });
     setModal(null);
     load();
   }
@@ -119,7 +119,7 @@ export default function InvoiceDetailPage() {
     setBusy(true);
     setActionError(null);
     try {
-      const blob = await authFetchBlob(`/api/invoices/${id}/preview`);
+      const blob = await authFetchBlob(`/api/invoices/${id}?action=preview`);
       openPdfBlob(blob);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Could not generate a preview.');
@@ -133,7 +133,7 @@ export default function InvoiceDetailPage() {
     setBusy(true);
     setActionError(null);
     try {
-      const result = await authFetch<DownloadUrlResponse>(`/api/invoices/${id}/download`);
+      const result = await authFetch<DownloadUrlResponse>(`/api/invoices/${id}?action=download`);
       window.open(result.url, '_blank', 'noopener');
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Could not download this invoice.');
@@ -145,7 +145,7 @@ export default function InvoiceDetailPage() {
   async function handleSend(to: string, message: string) {
     if (!id || state.status !== 'success') return;
     const action = state.data.sentAt ? 'resend' : 'send';
-    await authFetch<SendResponse>(`/api/invoices/${id}/${action}`, {
+    await authFetch<SendResponse>(`/api/invoices/${id}?action=${action}`, {
       method: 'POST',
       body: JSON.stringify({ to, message: message || undefined }),
     });
@@ -155,7 +155,7 @@ export default function InvoiceDetailPage() {
 
   async function handleRecordPayment(input: { amount: number; paymentDate: string; method: string; reference: string; notes: string }) {
     if (!id) return;
-    await authFetch<RecordPaymentResponse>(`/api/invoices/${id}/payments`, {
+    await authFetch<RecordPaymentResponse>(`/api/invoices/${id}?action=payments`, {
       method: 'POST',
       body: JSON.stringify(input),
     });
@@ -170,7 +170,7 @@ export default function InvoiceDetailPage() {
     setBusy(true);
     setActionError(null);
     try {
-      await authFetch(`/api/invoices/${id}/payments/${paymentId}/reverse`, {
+      await authFetch(`/api/invoices/${id}?action=paymentsReverse&paymentId=${paymentId}`, {
         method: 'POST',
         body: JSON.stringify({ reason: reason.trim() }),
       });

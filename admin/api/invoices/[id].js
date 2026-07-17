@@ -2,7 +2,7 @@ import { verifyAdminRequest } from '../_lib/adminAuth.js';
 import { corsHeaders } from '../_lib/cors.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
 import { readJsonBody } from '../_lib/body.js';
-import { extractSegments } from '../_lib/routeParams.js';
+import { extractIdParam } from '../_lib/routeParams.js';
 import { isValidUuid, isValidEmail } from '../_lib/normalise.js';
 import {
   toInvoiceDetail, toInvoiceItem, toInvoicePayment, toInvoiceEvent,
@@ -32,8 +32,8 @@ function makeInvoicePdfGenerator(supabase) {
     // Note: a failure anywhere in here is caught and swallowed by
     // issueInvoice()'s own try/catch (invoiceLifecycle.js) — the invoice is
     // still validly issued either way, so this can never be the cause of
-    // POST /api/invoices/:id/issue itself returning a non-2xx response.
-    // Logged here purely so a failure is still visible server-side.
+    // POST /api/invoices/:id?action=issue itself returning a non-2xx
+    // response. Logged here purely so a failure is still visible server-side.
     const buffer = await generateInvoicePdfBuffer(invoice, items, getBusinessSettings(), { isDraft: false });
     console.log('[invoices route debug] issue: PDF generated for storage, byteLength=%s', buffer.length);
     const result = await uploadPdf(supabase, invoicePdfPath(invoice.id, invoice.document_version || 1), buffer);
@@ -49,37 +49,37 @@ function makeReceiptPdfGenerator(supabase) {
   };
 }
 
-// This file is a REQUIRED catch-all — `[...segments].js`, single bracket —
-// deliberately not the optional `[[...segments]].js` form. It only ever
-// matches /api/invoices/<one-or-more-segments>; a bare GET/POST /api/invoices
-// (zero segments) is handled by the separate, ordinary admin/api/invoices/
-// index.js instead, which is a plain literal route file with no dynamic
-// matching involved at all.
+// This file is a single, ordinary dynamic segment — `[id].js`, no ellipsis
+// — the exact same shape as the already-proven admin/api/bookings/[id].js.
+// Actions are dispatched via a `?action=` QUERY STRING parameter, never an
+// additional path segment.
 //
-// Why the split: an earlier version consolidated list/create AND detail/
-// actions into one admin/api/invoices/[[...segments]].js (optional
-// catch-all), mirroring receipts/customers. That regressed GET /api/invoices
-// itself (the zero-segment case) to a hard failure in the deployed Vercel
-// environment, even though it had fixed the original GET /api/invoices/:id
-// bug (a *different* zero-segment case: an invoice id with zero further
-// action segments, previously nested inside a required [id] folder). Both
-// failures line up with the same underlying cause: this Vercel project's
-// routing does not reliably match an optional catch-all file when the
-// catch-all portion itself is empty — in practice it appears to behave like
-// a *required* catch-all (1+ segments) rather than a truly optional one.
-// Splitting into a plain literal file for the guaranteed-zero-segment case
-// and a required catch-all for the guaranteed-1+-segment case sidesteps that
-// ambiguity entirely rather than depending on unconfirmed platform behaviour
-// for the empty-match case. See admin/INVOICES_SETUP.md's function-count
-// section for the resulting file count.
+// Why: this project's Vercel deployment does not interpret `[...x]`/
+// `[[...x]]` bracket catch-all syntax as catch-all at all — it parses the
+// entire bracket interior (dots included) as the literal name of an
+// ordinary, exactly-one-segment dynamic parameter. Confirmed two ways: (1)
+// req.query came back with a literal key `'...segments'` (a plain string,
+// never the array a real catch-all always produces, even for one segment),
+// and (2) a real deployed request to a *two*-segment path
+// (/api/invoices/:id/preview) returned a genuine platform 404 — logged
+// nowhere, meaning Vercel's own router rejected it before this file's code
+// ever ran — while the *one*-segment path (/api/invoices/:id) matched fine.
+// Three consecutive routing shapes were tried and broke in exactly this
+// pattern (nested optional catch-all → flat optional catch-all → flat
+// required catch-all) because each still relied on catch-all semantics
+// that this deployment doesn't honour. A query-string action parameter
+// sidesteps the question entirely: query strings are never involved in
+// Vercel's file-system path matching, so this cannot recur for any future
+// action added here. See admin/INVOICES_SETUP.md for the full history.
 //
-// Actions implemented: detail (GET, no action), update (PATCH), delete
-// (DELETE), issue, void, duplicate, payments (record), payments/
-// :paymentId/reverse, events, preview (draft PDF, generated on demand,
-// never stored), download (issued invoice — short-lived signed URL to the
-// stored PDF, generating it on the fly first if a pre-existing invoice
-// somehow doesn't have one yet), send and resend (email the stored PDF —
-// only ever marked sent after the mail provider accepts the message).
+// Actions implemented (all as ?action=<name>, alongside the plain
+// GET/PATCH/DELETE with no action for detail/update/delete): issue, void,
+// duplicate, payments (record), paymentsReverse (+ &paymentId=), events,
+// preview (draft PDF, generated on demand, never stored), download (issued
+// invoice — short-lived signed URL to the stored PDF, generating it on the
+// fly first if a pre-existing invoice somehow doesn't have one yet), send
+// and resend (email the stored PDF — only ever marked sent after the mail
+// provider accepts the message).
 export default async function handler(req, res) {
   const origin = req.headers.origin || '';
   const headers = { ...corsHeaders(origin), 'Cache-Control': 'no-store', 'Content-Type': 'application/json' };
@@ -101,55 +101,55 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'Server misconfiguration' }));
   }
 
-  const segments = extractSegments(req, 'segments', 2);
-  // TEMP DEBUG — remove once list -> detail -> action navigation is
-  // confirmed stable in production. Deliberately excludes any customer
-  // name/email/phone/address; only structural request shape and ids.
+  const invoiceId = extractIdParam(req);
+  const params = new URL(req.url, 'https://x').searchParams;
+  const action = params.get('action') || '';
+  // TEMP DEBUG — remove once preview/issue navigation is confirmed stable
+  // in production. Deliberately excludes any customer name/email/phone/
+  // address; only structural request shape and ids.
   console.log(
-    '[invoices route debug] url=%s method=%s query=%o segments=%o',
-    req.url, req.method, req.query, segments,
+    '[invoices route debug] url=%s method=%s query=%o invoiceId=%s action=%s',
+    req.url, req.method, req.query, invoiceId, action || '(none)',
   );
 
-  const invoiceId = segments[0];
   if (!isValidUuid(invoiceId)) {
     console.log('[invoices route debug] rejected: not a valid UUID:', invoiceId);
     res.writeHead(400, headers);
     return res.end(JSON.stringify({ error: 'Invalid invoice id' }));
   }
-  const action = segments.slice(1);
 
   try {
-    if (action.length === 0) {
+    if (!action) {
       console.log('[invoices route debug] dispatch=root id=%s', invoiceId);
       return await handleRoot(req, res, headers, supabase, invoiceId, auth);
     }
-    if (action.length === 1 && action[0] === 'issue') {
+    if (action === 'issue') {
       console.log('[invoices route debug] dispatch=issue id=%s', invoiceId);
       return await handleIssue(req, res, headers, supabase, invoiceId, auth);
     }
-    if (action.length === 1 && action[0] === 'void') return await handleVoid(req, res, headers, supabase, invoiceId, auth);
-    if (action.length === 1 && action[0] === 'duplicate') return await handleDuplicate(req, res, headers, supabase, invoiceId, auth);
-    if (action.length === 1 && action[0] === 'payments') return await handleRecordPayment(req, res, headers, supabase, invoiceId, auth);
-    if (action.length === 3 && action[0] === 'payments' && action[2] === 'reverse') {
-      return await handleReversePayment(req, res, headers, supabase, action[1], auth);
+    if (action === 'void') return await handleVoid(req, res, headers, supabase, invoiceId, auth);
+    if (action === 'duplicate') return await handleDuplicate(req, res, headers, supabase, invoiceId, auth);
+    if (action === 'payments') return await handleRecordPayment(req, res, headers, supabase, invoiceId, auth);
+    if (action === 'paymentsReverse') {
+      const paymentId = params.get('paymentId') || '';
+      return await handleReversePayment(req, res, headers, supabase, paymentId, auth);
     }
-    if (action.length === 1 && action[0] === 'events') return await handleEvents(req, res, headers, supabase, invoiceId);
-    if (action.length === 1 && action[0] === 'preview') {
+    if (action === 'events') return await handleEvents(req, res, headers, supabase, invoiceId);
+    if (action === 'preview') {
       console.log('[invoices route debug] dispatch=preview id=%s method=%s', invoiceId, req.method);
       return await handlePreview(req, res, headers, supabase, invoiceId);
     }
-    if (action.length === 1 && action[0] === 'download') return await handleDownload(req, res, headers, supabase, invoiceId);
-    if (action.length === 1 && action[0] === 'send') return await handleSend(req, res, headers, supabase, invoiceId, auth, 'sent');
-    if (action.length === 1 && action[0] === 'resend') return await handleSend(req, res, headers, supabase, invoiceId, auth, 'resent');
+    if (action === 'download') return await handleDownload(req, res, headers, supabase, invoiceId);
+    if (action === 'send') return await handleSend(req, res, headers, supabase, invoiceId, auth, 'sent');
+    if (action === 'resend') return await handleSend(req, res, headers, supabase, invoiceId, auth, 'resent');
 
     console.log('[invoices route debug] dispatch=none (unknown action)', action);
     res.writeHead(404, headers);
     return res.end(JSON.stringify({ error: 'Not found' }));
   } catch (err) {
     // TEMP DEBUG — name/stack included (never request/customer data) to
-    // pin down preview/issue failures that only manifest under real
-    // deployed conditions (timeouts, real invoice data shapes) and never
-    // reproduce against the in-memory fake Supabase test client.
+    // pin down failures that only manifest under real deployed conditions
+    // and never reproduce against the in-memory fake Supabase test client.
     console.error(
       '[admin/api] invoice route unexpected error: name=%s message=%s stack=%s',
       err?.name, err?.message, String(err?.stack || '').slice(0, 500),
@@ -345,7 +345,7 @@ async function handleEvents(req, res, headers, supabase, invoiceId) {
   return res.end(JSON.stringify({ results: (data || []).map(toInvoiceEvent) }));
 }
 
-// GET /api/invoices/:id/preview — always generated on demand, never
+// GET /api/invoices/:id?action=preview — always generated on demand, never
 // stored (INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §8). Works for a draft
 // (renders with the DRAFT watermark) or an issued invoice (renders
 // exactly as issued, without touching pdf_storage_path/document_version —
@@ -411,10 +411,10 @@ async function handlePreview(req, res, headers, supabase, invoiceId) {
   return res.end(buffer);
 }
 
-// GET /api/invoices/:id/download — only for an issued invoice's exact
-// stored PDF (never regenerated from possibly-changed data — that would
-// violate immutability). Returns a short-lived signed URL rather than the
-// bytes directly, per the storage design in
+// GET /api/invoices/:id?action=download — only for an issued invoice's
+// exact stored PDF (never regenerated from possibly-changed data — that
+// would violate immutability). Returns a short-lived signed URL rather
+// than the bytes directly, per the storage design in
 // INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §8. If an older issued invoice
 // somehow has no pdf_storage_path yet (e.g. issued before this endpoint
 // existed), it is generated once, from its own immutable business_
@@ -464,8 +464,8 @@ async function handleDownload(req, res, headers, supabase, invoiceId) {
   return res.end(JSON.stringify({ url: signedResult.url }));
 }
 
-// POST /api/invoices/:id/send and /:id/resend — only ever marks the
-// invoice sent after the mail provider accepts the message (a failure
+// POST /api/invoices/:id?action=send and ?action=resend — only ever marks
+// the invoice sent after the mail provider accepts the message (a failure
 // leaves it exactly as it was, still issued, never silently "sent"). The
 // recipient can be corrected per-send via body.to without altering the
 // invoice's own stored customer_email — see

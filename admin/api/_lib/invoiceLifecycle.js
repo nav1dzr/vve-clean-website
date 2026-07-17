@@ -337,7 +337,7 @@ export async function issueInvoice(supabase, invoiceId, adminId, { generateAndSt
   // select('*') deliberately, not a named column list — matches the
   // pattern already used everywhere else invoices are read in this feature
   // (handleRoot/handlePreview/handleDownload/handleSend in
-  // admin/api/invoices/[...segments].js). A named list that includes
+  // admin/api/invoices/[id].js). A named list that includes
   // payment_option/stripe_payment_link_url (added by the second,
   // separately-applied migration) would throw "column does not exist"
   // here specifically if that migration hasn't been run yet on this
@@ -428,7 +428,7 @@ export async function issueInvoice(supabase, invoiceId, adminId, { generateAndSt
   // stays testable without mocking pdfkit/Supabase Storage. A failure here
   // does not roll back the issue — the invoice is validly issued with a
   // real number either way; the PDF can be regenerated for the same
-  // version on demand (admin/api/invoices/[...segments].js's
+  // version on demand (admin/api/invoices/[id].js's
   // download action falls back to generating on the fly if
   // pdf_storage_path is still empty).
   if (typeof generateAndStorePdf === 'function') {

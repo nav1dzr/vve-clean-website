@@ -64,7 +64,7 @@ const issuedInvoice = {
 
 function mockRouteBasedFetch(invoice: typeof draftInvoice, events: unknown[] = []) {
   authFetchMock.mockImplementation((path: string) => {
-    if (/\/events$/.test(path)) return Promise.resolve({ results: events });
+    if (path.includes('action=events')) return Promise.resolve({ results: events });
     return Promise.resolve(invoice);
   });
 }
@@ -94,7 +94,7 @@ describe('InvoiceDetailPage — draft', () => {
     await user.click(screen.getByRole('button', { name: /issue invoice/i }));
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
 
-    const issueCallsBefore = authFetchMock.mock.calls.filter((c) => /\/issue$/.test(c[0] as string)).length;
+    const issueCallsBefore = authFetchMock.mock.calls.filter((c) => (c[0] as string).includes('action=issue')).length;
     expect(issueCallsBefore).toBe(0);
   });
 
@@ -109,7 +109,7 @@ describe('InvoiceDetailPage — draft', () => {
     await user.click(within(dialog).getByRole('button', { name: /issue invoice/i }));
 
     await waitFor(() => {
-      const issueCalls = authFetchMock.mock.calls.filter((c) => /\/issue$/.test(c[0] as string));
+      const issueCalls = authFetchMock.mock.calls.filter((c) => (c[0] as string).includes('action=issue'));
       expect(issueCalls.length).toBeGreaterThanOrEqual(1);
     });
   });

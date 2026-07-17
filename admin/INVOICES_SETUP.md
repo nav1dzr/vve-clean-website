@@ -157,8 +157,10 @@ feature (invoices, receipts, and customers) fits at **exactly 12/12** by
 consolidating routes rather than one file per action or resource — see
 `INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md` §7.
 
-Invoices went through two prior shapes before settling on the current one,
-both discovered via real deployed-environment failures, not local testing:
+Invoices went through three shapes before settling on the current one, all
+discovered via real deployed-environment failures — none reproduced
+locally, since the unit test suite's fake Supabase/req-mocking bypasses
+Vercel's actual routing layer entirely:
 
 1. A nested `admin/api/invoices/[id]/[[...action]].js` (an optional
    catch-all inside a required dynamic folder) plus a separate `index.js`
@@ -171,30 +173,52 @@ both discovered via real deployed-environment failures, not local testing:
    mirroring receipts/customers). This fixed (1) but broke `GET
    /api/invoices` itself (the list route, zero segments) with a hard
    "Request failed" once deployed.
+3. A plain `index.js` (list/create) + a **required** catch-all
+   `admin/api/invoices/[...segments].js` (single bracket, meant to match
+   1+ segments). This fixed (2), but `GET /api/invoices/:id/preview` and
+   `POST /api/invoices/:id/issue` (both two path segments — the action was
+   still a path segment at this point, not yet a query-string parameter)
+   both returned a confirmed **404 with zero log output**, verified via
+   the browser Network tab and Vercel's function logs: the request never
+   reached this file's code at all for a *two*-segment path, only for a
+   *one*-segment path (`/api/invoices/:id`).
 
-Both failures point at the same underlying cause: this Vercel project's
-routing does not reliably match an optional catch-all file
-(`[[...x]].js`) when the catch-all portion is itself empty — in practice
-it behaves like a *required* catch-all. The current, third shape sidesteps
-this entirely instead of depending on unconfirmed platform behaviour for
-the empty-segment case:
+**Root cause, confirmed, not just inferred:** this Vercel project's router
+does not interpret `[...x]`/`[[...x]]` bracket syntax as catch-all at all.
+It treats the entire bracket interior — ellipsis dots included — as the
+literal name of an ordinary, exactly-one-segment dynamic parameter. Two
+independent pieces of deployed evidence proved this: (a) a real request's
+`req.query` came back with a literal key `'...segments'` holding a bare
+**string**, never the array a genuine catch-all always produces even for a
+single segment; and (b) a real two-segment request 404'd with zero
+function-log output, proving Vercel's own router rejected it before this
+project's code ever ran, while the one-segment case matched fine.
+
+**Current (fourth) shape — no catch-all syntax anywhere:**
 
 - `admin/api/invoices/index.js` — an ordinary literal file, no dynamic
-  matching at all, handling `GET`/`POST /api/invoices` (guaranteed zero
-  extra segments).
-- `admin/api/invoices/[...segments].js` — a **required** catch-all
-  (single bracket), handling `/api/invoices/:id` and every
-  `/api/invoices/:id/<action...>` route (guaranteed 1+ segments, so
-  Vercel only ever routes here when it can unambiguously match).
+  matching at all, handling `GET`/`POST /api/invoices`.
+- `admin/api/invoices/[id].js` — a single ordinary dynamic segment, no
+  ellipsis (the exact same proven shape as `admin/api/bookings/[id].js`,
+  which predates this feature and has worked in production all along).
+  Handles `GET`/`PATCH`/`DELETE /api/invoices/:id` directly; every action
+  is dispatched via a `?action=<name>` **query-string** parameter instead
+  of an additional path segment (`?action=issue`, `?action=preview`,
+  `?action=paymentsReverse&paymentId=...`, etc.) — query strings are never
+  involved in Vercel's file-system path matching, so this class of bug
+  cannot recur here regardless of how many actions are ever added.
 
 `admin/api/receipts/[[...segments]].js` and
-`admin/api/customers/[[...segments]].js` still use the optional
-single-file form and have **not** been confirmed working against a real
-deployment for their zero-segment (list) routes — only invoices' list
-route has actually been exercised end-to-end so far, and it broke under
-that same shape. Treat `GET /api/receipts` and `GET /api/customers` as
-unverified until tested live; if either shows the same "Request failed"
-symptom, apply the identical index.js + required-catch-all split used
+`admin/api/customers/[[...segments]].js` still use the (now confirmed
+broken) optional-catch-all form and have **not** been separately verified
+live — only invoices has actually been exercised end-to-end through every
+shape so far. Given the confirmed root cause applies to any bracket
+ellipsis syntax on this deployment, **assume both are equally broken**
+for any multi-segment action route (their list routes, being a genuine
+zero/one-segment case, may or may not be affected — untested) until
+proven otherwise. If `GET /api/receipts`, `GET /api/customers`, or any
+of their `/:id/<action>` routes show a 404 with no log output, apply the
+identical `index.js` + `[id].js` + `?action=` query-string split used
 here. **Do not add another file under `admin/api/`** without first
 checking the count (`find admin/api -name "*.js" -not -path "*/_lib/*" |
 wc -l` from the repo root).
