@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createFakeSupabase } from './fakeSupabase.js';
-import { createReceiptIfPaid, markReceiptSent } from '../../../api/_lib/receiptLifecycle.js';
+import { createReceiptIfPaid, markReceiptSent, loadReceiptPdfExtras } from '../../../api/_lib/receiptLifecycle.js';
 
 const ADMIN_ID = 'admin-1';
 
@@ -92,5 +92,31 @@ describe('markReceiptSent', () => {
     const result = await markReceiptSent(supabase, receiptId);
     expect(result.ok).toBe(true);
     expect(supabase._tables.receipts.find((r) => r.id === receiptId).sent_at).toBeTruthy();
+  });
+});
+
+// loadReceiptPdfExtras reads booking_ref_snapshot/deposit_applied live from
+// the linked invoice at PDF-render time rather than storing them on
+// receipts (no new columns — see the function's own header comment and
+// admin/INVOICES_TESTING.md's visual-polish requirement 12).
+describe('loadReceiptPdfExtras', () => {
+  it('returns booking_ref_snapshot and deposit_applied from the linked invoice', async () => {
+    const supabase = createFakeSupabase({
+      invoices: [{ id: 'invoice-1', booking_ref_snapshot: 'N152NG160726', deposit_applied: 30 }],
+    });
+    const extras = await loadReceiptPdfExtras(supabase, 'invoice-1');
+    expect(extras).toEqual({ booking_ref_snapshot: 'N152NG160726', deposit_applied: 30 });
+  });
+
+  it('returns an empty object when invoiceId is falsy, without querying', async () => {
+    const supabase = createFakeSupabase();
+    expect(await loadReceiptPdfExtras(supabase, null)).toEqual({});
+    expect(supabase._tables.invoices ?? []).toHaveLength(0);
+  });
+
+  it('returns an empty object when the linked invoice no longer exists (deleted, FK set null)', async () => {
+    const supabase = createFakeSupabase({ invoices: [] });
+    const extras = await loadReceiptPdfExtras(supabase, 'missing-invoice');
+    expect(extras).toEqual({});
   });
 });

@@ -132,6 +132,26 @@ export async function createReceiptIfPaid(supabase, input, adminId, { generateAn
   return { ok: true, receiptId: receiptRow.id, receiptNumber: receiptRow.receipt_number };
 }
 
+// Receipts have no booking_ref_snapshot or deposit_applied column of their
+// own (see the receipts table in
+// 20260722000000_create_invoice_receipt_tables.sql) — those PDF-display
+// fields (INVOICES_TESTING.md's visual-polish requirement 12) are read
+// live from the linked invoice at render time instead of adding new
+// columns, since both are immutable on an issued invoice in practice.
+// Never throws: a lookup failure just means the PDF renders those two
+// optional rows blank, exactly like an invoice/receipt with no linked
+// booking today.
+export async function loadReceiptPdfExtras(supabase, invoiceId) {
+  if (!invoiceId) return {};
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('booking_ref_snapshot, deposit_applied')
+    .eq('id', invoiceId)
+    .maybeSingle();
+  if (error || !data) return {};
+  return { booking_ref_snapshot: data.booking_ref_snapshot, deposit_applied: data.deposit_applied };
+}
+
 export async function markReceiptSent(supabase, receiptId) {
   const { error } = await supabase
     .from('receipts')

@@ -5,6 +5,7 @@ import { readJsonBody } from '../_lib/body.js';
 import { extractSegments } from '../_lib/routeParams.js';
 import { isValidUuid, isValidEmail, sanitiseFreeTextFilter } from '../_lib/normalise.js';
 import { RECEIPT_CARD_SELECT, toReceiptCard, toReceiptDetail, toInvoiceEvent } from '../_lib/invoiceFields.js';
+import { loadReceiptPdfExtras } from '../_lib/receiptLifecycle.js';
 import { generateReceiptPdfBuffer } from '../_lib/invoicePdf.js';
 import { receiptPdfPath, uploadPdf, getSignedDownloadUrl, downloadPdfBuffer } from '../_lib/invoiceStorage.js';
 import { getBusinessSettings } from '../_lib/businessSettings.js';
@@ -203,7 +204,8 @@ async function handleDownload(req, res, headers, supabase, receiptId) {
 
   let path = receipt.pdf_storage_path;
   if (!path) {
-    const buffer = await generateReceiptPdfBuffer(receipt, receipt.business_snapshot || getBusinessSettings());
+    const extras = await loadReceiptPdfExtras(supabase, receipt.invoice_id);
+    const buffer = await generateReceiptPdfBuffer({ ...receipt, ...extras }, receipt.business_snapshot || getBusinessSettings());
     const uploadResult = await uploadPdf(supabase, receiptPdfPath(receiptId, receipt.document_version || 1), buffer);
     if (!uploadResult.ok) {
       res.writeHead(500, headers);
@@ -266,7 +268,8 @@ async function handleSend(req, res, headers, supabase, receiptId, auth, eventTyp
 
   let path = receipt.pdf_storage_path;
   if (!path) {
-    const buffer = await generateReceiptPdfBuffer(receipt, receipt.business_snapshot || getBusinessSettings());
+    const extras = await loadReceiptPdfExtras(supabase, receipt.invoice_id);
+    const buffer = await generateReceiptPdfBuffer({ ...receipt, ...extras }, receipt.business_snapshot || getBusinessSettings());
     const uploadResult = await uploadPdf(supabase, receiptPdfPath(receiptId, receipt.document_version || 1), buffer);
     if (!uploadResult.ok) {
       res.writeHead(500, headers);

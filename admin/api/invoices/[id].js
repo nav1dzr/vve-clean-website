@@ -11,7 +11,7 @@ import {
   updateDraftInvoice, deleteDraftInvoice, issueInvoice, voidInvoice,
   duplicateInvoiceAsDraft, recordPayment, reversePayment,
 } from '../_lib/invoiceLifecycle.js';
-import { createReceiptIfPaid } from '../_lib/receiptLifecycle.js';
+import { createReceiptIfPaid, loadReceiptPdfExtras } from '../_lib/receiptLifecycle.js';
 import { generateInvoicePdfBuffer, generateReceiptPdfBuffer } from '../_lib/invoicePdf.js';
 import {
   invoicePdfPath, receiptPdfPath, uploadPdf, getSignedDownloadUrl, downloadPdfBuffer,
@@ -44,7 +44,8 @@ function makeInvoicePdfGenerator(supabase) {
 
 function makeReceiptPdfGenerator(supabase) {
   return async function generateAndStoreReceiptPdf(receipt) {
-    const buffer = await generateReceiptPdfBuffer(receipt, getBusinessSettings());
+    const extras = await loadReceiptPdfExtras(supabase, receipt.invoice_id);
+    const buffer = await generateReceiptPdfBuffer({ ...receipt, ...extras }, getBusinessSettings());
     return uploadPdf(supabase, receiptPdfPath(receipt.id, receipt.document_version || 1), buffer);
   };
 }

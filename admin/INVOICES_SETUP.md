@@ -10,6 +10,7 @@ committed to the repo.
 ```
 supabase/migrations/20260722000000_create_invoice_receipt_tables.sql
 supabase/migrations/20260723000000_add_customers_and_payment_options.sql
+supabase/migrations/20260724000000_seed_document_numbering_start.sql
 ```
 
 The first creates `document_number_counters`, `invoices`, `invoice_items`,
@@ -42,7 +43,16 @@ After applying each, run the manual verification SQL included as comments
 at the bottom of that migration file (checks numbering, RLS status, absence
 of anon/authenticated policies, and the storage bucket's `public = false`
 flag for the first; RLS/columns for `customers` and the new `invoices`
-columns for the second).
+columns for the second; `document_number_counters.last_number >= 13244`
+for both `invoice` and `receipt` in 2026 for the third).
+
+**The third migration is a business decision, not a technical one**: it
+seeds the numbering sequence so the first invoice/receipt issued in 2026
+starts at `...-013245` instead of `...-000001` (see
+`admin/INVOICE_NUMBERING_POLICY.md` for the numbering scheme itself). It's
+idempotent and never lowers an already-higher counter, so it's safe to
+apply at any point — before or after real invoices have been issued — and
+existing issued numbers are never renumbered.
 
 ## 2. Configure business identity
 
