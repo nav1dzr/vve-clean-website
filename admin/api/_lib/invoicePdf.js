@@ -7,31 +7,20 @@
 // fixed-layout business document. See
 // INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §8.
 //
-// Typography: Space Grotesk (static Regular/Medium/Bold instances, SIL OFL
-// 1.1, vendored under ./fonts — see fonts/SpaceGrotesk-OFL.txt) is embedded
-// as the brand typeface, matching the closest practical match to the site's
-// heading font. The .woff (zlib) files are used deliberately, not .woff2
-// (brotli) — the woff2-decoded variant of this exact font triggered a
-// buffer-overflow bug in this project's pinned pdfkit/fontkit glyph-subset
-// encoder (ERR_BUFFER_OUT_OF_BOUNDS in fontkit's subset _addGlyph); the
-// .woff path renders correctly and was verified by hand before adopting
-// it. Font loading is wrapped in a try/catch and falls back to the
-// built-in Helvetica family if the font files are ever missing or fail to
-// register, so a font-asset problem degrades typography rather than
-// breaking PDF generation. All customer-controlled text is rendered as
-// literal PDF text via pdfkit's .text() calls, never interpreted as
-// markup, so there is no injection surface analogous to the HTML-escaping
-// needed in email templates (api/stripe-webhook.js's escHtml() pattern) —
-// pdfkit has no concept of "unescaped" text to begin with.
+// Only the built-in Helvetica family is used — no remote/embedded fonts,
+// so output is deterministic and has no network dependency at render time
+// (a Space Grotesk embed was tried during the visual-polish pass and then
+// deliberately reverted — kept to Helvetica per preference; the layout/
+// spacing/colour changes from that pass stay). All customer-controlled
+// text is rendered as literal PDF text via pdfkit's .text() calls, never
+// interpreted as markup, so there is no injection surface analogous to the
+// HTML-escaping needed in email templates (api/stripe-webhook.js's
+// escHtml() pattern) — pdfkit has no concept of "unescaped" text to begin
+// with.
 
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
 import PDFDocument from 'pdfkit';
 import { buildPaymentInstructionsSnapshot } from './paymentOptions.js';
 import { hasBankDetails } from './businessSettings.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const PAGE_MARGIN = 50;
 const NAVY = '#020b24';
@@ -47,38 +36,13 @@ const TEXT = '#1c1c1c';
 const FOOTER_RESERVE = 46;
 const SAFE_BOTTOM = 841.89 - PAGE_MARGIN - FOOTER_RESERVE;
 
-// Font buffers are read once per cold start, not once per PDF — a
-// serverless function instance generates many PDFs across its lifetime.
-let fontBuffers = null;
-try {
-  const fontsDir = join(__dirname, 'fonts');
-  fontBuffers = {
-    regular: readFileSync(join(fontsDir, 'SpaceGrotesk-Regular.woff')),
-    medium: readFileSync(join(fontsDir, 'SpaceGrotesk-Medium.woff')),
-    bold: readFileSync(join(fontsDir, 'SpaceGrotesk-Bold.woff')),
-  };
-} catch (err) {
-  console.error('[admin/api] Space Grotesk font assets failed to load, falling back to Helvetica:', err?.message);
-  fontBuffers = null;
-}
-
-// Registers the embedded font on this specific document instance (pdfkit
-// fonts are registered per-PDFDocument, not globally) and returns the font
-// names to use for the rest of this render. Never throws — any failure
-// (corrupt buffer, subsetting error) falls back to the built-in Helvetica
-// family for this document only, so one bad render never takes down PDF
-// generation as a whole.
-function loadFonts(doc) {
-  if (!fontBuffers) return { regular: 'Helvetica', medium: 'Helvetica-Bold', bold: 'Helvetica-Bold' };
-  try {
-    doc.registerFont('Body', fontBuffers.regular);
-    doc.registerFont('Body-Medium', fontBuffers.medium);
-    doc.registerFont('Body-Bold', fontBuffers.bold);
-    return { regular: 'Body', medium: 'Body-Medium', bold: 'Body-Bold' };
-  } catch (err) {
-    console.error('[admin/api] Space Grotesk font registration failed, falling back to Helvetica:', err?.message);
-    return { regular: 'Helvetica', medium: 'Helvetica-Bold', bold: 'Helvetica-Bold' };
-  }
+// Returns the font names to use for a render. A function (rather than a
+// module-level constant) so the rest of the file doesn't care whether the
+// active typeface is a built-in standard font or an embedded one — kept as
+// the seam it was when Space Grotesk was embedded here, in case that's
+// revisited later.
+function loadFonts() {
+  return { regular: 'Helvetica', medium: 'Helvetica-Bold', bold: 'Helvetica-Bold' };
 }
 
 function streamToBuffer(doc) {
@@ -456,7 +420,7 @@ function drawPaymentDetailsBox(doc, fonts, invoice, settings, startY) {
 export async function generateInvoicePdfBuffer(invoice, items, settings, { isDraft = false } = {}) {
   const doc = new PDFDocument({ size: 'A4', margin: PAGE_MARGIN, bufferPages: true, compress: false });
   const bufferPromise = streamToBuffer(doc);
-  const fonts = loadFonts(doc);
+  const fonts = loadFonts();
 
   if (isDraft) drawDraftWatermark(doc);
 
@@ -542,7 +506,7 @@ export async function generateInvoicePdfBuffer(invoice, items, settings, { isDra
 export async function generateReceiptPdfBuffer(receipt, settings) {
   const doc = new PDFDocument({ size: 'A4', margin: PAGE_MARGIN, bufferPages: true, compress: false });
   const bufferPromise = streamToBuffer(doc);
-  const fonts = loadFonts(doc);
+  const fonts = loadFonts();
 
   drawWordmark(doc, fonts, PAGE_MARGIN, PAGE_MARGIN);
   const businessBlockHeight = drawBusinessBlock(doc, fonts, settings, doc.page.width - PAGE_MARGIN - 220, PAGE_MARGIN, 220);
