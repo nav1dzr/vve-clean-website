@@ -29,8 +29,16 @@ export const config = { api: { bodyParser: false } };
 // those lifecycle modules themselves free of any pdfkit/Storage import.
 function makeInvoicePdfGenerator(supabase) {
   return async function generateAndStoreInvoicePdf(invoice, items) {
+    // Note: a failure anywhere in here is caught and swallowed by
+    // issueInvoice()'s own try/catch (invoiceLifecycle.js) — the invoice is
+    // still validly issued either way, so this can never be the cause of
+    // POST /api/invoices/:id/issue itself returning a non-2xx response.
+    // Logged here purely so a failure is still visible server-side.
     const buffer = await generateInvoicePdfBuffer(invoice, items, getBusinessSettings(), { isDraft: false });
-    return uploadPdf(supabase, invoicePdfPath(invoice.id, invoice.document_version || 1), buffer);
+    console.log('[invoices route debug] issue: PDF generated for storage, byteLength=%s', buffer.length);
+    const result = await uploadPdf(supabase, invoicePdfPath(invoice.id, invoice.document_version || 1), buffer);
+    console.log('[invoices route debug] issue: storage upload ok=%s', result?.ok);
+    return result;
   };
 }
 
@@ -126,7 +134,10 @@ export default async function handler(req, res) {
       return await handleReversePayment(req, res, headers, supabase, action[1], auth);
     }
     if (action.length === 1 && action[0] === 'events') return await handleEvents(req, res, headers, supabase, invoiceId);
-    if (action.length === 1 && action[0] === 'preview') return await handlePreview(req, res, headers, supabase, invoiceId);
+    if (action.length === 1 && action[0] === 'preview') {
+      console.log('[invoices route debug] dispatch=preview id=%s method=%s', invoiceId, req.method);
+      return await handlePreview(req, res, headers, supabase, invoiceId);
+    }
     if (action.length === 1 && action[0] === 'download') return await handleDownload(req, res, headers, supabase, invoiceId);
     if (action.length === 1 && action[0] === 'send') return await handleSend(req, res, headers, supabase, invoiceId, auth, 'sent');
     if (action.length === 1 && action[0] === 'resend') return await handleSend(req, res, headers, supabase, invoiceId, auth, 'resent');
@@ -135,7 +146,14 @@ export default async function handler(req, res) {
     res.writeHead(404, headers);
     return res.end(JSON.stringify({ error: 'Not found' }));
   } catch (err) {
-    console.error('[admin/api] invoice route unexpected error:', err?.message);
+    // TEMP DEBUG — name/stack included (never request/customer data) to
+    // pin down preview/issue failures that only manifest under real
+    // deployed conditions (timeouts, real invoice data shapes) and never
+    // reproduce against the in-memory fake Supabase test client.
+    console.error(
+      '[admin/api] invoice route unexpected error: name=%s message=%s stack=%s',
+      err?.name, err?.message, String(err?.stack || '').slice(0, 500),
+    );
     res.writeHead(500, headers);
     res.end(JSON.stringify({ error: 'Internal server error' }));
   }
@@ -201,10 +219,13 @@ async function handleRoot(req, res, headers, supabase, invoiceId, auth) {
 
 async function handleIssue(req, res, headers, supabase, invoiceId, auth) {
   if (req.method !== 'POST') {
+    console.log('[invoices route debug] issue: method not allowed, got %s', req.method);
     res.writeHead(405, headers);
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
   }
+  console.log('[invoices route debug] issue: calling issueInvoice() for id=%s', invoiceId);
   const result = await issueInvoice(supabase, invoiceId, auth.admin.id, { generateAndStorePdf: makeInvoicePdfGenerator(supabase) });
+  console.log('[invoices route debug] issue: issueInvoice() returned ok=%s status=%s', result.ok, result.status);
   if (!result.ok) {
     console.log('[invoices route debug] issue failed for id=%s: %s', invoiceId, result.error);
     res.writeHead(result.status || 400, headers);
@@ -331,29 +352,56 @@ async function handleEvents(req, res, headers, supabase, invoiceId) {
 // this is a preview endpoint, not the immutable stored document).
 async function handlePreview(req, res, headers, supabase, invoiceId) {
   if (req.method !== 'GET') {
+    console.log('[invoices route debug] preview: method not allowed, got %s', req.method);
     res.writeHead(405, headers);
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
   }
   const { data: invoice, error } = await supabase.from('invoices').select('*').eq('id', invoiceId).maybeSingle();
   if (error) {
+    console.error('[invoices route debug] preview: invoice fetch failed code=%s message=%s', error.code, error.message);
     res.writeHead(500, headers);
     return res.end(JSON.stringify({ error: 'Failed to load invoice' }));
   }
   if (!invoice) {
+    console.log('[invoices route debug] preview: no invoice row for id=%s', invoiceId);
     res.writeHead(404, headers);
     return res.end(JSON.stringify({ error: 'Invoice not found' }));
   }
+  // Structural presence check only (booleans, never values) — surfaces
+  // whether migration 20260723000000_add_customers_and_payment_options.sql
+  // has actually been applied to this database yet, since select('*')
+  // silently omits columns that don't exist rather than erroring.
+  console.log(
+    '[invoices route debug] preview: invoice loaded status=%s has_payment_option_col=%s has_service_contact_col=%s items_expected',
+    invoice.document_status, Object.prototype.hasOwnProperty.call(invoice, 'payment_option'),
+    Object.prototype.hasOwnProperty.call(invoice, 'service_contact_name'),
+  );
+
   const { data: items, error: itemsErr } = await supabase
     .from('invoice_items').select('*').eq('invoice_id', invoiceId).order('sort_order', { ascending: true });
   if (itemsErr || !items || items.length === 0) {
+    console.log('[invoices route debug] preview: itemsErr=%o itemCount=%s', itemsErr, items?.length);
     res.writeHead(400, headers);
     return res.end(JSON.stringify({ error: 'Cannot preview an invoice with no line items' }));
   }
+  console.log('[invoices route debug] preview: items loaded count=%s', items.length);
 
   await supabase.from('invoice_events').insert({ document_type: 'invoice', document_id: invoiceId, event_type: 'previewed' });
+  console.log('[invoices route debug] preview: previewed event logged, generating PDF now');
 
   const settings = invoice.document_status === 'issued' && invoice.business_snapshot ? invoice.business_snapshot : getBusinessSettings();
-  const buffer = await generateInvoicePdfBuffer(invoice, items, settings, { isDraft: invoice.document_status === 'draft' });
+
+  let buffer;
+  try {
+    buffer = await generateInvoicePdfBuffer(invoice, items, settings, { isDraft: invoice.document_status === 'draft' });
+  } catch (err) {
+    // Logged here (before the outer route handler's generic catch) so the
+    // specific pdfkit/rendering failure is visible even though the client
+    // only ever receives a generic 500 — never leak invoice content here.
+    console.error('[invoices route debug] preview: PDF generation threw: name=%s message=%s', err?.name, err?.message);
+    throw err;
+  }
+  console.log('[invoices route debug] preview: PDF generated, byteLength=%s', buffer.length);
 
   res.writeHead(200, {
     ...headers,

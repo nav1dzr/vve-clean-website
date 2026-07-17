@@ -23,6 +23,21 @@ are applied (there is no CI automation in this repo for `supabase db push`;
 each must be run manually against the live database, same as every other
 migration in this project).
 
+**If migration 2 has not been applied, `POST /api/invoices/:id/issue` will
+fail** — its final UPDATE writes `payment_instructions_snapshot`, a column
+migration 2 adds, so issuing is impossible without it by design (this is
+not a bug to fix in code; it's a precondition). If issuing fails, check the
+Vercel function logs for `[admin/api] issueInvoice: invoice fetch failed`
+or `[admin/api] invoice issue failed:` followed by a Postgres error code —
+`42703` (`undefined_column`) confirms migration 2 hasn't run yet on this
+database. Every other invoice read in this feature deliberately uses
+`select('*')` rather than naming columns, specifically so it degrades
+gracefully (missing fields simply read as `undefined` and fall back to
+their documented defaults, e.g. `payment_option` defaults to
+`bank_transfer`) instead of throwing when migration 2 is missing —
+`issueInvoice()`'s initial fetch was brought in line with that same
+pattern for the same reason.
+
 After applying each, run the manual verification SQL included as comments
 at the bottom of that migration file (checks numbering, RLS status, absence
 of anon/authenticated policies, and the storage bucket's `public = false`

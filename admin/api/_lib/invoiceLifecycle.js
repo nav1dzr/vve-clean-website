@@ -334,13 +334,24 @@ export async function deleteDraftInvoice(supabase, invoiceId) {
 // calculations, allocates the formal number, snapshots business/customer/
 // item/total data, and marks it issued.
 export async function issueInvoice(supabase, invoiceId, adminId, { generateAndStorePdf } = {}) {
+  // select('*') deliberately, not a named column list — matches the
+  // pattern already used everywhere else invoices are read in this feature
+  // (handleRoot/handlePreview/handleDownload/handleSend in
+  // admin/api/invoices/[...segments].js). A named list that includes
+  // payment_option/stripe_payment_link_url (added by the second,
+  // separately-applied migration) would throw "column does not exist"
+  // here specifically if that migration hasn't been run yet on this
+  // database — select('*') never has that failure mode.
   const { data: invoice, error: fetchErr } = await supabase
     .from('invoices')
-    .select('id, document_status, customer_name, customer_email, customer_phone, customer_address, customer_postcode, po_reference, service_date, booking_ref_snapshot, subtotal, document_discount, tax_total, total, deposit_applied, amount_paid, amount_due, payment_terms, customer_notes, due_date, issue_date, payment_option, stripe_payment_link_url')
+    .select('*')
     .eq('id', invoiceId)
     .maybeSingle();
 
-  if (fetchErr) return { ok: false, error: 'Failed to load invoice' };
+  if (fetchErr) {
+    console.error('[admin/api] issueInvoice: invoice fetch failed code=%s message=%s', fetchErr.code, fetchErr.message);
+    return { ok: false, error: 'Failed to load invoice' };
+  }
   if (!invoice) return { ok: false, error: 'Invoice not found', status: 404 };
   if (invoice.document_status !== 'draft') {
     return { ok: false, error: 'Only a draft invoice can be issued', status: 409 };
@@ -352,14 +363,19 @@ export async function issueInvoice(supabase, invoiceId, adminId, { generateAndSt
     .eq('invoice_id', invoiceId)
     .order('sort_order', { ascending: true });
 
-  if (itemsErr) return { ok: false, error: 'Failed to load invoice line items' };
+  if (itemsErr) {
+    console.error('[admin/api] issueInvoice: items fetch failed code=%s message=%s', itemsErr.code, itemsErr.message);
+    return { ok: false, error: 'Failed to load invoice line items' };
+  }
   if (!items || items.length === 0) return { ok: false, error: 'Cannot issue an invoice with no line items' };
+  console.log('[admin/api] issueInvoice: invoice+items loaded, id=%s itemCount=%s, allocating number', invoiceId, items.length);
 
   const { data: numberResult, error: numberErr } = await supabase.rpc('next_document_number', { p_doc_type: 'invoice' });
   if (numberErr || !numberResult) {
     console.error('[admin/api] invoice number allocation failed:', numberErr?.code, numberErr?.message);
     return { ok: false, error: 'Failed to allocate an invoice number' };
   }
+  console.log('[admin/api] issueInvoice: number allocated, updating invoice row');
 
   const businessSnapshot = getBusinessSettings();
   const paymentInstructionsSnapshot = buildPaymentInstructionsSnapshot({
@@ -397,6 +413,7 @@ export async function issueInvoice(supabase, invoiceId, adminId, { generateAndSt
     // number is simply left unused rather than "returned."
     return { ok: false, error: 'Invoice was already issued (concurrent request)', status: 409 };
   }
+  console.log('[admin/api] issueInvoice: invoice row updated, number=%s, generating PDF now', issued.invoice_number);
 
   await logEvent(supabase, {
     documentType: 'invoice',

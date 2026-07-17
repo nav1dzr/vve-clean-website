@@ -519,6 +519,63 @@ describe('Vercel-style query param routing (req.query.segments, always 1+ elemen
     expect(JSON.parse(res.body).invoiceNumber).toMatch(/^INV-\d{4}-000001$/);
   });
 
+  it('dispatches a single-segment action (preview) when req.query.segments is a two-element array, matching authFetchBlob\'s exact request shape (GET, Authorization header only, no body)', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+
+    const res = makeRes();
+    // No bodyObj, no explicit Content-Type — mirrors admin/src/lib/
+    // authFetch.ts's authFetchBlob(), which never sets init.body at all.
+    await handler(makeReq({
+      url: `/api/invoices/${invoiceId}/preview`, method: 'GET', query: { segments: [invoiceId, 'preview'] },
+    }), res);
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['Content-Type']).toBe('application/pdf');
+    expect(Buffer.isBuffer(res.body)).toBe(true);
+    expect(res.body.subarray(0, 5).toString('ascii')).toBe('%PDF-');
+  });
+
+  it('preserves £340 total / £30 deposit / £310 due through both Preview PDF and Issue invoice, using the exact frontend request shapes for each', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase, {
+      items: [{ description: 'Deep clean', quantity: 1, unitPrice: 340 }],
+      depositApplied: 30,
+    });
+
+    // Preview first (authFetchBlob shape: GET, Authorization header only)
+    // — must succeed, and the invoice must remain a draft afterwards.
+    const previewRes = makeRes();
+    await handler(makeReq({
+      url: `/api/invoices/${invoiceId}/preview`, method: 'GET', query: { segments: [invoiceId, 'preview'] },
+    }), previewRes);
+    expect(previewRes.statusCode).toBe(200);
+    expect(previewRes.body.subarray(0, 5).toString('ascii')).toBe('%PDF-');
+
+    const stillDraft = supabase._tables.invoices.find((i) => i.id === invoiceId);
+    expect(stillDraft.document_status).toBe('draft');
+    expect(stillDraft.total).toBe(340);
+    expect(stillDraft.deposit_applied).toBe(30);
+    expect(stillDraft.amount_due).toBe(310);
+
+    // Then issue (authFetch shape: POST, Authorization header, no body).
+    const issueRes = makeRes();
+    await handler(makeReq({
+      url: `/api/invoices/${invoiceId}/issue`, method: 'POST', query: { segments: [invoiceId, 'issue'] },
+    }), issueRes);
+    expect(issueRes.statusCode).toBe(200);
+    expect(JSON.parse(issueRes.body).invoiceNumber).toMatch(/^INV-\d{4}-000001$/);
+
+    const detailRes = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}`, query: { segments: [invoiceId] } }), detailRes);
+    const detail = JSON.parse(detailRes.body);
+    expect(detail.documentStatus).toBe('issued');
+    expect(detail.total).toBe(340);
+    expect(detail.depositApplied).toBe(30);
+    expect(detail.amountDue).toBe(310);
+  });
+
   it('dispatches the nested payments/:paymentId/reverse action when req.query.segments is a four-element array', async () => {
     const supabase = createFakeSupabase();
     getServiceClientMock.mockReturnValue(supabase);

@@ -213,6 +213,45 @@ describe('issueInvoice', () => {
     expect(invoice.document_status).toBe('issued');
     expect(invoice.pdf_storage_path).toBeUndefined(); // no path recorded — safe to regenerate later
   });
+
+  it('issues successfully with £340 total / £30 deposit / £310 due, even when payment_option/stripe_payment_link_url/service_contact_* columns are entirely absent from the row (defends against the initial fetch using select(\'*\') against a database where the second, separately-applied migration has not yet run)', async () => {
+    const supabase = createFakeSupabase();
+    const { invoiceId } = await createDraftInvoice(supabase, draftInput({
+      items: [{ description: 'Deep clean', quantity: 1, unitPrice: 340 }],
+      depositApplied: 30,
+    }), ADMIN_ID);
+
+    // Simulate a database where migration 2 hasn't run yet: strip every
+    // column it adds off the in-memory row entirely (not null — absent, as
+    // select('*') against a real table lacking these columns would never
+    // include them as keys at all).
+    const invoice = supabase._tables.invoices.find((i) => i.id === invoiceId);
+    delete invoice.payment_option;
+    delete invoice.stripe_payment_link_url;
+    delete invoice.payment_instructions_snapshot;
+    delete invoice.service_contact_name;
+    delete invoice.service_contact_email;
+    delete invoice.service_contact_phone;
+    delete invoice.service_address;
+    delete invoice.service_contact_postcode;
+    delete invoice.invoice_recipient_email;
+    delete invoice.receipt_recipient_email;
+    delete invoice.billing_customer_id;
+    delete invoice.service_customer_id;
+
+    const result = await issueInvoice(supabase, invoiceId, ADMIN_ID);
+    expect(result.ok).toBe(true);
+    expect(result.invoiceNumber).toMatch(/^INV-\d{4}-000001$/);
+
+    const issued = supabase._tables.invoices.find((i) => i.id === invoiceId);
+    expect(issued.document_status).toBe('issued');
+    expect(issued.total).toBe(340);
+    expect(issued.deposit_applied).toBe(30);
+    expect(issued.amount_due).toBe(310);
+    // Defaults to bank_transfer when payment_option was never set, exactly
+    // as the draft-editor default already documents.
+    expect(issued.payment_instructions_snapshot?.paymentOption).toBe('bank_transfer');
+  });
 });
 
 describe('voidInvoice', () => {
