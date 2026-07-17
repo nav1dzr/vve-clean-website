@@ -7,7 +7,10 @@ const getServiceClientMock = vi.fn();
 vi.mock('../../../api/_lib/adminAuth.js', () => ({ verifyAdminRequest: (...args) => verifyAdminRequestMock(...args) }));
 vi.mock('../../../api/_lib/supabaseAdmin.js', () => ({ getServiceClient: (...args) => getServiceClientMock(...args) }));
 
-const { default: handler } = await import('../../../api/customers/[[...segments]].js');
+// The file under test is named [id].js (Vercel's dynamic-route
+// convention) — see admin/tests/api/bookings/id.test.js's comment for why
+// the test file itself avoids brackets in its own name.
+const { default: handler } = await import('../../../api/customers/[id].js');
 
 function makeRes() {
   const res = {
@@ -17,12 +20,13 @@ function makeRes() {
   };
   return res;
 }
-function makeReq({ url, bodyObj, headers = { authorization: 'Bearer t' }, method = 'GET' } = {}) {
+function makeReq({ url, bodyObj, headers = { authorization: 'Bearer t' }, method = 'GET', query } = {}) {
   const raw = bodyObj === undefined ? '' : JSON.stringify(bodyObj);
   return {
     method,
     url,
     headers,
+    query,
     on(event, cb) {
       if (event === 'data' && raw) cb(Buffer.from(raw));
       if (event === 'end') cb();
@@ -33,71 +37,7 @@ function makeReq({ url, bodyObj, headers = { authorization: 'Bearer t' }, method
 const ADMIN = { ok: true, admin: { id: 'admin-1' } };
 const VALID_UUID = '123e4567-e89b-12d3-a456-426614174000';
 
-describe('GET/POST /api/customers (list/create)', () => {
-  beforeEach(() => {
-    verifyAdminRequestMock.mockReset();
-    getServiceClientMock.mockReset();
-    verifyAdminRequestMock.mockResolvedValue(ADMIN);
-  });
-
-  it('rejects unauthenticated requests', async () => {
-    verifyAdminRequestMock.mockResolvedValue({ ok: false, status: 401, error: 'Missing bearer token' });
-    const res = makeRes();
-    await handler(makeReq({ url: '/api/customers' }), res);
-    expect(res.statusCode).toBe(401);
-  });
-
-  it('lists customers', async () => {
-    getServiceClientMock.mockReturnValue(createFakeSupabase({
-      customers: [{ id: 'c-1', name: 'Jane Doe', email: 'jane@example.com', phone: null, postcode: null, customer_type: 'individual', source: 'other', created_at: '2026-01-01T00:00:00Z' }],
-    }));
-    const res = makeRes();
-    await handler(makeReq({ url: '/api/customers' }), res);
-    expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).results).toHaveLength(1);
-  });
-
-  it('rejects an invalid customerType filter', async () => {
-    getServiceClientMock.mockReturnValue(createFakeSupabase());
-    const res = makeRes();
-    await handler(makeReq({ url: '/api/customers?customerType=wizard' }), res);
-    expect(res.statusCode).toBe(400);
-  });
-
-  it('creates a customer and returns duplicateWarnings', async () => {
-    const supabase = createFakeSupabase({
-      customers: [{ id: 'c-existing', name: 'Existing', email: 'dup@example.com', phone: null, postcode: null, normalised_email: 'dup@example.com', normalised_phone: null }],
-    });
-    getServiceClientMock.mockReturnValue(supabase);
-
-    const res = makeRes();
-    await handler(makeReq({
-      url: '/api/customers', method: 'POST',
-      bodyObj: { name: 'New Landlord', email: 'dup@example.com', customerType: 'landlord', source: 'referral' },
-    }), res);
-    expect(res.statusCode).toBe(201);
-    const body = JSON.parse(res.body);
-    expect(body.customerType).toBe('landlord');
-    expect(body.duplicateWarnings).toHaveLength(1);
-    expect(body.duplicateWarnings[0].type).toBe('email');
-  });
-
-  it('rejects creating a customer with no name', async () => {
-    getServiceClientMock.mockReturnValue(createFakeSupabase());
-    const res = makeRes();
-    await handler(makeReq({ url: '/api/customers', method: 'POST', bodyObj: { name: '' } }), res);
-    expect(res.statusCode).toBe(400);
-  });
-
-  it('rejects DELETE at the list root', async () => {
-    getServiceClientMock.mockReturnValue(createFakeSupabase());
-    const res = makeRes();
-    await handler(makeReq({ url: '/api/customers', method: 'DELETE' }), res);
-    expect(res.statusCode).toBe(405);
-  });
-});
-
-describe('/api/customers/:id (detail/update/history/manual booking)', () => {
+describe('/api/customers/:id[?action=] (detail/update/history/manual booking)', () => {
   beforeEach(() => {
     verifyAdminRequestMock.mockReset();
     getServiceClientMock.mockReset();
@@ -164,7 +104,7 @@ describe('/api/customers/:id (detail/update/history/manual booking)', () => {
     expect(row.customer_type).toBe('business');
   });
 
-  it('creates a manual booking for the customer', async () => {
+  it('creates a manual booking for the customer via ?action=bookings', async () => {
     const supabase = createFakeSupabase({
       customers: [{ id: VALID_UUID, name: 'Jane Doe', email: 'jane@example.com', phone: '07700900123', address: '1 Test St', postcode: 'N15 2NG' }],
     });
@@ -172,7 +112,7 @@ describe('/api/customers/:id (detail/update/history/manual booking)', () => {
 
     const res = makeRes();
     await handler(makeReq({
-      url: `/api/customers/${VALID_UUID}/bookings`, method: 'POST',
+      url: `/api/customers/${VALID_UUID}?action=bookings`, method: 'POST',
       bodyObj: { service: 'Deep clean', serviceDate: '2026-08-01', totalPrice: 150 },
     }), res);
     expect(res.statusCode).toBe(201);
@@ -192,11 +132,11 @@ describe('/api/customers/:id (detail/update/history/manual booking)', () => {
     getServiceClientMock.mockReturnValue(supabase);
 
     const res = makeRes();
-    await handler(makeReq({ url: `/api/customers/${VALID_UUID}/bookings`, method: 'POST', bodyObj: {} }), res);
+    await handler(makeReq({ url: `/api/customers/${VALID_UUID}?action=bookings`, method: 'POST', bodyObj: {} }), res);
     expect(res.statusCode).toBe(400);
   });
 
-  it('returns customer event history', async () => {
+  it('returns customer event history via ?action=events', async () => {
     const supabase = createFakeSupabase({
       customers: [{ id: VALID_UUID, name: 'Jane Doe', email: 'jane@example.com', phone: null, postcode: null, customer_type: 'individual', source: 'other', created_at: '2026-01-01T00:00:00Z' }],
     });
@@ -207,8 +147,56 @@ describe('/api/customers/:id (detail/update/history/manual booking)', () => {
     }), makeRes());
 
     const res = makeRes();
-    await handler(makeReq({ url: `/api/customers/${VALID_UUID}/events` }), res);
+    await handler(makeReq({ url: `/api/customers/${VALID_UUID}?action=events` }), res);
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body).results.map((e) => e.eventType)).toEqual(['updated']);
+  });
+
+  it('an unknown ?action= value falls through to method dispatch and 405s for a non-GET/PATCH method', async () => {
+    getServiceClientMock.mockReturnValue(createFakeSupabase({
+      customers: [{ id: VALID_UUID, name: 'Jane Doe', email: 'jane@example.com' }],
+    }));
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/customers/${VALID_UUID}?action=bogus`, method: 'DELETE' }), res);
+    expect(res.statusCode).toBe(405);
+  });
+});
+
+// Real Vercel populates req.query.id for a `[id].js` bracket route (proven
+// via admin/api/bookings/[id].js long before this feature existed) — set
+// directly here, combined with real `?action=` query strings parsed
+// independently via req.url, exactly like admin/tests/api/invoices/
+// id.test.js's equivalent section.
+describe('Vercel-style query param routing (req.query.id)', () => {
+  beforeEach(() => {
+    verifyAdminRequestMock.mockReset();
+    getServiceClientMock.mockReset();
+    verifyAdminRequestMock.mockResolvedValue(ADMIN);
+  });
+
+  it('loads customer detail when req.query.id is set directly', async () => {
+    const supabase = createFakeSupabase({
+      customers: [{ id: VALID_UUID, name: 'Jane Doe', email: 'jane@example.com', phone: null, postcode: null, customer_type: 'individual', source: 'other', created_at: '2026-01-01T00:00:00Z' }],
+    });
+    getServiceClientMock.mockReturnValue(supabase);
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/customers/${VALID_UUID}`, query: { id: VALID_UUID } }), res);
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).name).toBe('Jane Doe');
+  });
+
+  it('dispatches ?action=bookings with req.query.id set, matching the frontend request shape', async () => {
+    const supabase = createFakeSupabase({
+      customers: [{ id: VALID_UUID, name: 'Jane Doe', email: 'jane@example.com', phone: '07700900123', address: '1 Test St', postcode: 'N15 2NG' }],
+    });
+    getServiceClientMock.mockReturnValue(supabase);
+
+    const res = makeRes();
+    await handler(makeReq({
+      url: `/api/customers/${VALID_UUID}?action=bookings`, query: { id: VALID_UUID }, method: 'POST',
+      bodyObj: { service: 'Deep clean', serviceDate: '2026-08-01', totalPrice: 150 },
+    }), res);
+    expect(res.statusCode).toBe(201);
   });
 });

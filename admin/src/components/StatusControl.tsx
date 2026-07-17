@@ -27,7 +27,7 @@ export default function StatusControl({ bookingId, status, onUpdated }: Props) {
     setError(null);
     setSuccess(false);
     try {
-      const result = await authFetch<StatusUpdateResponse>(`/api/bookings/${bookingId}/status`, {
+      const result = await authFetch<StatusUpdateResponse>(`/api/bookings/${bookingId}?action=status`, {
         method: 'PATCH',
         body: JSON.stringify({ status: value }),
       });

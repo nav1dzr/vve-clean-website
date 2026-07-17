@@ -208,20 +208,38 @@ project's code ever ran, while the one-segment case matched fine.
   involved in Vercel's file-system path matching, so this class of bug
   cannot recur here regardless of how many actions are ever added.
 
-`admin/api/receipts/[[...segments]].js` and
-`admin/api/customers/[[...segments]].js` still use the (now confirmed
-broken) optional-catch-all form and have **not** been separately verified
-live — only invoices has actually been exercised end-to-end through every
-shape so far. Given the confirmed root cause applies to any bracket
-ellipsis syntax on this deployment, **assume both are equally broken**
-for any multi-segment action route (their list routes, being a genuine
-zero/one-segment case, may or may not be affected — untested) until
-proven otherwise. If `GET /api/receipts`, `GET /api/customers`, or any
-of their `/:id/<action>` routes show a 404 with no log output, apply the
-identical `index.js` + `[id].js` + `?action=` query-string split used
-here. **Do not add another file under `admin/api/`** without first
-checking the count (`find admin/api -name "*.js" -not -path "*/_lib/*" |
-wc -l` from the repo root).
+**Customers — confirmed broken live, now fixed the same way.** After
+invoices was fixed, `GET /api/customers` (the list route — a genuine
+*zero*-segment request) started returning "Request failed" in production
+via `admin/api/customers/[[...segments]].js`, exactly matching this same
+root cause: a zero-segment request doesn't match a route this deployment
+treats as requiring exactly one literal segment. Fixed identically:
+`admin/api/customers/index.js` (list/create, literal file) +
+`admin/api/customers/[id].js` (detail/update, `?action=bookings` and
+`?action=events` via query string, same pattern as invoices).
+
+**Function budget note:** this fix added one file (customers went from 1
+to 2). To stay at the 12-function ceiling, the three per-action bookings
+files were consolidated by one: `admin/api/bookings/[id]/status.js`
+(PATCH-only, single-field update) was folded into
+`admin/api/bookings/[id].js` via the same `?action=status` query-string
+pattern — `balance.js` and `notes.js` were left as-is (they're on the
+proven-safe `[id]/<literal>.js` shape already, not ellipsis-based, so
+they were never broken; only moved to free a slot within budget, not to
+fix anything). See `git log` for the exact commit if you need the before/
+after diff of that file.
+
+`admin/api/receipts/[[...segments]].js` still uses the (now twice-confirmed
+broken, for both invoices and customers) optional-catch-all form and has
+**not** been separately verified live. Given the confirmed root cause
+applies to any bracket ellipsis syntax on this deployment regardless of
+resource, **assume it is equally broken** for `GET /api/receipts` (the
+zero-segment list route) until proven otherwise. If it shows a 404 with no
+log output, apply the identical `index.js` + `[id].js` + `?action=`
+query-string split used for invoices and customers — freeing a function
+slot first if needed (**do not add another file under `admin/api/`**
+without first checking the count: `find admin/api -name "*.js" -not -path
+"*/_lib/*" | wc -l` from the repo root; it must stay at or under 12).
 
 ## 6. Customers
 

@@ -1,5 +1,5 @@
 // Mirrors admin/api/_lib/customerFields.js's toCustomerCard/toCustomerDetail
-// and admin/api/customers/[[...segments]].js's response shapes.
+// and admin/api/customers/index.js + [id].js's response shapes.
 
 export const CUSTOMER_TYPE_VALUES = ['individual', 'landlord', 'letting_agent', 'agency', 'business'] as const;
 export type CustomerTypeValue = (typeof CUSTOMER_TYPE_VALUES)[number];

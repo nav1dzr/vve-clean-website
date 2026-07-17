@@ -126,7 +126,7 @@ describe('CustomerDetailPage', () => {
     await user.click(within(dialog).getByRole('button', { name: /^create booking$/i }));
 
     await waitFor(() => {
-      expect(authFetchMock).toHaveBeenCalledWith('/api/customers/cust-1/bookings', expect.objectContaining({ method: 'POST' }));
+      expect(authFetchMock).toHaveBeenCalledWith('/api/customers/cust-1?action=bookings', expect.objectContaining({ method: 'POST' }));
       expect(navigateMock).toHaveBeenCalledWith('/bookings/new-booking-id');
     });
   });

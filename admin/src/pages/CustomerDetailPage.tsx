@@ -48,7 +48,7 @@ export default function CustomerDetailPage() {
 
   async function handleCreateBooking(input: ManualBookingInput) {
     if (!id) return;
-    const result = await authFetch<ManualBookingResponse>(`/api/customers/${id}/bookings`, {
+    const result = await authFetch<ManualBookingResponse>(`/api/customers/${id}?action=bookings`, {
       method: 'POST',
       body: JSON.stringify(input),
     });

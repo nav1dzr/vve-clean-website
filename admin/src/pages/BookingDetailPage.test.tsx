@@ -101,7 +101,7 @@ function setupAuthFetchMock(
       return Promise.resolve({ notes: overrides.notes ?? [] });
     }
 
-    if (/\/status$/.test(path)) {
+    if (path.includes('action=status')) {
       if (overrides.statusError) return Promise.reject(overrides.statusError);
       const body = JSON.parse((init?.body as string) || '{}');
       return Promise.resolve({ id: fullBooking.id, status: body.status, updatedAt: '2026-07-14T00:00:00.000Z' });
@@ -347,11 +347,11 @@ describe('BookingDetailPage', () => {
 
       await screen.findByText('N15NJ180726');
       await user.selectOptions(screen.getByLabelText('Update booking status'), 'no_show');
-      const statusPatchCallsBefore = authFetchMock.mock.calls.filter((c) => /\/status$/.test(c[0] as string)).length;
+      const statusPatchCallsBefore = authFetchMock.mock.calls.filter((c) => (c[0] as string).includes('action=status')).length;
 
       await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
-      const statusPatchCallsAfter = authFetchMock.mock.calls.filter((c) => /\/status$/.test(c[0] as string)).length;
+      const statusPatchCallsAfter = authFetchMock.mock.calls.filter((c) => (c[0] as string).includes('action=status')).length;
       expect(statusPatchCallsAfter).toBe(statusPatchCallsBefore);
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     });
