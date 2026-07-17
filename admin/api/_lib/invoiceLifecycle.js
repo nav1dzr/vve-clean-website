@@ -411,7 +411,7 @@ export async function issueInvoice(supabase, invoiceId, adminId, { generateAndSt
   // stays testable without mocking pdfkit/Supabase Storage. A failure here
   // does not roll back the issue — the invoice is validly issued with a
   // real number either way; the PDF can be regenerated for the same
-  // version on demand (admin/api/invoices/[[...segments]].js's
+  // version on demand (admin/api/invoices/[...segments].js's
   // download action falls back to generating on the fly if
   // pdf_storage_path is still empty).
   if (typeof generateAndStorePdf === 'function') {

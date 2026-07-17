@@ -16,23 +16,27 @@ vi.mock('../../../api/_lib/mailer.js', () => ({
   isMailerConfigured: (...args) => isMailerConfiguredMock(...args),
 }));
 
-// Covers admin/api/invoices/[[...segments]].js — the single dispatcher that
-// replaced the earlier admin/api/invoices/index.js +
-// admin/api/invoices/[id]/[[...action]].js pair. That two-file split nested
-// an optional catch-all inside a required dynamic [id] folder — the only
-// route in this codebase shaped that way — and was the prime suspect once
-// real navigation from the invoice list into an invoice's detail page
-// consistently returned "Invoice not found" in a deployed environment. This
-// file now mirrors the flat single-level catch-all shape already used by
-// admin/api/receipts/[[...segments]].js and
-// admin/api/customers/[[...segments]].js. Every assertion below is carried
-// over unchanged from the two files it replaces (see git history for
-// admin/tests/api/invoices/index.test.js and id-action.test.js) — only the
-// import path, two tests that now need an explicit supabase mock (getService
-// Client is resolved before segment/UUID validation in the flat-catch-all
-// shape, same as receipts/customers), and the final "Vercel-style query
-// shapes" section are new.
-const { default: handler } = await import('../../../api/invoices/[[...segments]].js');
+// Covers admin/api/invoices/[...segments].js — a REQUIRED catch-all
+// (single bracket, "...segments", 1+ path segments), handling
+// /api/invoices/:id and every /api/invoices/:id/<action...> route.
+// List/create (GET/POST /api/invoices, zero segments) is a *separate*,
+// ordinary admin/api/invoices/index.js file — see index.test.js — never
+// this one.
+//
+// This replaced an earlier admin/api/invoices/[[...segments]].js (an
+// OPTIONAL catch-all folding list/create and detail/actions into one
+// file), which regressed GET /api/invoices (the list route, zero segments)
+// to a hard "Request failed" once deployed. That, plus the original
+// pre-existing bug where GET /api/invoices/:id (an invoice id with zero
+// further action segments, under the even-earlier nested
+// admin/api/invoices/[id]/[[...action]].js) 404'd despite the invoice
+// genuinely existing, both point at the same underlying cause: this
+// Vercel project's routing does not reliably match an optional catch-all
+// file when the catch-all portion is itself empty. A required catch-all
+// never has that ambiguity — Vercel simply won't route a zero-segment
+// request to this file at all, by definition — which is why list/create
+// now lives in a plain literal index.js instead of sharing this file.
+const { default: handler } = await import('../../../api/invoices/[...segments].js');
 const { createDraftInvoice, issueInvoice } = await import('../../../api/_lib/invoiceLifecycle.js');
 
 function makeRes() {
@@ -47,8 +51,8 @@ function makeRes() {
 }
 
 // `query`, when provided, is attached directly as req.query — simulating
-// exactly what Vercel populates for a [[...segments]] optional catch-all
-// (an array of path segments after the fixed /api/invoices/ prefix), rather
+// exactly what Vercel populates for a [...segments] required catch-all (an
+// array of path segments after the fixed /api/invoices/ prefix), rather
 // than relying on extractSegments()'s manual req.url-parsing fallback that
 // every other test below exercises (query omitted).
 function makeReq({
@@ -79,164 +83,6 @@ async function seedDraft(supabase, overrides = {}) {
   return invoiceId;
 }
 
-describe('GET /api/invoices (list)', () => {
-  beforeEach(() => {
-    verifyAdminRequestMock.mockReset();
-    getServiceClientMock.mockReset();
-  });
-
-  it('rejects unauthenticated requests', async () => {
-    verifyAdminRequestMock.mockResolvedValue({ ok: false, status: 401, error: 'Missing bearer token' });
-    const res = makeRes();
-    await handler(makeReq({ url: '/api/invoices' }), res);
-    expect(res.statusCode).toBe(401);
-  });
-
-  it('rejects an invalid sort value', async () => {
-    verifyAdminRequestMock.mockResolvedValue(ADMIN);
-    getServiceClientMock.mockReturnValue(createFakeSupabase());
-    const res = makeRes();
-    await handler(makeReq({ url: '/api/invoices?sort=bogus' }), res);
-    expect(res.statusCode).toBe(400);
-  });
-
-  it('rejects an invalid documentStatus filter', async () => {
-    verifyAdminRequestMock.mockResolvedValue(ADMIN);
-    getServiceClientMock.mockReturnValue(createFakeSupabase());
-    const res = makeRes();
-    await handler(makeReq({ url: '/api/invoices?documentStatus=archived' }), res);
-    expect(res.statusCode).toBe(400);
-  });
-
-  it('lists invoices with pagination metadata', async () => {
-    verifyAdminRequestMock.mockResolvedValue(ADMIN);
-    const supabase = createFakeSupabase({
-      invoices: [
-        { id: 'inv-1', invoice_number: 'INV-2026-000001', customer_name: 'A', total: 100, amount_due: 0, document_status: 'issued', payment_status: 'paid', due_date: '2026-08-01', issue_date: '2026-07-01', created_at: '2026-07-01T00:00:00Z' },
-        { id: 'inv-2', invoice_number: null, customer_name: 'B', total: 50, amount_due: 50, document_status: 'draft', payment_status: 'unpaid', due_date: null, issue_date: null, created_at: '2026-07-02T00:00:00Z' },
-      ],
-    });
-    getServiceClientMock.mockReturnValue(supabase);
-
-    const res = makeRes();
-    await handler(makeReq({ url: '/api/invoices' }), res);
-    expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body);
-    expect(body.results).toHaveLength(2);
-    expect(body.totalCount).toBe(2);
-  });
-});
-
-describe('POST /api/invoices (create)', () => {
-  beforeEach(() => {
-    verifyAdminRequestMock.mockReset();
-    getServiceClientMock.mockReset();
-  });
-
-  it('creates a draft invoice and returns 201 with the created document', async () => {
-    verifyAdminRequestMock.mockResolvedValue(ADMIN);
-    const supabase = createFakeSupabase();
-    getServiceClientMock.mockReturnValue(supabase);
-
-    const res = makeRes();
-    await handler(makeReq({
-      url: '/api/invoices',
-      method: 'POST',
-      bodyObj: {
-        customer: { name: 'Jane Doe', email: 'jane@example.com' },
-        items: [{ description: 'Deep clean', quantity: 1, unitPrice: 100 }],
-      },
-    }), res);
-
-    expect(res.statusCode).toBe(201);
-    const body = JSON.parse(res.body);
-    expect(body.documentStatus).toBe('draft');
-    expect(body.total).toBe(100);
-  });
-
-  it('rejects a bogus bookingId', async () => {
-    verifyAdminRequestMock.mockResolvedValue(ADMIN);
-    getServiceClientMock.mockReturnValue(createFakeSupabase());
-    const res = makeRes();
-    await handler(makeReq({
-      url: '/api/invoices',
-      method: 'POST',
-      bodyObj: { bookingId: 'not-a-uuid', customer: { name: 'X', email: 'x@example.com' }, items: [] },
-    }), res);
-    expect(res.statusCode).toBe(400);
-  });
-
-  it('returns 400 when the lifecycle layer rejects the input (e.g. no items)', async () => {
-    verifyAdminRequestMock.mockResolvedValue(ADMIN);
-    const supabase = createFakeSupabase();
-    getServiceClientMock.mockReturnValue(supabase);
-
-    const res = makeRes();
-    await handler(makeReq({
-      url: '/api/invoices',
-      method: 'POST',
-      bodyObj: { customer: { name: 'Jane', email: 'jane@example.com' }, items: [] },
-    }), res);
-    expect(res.statusCode).toBe(400);
-  });
-
-  it('rejects non-GET/POST methods at the resource root', async () => {
-    verifyAdminRequestMock.mockResolvedValue(ADMIN);
-    getServiceClientMock.mockReturnValue(createFakeSupabase());
-    const res = makeRes();
-    await handler(makeReq({ url: '/api/invoices', method: 'DELETE' }), res);
-    expect(res.statusCode).toBe(405);
-  });
-
-  it('creates a draft with a payment option, stripe link, service contact, and recipient overrides', async () => {
-    verifyAdminRequestMock.mockResolvedValue(ADMIN);
-    const supabase = createFakeSupabase();
-    getServiceClientMock.mockReturnValue(supabase);
-
-    const res = makeRes();
-    await handler(makeReq({
-      url: '/api/invoices',
-      method: 'POST',
-      bodyObj: {
-        customer: { name: 'Acme Lettings', email: 'ops@acme.example.com' },
-        items: [{ description: 'Deep clean', quantity: 1, unitPrice: 100 }],
-        paymentOption: 'both',
-        stripePaymentLinkUrl: 'https://buy.stripe.com/test_1',
-        serviceContact: { name: 'Tenant Name', address: '2 Flat Rd', postcode: 'E1 6AN' },
-        invoiceRecipientEmail: 'agency@example.com',
-        receiptRecipientEmail: 'landlord@example.com',
-      },
-    }), res);
-
-    expect(res.statusCode).toBe(201);
-    const body = JSON.parse(res.body);
-    expect(body.paymentOption).toBe('both');
-    expect(body.stripePaymentLinkUrl).toBe('https://buy.stripe.com/test_1');
-    expect(body.serviceContact.name).toBe('Tenant Name');
-    expect(body.invoiceRecipientEmail).toBe('agency@example.com');
-    expect(body.receiptRecipientEmail).toBe('landlord@example.com');
-  });
-
-  it('rejects an untrusted stripePaymentLinkUrl host', async () => {
-    verifyAdminRequestMock.mockResolvedValue(ADMIN);
-    const supabase = createFakeSupabase();
-    getServiceClientMock.mockReturnValue(supabase);
-
-    const res = makeRes();
-    await handler(makeReq({
-      url: '/api/invoices',
-      method: 'POST',
-      bodyObj: {
-        customer: { name: 'Jane', email: 'jane@example.com' },
-        items: [{ description: 'Deep clean', quantity: 1, unitPrice: 100 }],
-        paymentOption: 'stripe_payment_link',
-        stripePaymentLinkUrl: 'https://evil.example.com/x',
-      },
-    }), res);
-    expect(res.statusCode).toBe(400);
-  });
-});
-
 describe('/api/invoices/:id[/action] dispatcher', () => {
   beforeEach(() => {
     verifyAdminRequestMock.mockReset();
@@ -248,7 +94,7 @@ describe('/api/invoices/:id[/action] dispatcher', () => {
     sendMailMock.mockResolvedValue({ ok: true, messageId: 'msg-1' });
   });
 
-  it('rejects an invalid invoice id', async () => {
+  it('rejects an invalid invoice id (degrades gracefully rather than crashing, even though Vercel should never route zero segments here)', async () => {
     getServiceClientMock.mockReturnValue(createFakeSupabase());
     const res = makeRes();
     await handler(makeReq({ url: '/api/invoices/not-a-uuid' }), res);
@@ -622,41 +468,22 @@ describe('/api/invoices/:id[/action] dispatcher', () => {
   });
 });
 
-// This is the section that directly targets the bug: real Vercel deployments
-// populate req.query.segments (as an array of path segments) for a
-// [[...segments]].js optional catch-all, rather than leaving handlers to
-// parse req.url themselves — extractSegments() prefers req.query when
-// present, only falling back to manual URL parsing when it's absent (see
-// admin/api/_lib/routeParams.js). Every test elsewhere in this file omits
-// `query` and so only exercises the URL-parsing fallback; these tests
-// instead construct req.query.segments directly, matching what Vercel's own
-// router actually hands the function at runtime.
-describe('Vercel-style query param routing (req.query.segments)', () => {
+// This section directly targets the regression class: real Vercel
+// deployments populate req.query.segments (an array of path segments) for
+// a [...segments].js catch-all, rather than leaving handlers to parse
+// req.url themselves — extractSegments() prefers req.query when present,
+// only falling back to manual URL parsing when it's absent (see
+// admin/api/_lib/routeParams.js). Every test above omits `query` and so
+// only exercises the URL-parsing fallback; these tests instead construct
+// req.query.segments directly, matching what Vercel's own router actually
+// hands the function at runtime — always 1+ elements for this file, since
+// it's a *required* catch-all (Vercel never routes a zero-segment request
+// here at all; that's index.js's job).
+describe('Vercel-style query param routing (req.query.segments, always 1+ elements)', () => {
   beforeEach(() => {
     verifyAdminRequestMock.mockReset();
     getServiceClientMock.mockReset();
     verifyAdminRequestMock.mockResolvedValue(ADMIN);
-  });
-
-  it('lists invoices when req.query.segments is an empty array (zero path segments beyond /api/invoices)', async () => {
-    const supabase = createFakeSupabase({
-      invoices: [{ id: 'inv-1', invoice_number: 'INV-2026-000001', customer_name: 'A', total: 100, amount_due: 0, document_status: 'issued', payment_status: 'paid', due_date: null, issue_date: null, created_at: '2026-07-01T00:00:00Z' }],
-    });
-    getServiceClientMock.mockReturnValue(supabase);
-
-    const res = makeRes();
-    await handler(makeReq({ url: '/api/invoices', query: { segments: [] } }), res);
-    expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).results).toHaveLength(1);
-  });
-
-  it('lists invoices when req.query.segments is entirely absent (Vercel may omit it rather than send [])', async () => {
-    const supabase = createFakeSupabase();
-    getServiceClientMock.mockReturnValue(supabase);
-
-    const res = makeRes();
-    await handler(makeReq({ url: '/api/invoices', query: undefined }), res);
-    expect(res.statusCode).toBe(200);
   });
 
   it('loads invoice detail (draft, opened by UUID) when req.query.segments is a one-element array', async () => {

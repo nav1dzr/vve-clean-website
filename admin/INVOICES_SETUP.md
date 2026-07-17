@@ -138,23 +138,51 @@ correct, complete configuration.
 ## Vercel function count
 
 The admin project has a 12-function ceiling on its current plan. This
-feature (invoices, receipts, and customers) fits at **11/12** by
-consolidating routes with Vercel's optional catch-all segment rather than
-one file per action or resource — see
-`INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md` §7 and the header comments in
-`admin/api/invoices/[[...segments]].js`,
-`admin/api/receipts/[[...segments]].js`, and
-`admin/api/customers/[[...segments]].js`. Invoices previously used a
-nested `admin/api/invoices/[id]/[[...action]].js` (an optional catch-all
-inside a required dynamic folder) plus a separate `index.js` for list/
-create — this was the only route in the codebase shaped that way, and was
-restructured to the same flat single-level catch-all as receipts/customers
-after it was identified as the likely cause of `/api/invoices/:id`
-returning a false "Invoice not found" 404 in a deployed environment (the
-list route, a different file, worked fine). **Do not add another file
-under `admin/api/`** without first checking the count
-(`find admin/api -name "*.js" -not -path "*/_lib/*" | wc -l` from the repo
-root) — extend one of the three existing catch-all dispatchers instead.
+feature (invoices, receipts, and customers) fits at **exactly 12/12** by
+consolidating routes rather than one file per action or resource — see
+`INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md` §7.
+
+Invoices went through two prior shapes before settling on the current one,
+both discovered via real deployed-environment failures, not local testing:
+
+1. A nested `admin/api/invoices/[id]/[[...action]].js` (an optional
+   catch-all inside a required dynamic folder) plus a separate `index.js`
+   for list/create. `GET /api/invoices/:id` (an id with zero further
+   action segments) returned a false "Invoice not found" 404 once
+   deployed, even though the invoice genuinely existed and the list route
+   (a different file) worked fine.
+2. A single flat `admin/api/invoices/[[...segments]].js` (optional
+   catch-all, folding list/create and detail/actions into one file,
+   mirroring receipts/customers). This fixed (1) but broke `GET
+   /api/invoices` itself (the list route, zero segments) with a hard
+   "Request failed" once deployed.
+
+Both failures point at the same underlying cause: this Vercel project's
+routing does not reliably match an optional catch-all file
+(`[[...x]].js`) when the catch-all portion is itself empty — in practice
+it behaves like a *required* catch-all. The current, third shape sidesteps
+this entirely instead of depending on unconfirmed platform behaviour for
+the empty-segment case:
+
+- `admin/api/invoices/index.js` — an ordinary literal file, no dynamic
+  matching at all, handling `GET`/`POST /api/invoices` (guaranteed zero
+  extra segments).
+- `admin/api/invoices/[...segments].js` — a **required** catch-all
+  (single bracket), handling `/api/invoices/:id` and every
+  `/api/invoices/:id/<action...>` route (guaranteed 1+ segments, so
+  Vercel only ever routes here when it can unambiguously match).
+
+`admin/api/receipts/[[...segments]].js` and
+`admin/api/customers/[[...segments]].js` still use the optional
+single-file form and have **not** been confirmed working against a real
+deployment for their zero-segment (list) routes — only invoices' list
+route has actually been exercised end-to-end so far, and it broke under
+that same shape. Treat `GET /api/receipts` and `GET /api/customers` as
+unverified until tested live; if either shows the same "Request failed"
+symptom, apply the identical index.js + required-catch-all split used
+here. **Do not add another file under `admin/api/`** without first
+checking the count (`find admin/api -name "*.js" -not -path "*/_lib/*" |
+wc -l` from the repo root).
 
 ## 6. Customers
 
