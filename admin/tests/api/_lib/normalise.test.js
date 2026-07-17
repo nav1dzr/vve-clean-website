@@ -6,6 +6,7 @@ import {
   isValidDateString,
   isValidIsoTimestamp,
   validateNote,
+  isValidEmail,
 } from '../../../api/_lib/normalise.js';
 
 describe('isValidUuid', () => {
@@ -156,5 +157,29 @@ describe('isValidDateString', () => {
   it('rejects non-string input', () => {
     expect(isValidDateString(null)).toBe(false);
     expect(isValidDateString(20260718)).toBe(false);
+  });
+});
+
+describe('isValidEmail', () => {
+  it('accepts a well-formed email', () => {
+    expect(isValidEmail('jane@example.com')).toBe(true);
+  });
+
+  it('rejects a string with no @', () => {
+    expect(isValidEmail('jane.example.com')).toBe(false);
+  });
+
+  it('rejects a string with no domain dot', () => {
+    expect(isValidEmail('jane@example')).toBe(false);
+  });
+
+  it('rejects an empty string and non-string input', () => {
+    expect(isValidEmail('')).toBe(false);
+    expect(isValidEmail(null)).toBe(false);
+    expect(isValidEmail(undefined)).toBe(false);
+  });
+
+  it('rejects a string containing whitespace', () => {
+    expect(isValidEmail('jane doe@example.com')).toBe(false);
   });
 });

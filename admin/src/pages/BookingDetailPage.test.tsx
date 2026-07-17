@@ -119,6 +119,14 @@ function setupAuthFetchMock(
       });
     }
 
+    // BookingInvoicesSection's financial-documents list — not under test
+    // here (see InvoiceListPage.test.tsx / BookingInvoicesSection usage
+    // elsewhere); always resolve an empty list so it renders its "no
+    // invoices yet" state without affecting any assertion in this file.
+    if (/\/api\/invoices/.test(path)) {
+      return Promise.resolve({ results: [], page: 1, pageSize: 50, totalCount: 0, hasMore: false });
+    }
+
     // Booking detail fetch.
     if (overrides.bookingError) return Promise.reject(overrides.bookingError);
     return Promise.resolve(overrides.booking ?? fullBooking);

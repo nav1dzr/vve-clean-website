@@ -65,3 +65,45 @@ export async function authFetch<T>(path: string, init: RequestInit = {}): Promis
 
   return body as T;
 }
+
+// Same auth/timeout handling as authFetch(), but for a binary response
+// (the invoice PDF preview endpoint) rather than JSON — authFetch() always
+// calls res.json(), which would silently discard a PDF response body.
+// Used only for GET /api/invoices/:id/preview; the download/send flows use
+// authFetch() as normal since those endpoints return JSON (a signed URL,
+// or a send confirmation), never raw bytes.
+export async function authFetchBlob(path: string): Promise<Blob> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(path, { headers, signal: controller.signal });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new ApiError(0, 'The request timed out. Check your connection and try again.');
+    }
+    throw new ApiError(0, 'Could not reach the server. Check your connection and try again.');
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!res.ok) {
+    let message = 'Request failed';
+    try {
+      const body: unknown = await res.json();
+      if (isErrorBody(body) && typeof body.error === 'string') message = body.error;
+    } catch {
+      // response wasn't JSON — keep the generic message
+    }
+    throw new ApiError(res.status, message);
+  }
+
+  return res.blob();
+}
