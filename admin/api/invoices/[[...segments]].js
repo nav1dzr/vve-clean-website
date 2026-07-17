@@ -1,29 +1,36 @@
-import { verifyAdminRequest } from '../../_lib/adminAuth.js';
-import { corsHeaders } from '../../_lib/cors.js';
-import { getServiceClient } from '../../_lib/supabaseAdmin.js';
-import { readJsonBody } from '../../_lib/body.js';
-import { extractIdAndAction } from '../../_lib/routeParams.js';
-import { isValidUuid } from '../../_lib/normalise.js';
+import { verifyAdminRequest } from '../_lib/adminAuth.js';
+import { corsHeaders } from '../_lib/cors.js';
+import { getServiceClient } from '../_lib/supabaseAdmin.js';
+import { readJsonBody } from '../_lib/body.js';
+import { extractSegments } from '../_lib/routeParams.js';
+import { isValidUuid, isValidDateString, isValidEmail, sanitiseFreeTextFilter } from '../_lib/normalise.js';
 import {
-  toInvoiceDetail, toInvoiceItem, toInvoicePayment, toInvoiceEvent,
-} from '../../_lib/invoiceFields.js';
+  INVOICE_CARD_SELECT, toInvoiceCard, toInvoiceDetail, toInvoiceItem, toInvoicePayment, toInvoiceEvent,
+  INVOICE_DOCUMENT_STATUS_VALUES, INVOICE_PAYMENT_STATUS_VALUES, INVOICE_SORT_VALUES,
+} from '../_lib/invoiceFields.js';
 import {
-  updateDraftInvoice, deleteDraftInvoice, issueInvoice, voidInvoice,
+  createDraftInvoice, updateDraftInvoice, deleteDraftInvoice, issueInvoice, voidInvoice,
   duplicateInvoiceAsDraft, recordPayment, reversePayment,
-} from '../../_lib/invoiceLifecycle.js';
-import { createReceiptIfPaid } from '../../_lib/receiptLifecycle.js';
-import { generateInvoicePdfBuffer, generateReceiptPdfBuffer } from '../../_lib/invoicePdf.js';
+} from '../_lib/invoiceLifecycle.js';
+import { createReceiptIfPaid } from '../_lib/receiptLifecycle.js';
+import { generateInvoicePdfBuffer, generateReceiptPdfBuffer } from '../_lib/invoicePdf.js';
 import {
   invoicePdfPath, receiptPdfPath, uploadPdf, getSignedDownloadUrl, downloadPdfBuffer,
-} from '../../_lib/invoiceStorage.js';
-import { getBusinessSettings } from '../../_lib/businessSettings.js';
-import { invoiceEmail } from '../../_lib/invoiceEmailTemplates.js';
-import { sendMail, isMailerConfigured } from '../../_lib/mailer.js';
-import { isValidEmail } from '../../_lib/normalise.js';
+} from '../_lib/invoiceStorage.js';
+import { getBusinessSettings } from '../_lib/businessSettings.js';
+import { invoiceEmail } from '../_lib/invoiceEmailTemplates.js';
+import { sendMail, isMailerConfigured } from '../_lib/mailer.js';
 
 export const config = { api: { bodyParser: false } };
 
-const MAX_BODY_BYTES = 64 * 1024;
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 50;
+const MAX_BODY_BYTES = 64 * 1024; // an editor payload with many line items is larger than a typical 8KB request
+
+function parsePositiveInt(value, fallback) {
+  const n = Number.parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
 
 // Both factories return a closure matching the `generateAndStorePdf`
 // dependency the lifecycle functions expect (see invoiceLifecycle.js's
@@ -44,18 +51,30 @@ function makeReceiptPdfGenerator(supabase) {
   };
 }
 
-// One dispatcher file handles /api/invoices/:id and every /api/invoices/
-// :id/<action...> route, via Vercel's optional catch-all segment — see
-// INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §7 for why (the admin Vercel
-// project's function-count budget does not allow one file per action).
+// One dispatcher file handles /api/invoices (list/create) and every
+// /api/invoices/:id[/<action...>] route, via Vercel's optional catch-all
+// segment at the *resource root* — mirrors admin/api/receipts/
+// [[...segments]].js and admin/api/customers/[[...segments]].js exactly
+// (see extractSegments()'s header comment in routeParams.js). This
+// replaces the previous two-file split (admin/api/invoices/index.js +
+// admin/api/invoices/[id]/[[...action]].js), which nested an optional
+// catch-all inside a required dynamic [id] folder — the only route in
+// this codebase shaped that way, and the prime suspect once real-world
+// navigation from the invoice list into an invoice's detail page
+// consistently 404'd in a deployed environment despite the list itself
+// (a different file) working fine. Folding both into one flat
+// single-level catch-all, the same shape already proven by receipts and
+// customers, removes that structural difference entirely. Net function
+// count is unchanged (still one deployable file for invoices).
 //
-// Actions implemented: detail (GET, no action), update (PATCH), delete
-// (DELETE), issue, void, duplicate, payments (record), payments/
-// :paymentId/reverse, events, preview (draft PDF, generated on demand,
-// never stored), download (issued invoice — short-lived signed URL to the
-// stored PDF, generating it on the fly first if a pre-existing invoice
-// somehow doesn't have one yet), send and resend (email the stored PDF —
-// only ever marked sent after the mail provider accepts the message).
+// Actions implemented: list (GET, no id), create (POST, no id), detail
+// (GET, :id, no action), update (PATCH, :id), delete (DELETE, :id), issue,
+// void, duplicate, payments (record), payments/:paymentId/reverse, events,
+// preview (draft PDF, generated on demand, never stored), download (issued
+// invoice — short-lived signed URL to the stored PDF, generating it on the
+// fly first if a pre-existing invoice somehow doesn't have one yet), send
+// and resend (email the stored PDF — only ever marked sent after the mail
+// provider accepts the message).
 export default async function handler(req, res) {
   const origin = req.headers.origin || '';
   const headers = { ...corsHeaders(origin), 'Cache-Control': 'no-store', 'Content-Type': 'application/json' };
@@ -71,19 +90,29 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: auth.error }));
   }
 
-  const { id: invoiceId, action } = extractIdAndAction(req);
-  if (!isValidUuid(invoiceId)) {
-    res.writeHead(400, headers);
-    return res.end(JSON.stringify({ error: 'Invalid invoice id' }));
-  }
-
   const supabase = getServiceClient();
   if (!supabase) {
     res.writeHead(500, headers);
     return res.end(JSON.stringify({ error: 'Server misconfiguration' }));
   }
 
+  const segments = extractSegments(req, 'segments', 2);
+
   try {
+    if (segments.length === 0) {
+      if (req.method === 'GET') return await handleList(req, res, headers, supabase);
+      if (req.method === 'POST') return await handleCreate(req, res, headers, supabase, auth);
+      res.writeHead(405, headers);
+      return res.end(JSON.stringify({ error: 'Method not allowed' }));
+    }
+
+    const invoiceId = segments[0];
+    if (!isValidUuid(invoiceId)) {
+      res.writeHead(400, headers);
+      return res.end(JSON.stringify({ error: 'Invalid invoice id' }));
+    }
+    const action = segments.slice(1);
+
     if (action.length === 0) return await handleRoot(req, res, headers, supabase, invoiceId, auth);
     if (action.length === 1 && action[0] === 'issue') return await handleIssue(req, res, headers, supabase, invoiceId, auth);
     if (action.length === 1 && action[0] === 'void') return await handleVoid(req, res, headers, supabase, invoiceId, auth);
@@ -105,6 +134,162 @@ export default async function handler(req, res) {
     res.writeHead(500, headers);
     res.end(JSON.stringify({ error: 'Internal server error' }));
   }
+}
+
+// Mirrors admin/api/bookings/index.js's buildQuery pattern exactly — every
+// filter/sort value is validated against a fixed whitelist before this is
+// ever called; free-text search is passed through Supabase's parameterised
+// .or()/.ilike(), never string-concatenated SQL.
+function buildListQuery(supabase, filters) {
+  let query = supabase.from('invoices').select(INVOICE_CARD_SELECT, { count: 'exact' });
+
+  if (filters.documentStatus) query = query.eq('document_status', filters.documentStatus);
+  if (filters.paymentStatus) query = query.eq('payment_status', filters.paymentStatus);
+  if (filters.dueFrom) query = query.gte('due_date', filters.dueFrom);
+  if (filters.dueTo) query = query.lte('due_date', filters.dueTo);
+  if (filters.bookingId) query = query.eq('booking_id', filters.bookingId);
+
+  if (filters.q) {
+    const escaped = filters.q.replace(/[%,]/g, '');
+    query = query.or(
+      [
+        `invoice_number.ilike.%${escaped}%`,
+        `customer_name.ilike.%${escaped}%`,
+        `customer_email.ilike.%${escaped}%`,
+        `customer_phone.ilike.%${escaped}%`,
+        `customer_postcode.ilike.%${escaped}%`,
+        `booking_ref_snapshot.ilike.%${escaped}%`,
+      ].join(','),
+    );
+  }
+
+  switch (filters.sort) {
+    case 'oldest':
+      query = query.order('created_at', { ascending: true });
+      break;
+    case 'due_soonest':
+      query = query.order('due_date', { ascending: true, nullsFirst: false });
+      break;
+    case 'highest_total':
+      query = query.order('total', { ascending: false });
+      break;
+    case 'highest_outstanding':
+      query = query.order('amount_due', { ascending: false });
+      break;
+    case 'newest':
+    default:
+      query = query.order('created_at', { ascending: false });
+      break;
+  }
+
+  return query;
+}
+
+// GET /api/invoices — filtered, sorted, paginated invoice list.
+async function handleList(req, res, headers, supabase) {
+  const params = new URL(req.url, 'https://x').searchParams;
+
+  const page = parsePositiveInt(params.get('page'), 1);
+  const pageSize = Math.min(parsePositiveInt(params.get('pageSize'), DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
+
+  const sort = params.get('sort') || 'newest';
+  if (!INVOICE_SORT_VALUES.includes(sort)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: `sort must be one of: ${INVOICE_SORT_VALUES.join(', ')}` }));
+  }
+
+  const documentStatus = params.get('documentStatus') || null;
+  if (documentStatus && !INVOICE_DOCUMENT_STATUS_VALUES.includes(documentStatus)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: `documentStatus must be one of: ${INVOICE_DOCUMENT_STATUS_VALUES.join(', ')}` }));
+  }
+
+  const paymentStatus = params.get('paymentStatus') || null;
+  if (paymentStatus && !INVOICE_PAYMENT_STATUS_VALUES.includes(paymentStatus)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: `paymentStatus must be one of: ${INVOICE_PAYMENT_STATUS_VALUES.join(', ')}` }));
+  }
+
+  const bookingId = params.get('bookingId') || null;
+  if (bookingId && !isValidUuid(bookingId)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'bookingId must be a valid UUID' }));
+  }
+
+  const rawQ = params.get('q');
+  const q = rawQ ? sanitiseFreeTextFilter(rawQ) : null;
+  if (rawQ && !q) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'q filter is invalid' }));
+  }
+
+  const dueFrom = params.get('dueFrom') || null;
+  if (dueFrom && !isValidDateString(dueFrom)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'dueFrom must be YYYY-MM-DD' }));
+  }
+  const dueTo = params.get('dueTo') || null;
+  if (dueTo && !isValidDateString(dueTo)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'dueTo must be YYYY-MM-DD' }));
+  }
+
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, error, count } = await buildListQuery(supabase, {
+    documentStatus, paymentStatus, bookingId, q, dueFrom, dueTo, sort,
+  }).range(from, to);
+
+  if (error) {
+    console.error('[admin/api] invoices list query failed:', error.code, error.message);
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: 'Failed to load invoices' }));
+  }
+
+  const totalCount = count ?? 0;
+  const results = (data || []).map(toInvoiceCard);
+
+  res.writeHead(200, headers);
+  return res.end(JSON.stringify({
+    results, page, pageSize, totalCount, hasMore: from + results.length < totalCount,
+  }));
+}
+
+// POST /api/invoices — create a draft invoice (manual, or booking-based
+// when bookingId is supplied — the booking itself is never modified).
+async function handleCreate(req, res, headers, supabase, auth) {
+  let body;
+  try {
+    body = await readJsonBody(req, MAX_BODY_BYTES);
+  } catch (err) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: err.message || 'Invalid request body' }));
+  }
+
+  if (body.bookingId && !isValidUuid(body.bookingId)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'bookingId must be a valid UUID' }));
+  }
+
+  const result = await createDraftInvoice(supabase, body, auth.admin.id);
+  if (!result.ok) {
+    res.writeHead(result.status || 400, headers);
+    return res.end(JSON.stringify({ error: result.error }));
+  }
+
+  const { data: created, error: fetchErr } = await supabase
+    .from('invoices')
+    .select('*')
+    .eq('id', result.invoiceId)
+    .single();
+  if (fetchErr) {
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: 'Invoice created but failed to load it back' }));
+  }
+
+  res.writeHead(201, headers);
+  return res.end(JSON.stringify(toInvoiceDetail(created)));
 }
 
 async function handleRoot(req, res, headers, supabase, invoiceId, auth) {

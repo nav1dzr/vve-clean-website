@@ -138,14 +138,21 @@ correct, complete configuration.
 ## Vercel function count
 
 The admin project has a 12-function ceiling on its current plan. This
-feature (invoices, receipts, and now customers) fits at **exactly 12/12**
-by consolidating routes with Vercel's optional catch-all segment rather
-than one file per action or resource — see
+feature (invoices, receipts, and customers) fits at **11/12** by
+consolidating routes with Vercel's optional catch-all segment rather than
+one file per action or resource — see
 `INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md` §7 and the header comments in
-`admin/api/invoices/[id]/[[...action]].js`,
+`admin/api/invoices/[[...segments]].js`,
 `admin/api/receipts/[[...segments]].js`, and
-`admin/api/customers/[[...segments]].js`. **Do not add another file under
-`admin/api/`** without first checking the count
+`admin/api/customers/[[...segments]].js`. Invoices previously used a
+nested `admin/api/invoices/[id]/[[...action]].js` (an optional catch-all
+inside a required dynamic folder) plus a separate `index.js` for list/
+create — this was the only route in the codebase shaped that way, and was
+restructured to the same flat single-level catch-all as receipts/customers
+after it was identified as the likely cause of `/api/invoices/:id`
+returning a false "Invoice not found" 404 in a deployed environment (the
+list route, a different file, worked fine). **Do not add another file
+under `admin/api/`** without first checking the count
 (`find admin/api -name "*.js" -not -path "*/_lib/*" | wc -l` from the repo
 root) — extend one of the three existing catch-all dispatchers instead.
 
