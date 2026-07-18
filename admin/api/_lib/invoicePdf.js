@@ -95,12 +95,6 @@ function ensureSpace(doc, fonts, y, needed) {
 }
 
 function drawWordmark(doc, fonts, x, y) {
-  doc.font(fonts.bold).fontSize(22);
-  doc.fillColor(NAVY).text('V', x, y, { continued: true, lineBreak: false });
-  doc.fillColor(GOLD).text('V', { continued: true, lineBreak: false });
-  doc.fillColor(NAVY).text('E', { continued: false, lineBreak: false });
-  const wordmarkWidth = doc.widthOfString('VVE');
-
   const cleanText = 'CLEAN';
   const cleanSpacing = 2.5;
   doc.font(fonts.medium).fontSize(8.5);
@@ -111,10 +105,26 @@ function drawWordmark(doc, fonts, x, y) {
   const ruleGap = 6;
   const totalWidth = ruleWidth + ruleGap + cleanWidth + ruleGap + ruleWidth;
 
-  let cx = x + (wordmarkWidth - totalWidth) / 2;
-  const cleanY = y + 28;
+  // Size "VVE" so its rendered width lands exactly on the -CLEAN- row's
+  // width below it (rather than centering CLEAN under a fixed-size VVE),
+  // so the two rows share the same left/right edges.
+  const baseFontSize = 22;
+  doc.font(fonts.bold).fontSize(baseFontSize);
+  const naturalWidth = doc.widthOfString('VVE');
+  const wordmarkFontSize = baseFontSize * (totalWidth / naturalWidth);
+  const scale = wordmarkFontSize / baseFontSize;
+
+  doc.fontSize(wordmarkFontSize);
+  doc.fillColor(NAVY).text('V', x, y, { continued: true, lineBreak: false });
+  doc.fillColor(GOLD).text('V', { continued: true, lineBreak: false });
+  doc.fillColor(NAVY).text('E', { continued: false, lineBreak: false });
+  const wordmarkWidth = doc.widthOfString('VVE');
+
+  let cx = x;
+  const cleanY = y + 28 * scale;
   const ruleY = cleanY + 4.5;
 
+  doc.font(fonts.medium).fontSize(8.5);
   doc.strokeColor(GOLD).lineWidth(1).moveTo(cx, ruleY).lineTo(cx + ruleWidth, ruleY).stroke();
   cx += ruleWidth + ruleGap;
   doc.fillColor(NAVY).text(cleanText, cx, cleanY, { characterSpacing: cleanSpacing, lineBreak: false });
