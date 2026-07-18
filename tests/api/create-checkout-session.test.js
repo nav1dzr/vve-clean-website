@@ -243,4 +243,18 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
     expect(typeof row.total_price).toBe('number');
     expect(row.quote_config).toEqual(VALID_QUOTE_CONFIG);
   });
+
+  it('never touches the customers table — a pending_payment booking must never auto-create/link a customer (Task 1)', async () => {
+    process.env.VITE_SUPABASE_URL = 'https://example.supabase.co';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+
+    const res = makeRes();
+    await handler(makeReq(basePayload()), res);
+
+    expect(res.statusCode).toBe(200);
+    expect(supabaseInsertMock).toHaveBeenCalledTimes(1);
+    const [table] = supabaseInsertMock.mock.calls[0];
+    expect(table).toBe('bookings');
+    expect(supabaseInsertMock.mock.calls.some(([t]) => t === 'customers')).toBe(false);
+  });
 });

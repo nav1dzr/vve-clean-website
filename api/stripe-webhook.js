@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer';
 import { createClient } from '@supabase/supabase-js';
 import https from 'node:https';
 import { splitServiceDetail } from './_lib/formatBookingItems.js';
+import { findOrCreateCustomerForPaidBooking } from './_lib/customerSync.js';
 
 // A Lambda crash leaves the event in 'processing'. After this window Stripe
 // retries are allowed to re-claim it.
@@ -631,15 +632,35 @@ export default async function handler(req, res) {
         preferred_date:            meta.date     || null,
         preferred_time:            meta.time     || null,
         notes:                     meta.message  || null,
+        // These four were previously omitted from this fallback path even
+        // though checkout-time metadata always carries them (see
+        // api/create-checkout-session.js) — a gap found while re-tracing the
+        // "checkout-time insert failed, webhook recovers the row" path
+        // (this project's Task 3 audit finding). confirmation_token in
+        // particular is the secure lookup key api/confirmation-details.js
+        // requires — without it, a customer's confirmation link falls back
+        // to the less direct Stripe-session-ID lookup path instead of
+        // failing outright, but recovering it here removes that gap.
+        confirmation_token:          meta.confirmation_token || null,
+        terms_accepted:              meta.terms_accepted === 'true' ? true : null,
+        terms_accepted_at:           meta.terms_accepted_at || null,
+        terms_version:               meta.terms_version || null,
+        cancellation_policy_version: meta.cancellation_policy_version || null,
         // Mirrors create-checkout-session.js's own total_price write (see
         // that file's comment, and this project's audit finding D1) —
         // meta.price is the server-validated price already sent to Stripe,
         // so this is safe to trust here too. quote_config has no durable
-        // copy in Stripe metadata, so it isn't set on this fallback path.
+        // copy in Stripe metadata (never sent — see that file's own
+        // comment), so it cannot be recovered on this fallback path; a
+        // booking recovered here needs its invoice items entered manually.
         total_price:               meta.price ? Number(meta.price) : null,
         updated_at:                new Date().toISOString(),
       };
 
+      // Pre-collision-retry value, exactly what Stripe's own session
+      // metadata already shows — compared against the persisted ref below
+      // to decide whether Stripe's metadata needs a best-effort correction.
+      const originalBookingRef = bookingRef;
       const { error: dbErr, bookingRef: persistedRef } = await upsertBookingWithRefRetry(supabase, bookingRow);
       bookingRef = persistedRef;
 
@@ -691,6 +712,66 @@ export default async function handler(req, res) {
         } catch (attrEx) {
           console.warn('[webhook] Attribution update error:', attrEx.message);
         }
+      }
+
+      // ── Keep Stripe's own metadata in sync with the persisted reference ──
+      // upsertBookingWithRefRetry may have persisted a DIFFERENT ref than the
+      // one frozen in Stripe's session metadata at checkout time (see that
+      // function's header — a 23505 tie-break). Every downstream consumer
+      // below (emails, Telegram, Sheets, CRM search) already uses the
+      // reassigned `bookingRef` (the persisted one) — only Stripe's own
+      // stored view of this session is at risk of still showing the stale
+      // value. Best-effort only: never retried, never blocks the webhook
+      // response, never logged with PII (session id and error code only).
+      //
+      // The PaymentIntent's own metadata is deliberately not touched —
+      // api/create-checkout-session.js never sets `payment_intent_data.
+      // metadata` at session-creation time, so Stripe never copies the
+      // Checkout Session's metadata onto the PaymentIntent; there is no
+      // booking_ref on the PaymentIntent to keep in sync.
+      if (bookingRef !== originalBookingRef) {
+        try {
+          await stripe.checkout.sessions.update(session.id, {
+            metadata: { ...meta, booking_ref: bookingRef },
+          });
+          console.log('[webhook] Stripe session metadata booking_ref synced to persisted value — session:', session.id);
+        } catch (metaSyncErr) {
+          console.warn('[webhook] Stripe session metadata sync failed (non-fatal) — code:',
+            metaSyncErr.code || metaSyncErr.type, '| session:', session.id);
+        }
+      }
+
+      // ── Customer sync — find or create a customer record for this
+      // genuinely paid booking, so it is not left invisible on the
+      // Customers page until a staff member manually clicks "Create
+      // customer". Runs only here, after durable persistence of a PAID
+      // booking — never for pending_payment (that insert happens in
+      // api/create-checkout-session.js, which never touches `customers`)
+      // and never for a superseded booking (superseded is a derived,
+      // read-time-only label computed over pending rows by
+      // admin/api/bookings/index.js — it is not a stored property and never
+      // applies to a paid booking). Own try/catch: a failure here must never
+      // roll back the booking, fail the webhook response, or block/duplicate
+      // notifications.
+      try {
+        const syncResult = await findOrCreateCustomerForPaidBooking(supabase, {
+          full_name:   meta.fullName || null,
+          email:       meta.email    || null,
+          phone:       meta.phone    || null,
+          address:     meta.address  || null,
+          postcode:    meta.postcode || null,
+          booking_ref: bookingRef,
+        });
+        if (syncResult.ok) {
+          console.log('[webhook] customer sync —', syncResult.created ? 'created' : 'linked existing',
+            '| customerId:', syncResult.customerId);
+        } else if (syncResult.skipped) {
+          console.log('[webhook] customer sync skipped —', syncResult.reason);
+        } else {
+          console.warn('[webhook] customer sync failed (non-fatal):', syncResult.error);
+        }
+      } catch (custSyncEx) {
+        console.warn('[webhook] customer sync threw (non-fatal):', custSyncEx.message);
       }
     } catch (dbEx) {
       if (eventClaimed) await markEventFailed(supabase, event.id, dbEx.message);
