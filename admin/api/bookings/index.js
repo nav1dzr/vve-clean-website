@@ -53,6 +53,50 @@ function buildQuery(supabase, filters) {
   return query;
 }
 
+// A customer who starts checkout, abandons it, and then successfully
+// re-books (typically after changing their quote) leaves behind a still-
+// pending row alongside the real paid one — see api/create-checkout-
+// session.js, which inserts a `pending_payment` row on every session
+// created, before payment happens. Neither row is ever deleted (this is
+// purely a read-time label, not a data change — see Phase 3 of the
+// booking-list cleanup work), but a `pending_payment` row with a same-
+// phone `paid` sibling created within a day is almost certainly that
+// abandoned attempt rather than a genuinely separate, still-awaiting-
+// payment booking, so it's flagged here as `superseded: true` for the UI
+// to visually de-emphasise/hide by default. A 24-hour window is
+// deliberately narrow — a repeat customer's two genuinely distinct future
+// bookings are realistically at least days apart, so this should not
+// mislabel real, separate, still-outstanding pending bookings.
+const SUPERSEDED_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+async function markSupersededPendingBookings(supabase, cards) {
+  const pending = cards.filter((c) => c.paymentStatus === 'pending_payment' && c.phone);
+  if (pending.length === 0) return cards.map((c) => ({ ...c, superseded: false }));
+
+  const phones = [...new Set(pending.map((c) => c.phone))];
+  const { data: paidSiblings, error } = await supabase
+    .from('bookings')
+    .select('phone, created_at')
+    .eq('payment_status', 'paid')
+    .in('phone', phones);
+
+  if (error || !paidSiblings) {
+    console.error('[admin/api] superseded-booking lookup failed:', error?.code, error?.message);
+    return cards;
+  }
+
+  const supersededIds = new Set();
+  for (const card of pending) {
+    const pendingTime = new Date(card.createdAt).getTime();
+    const hasPaidSibling = paidSiblings.some(
+      (p) => p.phone === card.phone && Math.abs(new Date(p.created_at).getTime() - pendingTime) <= SUPERSEDED_WINDOW_MS,
+    );
+    if (hasPaidSibling) supersededIds.add(card.id);
+  }
+
+  return cards.map((c) => (supersededIds.has(c.id) ? { ...c, superseded: true } : { ...c, superseded: false }));
+}
+
 // GET /api/bookings — filtered, sorted, paginated booking list.
 // Every filter/sort value is validated against a fixed whitelist before it
 // ever reaches a query; free-text filters (service/source/postcode) are
@@ -163,7 +207,7 @@ export default async function handler(req, res) {
     }
 
     const totalCount = count ?? 0;
-    const results = (data || []).map(toCard);
+    const results = await markSupersededPendingBookings(supabase, (data || []).map(toCard));
 
     res.writeHead(200, headers);
     res.end(

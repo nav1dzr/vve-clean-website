@@ -39,6 +39,7 @@ function readFilters(params: URLSearchParams) {
     dateTo: params.get('dateTo') || '',
     sort: (params.get('sort') as SortValue) || 'newest',
     page: Number.parseInt(params.get('page') || '1', 10) || 1,
+    showSuperseded: params.get('showSuperseded') === '1',
   };
 }
 
@@ -147,101 +148,138 @@ export default function BookingListPage() {
           onChange={(v) => updateFilter('sort', v)}
           options={SORT_VALUES.map((s) => ({ value: s, label: SORT_LABELS[s] }))}
         />
+        <label className="flex items-center gap-2 text-sm text-navy-900 sm:col-span-2 lg:col-span-1">
+          <input
+            type="checkbox"
+            checked={filters.showSuperseded}
+            onChange={(e) => updateFilter('showSuperseded', e.target.checked ? '1' : '')}
+            className="h-4 w-4 rounded border-silver-300"
+          />
+          Show superseded (abandoned) bookings
+        </label>
       </div>
 
       {state.status === 'loading' && <CardListSkeleton count={5} />}
       {state.status === 'error' && <ErrorState message={state.message} onRetry={load} />}
-      {state.status === 'success' && state.data.results.length === 0 && (
-        <EmptyState title="No bookings match these filters" description="Try clearing a filter or widening the date range." />
-      )}
-      {state.status === 'success' && state.data.results.length > 0 && (
-        <>
-          <div className="space-y-3 sm:hidden">
-            {state.data.results.map((b) => (
-              <BookingCardItem key={b.id} booking={b} />
-            ))}
-          </div>
+      {state.status === 'success' && (() => {
+        const visibleResults = filters.showSuperseded
+          ? state.data.results
+          : state.data.results.filter((b) => !b.superseded);
+        const hiddenCount = state.data.results.length - visibleResults.length;
 
-          <div className="hidden overflow-x-auto rounded-xl border border-silver-300 bg-white sm:block">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-silver-100 text-navy-700">
-                <tr>
-                  <th className="px-4 py-2.5 font-medium">Customer</th>
-                  <th className="px-4 py-2.5 font-medium">Postcode</th>
-                  <th className="px-4 py-2.5 font-medium">Service</th>
-                  <th className="px-4 py-2.5 font-medium">Date</th>
-                  <th className="px-4 py-2.5 font-medium">Status</th>
-                  <th className="px-4 py-2.5 font-medium">Payment</th>
-                  <th className="px-4 py-2.5 font-medium">Balance</th>
-                  <th className="px-4 py-2.5 text-right font-medium">Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {state.data.results.map((b) => {
-                  const dateLabel = b.serviceDate
-                    ? formatServiceDate(b.serviceDate)
-                    : formatPreferred(b.preferredDate, b.preferredTime);
-                  const statusBadge = bookingStatusBadge(b.status);
-                  const payBadge = paymentStatusBadge(b.paymentStatus);
-                  const balBadge = b.balanceStatus ? balanceStatusBadge(b.balanceStatus) : null;
-                  return (
-                    <tr key={b.id} className="border-t border-silver-200 hover:bg-silver-100">
-                      <td className="px-4 py-2.5">
-                        <Link to={`/bookings/${b.id}`} className="font-medium text-navy-950 hover:text-sky-600">
-                          {b.fullName || 'Name not recorded'}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-2.5">{b.postcode || '—'}</td>
-                      <td className="px-4 py-2.5">{b.service || '—'}</td>
-                      <td className="px-4 py-2.5">{dateLabel}</td>
-                      <td className="px-4 py-2.5">
-                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadge.className}`}>
-                          {statusBadge.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${payBadge.className}`}>
-                          {payBadge.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5">
-                        {balBadge && (
-                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${balBadge.className}`}>
-                            {balBadge.label}
+        if (visibleResults.length === 0) {
+          return (
+            <EmptyState
+              title="No bookings match these filters"
+              description={
+                hiddenCount > 0
+                  ? `${hiddenCount} superseded booking${hiddenCount === 1 ? '' : 's'} hidden — tick "Show superseded" above to see them.`
+                  : 'Try clearing a filter or widening the date range.'
+              }
+            />
+          );
+        }
+
+        return (
+          <>
+            {hiddenCount > 0 && (
+              <p className="mb-3 text-sm text-navy-500">
+                {hiddenCount} likely-abandoned booking{hiddenCount === 1 ? '' : 's'} hidden (same customer, paid within 24h elsewhere).
+              </p>
+            )}
+
+            <div className="space-y-3 sm:hidden">
+              {visibleResults.map((b) => (
+                <BookingCardItem key={b.id} booking={b} />
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto rounded-xl border border-silver-300 bg-white sm:block">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-silver-100 text-navy-700">
+                  <tr>
+                    <th className="px-4 py-2.5 font-medium">Customer</th>
+                    <th className="px-4 py-2.5 font-medium">Postcode</th>
+                    <th className="px-4 py-2.5 font-medium">Service</th>
+                    <th className="px-4 py-2.5 font-medium">Date</th>
+                    <th className="px-4 py-2.5 font-medium">Status</th>
+                    <th className="px-4 py-2.5 font-medium">Payment</th>
+                    <th className="px-4 py-2.5 font-medium">Balance</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleResults.map((b) => {
+                    const dateLabel = b.serviceDate
+                      ? formatServiceDate(b.serviceDate)
+                      : formatPreferred(b.preferredDate, b.preferredTime);
+                    const statusBadge = bookingStatusBadge(b.status);
+                    const payBadge = paymentStatusBadge(b.paymentStatus);
+                    const balBadge = b.balanceStatus ? balanceStatusBadge(b.balanceStatus) : null;
+                    return (
+                      <tr key={b.id} className={`border-t border-silver-200 hover:bg-silver-100 ${b.superseded ? 'opacity-60' : ''}`}>
+                        <td className="px-4 py-2.5">
+                          <Link to={`/bookings/${b.id}`} className="font-medium text-navy-950 hover:text-sky-600">
+                            {b.fullName || 'Name not recorded'}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-2.5">{b.postcode || '—'}</td>
+                        <td className="px-4 py-2.5">{b.service || '—'}</td>
+                        <td className="px-4 py-2.5">{dateLabel}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadge.className}`}>
+                            {statusBadge.label}
                           </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5 text-right">{formatCurrency(b.totalPrice)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${payBadge.className}`}>
+                            {payBadge.label}
+                          </span>
+                          {b.superseded && (
+                            <span className="ml-1.5 inline-flex rounded-full bg-silver-200 px-2.5 py-0.5 text-xs font-medium text-navy-500">
+                              Superseded
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          {balBadge && (
+                            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${balBadge.className}`}>
+                              {balBadge.label}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">{formatCurrency(b.totalPrice)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-          <div className="mt-4 flex items-center justify-between">
-            <button
-              type="button"
-              disabled={filters.page <= 1}
-              onClick={() => goToPage(filters.page - 1)}
-              className="min-h-11 rounded-lg border border-silver-300 px-4 text-sm font-medium text-navy-900 disabled:opacity-40"
-            >
-              Previous
-            </button>
-            <span className="text-sm text-navy-700">
-              Page {filters.page} of {totalPages}
-            </span>
-            <button
-              type="button"
-              disabled={!state.data.hasMore}
-              onClick={() => goToPage(filters.page + 1)}
-              className="min-h-11 rounded-lg border border-silver-300 px-4 text-sm font-medium text-navy-900 disabled:opacity-40"
-            >
-              Next
-            </button>
-          </div>
-        </>
-      )}
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                type="button"
+                disabled={filters.page <= 1}
+                onClick={() => goToPage(filters.page - 1)}
+                className="min-h-11 rounded-lg border border-silver-300 px-4 text-sm font-medium text-navy-900 disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-navy-700">
+                Page {filters.page} of {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={!state.data.hasMore}
+                onClick={() => goToPage(filters.page + 1)}
+                className="min-h-11 rounded-lg border border-silver-300 px-4 text-sm font-medium text-navy-900 disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

@@ -17,6 +17,12 @@ export interface BookingCard {
   balanceStatus: string | null;
   totalPrice: number | null;
   createdAt: string;
+  // True when this is a still-pending_payment row with a same-phone paid
+  // sibling created within 24h of it — almost certainly an abandoned
+  // checkout attempt superseded by a successful re-booking (see
+  // markSupersededPendingBookings in admin/api/bookings/index.js). Never
+  // deleted, purely a display hint; absent/false for anything else.
+  superseded?: boolean;
 }
 
 export interface InternalNote {

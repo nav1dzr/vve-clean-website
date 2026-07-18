@@ -42,6 +42,34 @@ function makeReq(url, headers = { authorization: 'Bearer t' }) {
   return { method: 'GET', url, headers };
 }
 
+// For tests that need the superseded-booking lookup's second query (to
+// bookings again, for paid siblings) to return something different from
+// the first (main list) query — makeChainableClient's single shared
+// result can't express that. Returns each queued result in call order.
+function makeQueuedClient(results) {
+  const queue = [...results];
+  return {
+    from: () => {
+      // Each call to .from() starts a new query chain — resolve it to the
+      // next queued result (repeating the last one once the queue is
+      // empty, so an unexpected extra call doesn't crash the test).
+      const result = queue.length > 1 ? queue.shift() : queue[0];
+      const builder = {
+        select: () => builder,
+        eq: () => builder,
+        ilike: () => builder,
+        gte: () => builder,
+        lte: () => builder,
+        in: () => builder,
+        order: () => builder,
+        range: () => builder,
+        then: (resolve, reject) => Promise.resolve(result).then(resolve, reject),
+      };
+      return builder;
+    },
+  };
+}
+
 describe('GET /api/bookings', () => {
   beforeEach(() => {
     verifyAdminRequestMock.mockReset();
@@ -142,6 +170,63 @@ describe('GET /api/bookings', () => {
       await handler(makeReq(`/api/bookings?sort=${sort}`), res);
       expect(res.statusCode).toBe(200);
     }
+  });
+
+  it('marks a pending booking as superseded when a same-phone paid booking exists within 24h', async () => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: {} });
+    const pendingRow = {
+      id: 'b-pending', booking_ref: 'REF1', full_name: 'Natalie Ashton', phone: '07700900000', postcode: 'NW3',
+      service: 'carpet', preferred_date: null, preferred_time: null, service_date: null, status: 'new',
+      payment_status: 'pending_payment', total_price: 50, created_at: '2026-07-17T10:00:00.000Z',
+    };
+    getServiceClientMock.mockReturnValue(makeQueuedClient([
+      { data: [pendingRow], error: null, count: 1 },
+      { data: [{ phone: '07700900000', created_at: '2026-07-17T10:30:00.000Z' }], error: null },
+    ]));
+
+    const res = makeRes();
+    await handler(makeReq('/api/bookings'), res);
+
+    const body = JSON.parse(res.body);
+    expect(body.results[0].superseded).toBe(true);
+  });
+
+  it('does not mark a pending booking as superseded when no same-phone paid sibling exists', async () => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: {} });
+    const pendingRow = {
+      id: 'b-pending', booking_ref: 'REF1', full_name: 'Natalie Ashton', phone: '07700900000', postcode: 'NW3',
+      service: 'carpet', preferred_date: null, preferred_time: null, service_date: null, status: 'new',
+      payment_status: 'pending_payment', total_price: 50, created_at: '2026-07-17T10:00:00.000Z',
+    };
+    getServiceClientMock.mockReturnValue(makeQueuedClient([
+      { data: [pendingRow], error: null, count: 1 },
+      { data: [], error: null },
+    ]));
+
+    const res = makeRes();
+    await handler(makeReq('/api/bookings'), res);
+
+    const body = JSON.parse(res.body);
+    expect(body.results[0].superseded).toBe(false);
+  });
+
+  it('does not mark a pending booking as superseded when the same-phone paid sibling is more than 24h away', async () => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: {} });
+    const pendingRow = {
+      id: 'b-pending', booking_ref: 'REF1', full_name: 'Natalie Ashton', phone: '07700900000', postcode: 'NW3',
+      service: 'carpet', preferred_date: null, preferred_time: null, service_date: null, status: 'new',
+      payment_status: 'pending_payment', total_price: 50, created_at: '2026-07-01T10:00:00.000Z',
+    };
+    getServiceClientMock.mockReturnValue(makeQueuedClient([
+      { data: [pendingRow], error: null, count: 1 },
+      { data: [{ phone: '07700900000', created_at: '2026-07-17T10:00:00.000Z' }], error: null },
+    ]));
+
+    const res = makeRes();
+    await handler(makeReq('/api/bookings'), res);
+
+    const body = JSON.parse(res.body);
+    expect(body.results[0].superseded).toBe(false);
   });
 
   it('returns a generic 500 without leaking database error detail', async () => {
