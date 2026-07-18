@@ -58,43 +58,118 @@ function buildQuery(supabase, filters) {
 // pending row alongside the real paid one — see api/create-checkout-
 // session.js, which inserts a `pending_payment` row on every session
 // created, before payment happens. Neither row is ever deleted (this is
-// purely a read-time label, not a data change — see Phase 3 of the
-// booking-list cleanup work), but a `pending_payment` row with a same-
-// phone `paid` sibling created within a day is almost certainly that
-// abandoned attempt rather than a genuinely separate, still-awaiting-
-// payment booking, so it's flagged here as `superseded: true` for the UI
-// to visually de-emphasise/hide by default. A 24-hour window is
-// deliberately narrow — a repeat customer's two genuinely distinct future
-// bookings are realistically at least days apart, so this should not
-// mislabel real, separate, still-outstanding pending bookings.
+// purely a read-time label, not a data change), but a `pending_payment`
+// row that looks like that abandoned attempt is flagged `superseded: true`
+// for the UI to hide by default.
+//
+// Matching on phone alone within a time window (the original version of
+// this function) is too broad — verified against the actual motivating
+// example (two "Natalie Ashton" rows, NW3 7AJ, both 2026-07-17 Morning):
+// a same-phone `paid` booking for a different property, a different
+// requested date, or made *before* the pending attempt is NOT the same
+// booking and must never be hidden. A pending booking is only flagged
+// when ALL of the following hold against some paid sibling:
+//   1. same normalised phone OR same normalised email (contact identity)
+//   2. same normalised postcode (same property)
+//   3. same preferred_date (same requested day — the "quote change" this
+//      is modelling is a price/detail change, not a different day)
+//   4. same broad service category (text before the first "·" — e.g.
+//      "Carpet & upholstery · 2 items" and "Carpet & upholstery · 1 item"
+//      both reduce to "carpet & upholstery"; "Window Cleaning" does not
+//      match that). This is deliberately looser than an exact string
+//      match: the real example above has *different* item counts between
+//      the abandoned and the retried attempt, which an exact match would
+//      have missed entirely.
+//   5. the pending row was created BEFORE the paid row (an abandoned
+//      attempt necessarily happens before its successful retry — this
+//      alone rules out the case where a customer pays for one job then,
+//      hours later, separately starts and abandons an unrelated one)
+//   6. the paid row followed within SUPERSEDED_WINDOW_MS (24h) — a repeat
+//      customer's two genuinely distinct future bookings are realistically
+//      at least days apart.
+// Every one of these is a display hint only; nothing is ever deleted or
+// altered.
 const SUPERSEDED_WINDOW_MS = 24 * 60 * 60 * 1000;
 
+function normaliseKey(value) {
+  if (!value) return null;
+  const trimmed = String(value).trim().toLowerCase();
+  return trimmed || null;
+}
+
+function normalisePostcodeKey(value) {
+  const key = normaliseKey(value);
+  return key ? key.replace(/\s+/g, '') : null;
+}
+
+// "Carpet & upholstery · 2 items" -> "carpet & upholstery". A plain string
+// with no "·" (e.g. "Window Cleaning") passes through unchanged.
+function serviceCategoryKey(value) {
+  const key = normaliseKey(value);
+  return key ? key.split('·')[0].trim() || null : null;
+}
+
 async function markSupersededPendingBookings(supabase, cards) {
-  const pending = cards.filter((c) => c.paymentStatus === 'pending_payment' && c.phone);
-  if (pending.length === 0) return cards.map((c) => ({ ...c, superseded: false }));
+  const pendingIds = cards.filter((c) => c.paymentStatus === 'pending_payment').map((c) => c.id);
+  if (pendingIds.length === 0) return cards.map((c) => ({ ...c, superseded: false }));
 
-  const phones = [...new Set(pending.map((c) => c.phone))];
-  const { data: paidSiblings, error } = await supabase
+  const DETAIL_COLUMNS = 'id, phone, email, postcode, preferred_date, service, created_at';
+
+  const { data: pendingDetails, error: pendingErr } = await supabase
     .from('bookings')
-    .select('phone, created_at')
-    .eq('payment_status', 'paid')
-    .in('phone', phones);
+    .select(DETAIL_COLUMNS)
+    .in('id', pendingIds);
 
-  if (error || !paidSiblings) {
-    console.error('[admin/api] superseded-booking lookup failed:', error?.code, error?.message);
-    return cards;
+  if (pendingErr || !pendingDetails) {
+    console.error('[admin/api] superseded-booking lookup failed (pending detail):', pendingErr?.code, pendingErr?.message);
+    return cards.map((c) => ({ ...c, superseded: false }));
+  }
+
+  const phones = [...new Set(pendingDetails.map((p) => p.phone).filter(Boolean))];
+  const emails = [...new Set(pendingDetails.map((p) => p.email).filter(Boolean))];
+  if (phones.length === 0 && emails.length === 0) return cards.map((c) => ({ ...c, superseded: false }));
+
+  const orClauses = [];
+  if (phones.length) orClauses.push(`phone.in.(${phones.join(',')})`);
+  if (emails.length) orClauses.push(`email.in.(${emails.join(',')})`);
+
+  const { data: paidCandidates, error: paidErr } = await supabase
+    .from('bookings')
+    .select(DETAIL_COLUMNS)
+    .eq('payment_status', 'paid')
+    .or(orClauses.join(','));
+
+  if (paidErr || !paidCandidates) {
+    console.error('[admin/api] superseded-booking lookup failed (paid candidates):', paidErr?.code, paidErr?.message);
+    return cards.map((c) => ({ ...c, superseded: false }));
   }
 
   const supersededIds = new Set();
-  for (const card of pending) {
-    const pendingTime = new Date(card.createdAt).getTime();
-    const hasPaidSibling = paidSiblings.some(
-      (p) => p.phone === card.phone && Math.abs(new Date(p.created_at).getTime() - pendingTime) <= SUPERSEDED_WINDOW_MS,
-    );
-    if (hasPaidSibling) supersededIds.add(card.id);
+  for (const pending of pendingDetails) {
+    const pendingPhone = normaliseKey(pending.phone);
+    const pendingEmail = normaliseKey(pending.email);
+    const pendingPostcode = normalisePostcodeKey(pending.postcode);
+    const pendingService = serviceCategoryKey(pending.service);
+    const pendingTime = new Date(pending.created_at).getTime();
+    if (!pendingPostcode || !pending.preferred_date || !pendingService) continue;
+
+    const hasMatch = paidCandidates.some((paid) => {
+      const contactMatches =
+        (pendingPhone && normaliseKey(paid.phone) === pendingPhone) ||
+        (pendingEmail && normaliseKey(paid.email) === pendingEmail);
+      if (!contactMatches) return false;
+      if (normalisePostcodeKey(paid.postcode) !== pendingPostcode) return false;
+      if (paid.preferred_date !== pending.preferred_date) return false;
+      if (serviceCategoryKey(paid.service) !== pendingService) return false;
+
+      const paidTime = new Date(paid.created_at).getTime();
+      return paidTime > pendingTime && paidTime - pendingTime <= SUPERSEDED_WINDOW_MS;
+    });
+
+    if (hasMatch) supersededIds.add(pending.id);
   }
 
-  return cards.map((c) => (supersededIds.has(c.id) ? { ...c, superseded: true } : { ...c, superseded: false }));
+  return cards.map((c) => ({ ...c, superseded: supersededIds.has(c.id) }));
 }
 
 // GET /api/bookings — filtered, sorted, paginated booking list.

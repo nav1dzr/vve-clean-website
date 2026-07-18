@@ -61,6 +61,7 @@ function makeQueuedClient(results) {
         gte: () => builder,
         lte: () => builder,
         in: () => builder,
+        or: () => builder,
         order: () => builder,
         range: () => builder,
         then: (resolve, reject) => Promise.resolve(result).then(resolve, reject),
@@ -172,61 +173,99 @@ describe('GET /api/bookings', () => {
     }
   });
 
-  it('marks a pending booking as superseded when a same-phone paid booking exists within 24h', async () => {
-    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: {} });
-    const pendingRow = {
-      id: 'b-pending', booking_ref: 'REF1', full_name: 'Natalie Ashton', phone: '07700900000', postcode: 'NW3',
-      service: 'carpet', preferred_date: null, preferred_time: null, service_date: null, status: 'new',
-      payment_status: 'pending_payment', total_price: 50, created_at: '2026-07-17T10:00:00.000Z',
-    };
-    getServiceClientMock.mockReturnValue(makeQueuedClient([
-      { data: [pendingRow], error: null, count: 1 },
-      { data: [{ phone: '07700900000', created_at: '2026-07-17T10:30:00.000Z' }], error: null },
-    ]));
+  describe('superseded-booking detection', () => {
+    // Base fixture mirrors the actual motivating example (two "Natalie
+    // Ashton" rows, both NW3 7AJ, both 2026-07-17 Morning, differing only
+    // in item count) — see markSupersededPendingBookings' own comment in
+    // admin/api/bookings/index.js for the full signal list this proves.
+    function pendingListRow(overrides = {}) {
+      return {
+        id: 'b-pending', booking_ref: 'REF1', full_name: 'Natalie Ashton', phone: '07700900000', postcode: 'NW3 7AJ',
+        service: 'Carpet & upholstery · 1 item', preferred_date: '2026-07-17', preferred_time: 'Morning',
+        service_date: null, status: 'new', payment_status: 'pending_payment', total_price: 50,
+        created_at: '2026-07-17T09:00:00.000Z',
+        ...overrides,
+      };
+    }
 
-    const res = makeRes();
-    await handler(makeReq('/api/bookings'), res);
+    function pendingDetail(overrides = {}) {
+      return {
+        id: 'b-pending', phone: '07700900000', email: null, postcode: 'NW3 7AJ',
+        preferred_date: '2026-07-17', service: 'Carpet & upholstery · 1 item',
+        created_at: '2026-07-17T09:00:00.000Z',
+        ...overrides,
+      };
+    }
 
-    const body = JSON.parse(res.body);
-    expect(body.results[0].superseded).toBe(true);
-  });
+    function paidDetail(overrides = {}) {
+      return {
+        id: 'b-paid', phone: '07700900000', email: null, postcode: 'NW3 7AJ',
+        preferred_date: '2026-07-17', service: 'Carpet & upholstery · 2 items',
+        created_at: '2026-07-17T09:30:00.000Z',
+        ...overrides,
+      };
+    }
 
-  it('does not mark a pending booking as superseded when no same-phone paid sibling exists', async () => {
-    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: {} });
-    const pendingRow = {
-      id: 'b-pending', booking_ref: 'REF1', full_name: 'Natalie Ashton', phone: '07700900000', postcode: 'NW3',
-      service: 'carpet', preferred_date: null, preferred_time: null, service_date: null, status: 'new',
-      payment_status: 'pending_payment', total_price: 50, created_at: '2026-07-17T10:00:00.000Z',
-    };
-    getServiceClientMock.mockReturnValue(makeQueuedClient([
-      { data: [pendingRow], error: null, count: 1 },
-      { data: [], error: null },
-    ]));
+    async function runSupersededCheck(pendingDetailRow, paidCandidates) {
+      verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: {} });
+      getServiceClientMock.mockReturnValue(makeQueuedClient([
+        { data: [pendingListRow()], error: null, count: 1 },
+        { data: [pendingDetailRow], error: null },
+        { data: paidCandidates, error: null },
+      ]));
+      const res = makeRes();
+      await handler(makeReq('/api/bookings'), res);
+      return JSON.parse(res.body).results[0].superseded;
+    }
 
-    const res = makeRes();
-    await handler(makeReq('/api/bookings'), res);
+    it('hides an abandoned quote attempt followed by a successful retry (the real Natalie Ashton example — different item count, same property/date/phone)', async () => {
+      const superseded = await runSupersededCheck(pendingDetail(), [paidDetail()]);
+      expect(superseded).toBe(true);
+    });
 
-    const body = JSON.parse(res.body);
-    expect(body.results[0].superseded).toBe(false);
-  });
+    it('does NOT hide a pending booking when the paid sibling is for a different property (postcode)', async () => {
+      const superseded = await runSupersededCheck(pendingDetail(), [paidDetail({ postcode: 'E8 1AA' })]);
+      expect(superseded).toBe(false);
+    });
 
-  it('does not mark a pending booking as superseded when the same-phone paid sibling is more than 24h away', async () => {
-    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: {} });
-    const pendingRow = {
-      id: 'b-pending', booking_ref: 'REF1', full_name: 'Natalie Ashton', phone: '07700900000', postcode: 'NW3',
-      service: 'carpet', preferred_date: null, preferred_time: null, service_date: null, status: 'new',
-      payment_status: 'pending_payment', total_price: 50, created_at: '2026-07-01T10:00:00.000Z',
-    };
-    getServiceClientMock.mockReturnValue(makeQueuedClient([
-      { data: [pendingRow], error: null, count: 1 },
-      { data: [{ phone: '07700900000', created_at: '2026-07-17T10:00:00.000Z' }], error: null },
-    ]));
+    it('does NOT hide a pending booking when the paid sibling is for a different service date', async () => {
+      const superseded = await runSupersededCheck(pendingDetail(), [paidDetail({ preferred_date: '2026-07-20' })]);
+      expect(superseded).toBe(false);
+    });
 
-    const res = makeRes();
-    await handler(makeReq('/api/bookings'), res);
+    it('does NOT hide a pending booking when the paid sibling is a different service category (not just a different item count)', async () => {
+      const superseded = await runSupersededCheck(pendingDetail(), [paidDetail({ service: 'Window Cleaning' })]);
+      expect(superseded).toBe(false);
+    });
 
-    const body = JSON.parse(res.body);
-    expect(body.results[0].superseded).toBe(false);
+    it('does NOT hide a pending booking with no matching paid sibling at all', async () => {
+      const superseded = await runSupersededCheck(pendingDetail(), []);
+      expect(superseded).toBe(false);
+    });
+
+    it('does NOT hide a pending booking when the "paid sibling" actually happened before it (two real same-day bookings, unrelated order)', async () => {
+      const superseded = await runSupersededCheck(
+        pendingDetail({ created_at: '2026-07-17T12:00:00.000Z' }),
+        [paidDetail({ created_at: '2026-07-17T09:00:00.000Z' })],
+      );
+      expect(superseded).toBe(false);
+    });
+
+    it('does NOT hide a pending booking when the matching paid sibling is more than 24h later', async () => {
+      const superseded = await runSupersededCheck(
+        pendingDetail({ created_at: '2026-07-01T10:00:00.000Z' }),
+        [paidDetail({ created_at: '2026-07-17T10:00:00.000Z' })],
+      );
+      expect(superseded).toBe(false);
+    });
+
+    it('matches on email when phone differs but email is the same', async () => {
+      const superseded = await runSupersededCheck(
+        pendingDetail({ phone: '07700900000', email: 'jane@example.com' }),
+        [paidDetail({ phone: '07999888777', email: 'JANE@example.com' })],
+      );
+      expect(superseded).toBe(true);
+    });
   });
 
   it('returns a generic 500 without leaking database error detail', async () => {
