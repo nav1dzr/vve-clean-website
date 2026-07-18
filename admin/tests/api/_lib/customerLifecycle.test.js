@@ -279,4 +279,52 @@ describe('createManualBooking', () => {
     expect(result.ok).toBe(false);
     expect(result.status).toBe(404);
   });
+
+  // fakeSupabase.js is a plain in-memory array with no unique-constraint
+  // enforcement, so a booking_ref collision (same race class as
+  // api/create-checkout-session.js's buildBookingRef — see
+  // api/stripe-webhook.js's upsertBookingWithRefRetry) needs a
+  // purpose-built minimal mock instead, isolated to this one test so the
+  // shared fake isn't changed for every other test file that uses it.
+  it('retries with a tie-breaking suffix when the manual booking_ref collides (23505), instead of failing outright', async () => {
+    const insertCalls = [];
+    const supabase = {
+      from(table) {
+        if (table === 'customers') {
+          return {
+            select: () => ({
+              eq: () => ({ maybeSingle: () => Promise.resolve({ data: { id: 'c-1', name: 'Jane Doe', email: 'jane@example.com', phone: null, address: null, postcode: 'N15 2NG' }, error: null }) }),
+            }),
+          };
+        }
+        if (table === 'bookings') {
+          return {
+            select: () => ({ like: () => Promise.resolve({ data: [], error: null }) }),
+            insert: (row) => ({
+              select: () => ({
+                single: () => {
+                  insertCalls.push(row);
+                  if (insertCalls.length === 1) {
+                    return Promise.resolve({ data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } });
+                  }
+                  return Promise.resolve({ data: { id: 'b-new', booking_ref: row.booking_ref }, error: null });
+                },
+              }),
+            }),
+          };
+        }
+        if (table === 'internal_notes') {
+          return { insert: () => Promise.resolve({ error: null }) };
+        }
+        throw new Error(`unexpected table: ${table}`);
+      },
+    };
+
+    const result = await createManualBooking(supabase, 'c-1', { service: 'Deep clean', serviceDate: '2026-08-01' }, 'admin-1');
+
+    expect(result.ok).toBe(true);
+    expect(insertCalls).toHaveLength(2);
+    expect(insertCalls[1].booking_ref).toBe(`${insertCalls[0].booking_ref}-1`);
+    expect(result.bookingRef).toBe(insertCalls[1].booking_ref);
+  });
 });

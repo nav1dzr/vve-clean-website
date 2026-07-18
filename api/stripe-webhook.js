@@ -94,14 +94,18 @@ async function claimStripeEvent(supabase, eventId, eventType) {
 // failing this webhook delivery permanently (Stripe retries would hit the
 // identical collision forever, per this project's audit finding D2 — the
 // paid booking would never be persisted). Returns the ref that was
-// actually persisted, which may differ from the one requested.
+// actually persisted, which may differ from the one requested. Suffix
+// style (`-1`, `-2`, ...) deliberately matches buildBookingRef's own
+// pre-existing -N suffix convention (api/create-checkout-session.js and
+// admin/api/_lib/customerLifecycle.js's buildManualBookingRef) rather than
+// inventing a new one.
 const MAX_REF_COLLISION_RETRIES = 5;
 
 export async function upsertBookingWithRefRetry(supabase, bookingRow, maxRetries = MAX_REF_COLLISION_RETRIES) {
   let dbErr = null;
   let bookingRef = bookingRow.booking_ref;
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
-    const candidateRef = attempt === 0 ? bookingRef : `${bookingRef}-r${attempt}`;
+    const candidateRef = attempt === 0 ? bookingRef : `${bookingRef}-${attempt}`;
     const { error } = await supabase.from('bookings').upsert(
       { ...bookingRow, booking_ref: candidateRef },
       { onConflict: 'stripe_session_id' },

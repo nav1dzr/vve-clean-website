@@ -370,28 +370,45 @@ export async function createManualBooking(supabase, customerId, input, adminId) 
   const postcode = input.postcode || customer.postcode || null;
   const bookingRef = await buildManualBookingRef(supabase, postcode, input.serviceDate);
 
-  const { data: row, error } = await supabase
-    .from('bookings')
-    .insert({
-      booking_ref: bookingRef,
-      full_name: customer.name,
-      email: input.email || customer.email || null,
-      phone: input.phone || customer.phone || null,
-      address: input.address || customer.address || null,
-      postcode,
-      service: input.service.trim(),
-      service_date: input.serviceDate || null,
-      preferred_date: input.serviceDate || null,
-      total_price: typeof input.totalPrice === 'number' ? input.totalPrice : null,
-      deposit_amount: 0,
-      notes: input.notes || null,
-      status: 'new',
-      payment_status: 'pending_payment',
-      first_source: 'admin_manual',
-      last_source: 'admin_manual',
-    })
-    .select('id, booking_ref')
-    .single();
+  const bookingRow = {
+    full_name: customer.name,
+    email: input.email || customer.email || null,
+    phone: input.phone || customer.phone || null,
+    address: input.address || customer.address || null,
+    postcode,
+    service: input.service.trim(),
+    service_date: input.serviceDate || null,
+    preferred_date: input.serviceDate || null,
+    total_price: typeof input.totalPrice === 'number' ? input.totalPrice : null,
+    deposit_amount: 0,
+    notes: input.notes || null,
+    status: 'new',
+    payment_status: 'pending_payment',
+    first_source: 'admin_manual',
+    last_source: 'admin_manual',
+  };
+
+  // buildManualBookingRef's own SELECT-then-suffix check is non-atomic —
+  // same race class as api/create-checkout-session.js's buildBookingRef
+  // (see api/stripe-webhook.js's upsertBookingWithRefRetry). Two admins
+  // creating a manual booking for the same postcode+date at the same
+  // moment could otherwise get a bare, unexplained 23505 here instead of
+  // the second one succeeding under a tie-breaking suffix.
+  const MAX_REF_COLLISION_RETRIES = 5;
+  let row = null;
+  let error = null;
+  for (let attempt = 0; attempt <= MAX_REF_COLLISION_RETRIES; attempt += 1) {
+    const candidateRef = attempt === 0 ? bookingRef : `${bookingRef}-${attempt}`;
+    const { data, error: insertErr } = await supabase
+      .from('bookings')
+      .insert({ ...bookingRow, booking_ref: candidateRef })
+      .select('id, booking_ref')
+      .single();
+    error = insertErr;
+    if (!insertErr) { row = data; break; }
+    if (insertErr.code !== '23505') break;
+    console.warn('[admin/api] manual booking_ref collision on', candidateRef, '— retrying with a new suffix (attempt', attempt + 1, ')');
+  }
 
   if (error) {
     console.error('[admin/api] manual booking create failed:', error.code, error.message);

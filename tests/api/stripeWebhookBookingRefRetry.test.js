@@ -32,9 +32,11 @@ describe('upsertBookingWithRefRetry', () => {
     const result = await upsertBookingWithRefRetry(supabase, { booking_ref: 'N152NG160726' });
 
     expect(result.error).toBeNull();
-    expect(result.bookingRef).toBe('N152NG160726-r1');
+    // Matches buildBookingRef's own pre-existing "-1" suffix convention
+    // (api/create-checkout-session.js), not a new style.
+    expect(result.bookingRef).toBe('N152NG160726-1');
     expect(upsert).toHaveBeenCalledTimes(2);
-    expect(upsert.mock.calls[1][0].booking_ref).toBe('N152NG160726-r1');
+    expect(upsert.mock.calls[1][0].booking_ref).toBe('N152NG160726-1');
   });
 
   it('gives up and returns the error after exhausting the retry budget', async () => {

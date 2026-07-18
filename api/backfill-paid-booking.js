@@ -29,6 +29,7 @@
 
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { upsertBookingWithRefRetry } from './stripe-webhook.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -202,10 +203,17 @@ export default async function handler(req, res) {
   }
 
   // ── Live upsert ───────────────────────────────────────────────────────────
+  // Reuses the exact same collision-retry helper as the live webhook (see
+  // api/stripe-webhook.js) — this upsert is the identical shape (onConflict:
+  // stripe_session_id), so it's exposed to the identical booking_ref race:
+  // the `ref` value here always comes from Stripe's own frozen metadata
+  // (enforced by the meta.booking_ref !== ref check above), which could
+  // already be taken by a different row if that row itself only persisted
+  // under a collision-retry suffix. Without this, an operator recovering a
+  // booking here would hit a bare, unexplained 23505 instead of a
+  // recoverable outcome.
   try {
-    const { error: dbErr } = await supabase
-      .from('bookings')
-      .upsert(row, { onConflict: 'stripe_session_id' });
+    const { error: dbErr, bookingRef: persistedRef } = await upsertBookingWithRefRetry(supabase, row);
 
     if (dbErr) {
       console.error('[backfill] Supabase upsert error:', dbErr.code, dbErr.message);
@@ -214,14 +222,16 @@ export default async function handler(req, res) {
     }
 
     // Log only non-PII identifiers.
-    console.log('[backfill] upserted booking_ref:', ref, '| session:', session.id);
+    console.log('[backfill] upserted booking_ref:', persistedRef, '| session:', session.id);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({
       success:           true,
-      booking_ref:       ref,
+      booking_ref:       persistedRef,
       stripe_session_id: session.id,
       payment_status:    'paid',
-      note:              'Remove BACKFILL_SECRET from env and redeploy after verifying.',
+      note: persistedRef === ref
+        ? 'Remove BACKFILL_SECRET from env and redeploy after verifying.'
+        : `booking_ref collided with an existing row — persisted as "${persistedRef}" instead of "${ref}". Remove BACKFILL_SECRET from env and redeploy after verifying.`,
     }));
   } catch (dbEx) {
     console.error('[backfill] unexpected DB error:', dbEx.message);
