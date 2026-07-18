@@ -208,6 +208,16 @@ export default async function handler(req, res) {
     res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'A preferred date is required' }));
   }
+  // UTC "today" as a floor is always safe for a UK-only business: UTC is
+  // never ahead of UK local time (only behind, by 0-1h depending on BST),
+  // so this never rejects a date a UK visitor genuinely sees as today or
+  // later — it can only, in the last hour of a UTC day, still accept a
+  // date that's already "tomorrow" in UTC but still "today" in the UK.
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date) && date < todayUtc) {
+    res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'The preferred date has already passed' }));
+  }
   if (!time) {
     res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'A preferred arrival window is required' }));
@@ -345,6 +355,16 @@ export default async function handler(req, res) {
           preferred_date:     date     || null,
           preferred_time:     time     || null,
           notes:              message  || null,
+          // Server-computed/validated above — never the raw client price.
+          // These columns existed but were never written by this flow
+          // (see this project's audit finding D1); the admin CRM had to
+          // re-enter amounts manually for every booking. quote_config is
+          // only reliably available on this checkout-time path — the
+          // webhook's fallback upsert (when this insert doesn't happen)
+          // has no durable copy of it, since it was never sent to Stripe
+          // metadata (unlike total_price, kept small enough to fit).
+          total_price:         validatedPrice,
+          quote_config:        quoteConfig,
           terms_accepted:              true,
           terms_accepted_at:           termsAcceptedAt || null,
           terms_version:                termsVersion || null,

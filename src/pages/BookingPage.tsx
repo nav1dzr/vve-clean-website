@@ -198,8 +198,18 @@ interface FormData {
 }
 
 const REQUIRED_DATE_ERROR  = 'Please choose your preferred date.';
+const PAST_DATE_ERROR      = 'Please choose a date that has not already passed.';
 const REQUIRED_TIME_ERROR  = 'Please choose your preferred arrival window.';
 const REQUIRED_TERMS_ERROR = 'Please read and accept the booking and cancellation terms.';
+
+// YYYY-MM-DD for today in the visitor's local time zone — matches the
+// plain-string format <input type="date"> both stores and displays, so a
+// lexicographic string comparison against it is a correct "is this in the
+// past" check with no Date-object time zone handling needed.
+function todayIsoDate(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 type FormErrors = Partial<Record<keyof FormData | 'contact', string>>;
 
@@ -272,6 +282,7 @@ export default function BookingPage() {
     if (form.phone && !validPhone(form.phone))   e.phone = 'Please enter a valid phone number.';
     if (form.email && !validEmail(form.email))   e.email = 'Please enter a valid email address.';
     if (!form.date)                     e.date = REQUIRED_DATE_ERROR;
+    else if (form.date < todayIsoDate()) e.date = PAST_DATE_ERROR;
     if (!form.time)                     e.time = REQUIRED_TIME_ERROR;
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -503,6 +514,7 @@ export default function BookingPage() {
                   Preferred date <span style={{ color: '#D14343' }}>*</span>
                 </label>
                 <input id="booking-date" type="date" value={form.date} onChange={setField('date')}
+                  min={todayIsoDate()}
                   aria-invalid={!!errors.date}
                   aria-describedby={errors.date ? 'date-error' : undefined}
                   className={`w-full rounded-xl border-[1.5px] px-3.5 py-3 text-[16px] outline-none transition-colors font-sans ${

@@ -155,6 +155,25 @@ describe('BookingPage — required preferred date and arrival window', () => {
     expect(await screen.findByText('Please choose your preferred arrival window.')).toBeInTheDocument();
   });
 
+  it('sets the date input\'s min attribute to today, preventing past-date picks in the native picker', () => {
+    renderBookingPage();
+    const dateInput = screen.getByLabelText(/preferred date/i) as HTMLInputElement;
+    const today = new Date().toISOString().slice(0, 10);
+    expect(dateInput.min).toBe(today);
+  });
+
+  it('blocks submission and shows an error when the typed date has already passed', async () => {
+    const user = userEvent.setup();
+    renderBookingPage();
+    await fillContactDetails(user);
+    await user.type(screen.getByLabelText(/preferred date/i), '2020-01-01');
+    await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
+
+    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
+
+    expect(await screen.findByText('Please choose a date that has not already passed.')).toBeInTheDocument();
+  });
+
   it('does not call the checkout API when required fields are missing', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     const user = userEvent.setup();

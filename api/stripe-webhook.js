@@ -81,6 +81,42 @@ async function claimStripeEvent(supabase, eventId, eventType) {
   return reclaimed ? { claimed: true } : { claimed: false, duplicate: true };
 }
 
+// Upserts a booking row on conflict of stripe_session_id — safe even when
+// the checkout-time insert (api/create-checkout-session.js) never ran or
+// failed. That INSERT path (only taken when no row for this session
+// exists yet) can still collide on the separate booking_ref unique
+// constraint if buildBookingRef's non-atomic SELECT-then-insert raced with
+// another request computing the same "next available" ref (see that
+// file's buildBookingRef comment). A 23505 here can only be that
+// constraint — a stripe_session_id conflict is exactly what onConflict
+// already resolves as an UPDATE, never an error — so it's safe to retry
+// with a tie-breaking suffix rather than the previous behaviour of
+// failing this webhook delivery permanently (Stripe retries would hit the
+// identical collision forever, per this project's audit finding D2 — the
+// paid booking would never be persisted). Returns the ref that was
+// actually persisted, which may differ from the one requested.
+const MAX_REF_COLLISION_RETRIES = 5;
+
+export async function upsertBookingWithRefRetry(supabase, bookingRow, maxRetries = MAX_REF_COLLISION_RETRIES) {
+  let dbErr = null;
+  let bookingRef = bookingRow.booking_ref;
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    const candidateRef = attempt === 0 ? bookingRef : `${bookingRef}-r${attempt}`;
+    const { error } = await supabase.from('bookings').upsert(
+      { ...bookingRow, booking_ref: candidateRef },
+      { onConflict: 'stripe_session_id' },
+    );
+    dbErr = error;
+    if (!error) {
+      bookingRef = candidateRef;
+      break;
+    }
+    if (error.code !== '23505') break;
+    console.warn('[webhook] booking_ref collision on', candidateRef, '— retrying with a new suffix (attempt', attempt + 1, ')');
+  }
+  return { error: dbErr, bookingRef };
+}
+
 async function markEventCompleted(supabase, eventId) {
   try {
     await supabase
@@ -516,9 +552,9 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ received: true }));
   }
 
-  const session    = event.data.object;
-  const meta       = session.metadata || {};
-  const bookingRef = meta.booking_ref || session.id;
+  const session = event.data.object;
+  const meta    = session.metadata || {};
+  let bookingRef = meta.booking_ref || session.id;
 
   console.log('[webhook] payment completed — ref:', bookingRef,
     '| session:', session.id, '| payment_status:', session.payment_status);
@@ -576,26 +612,32 @@ export default async function handler(req, res) {
     dbPersisted = true;
   } else {
     try {
-      const { error: dbErr } = await supabase.from('bookings').upsert(
-        {
-          booking_ref:               bookingRef,
-          stripe_session_id:         session.id,
-          stripe_payment_intent_id:  session.payment_intent || null,
-          payment_status:            'paid',
-          deposit_amount:            30,
-          full_name:                 meta.fullName || null,
-          email:                     meta.email    || null,
-          phone:                     meta.phone    || null,
-          address:                   meta.address  || null,
-          postcode:                  meta.postcode || null,
-          service:                   meta.service  || null,
-          preferred_date:            meta.date     || null,
-          preferred_time:            meta.time     || null,
-          notes:                     meta.message  || null,
-          updated_at:                new Date().toISOString(),
-        },
-        { onConflict: 'stripe_session_id' },
-      );
+      const bookingRow = {
+        booking_ref:               bookingRef,
+        stripe_session_id:         session.id,
+        stripe_payment_intent_id:  session.payment_intent || null,
+        payment_status:            'paid',
+        deposit_amount:            30,
+        full_name:                 meta.fullName || null,
+        email:                     meta.email    || null,
+        phone:                     meta.phone    || null,
+        address:                   meta.address  || null,
+        postcode:                  meta.postcode || null,
+        service:                   meta.service  || null,
+        preferred_date:            meta.date     || null,
+        preferred_time:            meta.time     || null,
+        notes:                     meta.message  || null,
+        // Mirrors create-checkout-session.js's own total_price write (see
+        // that file's comment, and this project's audit finding D1) —
+        // meta.price is the server-validated price already sent to Stripe,
+        // so this is safe to trust here too. quote_config has no durable
+        // copy in Stripe metadata, so it isn't set on this fallback path.
+        total_price:               meta.price ? Number(meta.price) : null,
+        updated_at:                new Date().toISOString(),
+      };
+
+      const { error: dbErr, bookingRef: persistedRef } = await upsertBookingWithRefRetry(supabase, bookingRow);
+      bookingRef = persistedRef;
 
       if (dbErr) {
         // Mark the event as failed so Stripe retry can re-claim and reprocess it.
