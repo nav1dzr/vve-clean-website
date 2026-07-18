@@ -159,23 +159,60 @@ describe('InvoiceEditorPage', () => {
     });
   });
 
-  it('auto-fills the booking reference from postcode + service date, and leaves it editable afterwards', async () => {
+  it('prefills the booking reference automatically once postcode and service date are both set, without needing the button', async () => {
     const user = userEvent.setup();
     renderEditor();
 
-    expect(screen.getByRole('button', { name: /auto-fill/i })).toBeDisabled();
+    expect(screen.getByLabelText('Booking reference')).toHaveValue('');
+    await user.type(screen.getByLabelText('Postcode'), 'N15 2NG');
+    expect(screen.getByLabelText('Booking reference')).toHaveValue(''); // date still missing
+    await user.type(screen.getByLabelText('Service date'), '2026-07-24');
+
+    expect(screen.getByLabelText('Booking reference')).toHaveValue('N152NG240726');
+  });
+
+  it('keeps updating the auto-filled reference as postcode/date change, until the admin types into it directly', async () => {
+    const user = userEvent.setup();
+    renderEditor();
 
     await user.type(screen.getByLabelText('Postcode'), 'N15 2NG');
     await user.type(screen.getByLabelText('Service date'), '2026-07-24');
-    expect(screen.getByRole('button', { name: /auto-fill/i })).toBeEnabled();
+    expect(screen.getByLabelText('Booking reference')).toHaveValue('N152NG240726');
+
+    // Still auto-tracking — a later postcode change updates it again.
+    await user.clear(screen.getByLabelText('Postcode'));
+    await user.type(screen.getByLabelText('Postcode'), 'E8 1AA');
+    expect(screen.getByLabelText('Booking reference')).toHaveValue('E81AA240726');
+
+    // Admin types into the reference field directly — auto-tracking stops.
+    await user.clear(screen.getByLabelText('Booking reference'));
+    await user.type(screen.getByLabelText('Booking reference'), 'CUSTOM-REF');
+    expect(screen.getByLabelText('Booking reference')).toHaveValue('CUSTOM-REF');
+
+    // A further postcode/date change must NOT overwrite the manual value.
+    await user.clear(screen.getByLabelText('Postcode'));
+    await user.type(screen.getByLabelText('Postcode'), 'W2 3EL');
+    expect(screen.getByLabelText('Booking reference')).toHaveValue('CUSTOM-REF');
+  });
+
+  it('the Auto-fill button regenerates the reference and resumes automatic tracking afterwards', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.type(screen.getByLabelText('Postcode'), 'N15 2NG');
+    await user.type(screen.getByLabelText('Service date'), '2026-07-24');
+
+    // Manual edit stops auto-tracking.
+    await user.clear(screen.getByLabelText('Booking reference'));
+    await user.type(screen.getByLabelText('Booking reference'), 'CUSTOM-REF');
 
     await user.click(screen.getByRole('button', { name: /auto-fill/i }));
     expect(screen.getByLabelText('Booking reference')).toHaveValue('N152NG240726');
 
-    // Still a plain text field — the admin can override the suggestion.
-    await user.clear(screen.getByLabelText('Booking reference'));
-    await user.type(screen.getByLabelText('Booking reference'), 'CUSTOM-REF');
-    expect(screen.getByLabelText('Booking reference')).toHaveValue('CUSTOM-REF');
+    // Tracking resumed — a subsequent postcode change updates it again.
+    await user.clear(screen.getByLabelText('Postcode'));
+    await user.type(screen.getByLabelText('Postcode'), 'E8 1AA');
+    expect(screen.getByLabelText('Booking reference')).toHaveValue('E81AA240726');
   });
 
   it('prefills the billing contact and billingCustomerId when ?customerId= is present', async () => {

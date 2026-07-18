@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import type {
   InvoiceCustomer, InvoiceDraftInput, InvoiceDraftItemInput, InvoiceServiceContact, PaymentOptionValue,
 } from '../types/invoice';
@@ -104,8 +104,26 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
   const [value, setValue] = useState<InvoiceItemsFormValue>(initial);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [serviceContactEnabled, setServiceContactEnabled] = useState(() => hasAnyServiceContactField(initial.serviceContact));
+  // Whether the admin has directly typed into the booking-reference field
+  // (or a value was already prefilled in) — once true, postcode/service-date
+  // changes never auto-populate it again. The Auto-fill button resets this,
+  // so "regenerate" resumes automatic tracking rather than being a one-shot.
+  const [refManuallyEdited, setRefManuallyEdited] = useState(() => Boolean(initial.poReference));
 
   const totals = previewTotals(value);
+
+  // Prefills the booking reference once postcode + service date are both
+  // available, in the same POSTCODE+DDMMYY style as buildManualBookingRef
+  // (admin/api/_lib/customerLifecycle.js) — never overwrites a value the
+  // admin has manually typed. Purely a convenience default on a free-text
+  // field; does not touch invoice-number generation (the atomic
+  // next_document_number() RPC, unrelated and untouched).
+  useEffect(() => {
+    if (refManuallyEdited) return;
+    if (!value.customer.postcode || !value.serviceDate) return;
+    const suggested = buildBookingRefBase(value.customer.postcode, value.serviceDate);
+    if (suggested) setValue((v) => ({ ...v, poReference: suggested }));
+  }, [value.customer.postcode, value.serviceDate, refManuallyEdited]);
 
   function updateItem(key: string, patch: Partial<FormItem>) {
     setValue((v) => ({ ...v, items: v.items.map((i) => (i.key === key ? { ...i, ...patch } : i)) }));
@@ -273,12 +291,21 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
           <label className="sm:col-span-3">
             <span className={labelClass}>Booking reference</span>
             <div className="flex gap-2">
-              <input type="text" value={value.poReference} onChange={(e) => setValue((v) => ({ ...v, poReference: e.target.value }))} className={inputClass} />
+              <input
+                type="text"
+                value={value.poReference}
+                onChange={(e) => {
+                  setRefManuallyEdited(true);
+                  setValue((v) => ({ ...v, poReference: e.target.value }));
+                }}
+                className={inputClass}
+              />
               <button
                 type="button"
                 onClick={() => {
                   const suggested = buildBookingRefBase(value.customer.postcode, value.serviceDate);
                   if (suggested) setValue((v) => ({ ...v, poReference: suggested }));
+                  setRefManuallyEdited(false);
                 }}
                 disabled={!value.customer.postcode || !value.serviceDate}
                 title={!value.customer.postcode || !value.serviceDate ? 'Set a postcode and service date first' : 'Fill in from postcode + service date'}
