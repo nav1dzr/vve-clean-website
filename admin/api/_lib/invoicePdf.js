@@ -21,6 +21,7 @@
 import PDFDocument from 'pdfkit';
 import { buildPaymentInstructionsSnapshot } from './paymentOptions.js';
 import { hasBankDetails } from './businessSettings.js';
+import { smartTitleCase, formatPostcodeDisplay, formatEmailDisplay } from './textFormat.js';
 
 const PAGE_MARGIN = 50;
 const NAVY = '#020b24';
@@ -75,6 +76,20 @@ function formatPaymentMethod(value) {
   if (!value) return '—';
   const spaced = String(value).replace(/_/g, ' ');
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+// Applies the safe display formatters to a name/address/postcode/email/
+// phone group — used for Bill to / Paid by / Service address, the three
+// places a customer's own details are printed. Phone is never reformatted
+// (no safe universal rule for it here).
+function formatContactLines(name, address, postcode, email, phone) {
+  return [
+    smartTitleCase(name),
+    smartTitleCase(address),
+    formatPostcodeDisplay(postcode),
+    formatEmailDisplay(email),
+    phone,
+  ].filter(Boolean).join('\n');
 }
 
 function formatDate(value) {
@@ -238,24 +253,33 @@ function drawItemsTable(doc, fonts, items, settings, startY) {
   };
 
   let y = startY;
-  const headerHeight = 26;
+  const headerHeight = 24;
 
+  // Classic style: bold dark header text on a plain white background (no
+  // filled bar), a single rule underneath — matches the invoice's own
+  // table-free sections rather than standing out as a separate block.
   function drawHeader() {
-    doc.rect(tableX, y, tableWidth, headerHeight).fill(NAVY);
-    doc.font(fonts.bold).fontSize(9).fillColor('#ffffff');
-    const ty = y + 8;
+    doc.font(fonts.bold).fontSize(9).fillColor(NAVY);
+    const ty = y + 6;
     doc.text('Description', cols.description.x + cellPad, ty, { width: cols.description.width - cellPad });
     doc.text('Qty', cols.qty.x, ty, { width: cols.qty.width - cellPad, align: 'right' });
     doc.text('Unit price', cols.unitPrice.x, ty, { width: cols.unitPrice.width - cellPad, align: 'right' });
     doc.text('Discount', cols.discount.x, ty, { width: cols.discount.width - cellPad, align: 'right' });
     doc.text('Total', cols.total.x, ty, { width: cols.total.width - cellPad, align: 'right' });
     y += headerHeight;
+    doc.moveTo(tableX, y).lineTo(tableX + tableWidth, y).lineWidth(1).strokeColor(NAVY).stroke();
   }
 
   drawHeader();
 
   doc.font(fonts.regular).fontSize(9).fillColor(TEXT);
-  items.forEach((item, index) => {
+  items.forEach((item) => {
+    // No explicit `height` needed here — `rowHeight` is sized to the
+    // wrapped description before drawing, and the page-break check above
+    // guarantees y + rowHeight never exceeds SAFE_BOTTOM (itself below
+    // pdfkit's own page.maxY()), so a long description wraps onto extra
+    // lines within its row without ever tripping the LineWrapper
+    // auto-pagination bug documented on addFooter().
     const descHeight = doc.heightOfString(item.description || '', { width: cols.description.width - cellPad });
     const rowHeight = Math.max(descHeight, 12) + 14;
 
@@ -264,11 +288,6 @@ function drawItemsTable(doc, fonts, items, settings, startY) {
       y = PAGE_MARGIN;
       drawHeader();
       doc.font(fonts.regular).fontSize(9).fillColor(TEXT);
-    }
-
-    if (index % 2 === 1) {
-      doc.rect(tableX, y, tableWidth, rowHeight).fill('#f7f7f9');
-      doc.fillColor(TEXT);
     }
 
     const ty = y + 7;
@@ -281,9 +300,13 @@ function drawItemsTable(doc, fonts, items, settings, startY) {
     );
     doc.text(money(settings, item.line_total ?? item.lineTotal), cols.total.x, ty, { width: cols.total.width - cellPad, align: 'right' });
     y += rowHeight;
+
+    // Hairline divider between line items (and closing the table after the
+    // last one) — replaces the old zebra-striped background as the way
+    // rows stay visually separated.
+    doc.moveTo(tableX, y).lineTo(tableX + tableWidth, y).lineWidth(0.5).strokeColor(BORDER).stroke();
   });
 
-  doc.moveTo(tableX, y).lineTo(tableX + tableWidth, y).lineWidth(1).strokeColor(NAVY).stroke();
   return y + 14;
 }
 
@@ -310,19 +333,22 @@ function drawServiceAddressBlock(doc, fonts, invoice, x, y, width) {
   if (!hasServiceInfo) return y;
 
   doc.font(fonts.bold).fontSize(9).fillColor(NAVY).text('Service address', x, y);
-  const lines = [invoice.service_contact_name, invoice.service_address, invoice.service_contact_postcode, invoice.service_contact_email, invoice.service_contact_phone]
-    .filter(Boolean).join('\n');
+  const lines = formatContactLines(
+    invoice.service_contact_name, invoice.service_address, invoice.service_contact_postcode,
+    invoice.service_contact_email, invoice.service_contact_phone,
+  );
   doc.font(fonts.regular).fontSize(9.5).fillColor(TEXT).text(lines, x, y + 14, { width, lineGap: 1.5 });
   return y + 14 + doc.heightOfString(lines, { width, lineGap: 1.5 }) + 14;
 }
 
-// Rows: label/value pairs shown inside a bordered "card" — used for both
-// the financial summary and the payment-details block (requirements 4/5).
-// `emphasisRow`, if given, is drawn larger/bolder with a tinted highlight
-// strip beneath the divider (used for "Amount Due").
-function drawCard(doc, fonts, { x, y, width, title, rows, emphasisRow }) {
-  const paddingX = 14;
-  let cy = y + 14;
+// Rows: label/value pairs shown either inside a bordered "card" (the
+// payment-details block) or, when `plain` is set, as an unboxed list with
+// just a rule above the emphasis row (the invoice's financial summary,
+// per the classic reference layout — see INVOICES_SETUP.md). `emphasisRow`,
+// if given, is drawn larger/bolder (used for "Amount Due").
+function drawCard(doc, fonts, { x, y, width, title, rows, emphasisRow, plain = false }) {
+  const paddingX = plain ? 0 : 14;
+  let cy = y + (plain ? 0 : 14);
 
   if (title) {
     doc.font(fonts.bold).fontSize(9.5).fillColor(NAVY).text(title, x + paddingX, cy, { width: width - paddingX * 2 });
@@ -347,13 +373,15 @@ function drawCard(doc, fonts, { x, y, width, title, rows, emphasisRow }) {
 
   if (emphasisRow) {
     cy += 4;
-    doc.moveTo(x + paddingX, cy).lineTo(x + width - paddingX, cy).lineWidth(1).strokeColor(BORDER).stroke();
+    doc.moveTo(x + paddingX, cy).lineTo(x + width - paddingX, cy).lineWidth(1).strokeColor(plain ? NAVY : BORDER).stroke();
     cy += 8;
-    doc.rect(x, cy - 6, width, 32).fill(GOLD_TINT);
+    if (!plain) doc.rect(x, cy - 6, width, 32).fill(GOLD_TINT);
     doc.font(fonts.bold).fontSize(12).fillColor(NAVY).text(emphasisRow[0], x + paddingX, cy, { width: width - paddingX * 2 - 110 });
     doc.text(emphasisRow[1], x + width - paddingX - 110, cy, { width: 110, align: 'right' });
     cy += 26;
   }
+
+  if (plain) return cy;
 
   cy += 10;
   doc.roundedRect(x, y, width, cy - y, 4).lineWidth(1).strokeColor(BORDER).stroke();
@@ -366,9 +394,9 @@ function drawCard(doc, fonts, { x, y, width, title, rows, emphasisRow }) {
 // what previously let a wrapped row overflow a page's bottom margin and
 // trigger pdfkit's silent auto-pagination — see addFooter's lineBreak
 // comment for the sibling bug this class of mistake caused).
-function estimateCardHeight(doc, fonts, { width, title, rows, emphasisRow }) {
-  const paddingX = 14;
-  let h = 14;
+function estimateCardHeight(doc, fonts, { width, title, rows, emphasisRow, plain = false }) {
+  const paddingX = plain ? 0 : 14;
+  let h = plain ? 0 : 14;
   if (title) h += 18;
   const labelWidth = width - paddingX * 2 - 130;
   const valueWidth = 130;
@@ -378,7 +406,7 @@ function estimateCardHeight(doc, fonts, { width, title, rows, emphasisRow }) {
     h += Math.max(labelHeight, valueHeight, 16);
   }
   if (emphasisRow) h += 4 + 8 + 26;
-  return h + 10;
+  return plain ? h : h + 10;
 }
 
 function buildTotalsRows(settings, invoice) {
@@ -451,8 +479,9 @@ export async function generateInvoicePdfBuffer(invoice, items, settings, { isDra
   const detailsX = PAGE_MARGIN + colWidth + 20;
 
   doc.font(fonts.bold).fontSize(9).fillColor(NAVY).text('Bill to', billToX, y);
-  const billLines = [invoice.customer_name, invoice.customer_address, invoice.customer_postcode, invoice.customer_email, invoice.customer_phone]
-    .filter(Boolean).join('\n');
+  const billLines = formatContactLines(
+    invoice.customer_name, invoice.customer_address, invoice.customer_postcode, invoice.customer_email, invoice.customer_phone,
+  );
   doc.font(fonts.regular).fontSize(9.5).fillColor(TEXT).text(billLines, billToX, y + 14, { width: colWidth, lineGap: 1.5 });
 
   doc.font(fonts.bold).fontSize(9).fillColor(NAVY).text('Details', detailsX, y);
@@ -481,14 +510,14 @@ export async function generateInvoicePdfBuffer(invoice, items, settings, { isDra
   const totalsRows = buildTotalsRows(settings, invoice);
   const totalsWidth = 240;
   const totalsEmphasis = ['Amount Due', money(settings, invoice.amount_due)];
-  const totalsEstHeight = estimateCardHeight(doc, fonts, { width: totalsWidth, rows: totalsRows, emphasisRow: totalsEmphasis });
+  const totalsEstHeight = estimateCardHeight(doc, fonts, { width: totalsWidth, rows: totalsRows, emphasisRow: totalsEmphasis, plain: true });
   y = ensureSpace(doc, fonts, y, totalsEstHeight);
   const totalsX = doc.page.width - PAGE_MARGIN - totalsWidth;
   const totalsBottom = drawCard(doc, fonts, {
     x: totalsX, y, width: totalsWidth, rows: totalsRows,
-    emphasisRow: totalsEmphasis,
+    emphasisRow: totalsEmphasis, plain: true,
   });
-  y = totalsBottom + 10;
+  y = totalsBottom + 14;
 
   if (invoice.payment_terms || invoice.customer_notes) {
     const notesText = [invoice.payment_terms, invoice.customer_notes].filter(Boolean).join('\n');
@@ -533,8 +562,9 @@ export async function generateReceiptPdfBuffer(receipt, settings) {
   const detailsX = PAGE_MARGIN + colWidth + 20;
 
   doc.font(fonts.bold).fontSize(9).fillColor(NAVY).text('Paid by', paidByX, y);
-  const paidByLines = [receipt.customer_name, receipt.customer_address, receipt.customer_postcode, receipt.customer_email, receipt.customer_phone]
-    .filter(Boolean).join('\n');
+  const paidByLines = formatContactLines(
+    receipt.customer_name, receipt.customer_address, receipt.customer_postcode, receipt.customer_email, receipt.customer_phone,
+  );
   doc.font(fonts.regular).fontSize(9.5).fillColor(TEXT).text(paidByLines, paidByX, y + 14, { width: colWidth, lineGap: 1.5 });
 
   doc.font(fonts.bold).fontSize(9).fillColor(NAVY).text('Details', detailsX, y);

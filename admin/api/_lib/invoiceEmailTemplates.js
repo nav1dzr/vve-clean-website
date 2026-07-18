@@ -14,6 +14,7 @@
 import { escHtml } from './escHtml.js';
 import { buildPaymentInstructionsSnapshot } from './paymentOptions.js';
 import { hasBankDetails } from './businessSettings.js';
+import { smartTitleCase } from './textFormat.js';
 
 function wordmarkHtml() {
   return '<span style="font-weight:700;font-size:20px;color:#020b24;">V<span style="color:#b8960c;">V</span>E</span>'
@@ -116,7 +117,7 @@ function serviceSummary(items) {
 
 export function invoiceEmail(invoice, settings, { customMessage, items } = {}) {
   const subject = `Invoice ${invoice.invoice_number} from ${settings.tradingName}`;
-  const greetingName = escHtml(invoice.customer_name) || 'there';
+  const greetingName = escHtml(smartTitleCase(invoice.customer_name)) || 'there';
   const service = serviceSummary(items);
   const intro = service
     ? `Please find your invoice attached for your ${escHtml(service)}.`
@@ -143,7 +144,7 @@ export function invoiceEmail(invoice, settings, { customMessage, items } = {}) {
   const text = [
     `Invoice ${invoice.invoice_number} from ${settings.tradingName}`,
     '',
-    `Hi ${invoice.customer_name || 'there'},`,
+    `Hi ${smartTitleCase(invoice.customer_name) || 'there'},`,
     '',
     service ? `Please find your invoice attached for your ${service}.` : `Please find your invoice attached${invoice.booking_ref_snapshot ? ` for booking ${invoice.booking_ref_snapshot}` : ''}.`,
     customMessage || '',
@@ -171,7 +172,7 @@ export function invoiceEmail(invoice, settings, { customMessage, items } = {}) {
 // balance reaches zero — see receiptLifecycle.js's createReceiptIfPaid).
 export function paymentAcknowledgementEmail(invoice, payment, settings) {
   const subject = `Payment received — Invoice ${invoice.invoice_number}`;
-  const greetingName = escHtml(invoice.customer_name) || 'there';
+  const greetingName = escHtml(smartTitleCase(invoice.customer_name)) || 'there';
 
   const bodyHtml = `
     <p>Hi ${greetingName},</p>
@@ -188,7 +189,7 @@ export function paymentAcknowledgementEmail(invoice, payment, settings) {
   const text = [
     `Payment received — Invoice ${invoice.invoice_number}`,
     '',
-    `Hi ${invoice.customer_name || 'there'},`,
+    `Hi ${smartTitleCase(invoice.customer_name) || 'there'},`,
     '',
     `Thank you for your payment of ${money(settings, payment.amount)}. The remaining balance is ${money(settings, invoice.amount_due)}.`,
     '',
@@ -213,7 +214,7 @@ export function paymentAcknowledgementEmail(invoice, payment, settings) {
 // admin/api/invoices/[id].js's handleRemind).
 export function paymentReminderEmail(invoice, settings, { customMessage } = {}) {
   const subject = `Payment reminder — Invoice ${invoice.invoice_number}`;
-  const greetingName = escHtml(invoice.customer_name) || 'there';
+  const greetingName = escHtml(smartTitleCase(invoice.customer_name)) || 'there';
 
   const bodyHtml = `
     <p>Hi ${greetingName},</p>
@@ -228,7 +229,7 @@ export function paymentReminderEmail(invoice, settings, { customMessage } = {}) 
   const text = [
     `Payment reminder — Invoice ${invoice.invoice_number}`,
     '',
-    `Hi ${invoice.customer_name || 'there'},`,
+    `Hi ${smartTitleCase(invoice.customer_name) || 'there'},`,
     '',
     `This is a friendly reminder that ${money(settings, invoice.amount_due)} remains outstanding on invoice ${invoice.invoice_number}, due on ${invoice.due_date || '—'}.`,
     customMessage || '',
@@ -244,7 +245,7 @@ export function paymentReminderEmail(invoice, settings, { customMessage } = {}) 
 
 export function receiptEmail(receipt, settings, { customMessage } = {}) {
   const subject = `Receipt ${receipt.receipt_number} from ${settings.tradingName}`;
-  const greetingName = escHtml(receipt.customer_name) || 'there';
+  const greetingName = escHtml(smartTitleCase(receipt.customer_name)) || 'there';
 
   const bodyHtml = `
     <p>Hi ${greetingName},</p>
@@ -263,7 +264,7 @@ export function receiptEmail(receipt, settings, { customMessage } = {}) {
   const text = [
     `Receipt ${receipt.receipt_number} from ${settings.tradingName}`,
     '',
-    `Hi ${receipt.customer_name || 'there'},`,
+    `Hi ${smartTitleCase(receipt.customer_name) || 'there'},`,
     '',
     `Thank you for your payment. Please find attached receipt ${receipt.receipt_number}.`,
     customMessage || '',

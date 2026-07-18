@@ -199,6 +199,81 @@ describe('generateInvoicePdfBuffer', () => {
     expect(text).toContain('Tenant Name');
     expect(text).toContain('2 Flat Rd');
   });
+
+  it('uses a classic table style: bold headers, right-aligned currency columns, no zebra fill needed to read rows apart', async () => {
+    const buffer = await generateInvoicePdfBuffer(invoice(), items(), settings, { isDraft: false });
+    const text = extractPdfText(buffer);
+    expect(text).toContain('Description');
+    expect(text).toContain('Qty');
+    expect(text).toContain('Unit price');
+    expect(text).toContain('Discount');
+    expect(text).toContain('Total');
+  });
+
+  it('wraps a long line-item description in full, without truncating it, and still fits a single-item invoice on one page', async () => {
+    const longDescription = 'End of tenancy deep clean including oven, fridge-freezer, all internal windows, carpets throughout the property, and a full bathroom descale ahead of the final inventory check';
+    const buffer = await generateInvoicePdfBuffer(
+      invoice(),
+      [{ description: longDescription, quantity: 1, unit_price: 150, line_discount: 0, line_total: 150 }],
+      settings,
+      { isDraft: false },
+    );
+    const text = extractPdfText(buffer);
+    expect(text).toContain(longDescription);
+    expect(pageCount(buffer)).toBe(1);
+  });
+
+  it('shows a discount row as "-£..." (never the U+2212 minus sign or the "&" mis-render)', async () => {
+    const buffer = await generateInvoicePdfBuffer(
+      invoice({ document_discount: 20, subtotal: 150, total: 130, amount_due: 100, deposit_applied: 30 }),
+      items(), settings, { isDraft: false },
+    );
+    const text = extractPdfText(buffer);
+    expect(text).toContain('Discount');
+    expect(text).toContain('-£20.00');
+    expect(text).not.toContain('&£20.00');
+  });
+
+  it('keeps the Payment details block\'s own content unaffected by the plain (unboxed) totals section', async () => {
+    const withBank = { ...settings, bankAccountName: 'VVE Limited', bankSortCode: '12-34-56', bankAccountNumber: '12345678' };
+    const buffer = await generateInvoicePdfBuffer(invoice(), items(), withBank, { isDraft: false });
+    const text = extractPdfText(buffer);
+    expect(text).toContain('Payment details');
+    expect(text).toContain('Account name');
+    expect(text).toContain('VVE Limited');
+    expect(text).toContain('12-34-56');
+  });
+
+  it('applies safe display formatting to the Bill to block: title-cases an all-lowercase name/address and normalises the postcode, without altering the passed-in row object', async () => {
+    const messy = invoice({ customer_name: 'ali', customer_address: '8 kellett house', customer_postcode: 'w23el' });
+    const buffer = await generateInvoicePdfBuffer(messy, items(), settings, { isDraft: false });
+    const text = extractPdfText(buffer);
+    expect(text).toContain('Ali');
+    expect(text).not.toContain('ali');
+    expect(text).toContain('8 Kellett House');
+    expect(text).toContain('W2 3EL');
+    // The formatter must never mutate the row it was given (route handlers
+    // reuse the same object for the DB response).
+    expect(messy.customer_name).toBe('ali');
+    expect(messy.customer_postcode).toBe('w23el');
+  });
+
+  it('preserves a deliberately mixed-case Bill to name untouched', async () => {
+    const buffer = await generateInvoicePdfBuffer(invoice({ customer_name: 'McDonald' }), items(), settings, { isDraft: false });
+    expect(extractPdfText(buffer)).toContain('McDonald');
+  });
+
+  it('handles an apostrophe/hyphen name correctly when the source was typed in one case', async () => {
+    const buffer = await generateInvoicePdfBuffer(invoice({ customer_name: "o'connor smith-jones" }), items(), settings, { isDraft: false });
+    expect(extractPdfText(buffer)).toContain("O'Connor Smith-Jones");
+  });
+
+  it('lowercases the Bill to email regardless of how it was typed', async () => {
+    const buffer = await generateInvoicePdfBuffer(invoice({ customer_email: 'JANE@EXAMPLE.COM' }), items(), settings, { isDraft: false });
+    const text = extractPdfText(buffer);
+    expect(text).toContain('jane@example.com');
+    expect(text).not.toContain('JANE@EXAMPLE.COM');
+  });
 });
 
 describe('generateReceiptPdfBuffer', () => {

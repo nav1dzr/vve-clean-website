@@ -146,6 +146,20 @@ describe('invoiceEmail', () => {
     expect(html).toContain('INV-2026-000001');
     expect(text).toContain('INV-2026-000001');
   });
+
+  it('title-cases an all-lowercase customer name in the greeting, without altering the passed-in row', () => {
+    const row = invoice({ customer_name: 'ali' });
+    const { html, text } = invoiceEmail(row, settings);
+    expect(html).toContain('Hi Ali,');
+    expect(text).toContain('Hi Ali,');
+    expect(row.customer_name).toBe('ali');
+  });
+
+  it('preserves a deliberately mixed-case customer name in the greeting', () => {
+    const { html, text } = invoiceEmail(invoice({ customer_name: 'McDonald' }), settings);
+    expect(html).toContain('Hi McDonald,');
+    expect(text).toContain('Hi McDonald,');
+  });
 });
 
 describe('paymentAcknowledgementEmail', () => {
@@ -227,5 +241,11 @@ describe('receiptEmail', () => {
     const { html } = receiptEmail(receipt(), settings);
     expect(html).toContain('£150.00');
     expect(html).toContain('2026-07-16');
+  });
+
+  it('title-cases an all-lowercase customer name in the greeting', () => {
+    const { html, text } = receiptEmail(receipt({ customer_name: 'ali' }), settings);
+    expect(html).toContain('Hi Ali,');
+    expect(text).toContain('Hi Ali,');
   });
 });
