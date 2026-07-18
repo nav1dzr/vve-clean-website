@@ -4,6 +4,7 @@ import type {
 } from '../types/invoice';
 import { PAYMENT_OPTION_VALUES } from '../types/invoice';
 import { formatMoney } from '../lib/format';
+import { buildBookingRefBase } from '../lib/bookingRef';
 
 const PAYMENT_OPTION_LABELS: Record<PaymentOptionValue, string> = {
   bank_transfer: 'Bank transfer',
@@ -270,8 +271,22 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
             <input type="date" value={value.serviceDate} onChange={(e) => setValue((v) => ({ ...v, serviceDate: e.target.value }))} className={inputClass} />
           </label>
           <label className="sm:col-span-3">
-            <span className={labelClass}>PO reference</span>
-            <input type="text" value={value.poReference} onChange={(e) => setValue((v) => ({ ...v, poReference: e.target.value }))} className={inputClass} />
+            <span className={labelClass}>Booking reference</span>
+            <div className="flex gap-2">
+              <input type="text" value={value.poReference} onChange={(e) => setValue((v) => ({ ...v, poReference: e.target.value }))} className={inputClass} />
+              <button
+                type="button"
+                onClick={() => {
+                  const suggested = buildBookingRefBase(value.customer.postcode, value.serviceDate);
+                  if (suggested) setValue((v) => ({ ...v, poReference: suggested }));
+                }}
+                disabled={!value.customer.postcode || !value.serviceDate}
+                title={!value.customer.postcode || !value.serviceDate ? 'Set a postcode and service date first' : 'Fill in from postcode + service date'}
+                className="shrink-0 rounded-lg border border-silver-300 px-3 text-sm font-medium text-navy-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Auto-fill
+              </button>
+            </div>
           </label>
         </div>
       </section>

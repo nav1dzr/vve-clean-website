@@ -5,6 +5,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import BookingDetailPage from './BookingDetailPage';
 import { ApiError } from '../lib/authFetch';
 import type { BookingDetail, InternalNote } from '../types/booking';
+import type { CustomerCard } from '../types/customer';
 
 // See DashboardHome.test.tsx for why this must not use vi.importActual —
 // it would load the real supabase.ts, which throws without env vars.
@@ -81,6 +82,7 @@ function setupAuthFetchMock(
     addNoteError?: ApiError;
     statusError?: ApiError;
     balanceError?: ApiError;
+    linkedCustomers?: CustomerCard[];
   } = {},
 ) {
   authFetchMock.mockImplementation((path: string, init?: RequestInit) => {
@@ -117,6 +119,13 @@ function setupAuthFetchMock(
         balancePaymentMethod: body.balanceStatus === 'paid' ? (body.balancePaymentMethod ?? null) : null,
         updatedAt: '2026-07-14T00:00:00.000Z',
       });
+    }
+
+    // BookingCustomerSection's linked-customer lookup — defaults to no
+    // match (renders "+ Create customer") unless a test overrides it.
+    if (/\/api\/customers\?/.test(path)) {
+      const results = overrides.linkedCustomers ?? [];
+      return Promise.resolve({ results, page: 1, pageSize: 5, totalCount: results.length, hasMore: false });
     }
 
     // BookingInvoicesSection's financial-documents list — not under test
@@ -205,6 +214,24 @@ describe('BookingDetailPage', () => {
     const { container } = renderDetail();
     await screen.findByText('N15NJ180726');
     expect(container.innerHTML).not.toMatch(/confirmation_?token/i);
+  });
+
+  describe('linked customer', () => {
+    it('shows a "Create customer" link when no matching customer record exists', async () => {
+      setupAuthFetchMock({ linkedCustomers: [] });
+      renderDetail();
+      const link = await screen.findByRole('link', { name: /create customer/i });
+      expect(link).toHaveAttribute('href', expect.stringContaining(`fromBookingId=${fullBooking.id}`));
+    });
+
+    it('links to the matching customer record when one is found by email/phone', async () => {
+      setupAuthFetchMock({
+        linkedCustomers: [{ id: 'cust-1', name: 'Jasmine Carter', email: 'jasmine@example.com', phone: null, postcode: null, customerType: 'individual', source: 'website', createdAt: '2026-01-01T00:00:00Z' }],
+      });
+      renderDetail();
+      const link = await screen.findByRole('link', { name: 'Jasmine Carter' });
+      expect(link).toHaveAttribute('href', '/customers/cust-1');
+    });
   });
 
   describe('internal notes', () => {

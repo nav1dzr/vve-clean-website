@@ -9,10 +9,12 @@
 // email or normalised phone (the only identifiers a booking and a customer
 // record can reliably share); invoices/receipts are matched by the
 // `billing_customer_id`/`service_customer_id` FK added in this feature,
-// which is exact. This means a booking made under a different email/phone
-// than the one later saved on the customer record will not automatically
-// appear in their history — a known, documented v1 limitation (see
-// admin/INVOICES_USER_GUIDE.md), not a bug.
+// which is exact. Email matches case-insensitively and phone matches
+// across the common 0/+44/44 stored-format variants (see
+// phoneMatchCandidates()); a booking made under a genuinely different
+// email, or a phone stored with internal spaces/dashes, still will not
+// automatically appear in their history — a known, documented v1
+// limitation (see admin/INVOICES_USER_GUIDE.md), not a bug.
 //
 // Duplicate detection is warn-only, everywhere, by design (the original
 // feature spec is explicit: never auto-merge, never merge on name alone).
@@ -60,6 +62,23 @@ export function normalisePhoneForDedup(phone) {
   if (typeof phone !== 'string') return null;
   const digits = phone.replace(/\D/g, '');
   return digits || null;
+}
+
+// A booking's phone column may be stored with or without the leading 0/
+// country code (e.g. "07730468373" vs "+447730468373" vs "447730468373")
+// even when it's genuinely the same customer — matching on a single exact
+// value (as getCustomerDetail used to) silently misses those. Returns the
+// small, bounded set of plausible stored forms for a UK number so the
+// booking-history query can .eq() across all of them. Still does not catch
+// a number stored with internal spaces/dashes (e.g. "0773 046 8373") —
+// PostgREST has no normalised column to match against for that case; a
+// genuinely different-looking number is not reconciled either, same
+// documented limitation as normalisePhoneForDedup.
+function phoneMatchCandidates(phone) {
+  const digits = normalisePhoneForDedup(phone);
+  if (!digits) return [];
+  const national = digits.length > 10 ? digits.slice(-10) : digits;
+  return [...new Set([digits, national, `0${national}`, `44${national}`, `+44${national}`])];
 }
 
 function normalisedNameForCompare(name) {
@@ -230,7 +249,7 @@ export async function getCustomerDetail(supabase, customerId) {
     let query = supabase.from('bookings').select(BOOKING_CARD_SELECT);
     const filters = [];
     if (customer.email) filters.push(`email.ilike.${customer.email}`);
-    if (customer.phone) filters.push(`phone.eq.${customer.phone}`);
+    for (const candidate of phoneMatchCandidates(customer.phone)) filters.push(`phone.eq.${candidate}`);
     if (filters.length) query = query.or(filters.join(','));
     const { data } = await query.order('created_at', { ascending: false });
     bookings = (data || []).map(toBookingCard);

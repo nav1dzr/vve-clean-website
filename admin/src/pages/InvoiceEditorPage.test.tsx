@@ -159,6 +159,25 @@ describe('InvoiceEditorPage', () => {
     });
   });
 
+  it('auto-fills the booking reference from postcode + service date, and leaves it editable afterwards', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    expect(screen.getByRole('button', { name: /auto-fill/i })).toBeDisabled();
+
+    await user.type(screen.getByLabelText('Postcode'), 'N15 2NG');
+    await user.type(screen.getByLabelText('Service date'), '2026-07-24');
+    expect(screen.getByRole('button', { name: /auto-fill/i })).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: /auto-fill/i }));
+    expect(screen.getByLabelText('Booking reference')).toHaveValue('N152NG240726');
+
+    // Still a plain text field — the admin can override the suggestion.
+    await user.clear(screen.getByLabelText('Booking reference'));
+    await user.type(screen.getByLabelText('Booking reference'), 'CUSTOM-REF');
+    expect(screen.getByLabelText('Booking reference')).toHaveValue('CUSTOM-REF');
+  });
+
   it('prefills the billing contact and billingCustomerId when ?customerId= is present', async () => {
     authFetchMock.mockResolvedValue({
       id: 'cust-1', name: 'Acme Lettings', email: 'ops@acme.example.com', phone: null, address: null, postcode: 'E1 6AN',

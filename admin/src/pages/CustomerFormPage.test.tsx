@@ -45,6 +45,16 @@ function renderEdit(id = 'cust-1') {
   );
 }
 
+function renderFromBooking(bookingId = 'booking-1') {
+  return render(
+    <MemoryRouter initialEntries={[`/customers/new?fromBookingId=${bookingId}`]}>
+      <Routes>
+        <Route path="/customers/new" element={<CustomerFormPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 describe('CustomerFormPage — create', () => {
   beforeEach(() => {
     authFetchMock.mockReset();
@@ -89,6 +99,49 @@ describe('CustomerFormPage — create', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/possible duplicate/i);
     expect(screen.getByText(/existing jane/i)).toBeInTheDocument();
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/customers/cust-new'));
+  });
+});
+
+describe('CustomerFormPage — create from a booking', () => {
+  beforeEach(() => {
+    authFetchMock.mockReset();
+    navigateMock.mockReset();
+  });
+
+  it('prefills name/email/phone/address/postcode from the booking and defaults source to website', async () => {
+    authFetchMock.mockResolvedValue({
+      id: 'booking-1', fullName: 'Jasmine Carter', email: 'jasmine@example.com', phone: '07123456789',
+      address: '14 Elm Road', postcode: 'N15 5NJ',
+    });
+    renderFromBooking();
+
+    expect(await screen.findByDisplayValue('Jasmine Carter')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('jasmine@example.com')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('07123456789')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('14 Elm Road')).toBeInTheDocument();
+    expect(screen.getByLabelText('Source')).toHaveValue('website');
+  });
+
+  it('still lets the admin edit the prefilled fields before submitting', async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockResolvedValueOnce({
+      id: 'booking-1', fullName: 'Jasmine Carter', email: 'jasmine@example.com', phone: null, address: null, postcode: null,
+    });
+    renderFromBooking();
+    await screen.findByDisplayValue('Jasmine Carter');
+
+    const nameInput = screen.getByLabelText('Name *');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Jasmine C. Carter');
+
+    authFetchMock.mockResolvedValueOnce({ id: 'cust-new', name: 'Jasmine C. Carter', duplicateWarnings: [] });
+    await user.click(screen.getByRole('button', { name: /create customer/i }));
+
+    await waitFor(() => {
+      const postCall = authFetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === 'POST');
+      const body = JSON.parse((postCall?.[1] as RequestInit).body as string);
+      expect(body.name).toBe('Jasmine C. Carter');
+    });
   });
 });
 
