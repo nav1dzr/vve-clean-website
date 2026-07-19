@@ -198,13 +198,13 @@ export default function CommercialPage() {
               Commercial cleaning that<br className="hidden sm:block" />
               <span className="text-gradient-metallic"> shows up. Every time.</span>
             </h1>
-            <p className="text-silver-300 text-lg max-w-2xl mx-auto mb-8 leading-relaxed">
+            <p className="text-silver-300 text-base sm:text-lg max-w-2xl mx-auto mb-5 sm:mb-8 leading-relaxed">
               Offices, shops, cafés and the communal areas of residential blocks across East &amp; North London.
               Free site visit within 48 hours, fixed written quote the same day, invoiced monthly.
             </p>
 
             {/* Trust row */}
-            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-10 text-silver-400 text-sm">
+            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-6 sm:mb-10 text-silver-400 text-[13px] sm:text-sm">
               <span className="flex items-center gap-1.5">
                 <span className="text-sky-400 font-bold">✓</span> £5m public liability insured
               </span>

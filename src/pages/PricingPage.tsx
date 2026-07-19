@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
@@ -33,6 +34,13 @@ export default function PricingPage() {
           <p className="text-silver-300 text-lg max-w-xl mx-auto">
             Every price listed is the price you pay. Pick your service, see the total, book in seconds.
           </p>
+          {/* Primary action in the first viewport on every screen size */}
+          <div className="mt-6">
+            <Link to="/booking"
+              className="inline-flex items-center justify-center gap-2 bg-royal-500 hover:bg-royal-600 text-white font-semibold text-sm sm:text-base px-6 py-3 min-h-[44px] rounded-lg transition-all duration-200 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+              Get my price — book online
+            </Link>
+          </div>
         </div>
       </div>
 

@@ -33,16 +33,16 @@ export default function Hero() {
         <div className="max-w-2xl">
 
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 glass-card rounded-full px-4 py-1.5 mb-6" style={{ animationDelay: '0.1s' }}>
+          <div className="inline-flex items-center gap-2 glass-card rounded-full px-4 py-1.5 mb-4 sm:mb-6" style={{ animationDelay: '0.1s' }}>
             <span className="w-2 h-2 rounded-full bg-royal-400 animate-pulse" />
-            <span className="text-silver-300 text-xs tracking-widest font-medium uppercase">
+            <span className="text-silver-300 text-[10px] sm:text-xs tracking-widest font-medium uppercase">
               Independent &amp; Owner-Operated — No Call Centres, No Random Cleaners
             </span>
           </div>
 
           {/* H1 — Bricolage Grotesque 800 */}
           <h1
-            className="font-hero font-extrabold text-[1.95rem] sm:text-4xl lg:text-[2.6rem] xl:text-5xl text-white leading-[1.08] mb-6 animate-fade-in-up"
+            className="font-hero font-extrabold text-[1.95rem] sm:text-4xl lg:text-[2.6rem] xl:text-5xl text-white leading-[1.08] mb-4 sm:mb-6 animate-fade-in-up"
             style={{ animationDelay: '0.2s', opacity: 0 }}
           >
             Get your full deposit back — or we{' '}
@@ -53,7 +53,7 @@ export default function Hero() {
 
           {/* Supporting text */}
           <p
-            className="text-silver-300 text-lg leading-relaxed mb-5 max-w-lg animate-fade-in-up"
+            className="text-silver-300 text-base sm:text-lg leading-relaxed mb-4 sm:mb-5 max-w-lg animate-fade-in-up"
             style={{ animationDelay: '0.45s', opacity: 0 }}
           >
             End of tenancy and deep cleaning across East &amp; North London by DBS-checked, fully insured cleaners. See your exact price in 3 taps — no forms, no waiting for a callback.
@@ -61,7 +61,7 @@ export default function Hero() {
 
           {/* Benefit checklist */}
           <ul
-            className="space-y-2 mb-7 animate-fade-in-up"
+            className="space-y-2 mb-5 sm:mb-7 animate-fade-in-up"
             style={{ animationDelay: '0.52s', opacity: 0 }}
           >
             {[
