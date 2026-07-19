@@ -973,7 +973,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                   : isCarpet && carpetResult?.isPhotoQuote
                     ? 'Photo quote'
                     : isCarpet && (carpetResult?.totalItems ?? 0) === 0
-                      ? '—'
+                      ? `From £${CARPET_MIN_BOOKING}`
                       : `${isCarpet && carpetCondition === 'heavy' ? '~' : ''}£${Math.round(price)}`}
               </div>
               {isCarpet && carpetResult?.showSaving && (
@@ -1036,7 +1036,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                 </div>
               )}
               {!isReadyToBook && !isManualQuote && (
-                <div className="mb-3">
+                <div className="mb-3 space-y-1.5">
                   <button
                     type="button"
                     onClick={handleBookWithValidation}
@@ -1047,6 +1047,9 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     Book online
                   </button>
+                  <p className="text-silver-500 text-[11px] text-center leading-snug">
+                    You pay a £30 deposit today — it comes straight off your bill.
+                  </p>
                 </div>
               )}
 

@@ -360,7 +360,8 @@ export default function PricingPage() {
       <section className="bg-navy-950 py-16 px-4">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-3">Got your price? Lock in your date.</h2>
-          <p className="text-silver-400 mb-8 text-base">We confirm every slot within 1 hour during business hours.</p>
+          <p className="text-silver-400 mb-2 text-base">We confirm every slot within 1 hour during business hours.</p>
+          <p className="text-amber-300 mb-8 text-sm font-semibold">Book online with a £30 deposit — it comes straight off your bill.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a href={WA_SIMPLE} target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2.5 bg-[#22C55E] hover:opacity-90 text-white font-bold px-8 py-4 min-h-[44px] rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
