@@ -380,7 +380,8 @@ export default function PrivacyPolicyPage() {
       <Footer />
 
       {/* Mobile sticky bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-silver-200 shadow-xl">
+      <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-silver-200 shadow-xl transition-[bottom] duration-200"
+        style={{ bottom: 'var(--vve-cookie-banner-h, 0px)' }}>
         <div className="grid grid-cols-2 divide-x divide-silver-200">
           <a href="tel:02080502233"
             className="flex items-center justify-center gap-2 py-4 font-bold text-navy-900 text-sm active:bg-silver-100 transition-colors">
