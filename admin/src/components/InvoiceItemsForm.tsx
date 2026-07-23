@@ -14,6 +14,12 @@ const PAYMENT_OPTION_LABELS: Record<PaymentOptionValue, string> = {
 
 const MAX_ITEMS = 100;
 
+// Allows: empty, positive integers, decimals up to 2 places.
+// Rejects: negatives, letters, multiple decimal points, 3+ decimal places.
+const NUMERIC_RE = /^$|^\d+\.?\d{0,2}$/;
+
+type RawItemNumerics = Partial<Record<'qty' | 'price' | 'discount', string>>;
+
 interface FormItem extends InvoiceDraftItemInput {
   key: string;
 }
@@ -109,6 +115,53 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
   // changes never auto-populate it again. The Auto-fill button resets this,
   // so "regenerate" resumes automatic tracking rather than being a one-shot.
   const [refManuallyEdited, setRefManuallyEdited] = useState(() => Boolean(initial.poReference));
+
+  // Raw string state for each item's numeric inputs while the user is actively
+  // editing. Undefined means "display the committed number from FormItem".
+  // Avoids the controlled-input problem where Number('') = 0 re-inserts zero
+  // immediately after the user clears the field with Backspace or Delete.
+  // Qty and Discount have the identical bug, so the same fix covers all three.
+  const [rawNumerics, setRawNumerics] = useState<Record<string, RawItemNumerics>>({});
+
+  // Returns spread-ready props for a numeric text input with live validation.
+  function numericField(
+    itemKey: string,
+    field: 'qty' | 'price' | 'discount',
+    numericValue: number,
+    applyPatch: (v: number) => void,
+  ): React.InputHTMLAttributes<HTMLInputElement> {
+    const raw = rawNumerics[itemKey]?.[field];
+    return {
+      type: 'text',
+      inputMode: 'decimal',
+      value: raw !== undefined ? raw : String(numericValue),
+      onFocus: (e: React.FocusEvent<HTMLInputElement>) => e.target.select(),
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+        const v = e.target.value;
+        if (!NUMERIC_RE.test(v)) return;
+        setRawNumerics((m) => ({ ...m, [itemKey]: { ...m[itemKey], [field]: v } }));
+        const n = parseFloat(v);
+        if (Number.isFinite(n)) applyPatch(n);
+      },
+      onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
+        const v = e.target.value;
+        setRawNumerics((m) => {
+          const entry = m[itemKey];
+          if (!entry) return m;
+          const next = { ...entry };
+          delete next[field];
+          if (Object.keys(next).length === 0) {
+            const result = { ...m };
+            delete result[itemKey];
+            return result;
+          }
+          return { ...m, [itemKey]: next };
+        });
+        const n = parseFloat(v);
+        applyPatch(Number.isFinite(n) ? n : 0);
+      },
+    };
+  }
 
   const totals = previewTotals(value);
 
@@ -350,15 +403,15 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
               <div className="grid grid-cols-3 gap-2">
                 <label>
                   <span className={labelClass}>Qty</span>
-                  <input type="number" min="0.01" step="0.01" value={item.quantity} onChange={(e) => updateItem(item.key, { quantity: Number(e.target.value) })} className={inputClass} />
+                  <input {...numericField(item.key, 'qty', item.quantity, (v) => updateItem(item.key, { quantity: v }))} className={inputClass} />
                 </label>
                 <label>
                   <span className={labelClass}>Unit price (£)</span>
-                  <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(e) => updateItem(item.key, { unitPrice: Number(e.target.value) })} className={inputClass} />
+                  <input {...numericField(item.key, 'price', item.unitPrice, (v) => updateItem(item.key, { unitPrice: v }))} className={inputClass} />
                 </label>
                 <label>
                   <span className={labelClass}>Discount (£)</span>
-                  <input type="number" min="0" step="0.01" value={item.lineDiscount} onChange={(e) => updateItem(item.key, { lineDiscount: Number(e.target.value) })} className={inputClass} />
+                  <input {...numericField(item.key, 'discount', item.lineDiscount, (v) => updateItem(item.key, { lineDiscount: v }))} className={inputClass} />
                 </label>
               </div>
               <p className="mt-2 text-right text-sm text-navy-700">

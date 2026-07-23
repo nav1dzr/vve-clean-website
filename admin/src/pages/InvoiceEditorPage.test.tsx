@@ -215,6 +215,159 @@ describe('InvoiceEditorPage', () => {
     expect(screen.getByLabelText('Booking reference')).toHaveValue('E81AA240726');
   });
 
+  describe('booking reference — linked booking', () => {
+    it('fills the booking reference field with the saved booking_ref, not auto-generated from postcode+date', async () => {
+      authFetchMock.mockResolvedValue({
+        id: 'booking-1', fullName: 'Jane Doe', email: 'jane@example.com', phone: '07700900000',
+        address: '1 Test St', postcode: 'N15 2NG', service: 'EOT clean',
+        totalPrice: 250, depositAmount: 30, serviceDate: '2026-07-20', bookingRef: 'N152NG160726',
+      });
+      renderEditor(['/invoices/new?bookingId=booking-1']);
+
+      expect(await screen.findByDisplayValue('Jane Doe')).toBeInTheDocument();
+      // Saved booking_ref takes priority — auto-generating from N15 2NG + 2026-07-20 would give N152NG200726.
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('N152NG160726');
+    });
+
+    it('preserves the booking ref suffix exactly as saved', async () => {
+      authFetchMock.mockResolvedValue({
+        id: 'booking-1', fullName: 'Jane Doe', email: 'jane@example.com', phone: '07700900000',
+        address: 'Flat 2, 352 Finchley Rd', postcode: 'NW3 7AJ', service: 'EOT clean',
+        totalPrice: 135, depositAmount: 30, serviceDate: '2026-07-17', bookingRef: 'NW37AJ170726-01',
+      });
+      renderEditor(['/invoices/new?bookingId=booking-1']);
+
+      expect(await screen.findByDisplayValue('Jane Doe')).toBeInTheDocument();
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('NW37AJ170726-01');
+    });
+
+    it('does not overwrite the linked booking ref when postcode or service date are changed', async () => {
+      const user = userEvent.setup();
+      authFetchMock.mockResolvedValue({
+        id: 'booking-1', fullName: 'Jane Doe', email: 'jane@example.com', phone: '07700900000',
+        address: '1 Test St', postcode: 'N15 2NG', service: 'Deep clean',
+        totalPrice: 100, depositAmount: 0, serviceDate: '2026-07-20', bookingRef: 'N152NG160726',
+      });
+      renderEditor(['/invoices/new?bookingId=booking-1']);
+
+      expect(await screen.findByDisplayValue('Jane Doe')).toBeInTheDocument();
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('N152NG160726');
+
+      await user.clear(screen.getByLabelText('Postcode'));
+      await user.type(screen.getByLabelText('Postcode'), 'E8 1AA');
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('N152NG160726');
+    });
+  });
+
+  describe('unit price — controlled numeric input', () => {
+    it('zero can be cleared without immediately reinserting 0', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      const priceInput = screen.getByLabelText('Unit price (£)');
+      expect(priceInput).toHaveValue('0');
+      await user.clear(priceInput);
+      expect(priceInput).toHaveValue('');
+    });
+
+    it('blank field is safe — totals render without NaN and amount due label is visible', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      await user.clear(screen.getByLabelText('Unit price (£)'));
+      expect(screen.getByLabelText('Unit price (£)')).toHaveValue('');
+      expect(screen.getByText('Amount due')).toBeInTheDocument();
+    });
+
+    it('normalizes blank field to 0 when focus leaves', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      const priceInput = screen.getByLabelText('Unit price (£)');
+      await user.clear(priceInput);
+      expect(priceInput).toHaveValue('');
+
+      await user.click(screen.getByLabelText('Name *'));
+      expect(priceInput).toHaveValue('0');
+    });
+
+    it('accepts whole number, single-decimal, and two-decimal amounts', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      const priceInput = screen.getByLabelText('Unit price (£)');
+
+      await user.clear(priceInput);
+      await user.type(priceInput, '85');
+      expect(priceInput).toHaveValue('85');
+
+      await user.clear(priceInput);
+      await user.type(priceInput, '85.5');
+      expect(priceInput).toHaveValue('85.5');
+
+      await user.clear(priceInput);
+      await user.type(priceInput, '85.50');
+      expect(priceInput).toHaveValue('85.50');
+    });
+
+    it('rejects a third decimal place', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      const priceInput = screen.getByLabelText('Unit price (£)');
+      await user.clear(priceInput);
+      await user.type(priceInput, '85.555');
+      expect(priceInput).toHaveValue('85.55');
+    });
+
+    it('rejects a negative sign', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      const priceInput = screen.getByLabelText('Unit price (£)');
+      await user.clear(priceInput);
+      await user.type(priceInput, '-5');
+      // '-' is rejected; '5' is accepted
+      expect(priceInput).toHaveValue('5');
+    });
+
+    it('clearing and retyping produces the correct submitted value', async () => {
+      const user = userEvent.setup();
+      authFetchMock.mockResolvedValue({ id: 'inv-1', documentStatus: 'draft' });
+      renderEditor();
+
+      await user.type(screen.getByLabelText('Name *'), 'Jane Doe');
+      await user.type(screen.getByLabelText('Email'), 'jane@example.com');
+      await user.type(screen.getByLabelText('Description'), 'Deep clean');
+
+      const priceInput = screen.getByLabelText('Unit price (£)');
+      await user.clear(priceInput);
+      await user.type(priceInput, '135');
+
+      await user.click(screen.getByRole('button', { name: /save draft/i }));
+
+      await waitFor(() => {
+        const postCall = authFetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === 'POST');
+        const body = JSON.parse((postCall?.[1] as RequestInit).body as string);
+        expect(body.items[0].unitPrice).toBe(135);
+      });
+    });
+
+    it('totals update correctly when a valid price is entered', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      await user.clear(screen.getByLabelText('Unit price (£)'));
+      await user.type(screen.getByLabelText('Unit price (£)'), '200');
+
+      // Qty=1, no discount or deposit, so subtotal=total=amountDue=£200.
+      // All three summary rows show £200.00 — use getAllByText to handle multiple matches.
+      await waitFor(() => {
+        expect(screen.getAllByText('£200.00').length).toBeGreaterThan(0);
+      });
+    });
+  });
+
   it('prefills the billing contact and billingCustomerId when ?customerId= is present', async () => {
     authFetchMock.mockResolvedValue({
       id: 'cust-1', name: 'Acme Lettings', email: 'ops@acme.example.com', phone: null, address: null, postcode: 'E1 6AN',
