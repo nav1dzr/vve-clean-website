@@ -385,4 +385,276 @@ describe('InvoiceEditorPage', () => {
     expect(await screen.findByDisplayValue('Acme Lettings')).toBeInTheDocument();
     expect(screen.getByDisplayValue('ops@acme.example.com')).toBeInTheDocument();
   });
+
+  describe('service description templates', () => {
+    // Helper: open the combobox for item at position `itemIndex` and select the given template.
+    async function selectTemplate(
+      user: ReturnType<typeof userEvent.setup>,
+      template: string,
+      itemIndex = 0,
+    ) {
+      const comboboxes = screen.getAllByRole('combobox');
+      const combobox = comboboxes[itemIndex];
+      await user.click(combobox);
+      await user.clear(combobox);
+      // Type enough words to narrow the list to the target option.
+      const searchWords = template.split(' ').slice(0, 3).join(' ');
+      await user.type(combobox, searchWords);
+      const option = await screen.findByRole('option', { name: template });
+      await user.click(option);
+    }
+
+    it('1. new line item can still use a fully custom description without touching the template', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      const descInput = screen.getByLabelText('Description');
+      await user.type(descInput, 'Bespoke one-off service');
+      expect(descInput).toHaveValue('Bespoke one-off service');
+    });
+
+    it('2. selecting a carpet cleaning template fills the Description field', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      await selectTemplate(user, 'Professional carpet cleaning — 2 bedrooms');
+      expect(screen.getByLabelText('Description')).toHaveValue('Professional carpet cleaning — 2 bedrooms');
+    });
+
+    it('3. selecting an upholstery template fills the Description field', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      await selectTemplate(user, 'Professional upholstery cleaning — 3-seater sofa');
+      expect(screen.getByLabelText('Description')).toHaveValue('Professional upholstery cleaning — 3-seater sofa');
+    });
+
+    it('4. Description remains freely editable after a template has been applied', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      await selectTemplate(user, 'Professional carpet cleaning — living room');
+      const descInput = screen.getByLabelText('Description');
+      expect(descInput).toHaveValue('Professional carpet cleaning — living room');
+
+      // Admin amends the description.
+      await user.type(descInput, ' + hallway');
+      expect(descInput).toHaveValue('Professional carpet cleaning — living room + hallway');
+    });
+
+    it('5. selecting a template does not change the Unit price field', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      const priceInput = screen.getByLabelText('Unit price (£)');
+      await user.clear(priceInput);
+      await user.type(priceInput, '75');
+
+      await selectTemplate(user, 'Professional carpet cleaning — hallway');
+
+      expect(screen.getByLabelText('Unit price (£)')).toHaveValue('75');
+    });
+
+    it('6. selecting a template does not change the Discount field', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      const discountInput = screen.getByLabelText('Discount (£)');
+      await user.clear(discountInput);
+      await user.type(discountInput, '10');
+
+      await selectTemplate(user, 'Professional oven cleaning');
+
+      expect(screen.getByLabelText('Discount (£)')).toHaveValue('10');
+    });
+
+    it('7. existing description loaded from a booking is preserved — no template auto-applied', async () => {
+      authFetchMock.mockResolvedValue({
+        id: 'booking-1', fullName: 'Jane Doe', email: 'jane@example.com', phone: '07700900000',
+        address: '1 Test St', postcode: 'N15 2NG', service: 'End of tenancy clean',
+        totalPrice: 250, depositAmount: 30, serviceDate: '2026-07-20', bookingRef: 'N152NG160726',
+      });
+      renderEditor(['/invoices/new?bookingId=booking-1']);
+
+      expect(await screen.findByDisplayValue('Jane Doe')).toBeInTheDocument();
+      expect(screen.getByLabelText('Description')).toHaveValue('End of tenancy clean');
+    });
+
+    it('8. custom text is not silently overwritten — confirmation panel appears instead', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      // Admin types a custom description first.
+      const descInput = screen.getByLabelText('Description');
+      await user.type(descInput, 'My custom wording');
+
+      // Selecting a template must not replace it directly.
+      const combobox = screen.getByRole('combobox');
+      await user.click(combobox);
+      await user.type(combobox, 'oven');
+      await user.click(await screen.findByRole('option', { name: 'Professional oven cleaning' }));
+
+      // Description must be unchanged.
+      expect(screen.getByLabelText('Description')).toHaveValue('My custom wording');
+      // Confirmation panel must appear.
+      expect(screen.getByText(/Replace current description with:/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Keep existing' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Replace' })).toBeInTheDocument();
+
+      // Clicking "Keep existing" dismisses the panel without changing the description.
+      await user.click(screen.getByRole('button', { name: 'Keep existing' }));
+      expect(screen.getByLabelText('Description')).toHaveValue('My custom wording');
+      expect(screen.queryByText(/Replace current description with:/)).not.toBeInTheDocument();
+    });
+
+    it('8b. Replace button in the confirmation panel applies the pending template', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      const descInput = screen.getByLabelText('Description');
+      await user.type(descInput, 'My custom wording');
+
+      const combobox = screen.getByRole('combobox');
+      await user.click(combobox);
+      await user.type(combobox, 'oven');
+      await user.click(await screen.findByRole('option', { name: 'Professional oven cleaning' }));
+
+      await user.click(screen.getByRole('button', { name: 'Replace' }));
+
+      expect(screen.getByLabelText('Description')).toHaveValue('Professional oven cleaning');
+      expect(screen.queryByText(/Replace current description with:/)).not.toBeInTheDocument();
+    });
+
+    it('9. multiple line items can each choose different templates independently', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      // Add a second item.
+      await user.click(screen.getByRole('button', { name: /add item/i }));
+
+      await selectTemplate(user, 'Professional carpet cleaning — 1 bedroom', 0);
+      await selectTemplate(user, 'Professional upholstery cleaning — armchair', 1);
+
+      const descInputs = screen.getAllByLabelText('Description');
+      expect(descInputs[0]).toHaveValue('Professional carpet cleaning — 1 bedroom');
+      expect(descInputs[1]).toHaveValue('Professional upholstery cleaning — armchair');
+    });
+
+    it('10. search input filters the template list correctly', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      const combobox = screen.getByRole('combobox');
+      await user.click(combobox);
+      await user.type(combobox, 'sofa');
+
+      // Sofa options appear.
+      expect(await screen.findByRole('option', { name: 'Professional upholstery cleaning — 2-seater sofa' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Professional upholstery cleaning — 3-seater sofa' })).toBeInTheDocument();
+
+      // Carpet options are hidden.
+      expect(screen.queryByRole('option', { name: 'Professional carpet cleaning — 1 bedroom' })).not.toBeInTheDocument();
+    });
+
+    it('11. ArrowDown + Enter selects the first matching template via keyboard', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      const combobox = screen.getByRole('combobox');
+      await user.click(combobox);
+      await user.type(combobox, 'rug');
+
+      // ArrowDown moves focus to the first option; Enter selects it.
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{Enter}');
+
+      expect(screen.getByLabelText('Description')).toHaveValue('Professional rug cleaning');
+    });
+
+    it('12. add, remove, and reorder items still work after the template feature is added', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      // Add a second item.
+      await user.click(screen.getByRole('button', { name: /add item/i }));
+      expect(screen.getAllByLabelText('Description')).toHaveLength(2);
+
+      // Remove the second item.
+      const removeButtons = screen.getAllByRole('button', { name: /remove/i });
+      await user.click(removeButtons[1]);
+      expect(screen.getAllByLabelText('Description')).toHaveLength(1);
+
+      // Add two items and reorder.
+      await user.click(screen.getByRole('button', { name: /add item/i }));
+      const descInputs = screen.getAllByLabelText('Description');
+      await user.type(descInputs[0], 'Item A');
+      await user.type(descInputs[1], 'Item B');
+
+      await user.click(screen.getByRole('button', { name: 'Move item 1 down' }));
+
+      const reordered = screen.getAllByLabelText('Description');
+      expect(reordered[0]).toHaveValue('Item B');
+      expect(reordered[1]).toHaveValue('Item A');
+    });
+
+    it('13. raw numeric display value follows the item key after reordering — not the array position', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      // Add a second item.
+      await user.click(screen.getByRole('button', { name: /add item/i }));
+
+      const [price1] = screen.getAllByLabelText('Unit price (£)');
+      await user.clear(price1);
+      await user.type(price1, '85');
+
+      // Move item 1 down — item 2 is now at position 0.
+      await user.click(screen.getByRole('button', { name: 'Move item 1 down' }));
+
+      const [newPrice1, newPrice2] = screen.getAllByLabelText('Unit price (£)');
+      // Item 2 was at 0 price, now in position 0.
+      expect(newPrice1).toHaveValue('0');
+      // Item 1's price (85) followed the item to position 1.
+      expect(newPrice2).toHaveValue('85');
+    });
+
+    it('14. submitted API payload contains only the description text — not template metadata', async () => {
+      const user = userEvent.setup();
+      authFetchMock.mockResolvedValue({ id: 'inv-1', documentStatus: 'draft' });
+      renderEditor();
+
+      await selectTemplate(user, 'Professional deep cleaning');
+
+      await user.type(screen.getByLabelText('Name *'), 'Jane Doe');
+      await user.type(screen.getByLabelText('Email'), 'jane@example.com');
+
+      await user.click(screen.getByRole('button', { name: /save draft/i }));
+
+      await waitFor(() => {
+        const postCall = authFetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === 'POST');
+        const body = JSON.parse((postCall?.[1] as RequestInit).body as string);
+        expect(body.items[0].description).toBe('Professional deep cleaning');
+        // Payload must not contain template-selection state.
+        expect(body.items[0]).not.toHaveProperty('templateKey');
+        expect(body.items[0]).not.toHaveProperty('lastAppliedTemplate');
+      });
+    });
+
+    it('15. invoice totals are unaffected by template selection', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      // Set a price before selecting a template.
+      const priceInput = screen.getByLabelText('Unit price (£)');
+      await user.clear(priceInput);
+      await user.type(priceInput, '100');
+
+      await waitFor(() => expect(screen.getAllByText('£100.00').length).toBeGreaterThan(0));
+
+      // Select a template — totals must not change.
+      await selectTemplate(user, 'After-builders cleaning');
+
+      await waitFor(() => expect(screen.getAllByText('£100.00').length).toBeGreaterThan(0));
+    });
+  });
 });

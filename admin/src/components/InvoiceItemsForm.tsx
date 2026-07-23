@@ -5,6 +5,7 @@ import type {
 import { PAYMENT_OPTION_VALUES } from '../types/invoice';
 import { formatMoney } from '../lib/format';
 import { buildBookingRefBase } from '../lib/bookingRef';
+import ServiceTemplateCombobox from './ServiceTemplateCombobox';
 
 const PAYMENT_OPTION_LABELS: Record<PaymentOptionValue, string> = {
   bank_transfer: 'Bank transfer',
@@ -122,6 +123,39 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
   // immediately after the user clears the field with Backspace or Delete.
   // Qty and Discount have the identical bug, so the same fix covers all three.
   const [rawNumerics, setRawNumerics] = useState<Record<string, RawItemNumerics>>({});
+
+  // Template state: tracks the last description text applied via the combobox
+  // per item key so we can detect when the admin has typed custom text since.
+  // If the description still matches the last applied template, a new template
+  // selection replaces it silently; otherwise we surface a confirmation.
+  const [lastAppliedTemplate, setLastAppliedTemplate] = useState<Record<string, string>>({});
+  // Holds a pending template selection for an item when confirmation is needed
+  // (non-empty description that differs from the last applied template).
+  const [pendingTemplate, setPendingTemplate] = useState<Record<string, string>>({});
+
+  function handleTemplateSelect(itemKey: string, template: string) {
+    const item = value.items.find((i) => i.key === itemKey);
+    const currentDesc = item?.description ?? '';
+    if (!currentDesc || currentDesc === (lastAppliedTemplate[itemKey] ?? '')) {
+      updateItem(itemKey, { description: template });
+      setLastAppliedTemplate((m) => ({ ...m, [itemKey]: template }));
+    } else {
+      setPendingTemplate((m) => ({ ...m, [itemKey]: template }));
+    }
+  }
+
+  function confirmTemplateReplace(itemKey: string) {
+    const template = pendingTemplate[itemKey];
+    if (template) {
+      updateItem(itemKey, { description: template });
+      setLastAppliedTemplate((m) => ({ ...m, [itemKey]: template }));
+      setPendingTemplate((m) => { const n = { ...m }; delete n[itemKey]; return n; });
+    }
+  }
+
+  function cancelPendingTemplate(itemKey: string) {
+    setPendingTemplate((m) => { const n = { ...m }; delete n[itemKey]; return n; });
+  }
 
   // Returns spread-ready props for a numeric text input with live validation.
   function numericField(
@@ -396,9 +430,45 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
                   </button>
                 </div>
               </div>
+              <ServiceTemplateCombobox
+                itemKey={item.key}
+                onSelect={(template) => handleTemplateSelect(item.key, template)}
+              />
+              {pendingTemplate[item.key] && (
+                <div className="mb-2 rounded-lg border border-silver-300 bg-silver-50 p-2 text-sm">
+                  <p className="mb-1.5 text-navy-700">
+                    Replace current description with:{' '}
+                    <span className="font-medium text-navy-950">{pendingTemplate[item.key]}</span>
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => cancelPendingTemplate(item.key)}
+                      className="rounded border border-silver-300 px-2 py-0.5 text-xs text-navy-700 hover:bg-silver-100"
+                    >
+                      Keep existing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => confirmTemplateReplace(item.key)}
+                      className="rounded bg-navy-950 px-2 py-0.5 text-xs font-medium text-white hover:bg-navy-900"
+                    >
+                      Replace
+                    </button>
+                  </div>
+                </div>
+              )}
               <label className="mb-2 block">
                 <span className={labelClass}>Description</span>
-                <input type="text" value={item.description} onChange={(e) => updateItem(item.key, { description: e.target.value })} className={inputClass} />
+                <input
+                  type="text"
+                  value={item.description}
+                  onChange={(e) => {
+                    updateItem(item.key, { description: e.target.value });
+                    if (pendingTemplate[item.key]) cancelPendingTemplate(item.key);
+                  }}
+                  className={inputClass}
+                />
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <label>
