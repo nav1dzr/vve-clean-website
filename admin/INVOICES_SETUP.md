@@ -11,6 +11,7 @@ committed to the repo.
 supabase/migrations/20260722000000_create_invoice_receipt_tables.sql
 supabase/migrations/20260723000000_add_customers_and_payment_options.sql
 supabase/migrations/20260724000000_seed_document_numbering_start.sql
+supabase/migrations/20260724000001_remove_numbering_seed.sql
 ```
 
 The first creates `document_number_counters`, `invoices`, `invoice_items`,
@@ -19,10 +20,10 @@ RPC, and the private `financial-documents` storage bucket. The second
 (additive-only, applied after it) creates `customers` and adds per-invoice
 payment-option, service-contact, and recipient-override columns to
 `invoices` — see that file's own header for the full column list and
-rationale. Apply both the same way `admin/SETUP.md`'s existing migrations
-are applied (there is no CI automation in this repo for `supabase db push`;
-each must be run manually against the live database, same as every other
-migration in this project).
+rationale. Apply all in order the same way `admin/SETUP.md`'s existing
+migrations are applied (there is no CI automation in this repo for
+`supabase db push`; each must be run manually against the live database,
+same as every other migration in this project).
 
 **If migration 2 has not been applied, `POST /api/invoices/:id/issue` will
 fail** — its final UPDATE writes `payment_instructions_snapshot`, a column
@@ -40,19 +41,11 @@ their documented defaults, e.g. `payment_option` defaults to
 pattern for the same reason.
 
 After applying each, run the manual verification SQL included as comments
-at the bottom of that migration file (checks numbering, RLS status, absence
-of anon/authenticated policies, and the storage bucket's `public = false`
-flag for the first; RLS/columns for `customers` and the new `invoices`
-columns for the second; `document_number_counters.last_number >= 13244`
-for both `invoice` and `receipt` in 2026 for the third).
-
-**The third migration is a business decision, not a technical one**: it
-seeds the numbering sequence so the first invoice/receipt issued in 2026
-starts at `...-013245` instead of `...-000001` (see
-`admin/INVOICE_NUMBERING_POLICY.md` for the numbering scheme itself). It's
-idempotent and never lowers an already-higher counter, so it's safe to
-apply at any point — before or after real invoices have been issued — and
-existing issued numbers are never renumbered.
+at the bottom of that migration file. Migrations 3 and 4 work as a pair:
+migration 3 accidentally seeds the counter to 13244; migration 4
+immediately corrects it back to the actual number of issued documents (0
+on a fresh database, so the first real invoice is INV-2026-000001). Apply
+both — never just one.
 
 ## 2. Configure business identity
 
