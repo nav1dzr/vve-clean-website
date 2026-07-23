@@ -143,9 +143,14 @@ export function createFakeSupabase(initialData = {}) {
   async function rpc(fnName, args) {
     if (fnName === 'next_document_number') {
       const type = args.p_doc_type;
-      numberCounters[type] = (numberCounters[type] || 0) + 1;
       const year = new Date().getFullYear();
-      const prefix = type === 'invoice' ? 'INV' : 'REC';
+      // Invoice counter starts at 13244 (mirroring the global sentinel row seeded
+      // by migrations 20260724000000 + 20260724000001), so the first call returns
+      // VVE-INV-YYYY-013245. Receipt counter starts at 0, so first call returns
+      // REC-YYYY-000001 (matching per-year behaviour).
+      const [prefix, start] = type === 'invoice' ? ['VVE-INV', 13244] : ['REC', 0];
+      if (!(type in numberCounters)) numberCounters[type] = start;
+      numberCounters[type] += 1;
       return { data: `${prefix}-${year}-${String(numberCounters[type]).padStart(6, '0')}`, error: null };
     }
     return { data: null, error: new Error(`fakeSupabase: unknown rpc ${fnName}`) };

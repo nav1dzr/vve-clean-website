@@ -11,7 +11,7 @@ committed to the repo.
 supabase/migrations/20260722000000_create_invoice_receipt_tables.sql
 supabase/migrations/20260723000000_add_customers_and_payment_options.sql
 supabase/migrations/20260724000000_seed_document_numbering_start.sql
-supabase/migrations/20260724000001_remove_numbering_seed.sql
+supabase/migrations/20260724000001_switch_to_vve_invoice_series.sql
 ```
 
 The first creates `document_number_counters`, `invoices`, `invoice_items`,
@@ -42,10 +42,16 @@ pattern for the same reason.
 
 After applying each, run the manual verification SQL included as comments
 at the bottom of that migration file. Migrations 3 and 4 work as a pair:
-migration 3 accidentally seeds the counter to 13244; migration 4
-immediately corrects it back to the actual number of issued documents (0
-on a fresh database, so the first real invoice is INV-2026-000001). Apply
-both — never just one.
+migration 3 seeds the document counter to 13244; migration 4 completes
+the VVE-INV invoice series setup — it migrates the invoice counter to a
+global sentinel row (`year=0`) so the sequence never resets between
+calendar years, sets the `VVE-INV` prefix, and corrects the receipt
+counter only if it is in the exact known bad seed state. On a fresh
+database the first issued invoice will be `VVE-INV-YYYY-013245`. Apply
+both — never just one. Do NOT call `next_document_number()` as a
+verification step because it allocates a real number; inspect
+`document_number_counters` directly, or wrap function calls in
+`BEGIN` / `ROLLBACK`.
 
 ## 2. Configure business identity
 
