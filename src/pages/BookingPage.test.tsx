@@ -162,10 +162,19 @@ describe('BookingPage — required preferred date and arrival window', () => {
   });
 
   it('sets the date input\'s min attribute to today, preventing past-date picks in the native picker', () => {
-    renderBookingPage();
-    const dateInput = screen.getByLabelText(/preferred date/i) as HTMLInputElement;
-    const today = new Date().toISOString().slice(0, 10);
-    expect(dateInput.min).toBe(today);
+    // Pin the clock to a fixed local-time instant. Constructing the date from
+    // local components (year, month, day) means the expected value is the same
+    // in every time zone, matching the component's local-getter logic — no
+    // dependence on where UTC midnight falls relative to local midnight.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 15, 12, 0, 0));
+    try {
+      renderBookingPage();
+      const dateInput = screen.getByLabelText(/preferred date/i) as HTMLInputElement;
+      expect(dateInput.min).toBe('2026-06-15');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('blocks submission and shows an error when the typed date has already passed', async () => {
