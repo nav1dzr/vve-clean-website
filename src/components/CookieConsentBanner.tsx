@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCookieConsent } from '../context/CookieConsentContext';
 
@@ -8,9 +9,27 @@ const ACTION_BUTTON_BASE =
 
 export default function CookieConsentBanner() {
   const { acceptAll, rejectOptional, openSettings } = useCookieConsent();
+  const bannerRef = useRef<HTMLDivElement>(null);
+
+  // Keep --vve-cookie-h in sync with the banner's rendered height so the
+  // mobile sticky footer can push itself up and avoid being covered.
+  useEffect(() => {
+    const el = bannerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([entry]) => {
+      const h = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+      document.documentElement.style.setProperty('--vve-cookie-h', `${h}px`);
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.setProperty('--vve-cookie-h', '0px');
+    };
+  }, []);
 
   return (
     <div
+      ref={bannerRef}
       role="region"
       aria-label="Cookie consent"
       className="fixed inset-x-0 bottom-0 z-[100] border-t border-silver-200 bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.12)]"

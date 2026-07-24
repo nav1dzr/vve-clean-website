@@ -5,6 +5,7 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    scroll-padding-top: 5rem; /* offset sticky navbar (h-20) for anchor links */
   }
   body {
     font-family: 'Inter', system-ui, sans-serif;

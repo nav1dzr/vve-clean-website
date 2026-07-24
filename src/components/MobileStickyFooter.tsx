@@ -36,7 +36,7 @@ export default function MobileStickyFooter() {
   const helpLink = state === 'manual' ? waLink : WA_HELP;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
+    <div className="fixed left-0 right-0 z-50 lg:hidden" style={{ bottom: 'var(--vve-cookie-h, 0px)' }}>
       <div
         className="flex items-stretch shadow-[0_-4px_24px_rgba(0,0,0,0.18)]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
