@@ -440,7 +440,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <section id="quote" ref={ref} className="py-20 bg-gradient-to-br from-navy-950 via-navy-900 to-navy-800">
+    <section id="quote" ref={ref} className="py-20 bg-gradient-to-br from-navy-950 via-navy-900 to-navy-800 scroll-mt-24">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Header */}

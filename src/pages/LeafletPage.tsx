@@ -200,7 +200,7 @@ export default function LeafletPage() {
       </section>
 
       {/* ── Quote calculator (reused, promoCode="LEAFLET20") ─────────── */}
-      <div id="quote">
+      <div id="quote" className="scroll-mt-24">
         <QuoteCalculator onBook={handleBook} promoCode="LEAFLET20" />
       </div>
 
