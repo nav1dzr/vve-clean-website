@@ -9,6 +9,33 @@ import { TERMS_VERSION, CANCELLATION_POLICY_VERSION } from '../lib/termsVersion'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STORAGE_KEY  = 'vve_booking';
+
+// ─── Booking-form draft ───────────────────────────────────────────────────────
+// Persists contact/scheduling fields across Stripe Checkout and page refreshes.
+// Cleared only after verify-payment confirms paid: true (in confirmation.html).
+// Terms acceptance is intentionally excluded.
+
+const DRAFT_KEY = 'vve_form_draft_v1';
+const DRAFT_TTL = 48 * 60 * 60 * 1000; // 48 hours
+
+function saveDraft(form: FormData): void {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ expires: Date.now() + DRAFT_TTL, form }));
+  } catch { /* storage unavailable or full — silently ignore */ }
+}
+
+function loadDraft(): FormData | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const parsed: { expires?: number; form?: FormData } = JSON.parse(raw);
+    if (!parsed?.expires || Date.now() > parsed.expires) {
+      localStorage.removeItem(DRAFT_KEY);
+      return null;
+    }
+    return parsed.form ?? null;
+  } catch { return null; }
+}
 const BACKEND_URL  = '/api/create-checkout-session';
 const WA_NUMBER    = '447845451111';
 const DEPOSIT      = 30;
@@ -226,6 +253,12 @@ export default function BookingPage() {
   const [submitError,   setSubmitError]   = useState('');
   const formTopRef = useRef<HTMLDivElement>(null);
 
+  // ── Restore booking-form draft on mount (before any user input) ───────────
+  useEffect(() => {
+    const draft = loadDraft();
+    if (draft) setForm(draft);
+  }, []);
+
   // ── Load selection from sessionStorage or fall back to URL params ──────────
   useEffect(() => {
     try {
@@ -267,7 +300,9 @@ export default function BookingPage() {
 
   const setField = (field: keyof FormData) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-      setForm(f => ({ ...f, [field]: e.target.value }));
+      const next = { ...form, [field]: e.target.value };
+      setForm(next);
+      saveDraft(next);
       setErrors(err => ({ ...err, [field]: undefined, contact: undefined }));
       setSubmitError('');
     };

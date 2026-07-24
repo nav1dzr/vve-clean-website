@@ -275,6 +275,33 @@
 
 <main class="wrap">
 
+  <!-- Checking state — shown when ref/sid is present while verify-payment is
+       in flight. Hidden by default; the toggle script shows it when needed. -->
+  <div id="payment-checking" style="display:none; text-align:center; padding: 44px 0 28px">
+    <p style="color:var(--muted); font-size:15px; margin:0">Verifying your payment&hellip;</p>
+  </div>
+
+  <!-- Payment-unverified — verify-payment returned paid:false or errored.
+       Shown instead of the success content when payment cannot be confirmed. -->
+  <div id="payment-unverified" style="display:none; text-align:center; padding: 20px 0 8px">
+    <div class="check-ring" aria-hidden="true" style="background:#FDEDEB; border-color:#F3C6BE">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--error)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L14.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+    </div>
+    <h1>We couldn&rsquo;t confirm your payment</h1>
+    <p class="lede" style="margin-bottom:0">Your payment may still be processing. Check your confirmation email,
+      or message us with your booking reference and we&rsquo;ll look it up.</p>
+    <div class="btns" style="margin-top:24px">
+      <a class="btn btn-wa" href="https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%20paid%20a%20deposit%20but%20my%20confirmation%20page%20didn%27t%20load%20correctly.%20Please%20could%20you%20check%20my%20booking%3F">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.5 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.5-2.6-1.1-4.2-3.7-4.4-3.9-.1-.2-1-1.3-1-2.5s.6-1.8.9-2c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2.1.4 0 .5l-.3.5-.3.4c-.1.1-.3.3-.1.5.1.3.6 1 1.3 1.6.9.8 1.6 1 1.9 1.2.2.1.4.1.5-.1l.7-.8c.2-.2.3-.2.5-.1l1.8.9c.3.1.4.2.5.3 0 .2 0 .7-.2 1.3Z"/></svg>
+        Message us on WhatsApp
+      </a>
+      <a class="btn btn-home" href="/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Back to home
+      </a>
+    </div>
+  </div>
+
   <!-- Unverified state — shown only when the URL carries no proof of payment
        at all (no ref/token/sid). Never shown alongside the success content
        below; toggled by the small script block near the end of the page.
@@ -566,21 +593,49 @@
   }
 
   // ── Verified vs unverified content toggle ─────────────────────────────────
-  // Presentation only — does not affect payment verification, the Ads
-  // conversion pipeline, or the API calls above. Arriving with a ref/token/
-  // sid in the URL is only possible via Stripe's own success_url redirect,
-  // so the existing "Payment received — we're checking your requested date"
-  // wording is honest in that case. With none of the three present, there is
-  // no evidence of payment at all, so the success checkmark is swapped for
-  // an explicit "couldn't verify" state instead of being shown regardless.
+  // Arriving with ref/sid (only possible via Stripe success_url) triggers
+  // server-side payment verification before success content is shown.
+  // Without any evidence of payment, the explicit "couldn't verify" state
+  // is shown instead of a fabricated success page.
   if (ref || sid) {
+    var verifiedContent = document.getElementById("verified-content");
+    var checkingState   = document.getElementById("payment-checking");
+    if (verifiedContent) verifiedContent.style.display = "none";
+    if (checkingState)   checkingState.style.display   = "";
     fetchDetails(0);
+    initVerifyUI();
   } else {
     hideLoadingIndicator();
     var verified   = document.getElementById("verified-content");
     var unverified = document.getElementById("unverified-state");
     if (verified)   verified.style.display   = "none";
     if (unverified) unverified.style.display = "";
+  }
+
+  // Verify payment server-side and update the page UI accordingly.
+  // Never calls gtag — conversion tracking is handled by the IIFE below.
+  function initVerifyUI() {
+    fetch(apiQs("/api/verify-payment"))
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var checkingEl   = document.getElementById("payment-checking");
+        var verifiedEl   = document.getElementById("verified-content");
+        var unverifiedEl = document.getElementById("payment-unverified");
+        if (checkingEl) checkingEl.style.display = "none";
+        if (d.paid) {
+          if (verifiedEl) verifiedEl.style.display = "";
+          // Clear the booking-form draft now that payment is confirmed.
+          try { localStorage.removeItem("vve_form_draft_v1"); } catch (_) {}
+        } else {
+          if (unverifiedEl) unverifiedEl.style.display = "";
+        }
+      })
+      .catch(function() {
+        var checkingEl   = document.getElementById("payment-checking");
+        var unverifiedEl = document.getElementById("payment-unverified");
+        if (checkingEl)   checkingEl.style.display   = "none";
+        if (unverifiedEl) unverifiedEl.style.display = "";
+      });
   }
 
   // ── Conversion tracking — Google Ads "Booking Deposit Paid" ─────────────
