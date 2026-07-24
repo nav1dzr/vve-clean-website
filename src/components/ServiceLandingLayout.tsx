@@ -29,6 +29,8 @@ export interface ServiceLandingData {
   h1: string;
   h1Highlight: string;
   heroBadges: string[];
+  heroBgImage?: string;
+  heroTrustLine?: string;
   primaryHref: string;
   primaryLabel: string;
   primaryIsWa?: boolean;
@@ -179,10 +181,20 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
         </nav>
 
         {/* ── 1. HERO ── */}
-        <section className="navy-gradient pt-8 pb-20 px-4">
+        <section
+          className={`relative pt-8 pb-20 px-4${!data.heroBgImage ? ' navy-gradient' : ''}`}
+          style={data.heroBgImage ? {
+            backgroundImage: `url(${data.heroBgImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center 35%',
+          } : undefined}
+        >
+          {data.heroBgImage && (
+            <div className="absolute inset-0 bg-gradient-to-b from-navy-900/90 via-navy-900/80 to-navy-900/88" aria-hidden="true" />
+          )}
           <div
             ref={heroReveal.ref}
-            className={`max-w-4xl mx-auto text-center transition-all duration-700 ${heroReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+            className={`relative z-10 max-w-4xl mx-auto text-center transition-all duration-700 ${heroReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
           >
             <Eyebrow dark>{data.eyebrow}</Eyebrow>
             <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-5">
@@ -203,6 +215,9 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
               <CtaButton href={data.primaryHref} label={data.primaryLabel} isWa={data.primaryIsWa} variant="primary" />
               <CtaButton href={data.secondaryHref} label={data.secondaryLabel} isWa={data.secondaryIsWa} variant="secondary" />
             </div>
+            {data.heroTrustLine && (
+              <p className="mt-5 text-silver-400/80 text-xs tracking-wide">{data.heroTrustLine}</p>
+            )}
           </div>
         </section>
 
