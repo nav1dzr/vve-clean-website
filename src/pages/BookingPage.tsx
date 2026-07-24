@@ -83,6 +83,51 @@ function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
   );
 }
 
+// Two-phase progress indicator — step 1 is the quote/service selector,
+// step 2 is the details, date and £30 deposit form. Rendered in both
+// phases so visitors always know where they are and what comes next.
+function StepIndicator({ current }: { current: 1 | 2 }) {
+  const steps: Array<{ n: 1 | 2; label: string }> = [
+    { n: 1, label: 'Service & price' },
+    { n: 2, label: `Details, date & £${DEPOSIT} deposit` },
+  ];
+  return (
+    <ol aria-label="Booking progress" className="max-w-5xl mx-auto px-4 pt-4 flex items-center justify-center gap-2 text-xs sm:text-sm">
+      {steps.map((step, i) => {
+        const active = step.n === current;
+        const done = step.n < current;
+        return (
+          <li key={step.n} className="flex items-center gap-2" aria-current={active ? 'step' : undefined}>
+            {i > 0 && <span className="w-6 sm:w-10 h-px bg-silver-300" aria-hidden="true" />}
+            <span
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-semibold whitespace-nowrap ${
+                active
+                  ? 'bg-navy-900 text-white'
+                  : done
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-silver-100 text-silver-500'
+              }`}
+            >
+              <span
+                className={`w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center ${
+                  active ? 'bg-white text-navy-900' : done ? 'bg-green-600 text-white' : 'bg-silver-300 text-white'
+                }`}
+                aria-hidden="true"
+              >
+                {done ? '✓' : step.n}
+              </span>
+              <span>
+                <span className="sr-only">{`Step ${step.n} of 2${active ? ', current' : done ? ', completed' : ''}: `}</span>
+                {step.label}
+              </span>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 function ServiceCard({ selection, onChangeService }: {
   selection: BookingSelection;
   onChangeService: () => void;
@@ -385,6 +430,7 @@ export default function BookingPage() {
     return (
       <div className="min-h-screen" style={{ background: '#f9f9f5' }}>
         <BookingHeader isLeaflet={selection?.offerCode === 'LEAFLET20'} />
+        <StepIndicator current={1} />
         {showSelector && selection && (
           <div className="max-w-5xl mx-auto px-4 pt-5 pb-1 text-center">
             <p className="text-sm text-silver-600">
@@ -401,6 +447,7 @@ export default function BookingPage() {
   return (
     <div className="min-h-screen" style={{ background: '#f9f9f5' }}>
       <BookingHeader isLeaflet={selection?.offerCode === 'LEAFLET20'} />
+      <StepIndicator current={2} />
 
       <main className="max-w-xl mx-auto px-4 py-7 pb-24" ref={formTopRef}>
         {/* Page title */}
