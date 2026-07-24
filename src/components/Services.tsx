@@ -103,7 +103,7 @@ export default function Services() {
   const { ref, visible } = useReveal();
 
   return (
-    <section id="services" ref={ref} className="py-24 bg-[#f5f5f0]">
+    <section id="services" ref={ref} className="py-24 bg-[#f5f5f0] scroll-mt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div

@@ -117,7 +117,7 @@ function Counter({
         onClick={() => onChange(Math.max(min, value - 1))}
         disabled={value <= min}
         aria-label={`Decrease ${itemLabel} quantity`}
-        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-silver-300 flex items-center justify-center text-silver-500 hover:border-royal-400 hover:text-royal-600 active:bg-royal-50 transition-colors disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
+        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-silver-300 flex items-center justify-center text-silver-500 hover:border-royal-400 hover:text-royal-600 active:bg-royal-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
       >
         <Minus size={14} />
       </button>
@@ -127,7 +127,7 @@ function Counter({
         onClick={() => onChange(value + 1)}
         disabled={max !== undefined && value >= max}
         aria-label={`Increase ${itemLabel} quantity`}
-        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-silver-300 flex items-center justify-center text-silver-500 hover:border-royal-400 hover:text-royal-600 active:bg-royal-50 transition-colors disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
+        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-silver-300 flex items-center justify-center text-silver-500 hover:border-royal-400 hover:text-royal-600 active:bg-royal-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
       >
         <Plus size={14} />
       </button>
@@ -440,7 +440,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <section id="quote" ref={ref} className="py-20 bg-gradient-to-br from-navy-950 via-navy-900 to-navy-800">
+    <section id="quote" ref={ref} className="py-20 bg-gradient-to-br from-navy-950 via-navy-900 to-navy-800 scroll-mt-24">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Header */}
@@ -456,10 +456,10 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
         </div>
 
         {/* Card grid */}
-        <div className={`grid lg:grid-cols-5 gap-0 rounded-2xl overflow-hidden shadow-2xl transition-all duration-700 delay-200 lg:items-start ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+        <div className={`grid lg:grid-cols-5 gap-0 rounded-2xl shadow-2xl transition-all duration-700 delay-200 lg:items-start ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
 
           {/* ── Left: configurator ── */}
-          <div className="lg:col-span-3 bg-white p-6 md:p-8">
+          <div className="lg:col-span-3 bg-white p-6 md:p-8 rounded-tl-2xl rounded-tr-2xl lg:rounded-tr-none lg:rounded-bl-2xl">
             <div ref={serviceAreaRef} className="space-y-5">
 
               {/* Step label */}
@@ -732,7 +732,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                     </div>
                     <div className="flex items-center gap-3">
                       <button type="button" onClick={() => setOfficeHours(Math.max(MIN_OFFICE_HOURS, officeHours - 1))} disabled={officeHours <= MIN_OFFICE_HOURS}
-                        className="w-9 h-9 rounded-full border-2 border-silver-300 flex items-center justify-center text-navy-700 hover:border-royal-400 transition-colors disabled:opacity-30">
+                        className="w-9 h-9 rounded-full border-2 border-silver-300 flex items-center justify-center text-navy-700 hover:border-royal-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                         <Minus size={14} />
                       </button>
                       <span className="text-2xl font-bold text-navy-900 w-8 text-center">{officeHours}</span>
@@ -957,7 +957,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
           </div>
 
           {/* ── Right: price panel ── */}
-          <div className="lg:col-span-2 navy-gradient p-6 flex flex-col justify-between lg:sticky lg:top-24 lg:self-start">
+          <div className="lg:col-span-2 navy-gradient p-6 flex flex-col justify-between rounded-br-2xl rounded-bl-2xl lg:rounded-bl-none lg:rounded-tr-2xl lg:sticky lg:top-24 lg:self-start">
             <div>
               <h3 className="text-silver-400 text-xs font-medium tracking-widest uppercase mb-2">
                 {isAfterBuilders ? 'Starting From' : isCarpet && carpetResult?.isPhotoQuote ? 'Photo Quote' : 'Your price'}
@@ -973,7 +973,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                   : isCarpet && carpetResult?.isPhotoQuote
                     ? 'Photo quote'
                     : isCarpet && (carpetResult?.totalItems ?? 0) === 0
-                      ? '—'
+                      ? `From £${CARPET_MIN_BOOKING}`
                       : `${isCarpet && carpetCondition === 'heavy' ? '~' : ''}£${Math.round(price)}`}
               </div>
               {isCarpet && carpetResult?.showSaving && (
@@ -1036,7 +1036,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                 </div>
               )}
               {!isReadyToBook && !isManualQuote && (
-                <div className="mb-3">
+                <div className="mb-3 space-y-1.5">
                   <button
                     type="button"
                     onClick={handleBookWithValidation}
@@ -1047,6 +1047,9 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     Book online
                   </button>
+                  <p className="text-silver-500 text-[11px] text-center leading-snug">
+                    You pay a £30 deposit today — it comes straight off your bill.
+                  </p>
                 </div>
               )}
 

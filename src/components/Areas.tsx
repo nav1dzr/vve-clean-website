@@ -14,7 +14,7 @@ export default function Areas() {
   const { ref, visible } = useReveal();
 
   return (
-    <section id="areas" ref={ref} className="py-24 bg-sky-50">
+    <section id="areas" ref={ref} className="py-24 bg-sky-50 scroll-mt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div
           className={`text-center mb-14 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}

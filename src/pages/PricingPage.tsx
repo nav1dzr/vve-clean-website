@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
@@ -33,6 +34,13 @@ export default function PricingPage() {
           <p className="text-silver-300 text-lg max-w-xl mx-auto">
             Every price listed is the price you pay. Pick your service, see the total, book in seconds.
           </p>
+          {/* Primary action in the first viewport on every screen size */}
+          <div className="mt-6">
+            <Link to="/booking"
+              className="inline-flex items-center justify-center gap-2 bg-royal-500 hover:bg-royal-600 text-white font-semibold text-sm sm:text-base px-6 py-3 min-h-[44px] rounded-lg transition-all duration-200 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+              Get my price — book online
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -352,8 +360,13 @@ export default function PricingPage() {
       <section className="bg-navy-950 py-16 px-4">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-3">Got your price? Lock in your date.</h2>
-          <p className="text-silver-400 mb-8 text-base">We confirm every slot within 1 hour during business hours.</p>
+          <p className="text-silver-400 mb-2 text-base">We confirm every slot within 1 hour during business hours.</p>
+          <p className="text-amber-300 mb-8 text-sm font-semibold">Book online with a £30 deposit — it comes straight off your bill.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <a href="/#quote"
+              className="inline-flex items-center justify-center gap-2.5 bg-royal-500 hover:bg-royal-600 text-white font-bold px-8 py-4 min-h-[44px] rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+              Book online now
+            </a>
             <a href={WA_SIMPLE} target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2.5 bg-[#22C55E] hover:opacity-90 text-white font-bold px-8 py-4 min-h-[44px] rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
               {WA_SVG}
@@ -364,16 +377,14 @@ export default function PricingPage() {
               Call 020 8050 2233
             </a>
           </div>
-          <a href="/#quote" className="inline-block mt-5 text-sky-300 hover:text-sky-200 text-sm font-semibold underline underline-offset-2">
-            Or get an instant online quote and book now →
-          </a>
         </div>
       </section>
 
       <Footer />
 
       {/* ── 8. MOBILE STICKY BOTTOM BAR ── */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-silver-200 shadow-xl">
+      <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-silver-200 shadow-xl transition-[bottom] duration-200"
+        style={{ bottom: 'var(--vve-cookie-banner-h, 0px)' }}>
         <div className="grid grid-cols-2 divide-x divide-silver-200">
           <a href="tel:02080502233"
             className="flex items-center justify-center gap-2 py-4 font-bold text-navy-900 text-sm active:bg-silver-100 transition-colors">

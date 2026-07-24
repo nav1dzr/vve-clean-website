@@ -90,7 +90,7 @@ export default function LeafletPage() {
           </h1>
 
           <p className="text-lg mb-8" style={{ color: 'rgba(255,255,255,0.75)' }}>
-            Book your first carpet, sofa or upholstery clean<br className="hidden sm:block" />
+            Book your first carpet, sofa or upholstery clean<br className="hidden sm:block" />{' '}
             and get <span className="text-white font-bold">20% off</span>.
           </p>
 
@@ -200,7 +200,7 @@ export default function LeafletPage() {
       </section>
 
       {/* ── Quote calculator (reused, promoCode="LEAFLET20") ─────────── */}
-      <div id="quote">
+      <div id="quote" className="scroll-mt-24">
         <QuoteCalculator onBook={handleBook} promoCode="LEAFLET20" />
       </div>
 
