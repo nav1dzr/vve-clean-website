@@ -244,6 +244,32 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
     expect(row.quote_config).toEqual(VALID_QUOTE_CONFIG);
   });
 
+  it('rejects a message over 500 characters with a human-friendly error before creating a Stripe session', async () => {
+    const res = makeRes();
+    await handler(makeReq(basePayload({ message: 'x'.repeat(501) })), res);
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body).error).toMatch(/too long/i);
+    expect(JSON.parse(res.body).error).toMatch(/500/);
+    expect(sessionsCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('accepts a message of exactly 500 characters', async () => {
+    const res = makeRes();
+    await handler(makeReq(basePayload({ message: 'x'.repeat(500) })), res);
+    expect(res.statusCode).toBe(200);
+    expect(sessionsCreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns a generic error message when Stripe session creation fails, not the raw Stripe error', async () => {
+    sessionsCreateMock.mockRejectedValueOnce(new Error('Your card number is incorrect.'));
+    const res = makeRes();
+    await handler(makeReq(basePayload()), res);
+    expect(res.statusCode).toBe(500);
+    const body = JSON.parse(res.body);
+    expect(body.error).not.toMatch(/card number/i);
+    expect(body.error).toMatch(/try again/i);
+  });
+
   it('never touches the customers table — a pending_payment booking must never auto-create/link a customer (Task 1)', async () => {
     process.env.VITE_SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';

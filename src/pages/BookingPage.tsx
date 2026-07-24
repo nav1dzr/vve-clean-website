@@ -585,8 +585,12 @@ export default function BookingPage() {
                 Anything else? <span className="font-normal text-silver-500">(optional)</span>
               </label>
               <textarea value={form.message} onChange={setField('message')} rows={3}
+                maxLength={500}
                 placeholder="Access notes, number of rooms, pets, parking, anything we should know…"
                 className="w-full rounded-xl border-[1.5px] border-[#E3E7EE] bg-white px-3.5 py-3 text-[16px] text-navy-900 outline-none focus:border-[#0ea5e9] transition-colors font-sans resize-none" />
+              <div className="flex justify-end mt-1">
+                <span className="text-xs text-silver-400">{form.message.length}/500</span>
+              </div>
             </div>
           </div>
 

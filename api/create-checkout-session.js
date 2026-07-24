@@ -130,7 +130,7 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error('[checkout] Body parse error:', err.message);
     res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ error: 'Invalid request body: ' + err.message }));
+    return res.end(JSON.stringify({ error: 'Invalid request body.' }));
   }
 
   const {
@@ -199,6 +199,13 @@ export default async function handler(req, res) {
   if (!fullName || (!phone && !email)) {
     res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'fullName and at least one of phone or email are required' }));
+  }
+
+  // Optional message has a hard length cap — Stripe metadata values are
+  // limited and we display them in the CRM; reject rather than truncate silently.
+  if (message && message.length > 500) {
+    res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'Your message is too long. Please keep it under 500 characters.' }));
   }
 
   // The business needs a requested date and arrival window to confirm
@@ -390,7 +397,9 @@ export default async function handler(req, res) {
               utm_campaign:               utm_campaign               || null,
               utm_content:                utm_content                || null,
               gclid:                      gclid                      || null,
-            }).eq('booking_ref', finalRef);
+            // Use stripe_session_id (guaranteed unique per session) not
+            // booking_ref (could theoretically collide under rapid retries).
+            }).eq('stripe_session_id', session.id);
             if (attrErr) {
               console.warn('[checkout] Attribution update skipped:', attrErr.code, attrErr.message);
             } else {
@@ -408,6 +417,6 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error('[checkout] Stripe API error:', err.message);
     res.writeHead(500, { ...headers, 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: err.message || 'Failed to create checkout session' }));
+    res.end(JSON.stringify({ error: "We couldn't start the secure payment. Please try again or contact us." }));
   }
 }
