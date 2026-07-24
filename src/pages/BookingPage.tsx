@@ -119,15 +119,15 @@ function StepIndicator({ current }: { current: 1 | 2 }) {
     { n: 2, label: `Details, date & £${DEPOSIT} deposit` },
   ];
   return (
-    <ol aria-label="Booking progress" className="max-w-5xl mx-auto px-4 pt-4 flex items-center justify-center gap-2 text-xs sm:text-sm">
+    <ol aria-label="Booking progress" className="max-w-5xl mx-auto px-4 pt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-xs sm:text-sm">
       {steps.map((step, i) => {
         const active = step.n === current;
         const done = step.n < current;
         return (
-          <li key={step.n} className="flex items-center gap-2" aria-current={active ? 'step' : undefined}>
-            {i > 0 && <span className="w-6 sm:w-10 h-px bg-silver-300" aria-hidden="true" />}
+          <li key={step.n} className="flex items-center gap-2 min-w-0" aria-current={active ? 'step' : undefined}>
+            {i > 0 && <span className="w-6 sm:w-10 h-px bg-silver-300 flex-shrink-0" aria-hidden="true" />}
             <span
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-semibold whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full font-semibold sm:whitespace-nowrap ${
                 active
                   ? 'bg-navy-900 text-white'
                   : done
@@ -136,14 +136,14 @@ function StepIndicator({ current }: { current: 1 | 2 }) {
               }`}
             >
               <span
-                className={`w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center ${
+                className={`w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center flex-shrink-0 ${
                   active ? 'bg-white text-navy-900' : done ? 'bg-green-600 text-white' : 'bg-silver-300 text-white'
                 }`}
                 aria-hidden="true"
               >
                 {done ? '✓' : step.n}
               </span>
-              <span>
+              <span className="leading-tight">
                 <span className="sr-only">{`Step ${step.n} of 2${active ? ', current' : done ? ', completed' : ''}: `}</span>
                 {step.label}
               </span>

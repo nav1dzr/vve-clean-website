@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useReveal } from '../hooks/useReveal';
 import Navbar from './Navbar';
@@ -28,8 +29,13 @@ export interface ServiceLandingData {
   eyebrow: string;
   h1: string;
   h1Highlight: string;
+  heroSubtitle?: string;
   heroBadges: string[];
   heroBgImage?: string;
+  // Optional higher-resolution desktop variant of heroBgImage (served at
+  // ≥1024px via <picture>). If the file is missing the <img> error handler
+  // falls back to heroBgImage, so the hero never renders broken.
+  heroBgImageDesktop?: string;
   heroTrustLine?: string;
   primaryHref: string;
   primaryLabel: string;
@@ -146,6 +152,26 @@ function CtaButton({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
+// Hero photo with an optional desktop-resolution variant. The <source> is
+// removed on error so a missing desktop asset falls back to the mobile image
+// instead of rendering a broken hero.
+function HeroBackground({ mobile, desktop }: { mobile: string; desktop: string }) {
+  const [desktopOk, setDesktopOk] = useState(true);
+  return (
+    <picture>
+      {desktopOk && <source media="(min-width: 1024px)" srcSet={desktop} />}
+      <img
+        src={mobile}
+        alt=""
+        aria-hidden="true"
+        decoding="async"
+        onError={() => setDesktopOk(false)}
+        className="absolute inset-0 w-full h-full object-cover object-[center_35%]"
+      />
+    </picture>
+  );
+}
+
 export default function ServiceLandingLayout({ data }: { data: ServiceLandingData }) {
   const heroReveal    = useReveal();
   const introReveal   = useReveal();
@@ -183,12 +209,15 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
         {/* ── 1. HERO ── */}
         <section
           className={`relative pt-8 pb-20 px-4${!data.heroBgImage ? ' navy-gradient' : ''}`}
-          style={data.heroBgImage ? {
+          style={data.heroBgImage && !data.heroBgImageDesktop ? {
             backgroundImage: `url(${data.heroBgImage})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center 35%',
           } : undefined}
         >
+          {data.heroBgImage && data.heroBgImageDesktop && (
+            <HeroBackground mobile={data.heroBgImage} desktop={data.heroBgImageDesktop} />
+          )}
           {data.heroBgImage && (
             <div className="absolute inset-0 bg-gradient-to-b from-navy-900/90 via-navy-900/80 to-navy-900/88" aria-hidden="true" />
           )}
@@ -197,11 +226,18 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
             className={`relative z-10 max-w-4xl mx-auto text-center transition-all duration-700 ${heroReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
           >
             <Eyebrow dark>{data.eyebrow}</Eyebrow>
-            <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-5">
+            <h1 className={`font-display text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight ${data.heroSubtitle ? 'mb-3' : 'mb-5'}`}>
               {data.h1}
-              <br className="hidden sm:block" />
-              <span className="text-gradient-metallic">{data.h1Highlight}</span>
+              {data.h1Highlight && (
+                <>
+                  <br className="hidden sm:block" />
+                  <span className="text-gradient-metallic">{data.h1Highlight}</span>
+                </>
+              )}
             </h1>
+            {data.heroSubtitle && (
+              <p className="text-silver-200 text-base sm:text-lg mb-6">{data.heroSubtitle}</p>
+            )}
 
             <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-8 text-silver-400 text-sm">
               {data.heroBadges.map((badge) => (
@@ -216,7 +252,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
               <CtaButton href={data.secondaryHref} label={data.secondaryLabel} isWa={data.secondaryIsWa} variant="secondary" />
             </div>
             {data.heroTrustLine && (
-              <p className="mt-5 text-silver-400/80 text-xs tracking-wide">{data.heroTrustLine}</p>
+              <p className="mt-5 text-silver-200 text-xs tracking-wide">{data.heroTrustLine}</p>
             )}
           </div>
         </section>

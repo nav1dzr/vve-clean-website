@@ -82,13 +82,15 @@ const DATA: ServiceLandingData = {
 
   eyebrow: 'Professional Carpet Cleaning',
   h1: 'Carpet Cleaning London',
-  h1Highlight: '— Steam-Clean & Stain Removal',
+  h1Highlight: '',
+  heroSubtitle: 'Deep steam cleaning and stain removal',
   heroBadges: [
     'Hot-water extraction',
     'Dry in 2–4 hours',
     'DBS-checked technicians',
   ],
   heroBgImage: '/images/carpet-hero.jpg',
+  heroBgImageDesktop: '/images/carpet-hero-desktop.jpg',
   heroTrustLine: '★★★★★ Google Rated · Fully Insured · DBS Checked',
   primaryHref: '/booking',
   primaryLabel: 'Get My Fixed Price',
