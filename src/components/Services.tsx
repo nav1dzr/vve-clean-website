@@ -156,21 +156,29 @@ export default function Services() {
                     href={s.ctaHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`text-sm font-semibold transition-colors ${s.featured ? 'text-white hover:text-[#d4a017]' : 'text-[#1c7a4a] hover:text-[#155f39]'}`}
+                    className="btn-whatsapp inline-flex items-center justify-center gap-1.5 self-start px-5 py-2.5 min-h-[44px] rounded-lg text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1aa851]"
                   >
                     {s.cta}
                   </a>
                 ) : s.ctaHref.startsWith('/') ? (
                   <Link
                     to={s.ctaHref}
-                    className={`text-sm font-semibold transition-colors ${s.featured ? 'text-white hover:text-[#d4a017]' : 'text-[#1c7a4a] hover:text-[#155f39]'}`}
+                    className={`inline-flex items-center justify-center gap-1.5 self-start px-5 py-2.5 min-h-[44px] rounded-lg text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                      s.featured
+                        ? 'bg-white text-[#1c3d24] hover:bg-silver-100 focus-visible:outline-white'
+                        : 'bg-royal-500 text-white hover:bg-royal-600 focus-visible:outline-royal-600'
+                    }`}
                   >
                     {s.cta}
                   </Link>
                 ) : (
                   <a
                     href={s.ctaHref}
-                    className={`text-sm font-semibold transition-colors ${s.featured ? 'text-white hover:text-[#d4a017]' : 'text-[#1c7a4a] hover:text-[#155f39]'}`}
+                    className={`inline-flex items-center justify-center gap-1.5 self-start px-5 py-2.5 min-h-[44px] rounded-lg text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                      s.featured
+                        ? 'bg-white text-[#1c3d24] hover:bg-silver-100 focus-visible:outline-white'
+                        : 'bg-royal-500 text-white hover:bg-royal-600 focus-visible:outline-royal-600'
+                    }`}
                   >
                     {s.cta}
                   </a>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useReveal } from '../hooks/useReveal';
+import GoogleBadge from './GoogleBadge';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import MobileStickyFooter from './MobileStickyFooter';
@@ -37,6 +38,9 @@ export interface ServiceLandingData {
   // falls back to heroBgImage, so the hero never renders broken.
   heroBgImageDesktop?: string;
   heroTrustLine?: string;
+  // Renders the compact Google rating badge directly below the hero CTAs
+  // (replaces the faint ★ text trust line as the primary trust signal).
+  heroGoogleBadge?: boolean;
   primaryHref: string;
   primaryLabel: string;
   primaryIsWa?: boolean;
@@ -125,7 +129,7 @@ function CtaButton({
   const base =
     'inline-flex items-center gap-2.5 font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white';
   const primaryCls = isWa
-    ? `${base} bg-[#25D366] hover:bg-[#1ebe5d] text-white`
+    ? `${base} btn-whatsapp`
     : `${base} bg-royal-500 hover:bg-royal-600 text-white`;
   const secondaryCls = `${base} border-2 border-white/40 hover:border-white text-white hover:bg-white/10`;
   const external = href.startsWith('http') || href.startsWith('tel:') || href.startsWith('mailto:');
@@ -251,8 +255,13 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
               <CtaButton href={data.primaryHref} label={data.primaryLabel} isWa={data.primaryIsWa} variant="primary" />
               <CtaButton href={data.secondaryHref} label={data.secondaryLabel} isWa={data.secondaryIsWa} variant="secondary" />
             </div>
+            {data.heroGoogleBadge && (
+              <div className="mt-5 flex justify-center">
+                <GoogleBadge />
+              </div>
+            )}
             {data.heroTrustLine && (
-              <p className="mt-5 text-silver-200 text-xs tracking-wide">{data.heroTrustLine}</p>
+              <p className="mt-4 text-silver-200 text-xs tracking-wide">{data.heroTrustLine}</p>
             )}
           </div>
         </section>
@@ -375,7 +384,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
                   href={data.pricingCta.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  className="btn-whatsapp inline-flex items-center gap-2.5 font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
                   {WA_SVG}
                   {data.pricingCta.label}
@@ -471,7 +480,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
                   href={data.ctaPrimary.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  className="btn-whatsapp inline-flex items-center gap-2.5 font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
                   {WA_SVG}
                   {data.ctaPrimary.label}

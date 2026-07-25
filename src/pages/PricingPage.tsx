@@ -139,7 +139,7 @@ export default function PricingPage() {
             </p>
           </div>
           <a href={WA_PHOTO} target="_blank" rel="noopener noreferrer"
-            className="flex-shrink-0 inline-flex items-center gap-2 bg-[#22C55E] hover:opacity-90 text-white font-bold px-5 py-3 rounded-xl transition-all duration-200 text-sm whitespace-nowrap">
+            className="flex-shrink-0 inline-flex items-center gap-2 btn-whatsapp font-bold px-5 py-3 rounded-xl transition-all duration-200 text-sm whitespace-nowrap">
             {WA_SVG}
             WhatsApp a photo
           </a>
@@ -148,7 +148,7 @@ export default function PricingPage() {
         {/* CTA */}
         <div className="flex justify-center mt-8">
           <a href={WA_SIMPLE} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2.5 bg-[#22C55E] hover:opacity-90 text-white font-bold px-8 py-4 rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base">
+            className="inline-flex items-center gap-2.5 btn-whatsapp font-bold px-8 py-4 rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base">
             {WA_SVG}
             Book on WhatsApp
           </a>
@@ -368,7 +368,7 @@ export default function PricingPage() {
               Book online now
             </a>
             <a href={WA_SIMPLE} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2.5 bg-[#22C55E] hover:opacity-90 text-white font-bold px-8 py-4 min-h-[44px] rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+              className="inline-flex items-center justify-center gap-2.5 btn-whatsapp font-bold px-8 py-4 min-h-[44px] rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
               {WA_SVG}
               Book on WhatsApp
             </a>
@@ -394,7 +394,7 @@ export default function PricingPage() {
             Call us
           </a>
           <a href={WA_SIMPLE} target="_blank" rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 py-4 font-bold text-white text-sm bg-[#22C55E] active:opacity-90 transition-colors">
+            className="flex items-center justify-center gap-2 py-4 font-bold text-white text-sm btn-whatsapp transition-colors">
             {WA_SVG}
             WhatsApp
           </a>

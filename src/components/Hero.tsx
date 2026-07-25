@@ -1,4 +1,5 @@
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import GoogleBadge from './GoogleBadge';
 
 export default function Hero() {
   return (
@@ -23,8 +24,11 @@ export default function Hero() {
         />
       </div>
 
-      {/* Left dark navy overlay — gradient fading right */}
-      <div className="absolute inset-0 bg-gradient-to-r from-navy-950 via-navy-950/90 via-50% to-navy-950/10 lg:to-transparent" />
+      {/* Overlay — on mobile the copy spans the full width, so use a
+          vertical navy wash that keeps the photo visible but readable;
+          from sm up keep the left-to-right gradient so more of the image
+          shows on larger screens. */}
+      <div className="absolute inset-0 bg-gradient-to-b from-navy-950/85 via-navy-950/60 to-navy-950/45 sm:bg-gradient-to-r sm:from-navy-950 sm:via-navy-950/90 sm:via-50% sm:to-navy-950/10 lg:to-transparent" />
       {/* Extra top gradient for readability */}
       <div className="absolute inset-0 bg-gradient-to-b from-navy-950/60 via-transparent to-navy-950/40" />
 
@@ -35,14 +39,14 @@ export default function Hero() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 glass-card rounded-full px-4 py-1.5 mb-4 sm:mb-6" style={{ animationDelay: '0.1s' }}>
             <span className="w-2 h-2 rounded-full bg-royal-400 animate-pulse" />
-            <span className="text-silver-300 text-[10px] sm:text-xs tracking-widest font-medium uppercase">
+            <span className="text-silver-200 text-[10px] sm:text-xs tracking-widest font-medium uppercase">
               Independent &amp; Owner-Operated — No Call Centres, No Random Cleaners
             </span>
           </div>
 
           {/* H1 — Bricolage Grotesque 800 */}
           <h1
-            className="font-hero font-extrabold text-[1.95rem] sm:text-4xl lg:text-[2.6rem] xl:text-5xl text-white leading-[1.08] mb-4 sm:mb-6 animate-fade-in-up"
+            className="font-hero font-extrabold text-[1.95rem] sm:text-4xl lg:text-[2.6rem] xl:text-5xl text-white leading-[1.08] mb-4 sm:mb-6 animate-fade-in-up text-shadow-hero"
             style={{ animationDelay: '0.2s', opacity: 0 }}
           >
             Get your full deposit back — or we{' '}
@@ -53,7 +57,7 @@ export default function Hero() {
 
           {/* Supporting text */}
           <p
-            className="text-silver-300 text-base sm:text-lg leading-relaxed mb-4 sm:mb-5 max-w-lg animate-fade-in-up"
+            className="text-silver-100 text-base sm:text-lg leading-relaxed mb-4 sm:mb-5 max-w-lg animate-fade-in-up text-shadow-hero"
             style={{ animationDelay: '0.45s', opacity: 0 }}
           >
             End of tenancy and deep cleaning across East &amp; North London by DBS-checked, fully insured cleaners. See your exact price in 3 taps — no forms, no waiting for a callback.
@@ -94,6 +98,14 @@ export default function Hero() {
             >
               See all prices
             </a>
+          </div>
+
+          {/* Google trust badge — directly below the CTAs */}
+          <div
+            className="mt-4 animate-fade-in-up"
+            style={{ animationDelay: '0.7s', opacity: 0 }}
+          >
+            <GoogleBadge />
           </div>
 
         </div>

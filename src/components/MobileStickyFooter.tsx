@@ -50,7 +50,7 @@ export default function MobileStickyFooter() {
             href={waLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-bold text-sm py-4 min-h-[44px] transition-colors duration-200 border-r border-white/20"
+            className="flex-1 flex items-center justify-center gap-2 btn-whatsapp font-bold text-sm py-4 min-h-[44px] transition-colors duration-200 border-r border-white/20"
             aria-label="Request a quote via WhatsApp"
           >
             {WA_ICON}
@@ -73,7 +73,7 @@ export default function MobileStickyFooter() {
           href={helpLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-semibold text-sm py-4 min-h-[44px] transition-colors duration-200"
+          className="flex-1 flex items-center justify-center gap-2 btn-whatsapp font-semibold text-sm py-4 min-h-[44px] transition-colors duration-200"
           aria-label="Need help? Chat on WhatsApp"
         >
           {WA_ICON}
