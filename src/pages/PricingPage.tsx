@@ -29,9 +29,9 @@ export default function PricingPage() {
           </div>
           <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight">
             Clear Prices,<br />
-            <span className="text-gradient-metallic">Zero Surprises</span>
+            <span className="text-white">Zero Surprises</span>
           </h1>
-          <p className="text-silver-300 text-lg max-w-xl mx-auto">
+          <p className="text-white text-lg max-w-xl mx-auto">
             Every price listed is the price you pay. Pick your service, see the total, book in seconds.
           </p>
           {/* Primary action in the first viewport on every screen size */}
@@ -48,7 +48,7 @@ export default function PricingPage() {
       <section className="max-w-5xl mx-auto px-4 py-14">
         <div className="text-center mb-8">
           <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 mb-2">Vacant Property Cleans</h2>
-          <p className="text-silver-600">Fixed prices for end-of-tenancy, move-in, and post-build cleans.</p>
+          <p className="text-silver-700">Fixed prices for end-of-tenancy, move-in, and post-build cleans.</p>
         </div>
 
         {/* Desktop table */}
@@ -101,12 +101,12 @@ export default function PricingPage() {
               <div className="grid grid-cols-2 gap-3 text-center text-xs">
                 <div className="bg-royal-50 rounded-xl p-3">
                   <div className="text-royal-600 font-bold text-lg">£{eot}</div>
-                  <div className="text-silver-600 mt-0.5">End of Tenancy</div>
+                  <div className="text-silver-700 mt-0.5">End of Tenancy</div>
                   <div className="text-green-600 text-[9px] font-semibold mt-0.5">Oven FREE</div>
                 </div>
                 <div className="bg-silver-100 rounded-xl p-3">
                   <div className="text-navy-900 font-bold text-lg">£{movein}</div>
-                  <div className="text-silver-600 mt-0.5">Move-in</div>
+                  <div className="text-silver-700 mt-0.5">Move-in</div>
                 </div>
               </div>
             </div>
@@ -139,7 +139,7 @@ export default function PricingPage() {
             </p>
           </div>
           <a href={WA_PHOTO} target="_blank" rel="noopener noreferrer"
-            className="flex-shrink-0 inline-flex items-center gap-2 bg-[#22C55E] hover:opacity-90 text-white font-bold px-5 py-3 rounded-xl transition-all duration-200 text-sm whitespace-nowrap">
+            className="flex-shrink-0 inline-flex items-center gap-2 btn-whatsapp font-bold px-5 py-3 rounded-xl transition-all duration-200 text-sm whitespace-nowrap">
             {WA_SVG}
             WhatsApp a photo
           </a>
@@ -148,7 +148,7 @@ export default function PricingPage() {
         {/* CTA */}
         <div className="flex justify-center mt-8">
           <a href={WA_SIMPLE} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2.5 bg-[#22C55E] hover:opacity-90 text-white font-bold px-8 py-4 rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base">
+            className="inline-flex items-center gap-2.5 btn-whatsapp font-bold px-8 py-4 rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base">
             {WA_SVG}
             Book on WhatsApp
           </a>
@@ -368,7 +368,7 @@ export default function PricingPage() {
               Book online now
             </a>
             <a href={WA_SIMPLE} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2.5 bg-[#22C55E] hover:opacity-90 text-white font-bold px-8 py-4 min-h-[44px] rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+              className="inline-flex items-center justify-center gap-2.5 btn-whatsapp font-bold px-8 py-4 min-h-[44px] rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
               {WA_SVG}
               Book on WhatsApp
             </a>
@@ -394,7 +394,7 @@ export default function PricingPage() {
             Call us
           </a>
           <a href={WA_SIMPLE} target="_blank" rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 py-4 font-bold text-white text-sm bg-[#22C55E] active:opacity-90 transition-colors">
+            className="flex items-center justify-center gap-2 py-4 font-bold text-white text-sm btn-whatsapp transition-colors">
             {WA_SVG}
             WhatsApp
           </a>

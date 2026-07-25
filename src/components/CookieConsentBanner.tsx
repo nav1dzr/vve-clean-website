@@ -42,7 +42,7 @@ export default function CookieConsentBanner() {
       aria-label="Cookie consent"
       className="fixed inset-x-0 bottom-0 z-[100] border-t border-silver-200 bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.12)] max-h-[45vh] overflow-y-auto"
     >
-      <div className="max-w-5xl mx-auto px-3 py-2.5 sm:px-4 sm:py-4 flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="max-w-5xl mx-auto px-3 py-2 sm:px-4 sm:py-3 flex flex-col gap-1.5 sm:gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-navy-900 text-xs sm:text-sm leading-snug sm:leading-relaxed sm:max-w-xl">
           We use cookies that are essential for the site to work, and — only with your permission — analytics and
           advertising cookies.{' '}
