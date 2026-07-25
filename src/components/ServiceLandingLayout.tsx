@@ -41,6 +41,10 @@ export interface ServiceLandingData {
   // Renders the compact Google rating badge directly below the hero CTAs
   // (replaces the faint ★ text trust line as the primary trust signal).
   heroGoogleBadge?: boolean;
+  // Tightens mobile-only vertical spacing in the hero so the CTAs, Google
+  // badge and trust line all fit above the sticky footer on short screens
+  // (e.g. 360×741). Desktop (≥640px) spacing is unchanged.
+  heroCompactMobile?: boolean;
   primaryHref: string;
   primaryLabel: string;
   primaryIsWa?: boolean;
@@ -212,7 +216,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
 
         {/* ── 1. HERO ── */}
         <section
-          className={`relative pt-8 pb-20 px-4${!data.heroBgImage ? ' navy-gradient' : ''}`}
+          className={`relative ${data.heroCompactMobile ? 'pt-6 pb-16 sm:pt-8 sm:pb-20' : 'pt-8 pb-20'} px-4${!data.heroBgImage ? ' navy-gradient' : ''}`}
           style={data.heroBgImage && !data.heroBgImageDesktop ? {
             backgroundImage: `url(${data.heroBgImage})`,
             backgroundSize: 'cover',
@@ -240,10 +244,10 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
               )}
             </h1>
             {data.heroSubtitle && (
-              <p className="text-silver-200 text-base sm:text-lg mb-6">{data.heroSubtitle}</p>
+              <p className={`text-silver-200 text-base sm:text-lg ${data.heroCompactMobile ? 'mb-4 sm:mb-6' : 'mb-6'}`}>{data.heroSubtitle}</p>
             )}
 
-            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-8 text-silver-400 text-sm">
+            <div className={`flex flex-wrap justify-center gap-x-6 gap-y-2 ${data.heroCompactMobile ? 'mb-5 sm:mb-8' : 'mb-8'} text-silver-400 text-sm`}>
               {data.heroBadges.map((badge) => (
                 <span key={badge} className="flex items-center gap-1.5">
                   <span className="text-sky-400 font-bold">✓</span> {badge}
@@ -251,17 +255,17 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
               ))}
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className={`flex flex-col sm:flex-row items-center justify-center ${data.heroCompactMobile ? 'gap-3 sm:gap-4' : 'gap-4'}`}>
               <CtaButton href={data.primaryHref} label={data.primaryLabel} isWa={data.primaryIsWa} variant="primary" />
               <CtaButton href={data.secondaryHref} label={data.secondaryLabel} isWa={data.secondaryIsWa} variant="secondary" />
             </div>
             {data.heroGoogleBadge && (
-              <div className="mt-5 flex justify-center">
+              <div className={`${data.heroCompactMobile ? 'mt-4 sm:mt-5' : 'mt-5'} flex justify-center`}>
                 <GoogleBadge />
               </div>
             )}
             {data.heroTrustLine && (
-              <p className="mt-4 text-silver-200 text-xs tracking-wide">{data.heroTrustLine}</p>
+              <p className={`${data.heroCompactMobile ? 'mt-3 sm:mt-4' : 'mt-4'} text-silver-200 text-xs tracking-wide`}>{data.heroTrustLine}</p>
             )}
           </div>
         </section>

@@ -92,6 +92,7 @@ const DATA: ServiceLandingData = {
   heroBgImage: '/images/carpet-hero.jpg',
   heroBgImageDesktop: '/images/carpet-hero-desktop.jpg',
   heroGoogleBadge: true,
+  heroCompactMobile: true,
   heroTrustLine: 'Fully Insured · DBS-checked technicians',
   primaryHref: '/booking',
   primaryLabel: 'Get My Fixed Price',
