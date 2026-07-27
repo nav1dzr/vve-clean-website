@@ -6,6 +6,8 @@ import { PAYMENT_OPTION_VALUES } from '../types/invoice';
 import { formatMoney } from '../lib/format';
 import { buildBookingRefBase } from '../lib/bookingRef';
 import ServiceTemplateCombobox from './ServiceTemplateCombobox';
+import CatalogueItemCombobox from './CatalogueItemCombobox';
+import type { CatalogueItem } from '../types/catalogue';
 
 const PAYMENT_OPTION_LABELS: Record<PaymentOptionValue, string> = {
   bank_transfer: 'Bank transfer',
@@ -221,6 +223,23 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
     setValue((v) => ({ ...v, items: [...v.items, emptyItem()] }));
   }
 
+  // Appends a catalogue item as a NEW, plain invoice line. The line stores
+  // only copied text/numbers — deliberately no catalogue id — so editing
+  // the line can never mutate the saved catalogue item, and later edits to
+  // the catalogue item can never alter this (or any already-created)
+  // invoice. unitPrice is exact integer-pence → pounds conversion.
+  function addCatalogueItem(item: CatalogueItem) {
+    if (value.items.length >= MAX_ITEMS) return;
+    const description = item.description ? `${item.name} — ${item.description}` : item.name;
+    setValue((v) => ({
+      ...v,
+      items: [
+        ...v.items,
+        { key: newKey(), description, quantity: 1, unitPrice: item.defaultPricePence / 100, lineDiscount: 0 },
+      ],
+    }));
+  }
+
   function removeItem(key: string) {
     setValue((v) => (v.items.length <= 1 ? v : { ...v, items: v.items.filter((i) => i.key !== key) }));
   }
@@ -411,6 +430,10 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
           <button type="button" onClick={addItem} className="min-h-11 rounded-lg border border-silver-300 px-3 text-sm font-medium text-navy-900 hover:bg-silver-100">
             + Add item
           </button>
+        </div>
+
+        <div className="mb-3">
+          <CatalogueItemCombobox onSelect={addCatalogueItem} />
         </div>
 
         <div className="space-y-3">

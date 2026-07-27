@@ -393,7 +393,10 @@ describe('InvoiceEditorPage', () => {
       template: string,
       itemIndex = 0,
     ) {
-      const comboboxes = screen.getAllByRole('combobox');
+      // Scope to the per-item template comboboxes by their stable testid —
+      // the "Add product or service" catalogue combobox is also a
+      // role="combobox" input and must not be matched here.
+      const comboboxes = screen.getAllByTestId(/^template-combobox-/);
       const combobox = comboboxes[itemIndex];
       await user.click(combobox);
       await user.clear(combobox);
@@ -489,7 +492,7 @@ describe('InvoiceEditorPage', () => {
       await user.type(descInput, 'My custom wording');
 
       // Selecting a template must not replace it directly.
-      const combobox = screen.getByRole('combobox');
+      const combobox = screen.getByTestId(/^template-combobox-/);
       await user.click(combobox);
       await user.type(combobox, 'oven');
       await user.click(await screen.findByRole('option', { name: 'Professional oven cleaning' }));
@@ -514,7 +517,7 @@ describe('InvoiceEditorPage', () => {
       const descInput = screen.getByLabelText('Description');
       await user.type(descInput, 'My custom wording');
 
-      const combobox = screen.getByRole('combobox');
+      const combobox = screen.getByTestId(/^template-combobox-/);
       await user.click(combobox);
       await user.type(combobox, 'oven');
       await user.click(await screen.findByRole('option', { name: 'Professional oven cleaning' }));
@@ -544,7 +547,7 @@ describe('InvoiceEditorPage', () => {
       const user = userEvent.setup();
       renderEditor();
 
-      const combobox = screen.getByRole('combobox');
+      const combobox = screen.getByTestId(/^template-combobox-/);
       await user.click(combobox);
       await user.type(combobox, 'sofa');
 
@@ -560,7 +563,7 @@ describe('InvoiceEditorPage', () => {
       const user = userEvent.setup();
       renderEditor();
 
-      const combobox = screen.getByRole('combobox');
+      const combobox = screen.getByTestId(/^template-combobox-/);
       await user.click(combobox);
       await user.type(combobox, 'rug');
 
