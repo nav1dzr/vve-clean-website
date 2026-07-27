@@ -24,7 +24,7 @@ export default function InternalNotesSection({ bookingId }: { bookingId: string 
 
   function load() {
     setState({ status: 'loading' });
-    authFetch<NotesResponse>(`/api/bookings/${bookingId}/notes`)
+    authFetch<NotesResponse>(`/api/bookings/${bookingId}?action=notes`)
       .then((data) => setState({ status: 'success', notes: data.notes }))
       .catch((err) =>
         setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load notes.' }),
@@ -57,7 +57,7 @@ export default function InternalNotesSection({ bookingId }: { bookingId: string 
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const created = await authFetch<InternalNote>(`/api/bookings/${bookingId}/notes`, {
+      const created = await authFetch<InternalNote>(`/api/bookings/${bookingId}?action=notes`, {
         method: 'POST',
         body: JSON.stringify({ note: trimmed }),
       });

@@ -274,6 +274,13 @@ they were never broken; only moved to free a slot within budget, not to
 fix anything). See `git log` for the exact commit if you need the before/
 after diff of that file.
 
+**Function budget note 2 (products & services catalogue):** adding
+`admin/api/catalogue.js` needed one more slot, so
+`admin/api/bookings/[id]/notes.js` was folded into
+`admin/api/bookings/[id].js` the same way (`?action=notes`, behaviour
+unchanged — GET list + POST append, author always the authenticated
+admin). The count stays at exactly 12/12.
+
 `admin/api/receipts/[[...segments]].js` still uses the (now twice-confirmed
 broken, for both invoices and customers) optional-catch-all form and has
 **not** been separately verified live. Given the confirmed root cause

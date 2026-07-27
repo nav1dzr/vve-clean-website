@@ -88,7 +88,7 @@ function setupAuthFetchMock(
   authFetchMock.mockImplementation((path: string, init?: RequestInit) => {
     const method = init?.method || 'GET';
 
-    if (/\/notes$/.test(path)) {
+    if (/action=notes/.test(path)) {
       if (method === 'POST') {
         if (overrides.addNoteError) return Promise.reject(overrides.addNoteError);
         const body = JSON.parse((init?.body as string) || '{}');

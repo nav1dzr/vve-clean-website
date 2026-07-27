@@ -16,6 +16,7 @@ import ReceiptDetailPage from './pages/ReceiptDetailPage';
 import CustomerListPage from './pages/CustomerListPage';
 import CustomerFormPage from './pages/CustomerFormPage';
 import CustomerDetailPage from './pages/CustomerDetailPage';
+import CatalogueListPage from './pages/CatalogueListPage';
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="/invoices" element={<InvoiceListPage />} />
             <Route path="/invoices/new" element={<InvoiceEditorPage />} />
             <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
+            <Route path="/catalogue" element={<CatalogueListPage />} />
             <Route path="/receipts" element={<ReceiptListPage />} />
             <Route path="/receipts/:id" element={<ReceiptDetailPage />} />
             <Route path="/customers" element={<CustomerListPage />} />
