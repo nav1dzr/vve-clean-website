@@ -2,7 +2,6 @@ import { verifyAdminRequest } from '../_lib/adminAuth.js';
 import { corsHeaders } from '../_lib/cors.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
 import { readJsonBody } from '../_lib/body.js';
-import { extractSegments } from '../_lib/routeParams.js';
 import { isValidUuid, isValidEmail, sanitiseFreeTextFilter } from '../_lib/normalise.js';
 import { RECEIPT_CARD_SELECT, toReceiptCard, toReceiptDetail, toInvoiceEvent } from '../_lib/invoiceFields.js';
 import { loadReceiptPdfExtras } from '../_lib/receiptLifecycle.js';
@@ -22,14 +21,26 @@ function parsePositiveInt(value, fallback) {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-// One dispatcher file handles /api/receipts (list) and every
-// /api/receipts/:id[/<action>] route, via Vercel's optional catch-all
-// segment at the *resource root* — see extractSegments()'s header and
-// INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §7. This folds what used to be
-// admin/api/receipts/index.js and admin/api/receipts/[id]/[[...action]].js
-// into one file, freeing a function slot for admin/api/customers/
-// [[...segments]].js within the admin Vercel project's 12-function budget
-// (see admin/INVOICES_SETUP.md's function-count note).
+// Receipts — ONE consolidated literal route file with query-string dispatch.
+//
+// This replaces admin/api/receipts/[[...segments]].js, which used Vercel's
+// optional catch-all syntax — confirmed broken on this project's Vercel
+// router (it treats the whole bracket interior as a literal one-segment
+// parameter name, so /api/receipts itself 404'd before any code ran; see
+// admin/INVOICES_SETUP.md "Vercel function count" for the two independent
+// pieces of deployed evidence). The proven-safe pattern used here is the
+// same one invoices, customers, bookings and catalogue already use: a
+// literal file (zero path segments beyond the resource name — always
+// routable) with every detail/action expressed as a query string, which
+// Vercel's file-system router never inspects. One file also keeps the
+// project at exactly 12/12 serverless functions.
+//
+//   GET  /api/receipts                              — filtered, sorted, paginated list
+//   GET  /api/receipts?id=<uuid>                    — receipt detail
+//   GET  /api/receipts?id=<uuid>&action=events      — document history
+//   GET  /api/receipts?id=<uuid>&action=download    — fresh signed PDF URL
+//   POST /api/receipts?id=<uuid>&action=send        — email the receipt PDF
+//   POST /api/receipts?id=<uuid>&action=resend      — same, recorded as 'resent'
 //
 // Receipts have no draft state and are never created directly (only ever
 // auto-generated when an invoice reaches a zero balance — see
@@ -56,23 +67,23 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'Server misconfiguration' }));
   }
 
-  const segments = extractSegments(req, 'segments', 2);
+  const params = new URL(req.url, 'https://x').searchParams;
+  const receiptId = params.get('id');
+  const action = params.get('action');
 
   try {
-    if (segments.length === 0) return await handleList(req, res, headers, supabase);
+    if (!receiptId) return await handleList(req, res, headers, supabase);
 
-    const receiptId = segments[0];
     if (!isValidUuid(receiptId)) {
       res.writeHead(400, headers);
       return res.end(JSON.stringify({ error: 'Invalid receipt id' }));
     }
-    const action = segments.slice(1);
 
-    if (action.length === 0) return await handleDetail(req, res, headers, supabase, receiptId);
-    if (action.length === 1 && action[0] === 'events') return await handleEvents(req, res, headers, supabase, receiptId);
-    if (action.length === 1 && action[0] === 'download') return await handleDownload(req, res, headers, supabase, receiptId);
-    if (action.length === 1 && action[0] === 'send') return await handleSend(req, res, headers, supabase, receiptId, auth, 'sent');
-    if (action.length === 1 && action[0] === 'resend') return await handleSend(req, res, headers, supabase, receiptId, auth, 'resent');
+    if (!action) return await handleDetail(req, res, headers, supabase, receiptId);
+    if (action === 'events') return await handleEvents(req, res, headers, supabase, receiptId);
+    if (action === 'download') return await handleDownload(req, res, headers, supabase, receiptId);
+    if (action === 'send') return await handleSend(req, res, headers, supabase, receiptId, auth, 'sent');
+    if (action === 'resend') return await handleSend(req, res, headers, supabase, receiptId, auth, 'resent');
 
     res.writeHead(404, headers);
     return res.end(JSON.stringify({ error: 'Not found' }));

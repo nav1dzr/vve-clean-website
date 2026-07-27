@@ -25,10 +25,10 @@ export default function ReceiptDetailPage() {
   function load() {
     if (!id) return;
     setState({ status: 'loading' });
-    authFetch<ReceiptDetail>(`/api/receipts/${id}`)
+    authFetch<ReceiptDetail>(`/api/receipts?id=${id}`)
       .then((data) => {
         setState({ status: 'success', data });
-        authFetch<InvoiceEventsResponse>(`/api/receipts/${id}/events`)
+        authFetch<InvoiceEventsResponse>(`/api/receipts?id=${id}&action=events`)
           .then((r) => setEvents(r.results))
           .catch(() => setEvents([]));
       })
@@ -45,7 +45,7 @@ export default function ReceiptDetailPage() {
     setBusy(true);
     setActionError(null);
     try {
-      const result = await authFetch<DownloadUrlResponse>(`/api/receipts/${id}/download`);
+      const result = await authFetch<DownloadUrlResponse>(`/api/receipts?id=${id}&action=download`);
       window.open(result.url, '_blank', 'noopener');
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Could not download this receipt.');
@@ -57,7 +57,7 @@ export default function ReceiptDetailPage() {
   async function handleSend(to: string, message: string) {
     if (!id || state.status !== 'success') return;
     const action = state.data.sentAt ? 'resend' : 'send';
-    await authFetch<SendResponse>(`/api/receipts/${id}/${action}`, {
+    await authFetch<SendResponse>(`/api/receipts?id=${id}&action=${action}`, {
       method: 'POST',
       body: JSON.stringify({ to, message: message || undefined }),
     });

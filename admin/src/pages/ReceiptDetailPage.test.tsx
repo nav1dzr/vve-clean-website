@@ -39,7 +39,7 @@ const receipt = {
 
 function mockRouteBasedFetch() {
   authFetchMock.mockImplementation((path: string) => {
-    if (/\/events$/.test(path)) return Promise.resolve({ results: [] });
+    if (/action=events/.test(path)) return Promise.resolve({ results: [] });
     return Promise.resolve(receipt);
   });
 }

@@ -514,10 +514,9 @@ async function handleSend(req, res, headers, supabase, invoiceId, auth, eventTyp
   }
   // Once fully paid, "send the invoice" no longer makes sense — the
   // customer should get the receipt instead (correct wording, correct
-  // attachment, already implemented in admin/api/receipts/[[...segments]].js's
-  // own send/resend). Blocking here is what stops an admin from
-  // accidentally re-sending a "please pay" email after the balance is
-  // already zero.
+  // attachment, implemented in admin/api/receipts/index.js send/resend).
+  // Blocking here stops an admin from accidentally re-sending a "please
+  // pay" email after the balance is already zero.
   if (invoice.payment_status === 'paid') {
     res.writeHead(409, headers);
     return res.end(JSON.stringify({ error: 'This invoice is fully paid — send the receipt instead' }));
