@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Menu, X, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { trackPhoneClick } from '../lib/analytics';
 
 // Max 5 links per the design spec — Reviews and Areas stay reachable by
 // scrolling the homepage (not removed), just not repeated in the nav.
@@ -82,7 +83,7 @@ export default function Navbar() {
           {/* Right side — phone/WhatsApp stay visibly secondary; "Get my
               price" is the one visually dominant CTA (solid brand blue). */}
           <div className="hidden lg:flex items-center gap-3">
-            <a href="tel:02080502233"
+            <a href="tel:02080502233" onClick={() => trackPhoneClick('navbar')}
               className={`flex items-center gap-1.5 text-slate-700 hover:text-sky-600 text-sm transition-colors ${FOCUS_RING}`}>
               <Phone size={13} />
               <span>020 8050 2233</span>

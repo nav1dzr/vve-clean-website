@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { trackBookingInitiated } from '../lib/analytics';
 import { Calculator, CheckCircle2, Plus, Minus, Info, AlertCircle } from 'lucide-react';
 import { useBookingCtx } from '../context/BookingContext';
 import { useReveal } from '../hooks/useReveal';
@@ -428,6 +429,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
         ...(isCarpet ? { carpetCounts, carpetCondition } : {}),
       },
     };
+    trackBookingInitiated(bookingServiceName);
     if (onBook) {
       onBook(sel);
     } else {

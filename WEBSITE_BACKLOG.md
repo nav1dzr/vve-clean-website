@@ -66,11 +66,11 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`, `MANUAL REVI
 
 ## Phase 7 — Analytics code readiness
 
-- NOT STARTED — Audit existing analytics/GTM architecture without accessing Google Ads.
-- NOT STARTED — Verify reliable, non-duplicated, PII-free events for telephone, WhatsApp, quote submission, booking start, successful £30 deposit and booking confirmation.
-- NOT STARTED — Implement only safe missing events using the existing architecture and tests.
-- NOT STARTED — Document event name, trigger, page/component, payload, Preview test and later GTM/Google Ads configuration.
-- MANUAL REVIEW REQUIRED — Google Ads Primary/Secondary action configuration.
+- COMPLETE — Audited architecture: Google Ads tag AW-18214693277 loaded via gtag.js; Consent Mode v2 with 4-signal default-deny in index.html and src/lib/consent.ts; no GTM container; no GA4 property. Deposit_paid primary conversion fires from confirmation.html.
+- COMPLETE — Created src/lib/analytics.ts: PII-free safeGtag helper + trackPhoneClick, trackWhatsAppClick, trackBookingInitiated, trackContactFormSubmitted. Full event map documented in module comments.
+- COMPLETE — Implemented: phone_click (Navbar desktop, Contact), whatsapp_click (Contact), booking_initiated (QuoteCalculator handleBookNow), contact_form_submitted (Contact form POST success).
+- COMPLETE — deposit_paid / leaflet_booking_completed already implemented in confirmation.html with event_callback and retry logic.
+- MANUAL REVIEW REQUIRED — Google Ads Primary/Secondary action configuration; add booking_initiated as a micro-conversion in AW-18214693277. GA4 property not yet configured — add G-XXXXXXXX to index.html when ready.
 
 ## Phase 8 — Final website audit
 
