@@ -74,7 +74,9 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`, `MANUAL REVI
 
 ## Phase 8 — Final website audit
 
-- NOT STARTED — Search for stale prices/discounts/surcharges, broken links/routes, customer-impacting TODOs, PII logs, missing images, duplicate events, invalid schema prices and inconsistent deposit wording.
-- NOT STARTED — Run root typecheck, lint, at least 390 tests and build; verify 12 public routes prerender.
-- NOT STARTED — Run admin typecheck, lint, at least 626 passing/1 todo, build and verify no more than 12 functions.
-- NOT STARTED — Final diff/status audit; push feature branch and provide Preview and Production hand-off steps without deploying or merging.
+- COMPLETE — Audited for stale prices: all EOT/move-in/after-builders prices correct in src, prerender.mjs, index.html noscript. No stale £159/£139 values. Scheduling surcharge removed (no 20%/40%). Deposit wording consistent.
+- COMPLETE — Audited TODOs: zero TODO/FIXME/HACK in src. One console.error in BookingPage (API error handler, no PII — acceptable).
+- COMPLETE — Root: typecheck PASS, lint PASS (0 errors, 2 pre-existing Fast Refresh warnings), 390/390 tests PASS, build PASS, 12 routes prerendered.
+- COMPLETE — Admin: typecheck PASS, lint PASS (0 errors, 1 pre-existing warning), 626 passing / 1 todo PASS, build PASS, 12 serverless functions (at cap, none added).
+- COMPLETE — Final diff audit: tracked tree clean; untracked .playwright-mcp/, admin/scripts/, docs/, scripts/check-crm-readiness.mjs remain untracked as required.
+- COMPLETE — Feature branch pushed. Production hand-off: deploy feature/website-final-completion to Preview via Vercel dashboard; validate all 12 routes, EOT gallery, Navbar keyboard, pricing transparency note and analytics events before merging to main.

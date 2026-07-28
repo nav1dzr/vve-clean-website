@@ -1,6 +1,5 @@
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import GoogleBadge from './GoogleBadge';
-import { trackPhoneClick, trackWhatsAppClick } from '../lib/analytics';
 
 export default function Hero() {
   return (
