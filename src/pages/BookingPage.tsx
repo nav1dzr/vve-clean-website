@@ -324,10 +324,10 @@ export default function BookingPage() {
     // carry no quoteConfig and the server now requires one for price authority.
     // Silently discard the params so the user sees the calculator and generates
     // a valid selection with server-verifiable pricing.
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('service')) {
-      window.history.replaceState({}, '', '/booking');
-    }
+    // No query values are price-authoritative. Remove all of them after the
+    // legacy hand-off has been handled so stale prices, tracking parameters and
+    // unsupported service names are not left in the address bar.
+    if (window.location.search) window.history.replaceState({}, '', '/booking');
   }, []);
 
   // ── Callbacks ──────────────────────────────────────────────────────────────

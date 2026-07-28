@@ -7,16 +7,16 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`, `MANUAL REVI
 - COMPLETE — Safety inspection: release tip, worktree, conflicts, untracked paths and validation commands.
 - COMPLETE — Confirm the admin application requires no feature changes for public website work.
 - COMPLETE — Create `feature/website-final-completion` from frozen release tip `f6bc7b0`.
-- IN PROGRESS — Maintain `AGENTS.md`, this backlog and `CODEX_CHECKPOINT.md`; validate, review, commit and push each phase.
+- COMPLETE — Maintain `AGENTS.md`, this backlog and `CODEX_CHECKPOINT.md`; validate, review, commit and push each phase.
 
 ## Phase 1 — Critical customer journey
 
-- IN PROGRESS — Audit homepage, service pages, calculator, booking, deposit explanation, Stripe handoff, confirmation, and mobile/desktop CTAs.
-- NOT STARTED — Verify every Get Price and Book Now destination and intended service preselection.
-- NOT STARTED — Verify direct `/booking` service selection/change, summary service/price, responsive controls/steps, route back, legacy parameters and parameter cleanup.
-- NOT STARTED — Verify sticky controls do not obstruct fields/buttons.
-- NOT STARTED — Standardise approved £30 reservation/deposit wording across homepage, pricing, booking, checkout, confirmation, FAQs and terms without inventing refund behaviour.
-- NOT STARTED — Verify same/next-day normal-price wording and remove any automatic priority, 20% or 40% scheduling surcharge; preserve manually agreed exceptional out-of-hours quotes.
+- COMPLETE — Audit homepage, service pages, calculator, booking, deposit explanation, Stripe handoff, confirmation, and mobile/desktop CTAs.
+- COMPLETE — Verify every Get Price and Book Now destination and intended service selection behaviour.
+- COMPLETE — Verify direct `/booking` service selection/change, summary service/price, responsive controls/steps, route back, legacy parameters and parameter cleanup.
+- COMPLETE — Verify sticky controls do not obstruct fields/buttons.
+- COMPLETE — Standardise approved £30 reservation/deposit wording across homepage, pricing, booking, checkout, confirmation, FAQs and terms without inventing refund behaviour.
+- COMPLETE — Verify same/next-day normal-price wording and remove any automatic priority, 20% or 40% scheduling surcharge; preserve manually agreed exceptional out-of-hours quotes.
 - COMPLETE — Preserve existing Stripe behaviour.
 
 ## Phase 2 — Routes, SEO and technical consistency
@@ -72,4 +72,3 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`, `MANUAL REVI
 - NOT STARTED — Run root typecheck, lint, at least 390 tests and build; verify 12 public routes prerender.
 - NOT STARTED — Run admin typecheck, lint, at least 626 passing/1 todo, build and verify no more than 12 functions.
 - NOT STARTED — Final diff/status audit; push feature branch and provide Preview and Production hand-off steps without deploying or merging.
-

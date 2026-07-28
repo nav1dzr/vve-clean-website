@@ -200,7 +200,7 @@ const DATA: ServiceLandingData = {
 
   ctaH2: 'Ready to book your carpet clean?',
   ctaBody:
-    'Book online in 2 minutes and pay a £30 deposit. We confirm your slot within 1 hour during business hours.',
+    'Book online in 2 minutes and pay a £30 deposit to reserve your requested appointment. It comes off the final balance, and we confirm availability within one business hour.',
   ctaPrimary: { href: '/booking', label: 'Book online now' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };
