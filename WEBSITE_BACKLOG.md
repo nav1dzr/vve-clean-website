@@ -21,26 +21,26 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`, `MANUAL REVI
 
 ## Phase 2 — Routes, SEO and technical consistency
 
-- NOT STARTED — Audit all public routes and internal links, including the five required service routes.
-- NOT STARTED — Verify title, description, canonical, Open Graph, one H1, Service/FAQ/Breadcrumb schema and structured-data price consistency.
-- NOT STARTED — Verify static/mobile/desktop CTAs and that important CTAs work without client-only JavaScript.
-- NOT STARTED — Verify sitemap, robots, redirects, obsolete routes, admin exclusion and prerender coverage.
+- COMPLETE — Audit all public routes and internal links, including the five required service routes.
+- COMPLETE — Verify title, description, canonical, Open Graph, one H1, Service/FAQ/Breadcrumb schema and structured-data price consistency.
+- COMPLETE — Verify static/mobile/desktop CTAs and that important CTAs work without client-only JavaScript.
+- COMPLETE — Verify sitemap, robots, redirects, obsolete routes, admin exclusion and prerender coverage. Created `public/sitemap.xml` and `public/robots.txt`.
 - COMPLETE — Do not create thin location pages or invent reviews, areas or business information.
 
 ## Phase 3 — End-of-tenancy gallery
 
-- NOT STARTED — Add the three genuine before/after pairs with truthful labels, responsive accessible presentation, focus and useful alt text.
-- NOT STARTED — Add a one-image slideshow using `1.jpg`–`10.jpg`: post-mount shuffle, ~5-second autoplay, no duplicates, arrows, dots, swipe, keyboard, hover/focus/manual pause and reduced-motion support.
-- NOT STARTED — Load the first slideshow image normally and later images lazily; add no false labels, customers or locations.
-- NOT STARTED — Track only `public/end_of_tenancy/` from the known untracked paths.
+- COMPLETE — Add the three genuine before/after pairs with truthful labels, responsive accessible presentation, focus and useful alt text.
+- COMPLETE — Add a one-image slideshow using `1.jpg`–`10.jpg`: post-mount shuffle, ~5-second autoplay, no duplicates, arrows, dots, swipe, keyboard, hover/focus/manual pause and reduced-motion support.
+- COMPLETE — Load the first slideshow image normally and later images lazily; add no false labels, customers or locations.
+- COMPLETE — Track only `public/end_of_tenancy/` from the known untracked paths.
 
 ## Phase 4 — Mobile, accessibility and visual polish
 
 - NOT STARTED — Review major pages at 360, 390, 768 and 1440px for overflow, clipping, readability, overlap, header/banner obstruction, tap targets, contrast, dropdowns, focus, labels/errors, layout shift and spacing.
-- NOT STARTED — Replace remaining decorative emoji service/benefit icons with existing Lucide icons where safe.
+- COMPLETE — Replace remaining decorative emoji service/benefit icons with existing Lucide icons where safe. All 5 service pages + CommercialPage updated.
 - NOT STARTED — Standardise buttons, CTAs and WhatsApp styling without unnecessary redesign.
 - NOT STARTED — Improve FAQ +/- affordance.
-- NOT STARTED — Make navigation dropdowns close on outside click and Escape; verify keyboard navigation.
+- COMPLETE — Make navigation dropdowns close on outside click and Escape; verify keyboard navigation. Added `useEffect` outside-click and Escape handlers to `Navbar.tsx`.
 - NOT STARTED — Verify sticky mobile CTA clearance and readable `#quote` scroll positioning.
 - NOT STARTED — Improve text-heavy service cards only where needed and preserve the approved brand.
 

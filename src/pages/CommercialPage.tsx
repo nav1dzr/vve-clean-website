@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Building2, Coffee, ShoppingBag, Key } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import MobileStickyFooter from '../components/MobileStickyFooter';
@@ -65,22 +66,22 @@ function useRevealLocal() {
 
 const WHO_CARDS = [
   {
-    icon: '🏢',
+    icon: <Building2 size={28} />,
     title: 'Offices & studios',
     body: 'Daily and weekly contracts, with out-of-hours visits so we never disturb your team. The same cleaner every time — they learn your site.',
   },
   {
-    icon: '☕',
+    icon: <Coffee size={28} />,
     title: 'Shops, cafés & restaurants',
     body: 'Front-of-house presentation cleans before you open: floors, glass, washrooms. Priced per visit, invoiced monthly.',
   },
   {
-    icon: '🏬',
+    icon: <ShoppingBag size={28} />,
     title: 'Communal areas — blocks & landlords',
     body: 'Hallways, stairwells, lifts and bin stores on a weekly or fortnightly schedule. One invoice for the whole block.',
   },
   {
-    icon: '🔑',
+    icon: <Key size={28} />,
     title: 'End-of-lease commercial',
     body: 'Full handover cleans for offices and retail units, including carpets, windows and deep sanitisation, ready to re-let.',
   },
@@ -270,7 +271,7 @@ export default function CommercialPage() {
                   className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300"
                   style={{ transitionDelay: `${i * 80}ms` }}
                 >
-                  <span className="text-3xl mb-4 block" aria-hidden="true">{card.icon}</span>
+                  <div className="mb-4 text-royal-500" aria-hidden="true">{card.icon}</div>
                   <h3 className="font-display font-bold text-navy-900 text-lg leading-snug mb-2">{card.title}</h3>
                   <p className="text-slate-500 text-sm leading-relaxed">{card.body}</p>
                 </div>

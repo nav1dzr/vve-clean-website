@@ -1,4 +1,5 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import { Wind, Paintbrush, Droplets, CheckCircle2 } from 'lucide-react';
 import { AFTER_BUILDERS_FROM_PRICES_P, AFTER_BUILDERS_START_FROM_P } from '../data/pricing';
 
 const WA_PHOTO = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20an%20after-builders%20clean%20quote.%20Sending%20photos%20now.';
@@ -103,22 +104,22 @@ const DATA: ServiceLandingData = {
   benefitsH2: 'What makes after-builders cleaning a specialist job',
   benefits: [
     {
-      icon: '🌫️',
+      icon: <Wind size={28} />,
       title: 'Fine dust removal',
       body: 'Construction dust is ultra-fine and gets everywhere — sills, inside cupboards, light fittings, vents. We use HEPA-filter vacuums and damp-wipe every surface, not just the obvious ones.',
     },
     {
-      icon: '🖌️',
+      icon: <Paintbrush size={28} />,
       title: 'Paint & adhesive removal',
       body: 'Paint splashes on glass, tiles and chrome — and adhesive from protective stickers on windows and fittings — need specialist scrapers and solvents. We remove them without scratching.',
     },
     {
-      icon: '🚿',
+      icon: <Droplets size={28} />,
       title: 'Kitchen & bathroom deep-clean',
       body: 'Builders often leave kitchens and bathrooms in poor condition. We deep-clean all surfaces, descale fittings, clean inside appliances and remove any remaining debris.',
     },
     {
-      icon: '✅',
+      icon: <CheckCircle2 size={28} />,
       title: 'Move-in or hand-over ready',
       body: 'We leave the space spotless — photographed and documented. Suitable for handover to clients, tenants, or simply moving in after a long renovation.',
     },

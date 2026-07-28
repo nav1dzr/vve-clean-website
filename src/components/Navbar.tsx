@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Menu, X, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -18,9 +18,25 @@ const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20l
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    const onClickOutside = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onClickOutside);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onClickOutside);
+    };
+  }, [menuOpen]);
 
   return (
     <header
+      ref={navRef}
       className="fixed top-0 left-0 right-0 z-50 transition-all duration-500 shadow-sm"
       style={{ background: 'rgba(249,249,245,0.94)', backdropFilter: 'blur(10px)' }}
     >

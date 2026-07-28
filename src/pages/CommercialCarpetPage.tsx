@@ -1,4 +1,5 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import { Moon, FileText, Zap, Calendar } from 'lucide-react';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20commercial%20carpet%20clean%20please.%20Address%3A%20';
 
@@ -94,22 +95,22 @@ const DATA: ServiceLandingData = {
   benefitsH2: 'Why facilities managers choose VVE Clean',
   benefits: [
     {
-      icon: '🌙',
+      icon: <Moon size={28} />,
       title: 'Out-of-hours visits',
       body: 'Early mornings, evenings and weekends are all available. We work around your opening hours so your team or customers are never disrupted.',
     },
     {
-      icon: '📄',
+      icon: <FileText size={28} />,
       title: 'RAMS & compliance documents',
       body: 'Risk assessments, method statements and insurance certificates provided before any job starts — ready for your health & safety file.',
     },
     {
-      icon: '⚡',
+      icon: <Zap size={28} />,
       title: 'Fast drying times',
       body: 'Commercial-grade extraction equipment removes most moisture immediately. Most office carpets are dry and walkable within 2–3 hours.',
     },
     {
-      icon: '📅',
+      icon: <Calendar size={28} />,
       title: 'Maintenance contracts available',
       body: 'Quarterly or biannual deep-clean schedules with priority booking and consolidated monthly invoicing. One supplier, one phone number.',
     },

@@ -1,4 +1,5 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import { PawPrint, Shield, Palette, RefreshCw } from 'lucide-react';
 import {
   CARPET_ITEM_PRICES_P,
   CARPET_MIN_BOOKING_P,
@@ -108,22 +109,22 @@ const DATA: ServiceLandingData = {
   benefitsH2: 'Why customers book sofa cleaning with us',
   benefits: [
     {
-      icon: '🐾',
+      icon: <PawPrint size={28} />,
       title: 'Removes pet odours & hair',
       body: 'Embedded pet dander and odour-causing bacteria are extracted at source — not just masked with fragrance. Works on dog, cat and other pet allergens.',
     },
     {
-      icon: '🔬',
+      icon: <Shield size={28} />,
       title: 'Reduces allergens',
       body: 'Dust mites, pollen and pet dander trapped deep in upholstery fibres are significantly reduced — important for allergy and asthma sufferers.',
     },
     {
-      icon: '🎨',
+      icon: <Palette size={28} />,
       title: 'Colour-safe process',
       body: 'We test for dye stability before applying any product. If there is any risk, we tell you before we start — never after.',
     },
     {
-      icon: '🛋️',
+      icon: <RefreshCw size={28} />,
       title: 'Extends your sofa\'s life',
       body: 'Abrasive grit embedded in upholstery wears fibres from the inside. Regular cleaning removes it and slows visible wear — protecting your investment.',
     },

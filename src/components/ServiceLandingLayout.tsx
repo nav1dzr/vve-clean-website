@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useReveal } from '../hooks/useReveal';
 import GoogleBadge from './GoogleBadge';
@@ -11,7 +11,7 @@ import Reviews from './Reviews';
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface ServiceBenefit {
-  icon: string;
+  icon: ReactNode;
   title: string;
   body: string;
 }
@@ -306,7 +306,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
                   className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300"
                   style={{ transitionDelay: `${i * 80}ms` }}
                 >
-                  <span className="text-3xl mb-4 block" aria-hidden="true">{b.icon}</span>
+                  <div className="mb-4 text-royal-500" aria-hidden="true">{b.icon}</div>
                   <h3 className="font-display font-bold text-navy-900 text-lg leading-snug mb-2">{b.title}</h3>
                   <p className="text-slate-500 text-sm leading-relaxed">{b.body}</p>
                 </div>

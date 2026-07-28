@@ -1,4 +1,5 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import { Droplets, Leaf, Clock, Tag } from 'lucide-react';
 import {
   CARPET_ITEM_PRICES_P,
   STAIRS_FIRST_P,
@@ -116,22 +117,22 @@ const DATA: ServiceLandingData = {
   benefitsH2: 'What makes our carpet cleaning different',
   benefits: [
     {
-      icon: '💧',
+      icon: <Droplets size={28} />,
       title: 'Deep extraction, not surface scrubbing',
       body: 'Hot water penetrates deep into carpet fibres, loosening embedded grit, bacteria and allergens that surface cleaning leaves behind.',
     },
     {
-      icon: '🌿',
+      icon: <Leaf size={28} />,
       title: 'Removes allergens & pet odours',
       body: 'Dust mites, pet dander and pollen are significantly reduced. Embedded pet and smoke odours are neutralised at source, not masked.',
     },
     {
-      icon: '⏱️',
+      icon: <Clock size={28} />,
       title: 'Dry in 2–4 hours',
       body: 'Our high-powered extraction equipment removes most of the water immediately. Your carpet is walkable far sooner than with cheaper, low-powered machines.',
     },
     {
-      icon: '📋',
+      icon: <Tag size={28} />,
       title: 'Fixed prices, no surprises',
       body: 'Every price is listed clearly. The only additions are extras you choose — extra rooms, stairs or the rug bundle add-on.',
     },

@@ -1,5 +1,6 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
 import EotGallery from '../components/EotGallery';
+import { ClipboardList, Flame, RefreshCw, Camera } from 'lucide-react';
 import { EOT_BASE_PRICES_P, EOT_EXTRA_BATH_P, EOT_EXTRA_WC_P } from '../data/pricing';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20book%20an%20end%20of%20tenancy%20clean.';
@@ -106,22 +107,22 @@ const DATA: ServiceLandingData = {
   benefitsH2: 'Why tenants and landlords choose VVE Clean',
   benefits: [
     {
-      icon: '📋',
+      icon: <ClipboardList size={28} />,
       title: '67-point agency checklist',
       body: 'Every item your letting agent checks at inventory — we clean it. No area is missed because we work from the same standard checklist agents use.',
     },
     {
-      icon: '🍳',
+      icon: <Flame size={28} />,
       title: 'Free oven clean included',
       body: 'Inside oven, hob, extractor filter and grill — all included at no extra cost. Most companies charge up to £45 extra for this alone.',
     },
     {
-      icon: '🔄',
+      icon: <RefreshCw size={28} />,
       title: '48-hour re-clean guarantee',
       body: "If your agent flags anything within 48 hours of your clean, we return to fix it for free. We ask only for a copy of the agent's written feedback.",
     },
     {
-      icon: '📸',
+      icon: <Camera size={28} />,
       title: 'Photographic cleaning receipt',
       body: 'We photograph the property after cleaning so you have documented proof. Useful for any deposit dispute where the condition at checkout is questioned.',
     },
