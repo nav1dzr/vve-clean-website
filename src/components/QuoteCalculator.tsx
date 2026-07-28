@@ -1008,7 +1008,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
               )}
               <div className="text-5xl font-bold font-display text-white mb-1 transition-all duration-300">
                 {isAfterBuilders
-                  ? 'From £199'
+                  ? `From £${AFTER_BUILDERS_START_FROM_P / 100}`
                   : isCarpet && carpetResult?.isPhotoQuote
                     ? 'Photo quote'
                     : isCarpet && (carpetResult?.totalItems ?? 0) === 0
