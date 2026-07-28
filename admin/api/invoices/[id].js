@@ -9,7 +9,7 @@ import {
 } from '../_lib/invoiceFields.js';
 import {
   updateDraftInvoice, deleteDraftInvoice, issueInvoice, voidInvoice,
-  duplicateInvoiceAsDraft, recordPayment, reversePayment,
+  duplicateInvoiceAsDraft, reviseIssuedInvoice, recordPayment, reversePayment,
 } from '../_lib/invoiceLifecycle.js';
 import { createReceiptIfPaid, loadReceiptPdfExtras } from '../_lib/receiptLifecycle.js';
 import { generateInvoicePdfBuffer, generateReceiptPdfBuffer } from '../_lib/invoicePdf.js';
@@ -133,6 +133,7 @@ export default async function handler(req, res) {
     }
     if (action === 'void') return await handleVoid(req, res, headers, supabase, invoiceId, auth);
     if (action === 'duplicate') return await handleDuplicate(req, res, headers, supabase, invoiceId, auth);
+    if (action === 'revise') return await handleRevise(req, res, headers, supabase, invoiceId, auth);
     if (action === 'payments') return await handleRecordPayment(req, res, headers, supabase, invoiceId, auth);
     if (action === 'paymentsReverse') {
       const paymentId = params.get('paymentId') || '';
@@ -268,6 +269,20 @@ async function handleDuplicate(req, res, headers, supabase, invoiceId, auth) {
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
   }
   const result = await duplicateInvoiceAsDraft(supabase, invoiceId, auth.admin.id);
+  if (!result.ok) {
+    res.writeHead(result.status || 400, headers);
+    return res.end(JSON.stringify({ error: result.error }));
+  }
+  res.writeHead(201, headers);
+  return res.end(JSON.stringify({ ok: true, invoiceId: result.invoiceId }));
+}
+
+async function handleRevise(req, res, headers, supabase, invoiceId, auth) {
+  if (req.method !== 'POST') {
+    res.writeHead(405, headers);
+    return res.end(JSON.stringify({ error: 'Method not allowed' }));
+  }
+  const result = await reviseIssuedInvoice(supabase, invoiceId, auth.admin.id);
   if (!result.ok) {
     res.writeHead(result.status || 400, headers);
     return res.end(JSON.stringify({ error: result.error }));

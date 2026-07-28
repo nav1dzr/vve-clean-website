@@ -246,6 +246,8 @@ const INVOICE_EVENT_LABELS: Record<string, string> = {
   duplicated: 'Duplicated',
   voided: 'Voided',
   cancelled: 'Cancelled',
+  revision_created: 'Revision draft created',
+  superseded: 'Superseded by revised invoice',
 };
 
 export function invoiceEventLabel(eventType: string): string {
