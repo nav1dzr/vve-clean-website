@@ -1,4 +1,5 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import EotGallery from '../components/EotGallery';
 import { EOT_BASE_PRICES_P, EOT_EXTRA_BATH_P, EOT_EXTRA_WC_P } from '../data/pricing';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20book%20an%20end%20of%20tenancy%20clean.';
@@ -176,6 +177,8 @@ const DATA: ServiceLandingData = {
       a: `Prices apply to normally maintained, vacant properties. Each additional bathroom beyond the first is +${pDisplay(EOT_EXTRA_BATH_P)}, and an additional WC is +${pDisplay(EOT_EXTRA_WC_P)}. Carpet cleaning, exterior windows, wall marks, key collection and rubbish removal are available as paid extras. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and price agreement before work starts.`,
     },
   ],
+
+  afterPricingSection: <EotGallery />,
 
   relatedLinks: [
     { href: '/carpet-cleaning-london', label: 'Carpet Cleaning' },

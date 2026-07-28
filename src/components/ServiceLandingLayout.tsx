@@ -71,6 +71,9 @@ export interface ServiceLandingData {
   pricingNote?: string;
   pricingCta: { href: string; label: string; isWa?: boolean };
 
+  // Optional section rendered between Pricing and FAQ (e.g. page-specific gallery)
+  afterPricingSection?: React.ReactNode;
+
   // FAQ
   faqs: ServiceFaq[];
 
@@ -405,7 +408,10 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
           </div>
         </section>
 
-        {/* ── 8. FAQ ── */}
+        {/* ── 8. OPTIONAL PAGE-SPECIFIC SECTION (e.g. EOT gallery) ── */}
+        {data.afterPricingSection}
+
+        {/* ── 9. FAQ ── */}
         <section className="bg-[#f0f7ff] py-16 px-4">
           <div
             ref={faqReveal.ref}
