@@ -1,0 +1,86 @@
+﻿name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  root-validation:
+    name: Root validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Lint root application
+        run: npm run lint
+
+      - name: Type-check root application
+        run: npm run typecheck
+
+      - name: Test root application
+        run: npm test
+
+      - name: Build root application
+        run: npm run build
+
+  admin-validation:
+    name: Admin validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: admin
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Install admin dependencies
+        run: npm ci
+
+      - name: Lint admin application
+        run: npm run lint
+
+      - name: Type-check admin application
+        run: npm run typecheck
+
+      - name: Test admin application
+        run: npm test
+
+      - name: Build admin application
+        run: npm run build
