@@ -21,6 +21,7 @@ import {
   AFTER_BUILDERS_FROM_PRICES_P,
   AFTER_BUILDERS_START_FROM_P,
   ADDON_PRICES_P,
+  EOT_CARPET_ADDON_PRICES_P,
   COMMERCIAL_REGULAR_HOURLY_P,
   COMMERCIAL_REGULAR_MIN_HOURS,
   CARPET_BUNDLE_TIERS,
@@ -85,7 +86,9 @@ const CARPET_BUNDLE_PRICE: Record<SizeKey, number> = {
   bed4:   EOT_CARPET_BUNDLE_P.bed4   / 100,  // 195
 };
 
-const STAIR_PRICES = [0, 45, 80, 115];
+const _stairFirst = EOT_CARPET_ADDON_PRICES_P.stairs_first / 100;  // 45
+const _stairExtra = EOT_CARPET_ADDON_PRICES_P.stairs_extra / 100;  // 35
+const STAIR_PRICES = [0, _stairFirst, _stairFirst + _stairExtra, _stairFirst + 2 * _stairExtra];
 
 const windowPrices: Record<string, number> = { small: 35, medium: 45, large: 55 };
 const gutterPrices: Record<string, number>  = { terraced: 75, semi_detached: 110, detached: 160 };
@@ -691,7 +694,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                             .map((a) => {
                               const isOvenFree   = a.key === 'oven' && deepService === 'end_of_tenancy';
                               const dynamicPrice = a.key === 'carpet_bundle' ? CARPET_BUNDLE_PRICE[deepSize] : isOvenFree ? 0 : a.price;
-                              const saving       = a.key === 'carpet_bundle' ? CARPET_STANDALONE_PRICE[deepSize] - CARPET_BUNDLE_PRICE[deepSize] : 0;
+                              const saving       = a.key === 'carpet_bundle' ? BASE_PRICES.carpet_upholstery[deepSize] - CARPET_BUNDLE_PRICE[deepSize] : 0;
                               return (
                                 <div key={a.key}
                                   className={`flex items-center justify-between rounded-xl px-3 py-2 border transition-all duration-200 ${isOvenFree ? 'bg-amber-50 border-amber-200' : 'bg-silver-50 border-silver-200'}`}>

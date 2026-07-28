@@ -1,13 +1,18 @@
 import { Link } from 'react-router-dom';
 import { useReveal } from '../hooks/useReveal';
 import { SERVICE_IMAGES } from '../data/services';
+import {
+  EOT_BASE_PRICES_P,
+  MOVEIN_BASE_PRICES_P,
+  AFTER_BUILDERS_START_FROM_P,
+} from '../data/pricing';
 
 const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
 
 const services = [
   {
     title: 'End of tenancy cleaning',
-    price: 'FROM £159 FIXED',
+    price: `FROM £${EOT_BASE_PRICES_P.studio / 100} FIXED`,
     priceFixed: true,
     description:
       'Vacant properties only. Our 67-point agency checklist: inside cupboards, appliances, oven included free, bathrooms descaled, internal windows. 48-hour re-clean guarantee.',
@@ -19,7 +24,7 @@ const services = [
   },
   {
     title: 'Move-in deep clean',
-    price: 'FROM £139 FIXED',
+    price: `FROM £${MOVEIN_BASE_PRICES_P.studio / 100} FIXED`,
     priceFixed: true,
     description:
       'A vacant-property deep clean before you move in — or between tenancies for landlords. Start fresh in a property cleaned to checklist standard.',
@@ -30,7 +35,7 @@ const services = [
   },
   {
     title: 'After builders clean',
-    price: 'FROM £199',
+    price: `FROM £${AFTER_BUILDERS_START_FROM_P / 100}`,
     priceFixed: false,
     description:
       'Fine dust, paint specks, sticker residue and debris. Final price confirmed after a quick photo via WhatsApp — we\'ll reply within the hour.',
