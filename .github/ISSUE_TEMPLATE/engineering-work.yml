@@ -1,0 +1,114 @@
+name: Engineering work request
+description: Submit an idea, bug, improvement, maintenance task, or technical problem.
+title: "[Work]: "
+labels:
+  - intake
+  - needs-triage
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem and the required result. Do not include passwords,
+        API keys, customer personal data, payment information, or production secrets.
+
+  - type: dropdown
+    id: request-type
+    attributes:
+      label: Request type
+      description: Choose the category that best describes this work.
+      options:
+        - Bug
+        - Feature
+        - Improvement
+        - Security
+        - Maintenance
+        - Documentation
+        - Research or investigation
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: What is wrong, missing, inefficient, or worth improving?
+      placeholder: Explain the current situation and why it matters.
+    validations:
+      required: true
+
+  - type: textarea
+    id: desired-outcome
+    attributes:
+      label: Desired outcome
+      description: Describe what should be true when this work is complete.
+      placeholder: The user should be able to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: List clear and testable conditions for success.
+      placeholder: |
+        - [ ] The expected behaviour works
+        - [ ] Existing behaviour is not broken
+        - [ ] Automated tests cover the change
+        - [ ] The preview deployment has been reviewed
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps or supporting evidence
+      description: For bugs, explain how to reproduce the problem. Add screenshots or logs when useful.
+      placeholder: |
+        1. Open...
+        2. Select...
+        3. Observe...
+
+  - type: dropdown
+    id: user-impact
+    attributes:
+      label: User impact
+      options:
+        - No current user impact
+        - Minor inconvenience
+        - Important feature is impaired
+        - Customers or business operations are blocked
+        - Unsure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sensitive-action
+    attributes:
+      label: Does this involve a sensitive action?
+      description: Sensitive actions include production, secrets, payments, permissions, customer data, migrations, and destructive changes.
+      options:
+        - "No"
+        - "Maybe or unsure"
+        - "Yes"
+    validations:
+      required: true
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints and protected behaviour
+      description: State anything that must not be changed.
+      placeholder: |
+        - Do not change production data
+        - Do not alter pricing
+        - Preserve the current mobile layout
+
+  - type: checkboxes
+    id: approval-boundary
+    attributes:
+      label: Human approval boundary
+      options:
+        - label: I understand that production deployments, payments, secrets, permissions, destructive actions, and production migrations require Navid's approval.
+          required: true
