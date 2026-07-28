@@ -12,6 +12,19 @@ import {
   type CarpetCondition,
   type CarpetCounts,
 } from '../data/carpetPricing';
+import {
+  EOT_BASE_PRICES_P,
+  EOT_EXTRA_BATH_P,
+  EOT_CARPET_BUNDLE_P,
+  MOVEIN_BASE_PRICES_P,
+  MOVEIN_EXTRA_BATH_P,
+  AFTER_BUILDERS_FROM_PRICES_P,
+  AFTER_BUILDERS_START_FROM_P,
+  ADDON_PRICES_P,
+  COMMERCIAL_REGULAR_HOURLY_P,
+  COMMERCIAL_REGULAR_MIN_HOURS,
+  CARPET_BUNDLE_TIERS,
+} from '../data/pricing';
 
 // ─── Pricing engine (non-carpet services) ────────────────────────────────────
 
@@ -29,39 +42,64 @@ const DEEP_SERVICE_LABELS: Record<DeepServiceType, string> = {
   after_builders:    'After builders',
 };
 
+// Prices in £ derived from the canonical pence values in pricing.ts.
 const BASE_PRICES: Record<DeepServiceType, Record<SizeKey, number>> = {
-  carpet_upholstery: { studio:  90, bed1: 150, bed2: 210, bed3: 270, bed4: 330 },
-  end_of_tenancy:    { studio: 159, bed1: 199, bed2: 249, bed3: 329, bed4: 419 },
-  move_in:           { studio: 139, bed1: 169, bed2: 219, bed3: 269, bed4: 329 },
-  after_builders:    { studio: 199, bed1: 239, bed2: 299, bed3: 369, bed4: 449 },
+  carpet_upholstery: { studio:  90, bed1: 150, bed2: 210, bed3: 270, bed4: 330 }, // unused — carpet uses computeCarpetPrice
+  end_of_tenancy:    {
+    studio: EOT_BASE_PRICES_P.studio / 100,  // 199
+    bed1:   EOT_BASE_PRICES_P.bed1   / 100,  // 249
+    bed2:   EOT_BASE_PRICES_P.bed2   / 100,  // 299
+    bed3:   EOT_BASE_PRICES_P.bed3   / 100,  // 369
+    bed4:   EOT_BASE_PRICES_P.bed4   / 100,  // 469
+  },
+  move_in: {
+    studio: MOVEIN_BASE_PRICES_P.studio / 100,  // 179
+    bed1:   MOVEIN_BASE_PRICES_P.bed1   / 100,  // 219
+    bed2:   MOVEIN_BASE_PRICES_P.bed2   / 100,  // 269
+    bed3:   MOVEIN_BASE_PRICES_P.bed3   / 100,  // 329
+    bed4:   MOVEIN_BASE_PRICES_P.bed4   / 100,  // 429
+  },
+  // after_builders uses "from" prices — BASE_PRICES is not used for quoting
+  after_builders: {
+    studio: AFTER_BUILDERS_FROM_PRICES_P.studio / 100,  // 279
+    bed1:   AFTER_BUILDERS_FROM_PRICES_P.bed1   / 100,  // 329
+    bed2:   AFTER_BUILDERS_FROM_PRICES_P.bed2   / 100,  // 399
+    bed3:   AFTER_BUILDERS_FROM_PRICES_P.bed3   / 100,  // 499
+    bed4:   AFTER_BUILDERS_FROM_PRICES_P.bed4   / 100,  // 625
+  },
 };
 
 const BATH_SURCHARGE: Record<DeepServiceType, number> = {
-  carpet_upholstery: 0, end_of_tenancy: 20, move_in: 18, after_builders: 25,
+  carpet_upholstery: 0,
+  end_of_tenancy:    EOT_EXTRA_BATH_P     / 100,  // 50
+  move_in:           MOVEIN_EXTRA_BATH_P  / 100,  // 40
+  after_builders:    0, // not quoted interactively
 };
 
+// EOT carpet add-on bundle prices (whole home — at reduced EOT rates).
 const CARPET_BUNDLE_PRICE: Record<SizeKey, number> = {
-  studio: 50, bed1: 50, bed2: 75, bed3: 100, bed4: 125,
-};
-const CARPET_STANDALONE_PRICE: Record<SizeKey, number> = {
-  studio: 90, bed1: 150, bed2: 210, bed3: 270, bed4: 330,
+  studio: EOT_CARPET_BUNDLE_P.studio / 100,  // 60
+  bed1:   EOT_CARPET_BUNDLE_P.bed1   / 100,  // 60
+  bed2:   EOT_CARPET_BUNDLE_P.bed2   / 100,  // 100
+  bed3:   EOT_CARPET_BUNDLE_P.bed3   / 100,  // 150
+  bed4:   EOT_CARPET_BUNDLE_P.bed4   / 100,  // 195
 };
 
 const STAIR_PRICES = [0, 45, 80, 115];
 
 const windowPrices: Record<string, number> = { small: 35, medium: 45, large: 55 };
 const gutterPrices: Record<string, number>  = { terraced: 75, semi_detached: 110, detached: 160 };
-const HOURLY_RATE      = 22.50;
-const MIN_OFFICE_HOURS = 4;
+const HOURLY_RATE      = COMMERCIAL_REGULAR_HOURLY_P / 100;  // 27.50
+const MIN_OFFICE_HOURS = COMMERCIAL_REGULAR_MIN_HOURS;       // 2
 
 const addOnDefs = [
-  { key: 'oven',          label: 'Inside oven',           price: 35 },
-  { key: 'fridge',        label: 'Fridge / freezer',      price: 20 },
+  { key: 'oven',          label: 'Inside oven',           price: ADDON_PRICES_P.oven        / 100 },  // 35
+  { key: 'fridge',        label: 'Fridge / freezer',      price: ADDON_PRICES_P.fridge      / 100 },  // 20
   { key: 'carpet_bundle', label: 'Carpets — whole home',  price: 0  },
-  { key: 'ext_windows',   label: 'Exterior windows',      price: 35 },
-  { key: 'wall_marks',    label: 'Wall marks & scuffs',   price: 25 },
-  { key: 'key_collect',   label: 'Key collection/return', price: 10 },
-  { key: 'rubbish',       label: 'Rubbish removal',       price: 40 },
+  { key: 'ext_windows',   label: 'Exterior windows',      price: ADDON_PRICES_P.ext_windows / 100 },  // 35
+  { key: 'wall_marks',    label: 'Wall marks & scuffs',   price: ADDON_PRICES_P.wall_marks  / 100 },  // 25
+  { key: 'key_collect',   label: 'Key collection/return', price: ADDON_PRICES_P.key_collect / 100 },  // 10
+  { key: 'rubbish',       label: 'Rubbish removal',       price: ADDON_PRICES_P.rubbish     / 100 },  // 40
   // legacy carpet add-ons (kept for quoteConfig backward compat)
   { key: 'sofa',     label: 'Sofa (2–3 seats)',    price: 40 },
   { key: 'mattress', label: 'Mattress',             price: 25 },
@@ -496,9 +534,9 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                   {isAfterBuilders && (
                     <div className="rounded-2xl px-5 py-5 bg-amber-50 border-2 border-amber-200 space-y-3 text-center">
                       <div className="text-amber-700 text-[10px] font-bold tracking-widest uppercase">After Builders Clean</div>
-                      <div className="font-display font-bold text-4xl text-amber-900">From £199</div>
+                      <div className="font-display font-bold text-4xl text-amber-900">From £{AFTER_BUILDERS_START_FROM_P / 100}</div>
                       <p className="text-silver-600 text-sm leading-relaxed max-w-xs mx-auto">
-                        The extent of after-builders work varies — fine dust, paint specks, sticker residue and debris. Send us a photo and we'll confirm your exact price within the hour.
+                        The extent of after-builders work varies — fine dust, paint specks, sticker residue and debris. Send us a photo and we'll confirm your price before any work starts.
                       </p>
                     </div>
                   )}
@@ -594,7 +632,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                       {/* Bundle savings info — hidden when a promo code already gives a better saving */}
                       {!promoCode && (
                         <p className="text-xs text-silver-700 leading-relaxed px-1">
-                          Book items together and save automatically — 5% over £200, 10% over £300, 12% over £400.
+                          Book items together and save automatically — {CARPET_BUNDLE_TIERS.map((t) => `${t.display} over £${t.minP / 100}`).join(', ')}.
                         </p>
                       )}
                     </>

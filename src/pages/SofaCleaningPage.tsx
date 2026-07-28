@@ -1,4 +1,11 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import {
+  CARPET_ITEM_PRICES_P,
+  CARPET_MIN_BOOKING_P,
+} from '../data/pricing';
+
+const p = (pence: number) => String(pence / 100);
+const pd = (pence: number) => `£${pence / 100}`;
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20a%20sofa%20cleaning%20quote.';
 
@@ -21,11 +28,11 @@ const SCHEMA = JSON.stringify({
       areaServed: 'London',
       url: 'https://vveclean.co.uk/sofa-cleaning-london',
       offers: [
-        { '@type': 'Offer', name: 'Armchair', price: '50', priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: '2-seater sofa', price: '75', priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: '3-seater sofa', price: '95', priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: 'Corner / L-shaped sofa', price: '130', priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: 'Mattress (double/king)', price: '65', priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: 'Armchair', price: p(CARPET_ITEM_PRICES_P.armchair), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: '2-seater sofa', price: p(CARPET_ITEM_PRICES_P.sofa_2), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: '3-seater sofa', price: p(CARPET_ITEM_PRICES_P.sofa_3), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: 'Corner / L-shaped sofa', price: p(CARPET_ITEM_PRICES_P.sofa_corner), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: 'Mattress (double/king)', price: p(CARPET_ITEM_PRICES_P.mattress_double), priceCurrency: 'GBP' },
       ],
     },
     {
@@ -136,17 +143,17 @@ const DATA: ServiceLandingData = {
 
   pricingH2: 'Fixed sofa cleaning prices',
   pricingIntro:
-    'Every price below is fixed — the price you book is the price you pay. £85 minimum booking applies.',
+    `Every price below is fixed — the price you book is the price you pay. £${CARPET_MIN_BOOKING_P / 100} minimum booking applies.`,
   pricingRows: [
-    { label: 'Armchair', price: '£50' },
-    { label: '2-seater sofa', price: '£75' },
-    { label: '3-seater sofa', price: '£95' },
-    { label: 'Corner / L-shaped sofa', price: '£130' },
-    { label: 'Mattress (single)', price: '£45' },
-    { label: 'Mattress (double / king)', price: '£65' },
+    { label: 'Armchair', price: pd(CARPET_ITEM_PRICES_P.armchair) },
+    { label: '2-seater sofa', price: pd(CARPET_ITEM_PRICES_P.sofa_2) },
+    { label: '3-seater sofa', price: pd(CARPET_ITEM_PRICES_P.sofa_3) },
+    { label: 'Corner / L-shaped sofa', price: pd(CARPET_ITEM_PRICES_P.sofa_corner) },
+    { label: 'Mattress (single)', price: pd(CARPET_ITEM_PRICES_P.mattress_single) },
+    { label: 'Mattress (double / king)', price: pd(CARPET_ITEM_PRICES_P.mattress_double) },
   ],
   pricingNote:
-    'Combine a sofa and carpet clean on the same visit to save on the minimum booking threshold.',
+    'Combine a sofa and carpet clean on the same visit to save automatically on bundle discount tiers — see all prices for details.',
   pricingCta: { href: '/pricing', label: 'See all prices' },
 
   faqs: [

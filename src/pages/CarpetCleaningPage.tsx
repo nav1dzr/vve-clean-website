@@ -1,4 +1,13 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import {
+  CARPET_ITEM_PRICES_P,
+  STAIRS_FIRST_P,
+  STAIRS_EXTRA_P,
+  CARPET_MIN_BOOKING_P,
+} from '../data/pricing';
+
+const p = (pence: number) => String(pence / 100);
+const pd = (pence: number) => `£${pence / 100}`;
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20a%20carpet%20clean%20quote.';
 
@@ -21,11 +30,11 @@ const SCHEMA = JSON.stringify({
       areaServed: 'London',
       url: 'https://vveclean.co.uk/carpet-cleaning-london',
       offers: [
-        { '@type': 'Offer', name: 'Bedroom carpet clean', price: '50', priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: 'Living / dining room carpet clean', price: '70', priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: 'Large or through lounge', price: '90', priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: 'Hallway carpet clean', price: '25', priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: 'Stairs — first flight', price: '55', priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: 'Bedroom carpet clean', price: p(CARPET_ITEM_PRICES_P.bedroom), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: 'Living / dining room carpet clean', price: p(CARPET_ITEM_PRICES_P.living_room), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: 'Large or through lounge', price: p(CARPET_ITEM_PRICES_P.large_lounge), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: 'Hallway carpet clean', price: p(CARPET_ITEM_PRICES_P.hallway), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: 'Stairs — first flight', price: p(STAIRS_FIRST_P), priceCurrency: 'GBP' },
       ],
     },
     {
@@ -142,19 +151,19 @@ const DATA: ServiceLandingData = {
 
   pricingH2: 'Fixed carpet cleaning prices',
   pricingIntro:
-    'Every room price below is fixed — the price you book is the price you pay. £85 minimum booking applies.',
+    `Every room price below is fixed — the price you book is the price you pay. £${CARPET_MIN_BOOKING_P / 100} minimum booking applies.`,
   pricingRows: [
-    { label: 'Bedroom', price: '£50' },
-    { label: 'Living / dining room', price: '£70' },
-    { label: 'Large or through lounge', price: '£90' },
-    { label: 'Hallway', price: '£25' },
-    { label: 'Landing', price: '£15' },
-    { label: 'Stairs — first flight', price: '£55' },
-    { label: 'Stairs — each additional flight', price: '£40' },
-    { label: 'Rug (standard)', price: '£40' },
+    { label: 'Bedroom', price: pd(CARPET_ITEM_PRICES_P.bedroom) },
+    { label: 'Living / dining room', price: pd(CARPET_ITEM_PRICES_P.living_room) },
+    { label: 'Large or through lounge', price: pd(CARPET_ITEM_PRICES_P.large_lounge) },
+    { label: 'Hallway', price: pd(CARPET_ITEM_PRICES_P.hallway) },
+    { label: 'Landing', price: pd(CARPET_ITEM_PRICES_P.landing) },
+    { label: 'Stairs — first flight', price: pd(STAIRS_FIRST_P) },
+    { label: 'Stairs — each additional flight', price: pd(STAIRS_EXTRA_P) },
+    { label: 'Rug (standard)', price: pd(CARPET_ITEM_PRICES_P.rug) },
   ],
   pricingNote:
-    'Large, wool or specialist rugs need a photo quote first. Add whole-home carpets to any end-of-tenancy clean and save £10.',
+    'Large, wool or specialist rugs need a photo quote first. Book multiple carpet or upholstery items together and save automatically — see our discount tiers on the pricing page.',
   pricingCta: { href: '/pricing', label: 'See all prices' },
 
   faqs: [

@@ -1,4 +1,5 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import { AFTER_BUILDERS_FROM_PRICES_P, AFTER_BUILDERS_START_FROM_P } from '../data/pricing';
 
 const WA_PHOTO = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20an%20after-builders%20clean%20quote.%20Sending%20photos%20now.';
 
@@ -16,12 +17,17 @@ const SCHEMA = JSON.stringify({
       '@type': 'Service',
       name: 'After Builders Cleaning London',
       description:
-        'Post-construction cleaning in London from £199. We remove fine dust, paint specks, sticker residue and construction debris — leaving your space spotless and move-in ready.',
+        `Post-construction cleaning in London from £${AFTER_BUILDERS_START_FROM_P / 100}. We remove fine dust, paint specks, sticker residue and construction debris — leaving your space spotless and move-in ready.`,
       provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
       url: 'https://vveclean.co.uk/after-builders-cleaning-london',
       offers: [
-        { '@type': 'Offer', name: 'After Builders Clean', price: '199', priceCurrency: 'GBP', description: 'From £199 — final price confirmed after a photo of the space.' },
+        { '@type': 'Offer', name: 'After Builders Clean', price: String(AFTER_BUILDERS_START_FROM_P / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_START_FROM_P / 100} — estimated price confirmed by photo before work starts.` },
+        { '@type': 'Offer', name: 'After Builders — Studio', price: String(AFTER_BUILDERS_FROM_PRICES_P.studio / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_FROM_PRICES_P.studio / 100} — studio flat.` },
+        { '@type': 'Offer', name: 'After Builders — 1 Bedroom', price: String(AFTER_BUILDERS_FROM_PRICES_P.bed1 / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_FROM_PRICES_P.bed1 / 100} — 1 bedroom.` },
+        { '@type': 'Offer', name: 'After Builders — 2 Bedrooms', price: String(AFTER_BUILDERS_FROM_PRICES_P.bed2 / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_FROM_PRICES_P.bed2 / 100} — 2 bedrooms.` },
+        { '@type': 'Offer', name: 'After Builders — 3 Bedrooms', price: String(AFTER_BUILDERS_FROM_PRICES_P.bed3 / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_FROM_PRICES_P.bed3 / 100} — 3 bedrooms.` },
+        { '@type': 'Offer', name: 'After Builders — 4 Bedrooms', price: String(AFTER_BUILDERS_FROM_PRICES_P.bed4 / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_FROM_PRICES_P.bed4 / 100} — 4 bedrooms.` },
       ],
     },
     {
@@ -78,7 +84,7 @@ const DATA: ServiceLandingData = {
 
   eyebrow: 'Post-Construction Cleaning',
   h1: 'After Builders Cleaning London',
-  h1Highlight: '— From £199, Quote by Photo',
+  h1Highlight: `— From £${AFTER_BUILDERS_START_FROM_P / 100}, Quote by Photo`,
   heroBadges: [
     'Fine dust & debris removal',
     'Paint splashes & sticker residue',
@@ -131,7 +137,16 @@ const DATA: ServiceLandingData = {
   ],
 
   pricingH2: 'After-builders cleaning pricing',
-  pricingIntro: 'Prices start from £199 and are confirmed by photo — scope varies too much for a fixed price list.',
+  pricingIntro: `Prices start from £${AFTER_BUILDERS_START_FROM_P / 100} and are estimated by photo before any work starts — scope varies too much for a fixed price list.`,
+  pricingRows: [
+    { label: 'Small renovation / one main area', price: `from £${AFTER_BUILDERS_FROM_PRICES_P.small / 100}` },
+    { label: 'Studio flat',                      price: `from £${AFTER_BUILDERS_FROM_PRICES_P.studio / 100}` },
+    { label: '1 bedroom',                         price: `from £${AFTER_BUILDERS_FROM_PRICES_P.bed1 / 100}` },
+    { label: '2 bedrooms',                        price: `from £${AFTER_BUILDERS_FROM_PRICES_P.bed2 / 100}` },
+    { label: '3 bedrooms',                        price: `from £${AFTER_BUILDERS_FROM_PRICES_P.bed3 / 100}` },
+    { label: '4 bedrooms',                        price: `from £${AFTER_BUILDERS_FROM_PRICES_P.bed4 / 100}` },
+    { label: '5+ bedrooms / large commercial',    price: 'Site survey — manual quote' },
+  ],
   pricingNote:
     'Send us photos of the space via WhatsApp and we will confirm your fixed price within the hour. The extent of dust, paint and debris varies enormously from job to job — a photo lets us quote accurately so there are no surprises on the day.',
   pricingCta: {

@@ -1,6 +1,10 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import { EOT_BASE_PRICES_P, EOT_EXTRA_BATH_P, EOT_EXTRA_WC_P } from '../data/pricing';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20book%20an%20end%20of%20tenancy%20clean.';
+
+const p = (pence: number) => String(pence / 100);
+const pDisplay = (pence: number) => `£${pence / 100}`;
 
 const SCHEMA = JSON.stringify({
   '@context': 'https://schema.org',
@@ -21,11 +25,11 @@ const SCHEMA = JSON.stringify({
       areaServed: 'London',
       url: 'https://vveclean.co.uk/end-of-tenancy-cleaning-london',
       offers: [
-        { '@type': 'Offer', name: 'Studio', price: '159', priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: '1 Bedroom', price: '199', priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: '2 Bedroom', price: '249', priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: '3 Bedroom', price: '329', priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: '4+ Bedroom', price: '419', priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: 'Studio', price: p(EOT_BASE_PRICES_P.studio), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: '1 Bedroom', price: p(EOT_BASE_PRICES_P.bed1), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: '2 Bedroom', price: p(EOT_BASE_PRICES_P.bed2), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: '3 Bedroom', price: p(EOT_BASE_PRICES_P.bed3), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: '4+ Bedroom', price: p(EOT_BASE_PRICES_P.bed4), priceCurrency: 'GBP' },
       ],
     },
     {
@@ -52,7 +56,7 @@ const SCHEMA = JSON.stringify({
           name: 'What is the 48-hour re-clean guarantee?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'If your letting agent or landlord flags any area of the clean within 48 hours of completion, we return to address it for free. We ask that you send us a copy of the agent\'s feedback so we can prioritise the right areas.',
+            text: "If your letting agent or landlord flags any area of the clean within 48 hours of completion, we return to address it for free. We ask that you send us a copy of the agent's feedback so we can prioritise the right areas.",
           },
         },
         {
@@ -60,7 +64,7 @@ const SCHEMA = JSON.stringify({
           name: 'Do you work in occupied properties?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Not currently. We specialise in vacant properties — end of tenancy, move-in deep cleans, and after-builders work. The property needs to be empty and free of furniture to allow us to clean to the full 67-point standard.',
+            text: 'Not currently. We specialise in vacant properties — end of tenancy, move-in deep cleans, and after-builders work. The property needs to be empty to allow us to clean to the full 67-point standard.',
           },
         },
         {
@@ -68,7 +72,7 @@ const SCHEMA = JSON.stringify({
           name: 'What is not included in the end of tenancy price?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'The standard price covers the property in normal condition. Additional bathrooms beyond the first are +£20 each. Carpet cleaning, exterior windows, wall marks, key collection and rubbish removal are available as paid extras. Heavy mould, biohazard contamination, pet accidents or extreme soiling may require a revised quote.',
+            text: `Prices apply to normally maintained, vacant properties. Additional bathrooms beyond the first are +${pDisplay(EOT_EXTRA_BATH_P)} each; additional WC +${pDisplay(EOT_EXTRA_WC_P)}. Carpet cleaning, exterior windows, wall marks, key collection and rubbish removal are available as paid extras. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions may require a revised quote agreed with you before work starts.`,
           },
         },
       ],
@@ -113,7 +117,7 @@ const DATA: ServiceLandingData = {
     {
       icon: '🔄',
       title: '48-hour re-clean guarantee',
-      body: 'If your agent flags anything within 48 hours of your clean, we return to fix it for free. We ask only for a copy of the agent\'s written feedback.',
+      body: "If your agent flags anything within 48 hours of your clean, we return to fix it for free. We ask only for a copy of the agent's written feedback.",
     },
     {
       icon: '📸',
@@ -136,17 +140,18 @@ const DATA: ServiceLandingData = {
 
   pricingH2: 'Fixed end of tenancy cleaning prices',
   pricingIntro:
-    'Prices are fixed by property size. The price you book is the price you pay — oven clean included in every booking.',
+    'Prices are fixed by property size for normally maintained, vacant properties. The price you book is the price you pay — oven clean included in every booking.',
   pricingRows: [
-    { label: 'Studio', price: '£159' },
-    { label: '1 Bedroom', price: '£199' },
-    { label: '2 Bedroom', price: '£249' },
-    { label: '3 Bedroom', price: '£329' },
-    { label: '4+ Bedroom', price: '£419' },
-    { label: 'Additional bathroom (beyond the first)', price: '+£20' },
+    { label: 'Studio',                             price: pDisplay(EOT_BASE_PRICES_P.studio) },
+    { label: '1 Bedroom / 1 bathroom',             price: pDisplay(EOT_BASE_PRICES_P.bed1) },
+    { label: '2 Bedrooms / 1 bathroom',            price: pDisplay(EOT_BASE_PRICES_P.bed2) },
+    { label: '3 Bedrooms / 1 bathroom',            price: pDisplay(EOT_BASE_PRICES_P.bed3) },
+    { label: '4+ Bedrooms / 1 bathroom',           price: pDisplay(EOT_BASE_PRICES_P.bed4) },
+    { label: 'Each additional full bathroom',      price: `+${pDisplay(EOT_EXTRA_BATH_P)}` },
+    { label: 'Additional WC (half bathroom)',       price: `+${pDisplay(EOT_EXTRA_WC_P)}` },
   ],
   pricingNote:
-    'Prices are for properties in normal condition. Carpet cleaning, exterior windows, wall marks and rubbish removal are available as paid extras. Heavy soiling, mould or biohazard contamination may require a revised quote.',
+    'Prices are for normally maintained, vacant properties with reasonable access. Carpet cleaning, exterior windows, wall marks and rubbish removal are available as paid extras. Heavy soiling, mould, biohazard contamination or extreme conditions require a photo review and revised price agreed with you before work starts.',
   pricingCta: { href: '/booking', label: 'Book your clean now' },
 
   faqs: [
@@ -160,7 +165,7 @@ const DATA: ServiceLandingData = {
     },
     {
       q: 'What is the 48-hour re-clean guarantee?',
-      a: 'If your letting agent or landlord flags any area within 48 hours of completion, we return to address it for free. We ask that you send us a copy of the agent\'s written feedback so we can prioritise the right areas.',
+      a: "If your letting agent or landlord flags any area within 48 hours of completion, we return to address it for free. We ask that you send us a copy of the agent's written feedback so we can prioritise the right areas. The guarantee does not cover permanent damage, wear and tear, permanent stains, or new mess created after the team leaves.",
     },
     {
       q: 'Do you work in occupied properties?',
@@ -168,7 +173,7 @@ const DATA: ServiceLandingData = {
     },
     {
       q: 'What is not included in the price?',
-      a: 'Additional bathrooms beyond the first are +£20 each. Carpet cleaning, exterior windows, wall marks, key collection and rubbish removal are available as paid extras. Heavy mould, biohazard contamination, pet accidents or extreme soiling may require a revised quote before work starts.',
+      a: `Prices apply to normally maintained, vacant properties. Each additional bathroom beyond the first is +${pDisplay(EOT_EXTRA_BATH_P)}, and an additional WC is +${pDisplay(EOT_EXTRA_WC_P)}. Carpet cleaning, exterior windows, wall marks, key collection and rubbish removal are available as paid extras. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and price agreement before work starts.`,
     },
   ],
 
