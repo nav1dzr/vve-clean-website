@@ -1,4 +1,4 @@
-﻿name: Engineering work request
+name: Engineering work request
 description: Submit an idea, bug, improvement, maintenance task, or technical problem.
 title: "[Work]: "
 labels:

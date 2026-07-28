@@ -1,4 +1,4 @@
-﻿## Linked issue
+## Linked issue
 
 Closes #
 
