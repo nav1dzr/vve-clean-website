@@ -54,10 +54,15 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`, `MANUAL REVI
 
 ## Phase 6 — Trust, content and conversion
 
-- NOT STARTED — Audit and safely improve visibility/clarity for £5m insurance, DBS, East/North London coverage, service areas, pricing assumptions, heavy condition, stain removal, parking/congestion, EOT 48-hour re-clean, after-builders photo review and CTA hierarchy.
+- COMPLETE — Audited trust visibility: £5m public liability and DBS present in TrustBadges, Hero, FAQ, QuoteCalculator, CommercialPage, CommercialCarpetPage, CarpetCleaningPage hero.
+- COMPLETE — East/North London coverage clearly stated with postcodes across Footer, FAQ, Areas component, AreaMarquee and all 5 service pages.
+- COMPLETE — EOT 48-hour re-clean guarantee in hero badge, benefit card, FAQ and pricing note on EndOfTenancyPage.
+- COMPLETE — After-builders photo review wording confirmed in benefit card and pricing note on AfterBuildersPage.
+- COMPLETE — Added congestion zone and parking transparency sentence to PricingPage condition note.
+- COMPLETE — CTA hierarchy confirmed: primary "Get my price" on homepage, "Book your clean" / "WhatsApp" on service pages, no competing primaries.
 - COMPLETE — Preserve natural, concise, professional, warm British English and avoid unsupported reviews, testimonials, photos, guarantees, accreditations, locations, agency pricing or cheap positioning.
-- MANUAL REVIEW REQUIRED — Live review widget unless an existing safe verified integration is present.
-- NOT STARTED — Assess whether an accessible, useful, no-paid-service map can be added without exposing a private address.
+- MANUAL REVIEW REQUIRED — Live review widget unless an existing safe verified integration is present. 3 existing coded reviews remain untouched.
+- NOT STARTED — Map not added: mobile cleaning service with no public address; embedding would expose private information.
 
 ## Phase 7 — Analytics code readiness
 

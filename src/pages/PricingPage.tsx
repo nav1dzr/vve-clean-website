@@ -140,7 +140,7 @@ export default function PricingPage() {
         >
           <span className="flex-shrink-0 font-bold text-base leading-none mt-0.5" style={{ color: '#0284c7' }}>ℹ</span>
           <p className="text-navy-900 text-xs leading-relaxed font-medium">
-            Prices assume the property is vacant and in normal condition. Heavy soiling, mould, excessive rubbish, biohazard contamination, pet accidents, strong odours, or large permanent stains require photo or video review and a revised quote agreed with you before work starts.
+            Prices assume the property is vacant and in normal condition. Heavy soiling, mould, excessive rubbish, biohazard contamination, pet accidents, strong odours, or large permanent stains require photo or video review and a revised quote agreed with you before work starts. Congestion zone and parking charges are passed through at cost where applicable.
           </p>
         </div>
 
