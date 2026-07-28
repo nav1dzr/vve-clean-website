@@ -56,5 +56,35 @@
       "Edit(/admin/.env)",
       "Edit(/admin/.env.*)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "& \"$env:CLAUDE_PROJECT_DIR\\.claude\\hooks\\pre-tool-guard.ps1\"",
+            "timeout": 10,
+            "statusMessage": "Checking VVE Clean safety policy"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "& \"$env:CLAUDE_PROJECT_DIR\\.claude\\hooks\\post-edit-check.ps1\"",
+            "timeout": 20,
+            "statusMessage": "Running lightweight repository checks"
+          }
+        ]
+      }
+    ]
   }
 }
