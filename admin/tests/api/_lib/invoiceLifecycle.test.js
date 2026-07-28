@@ -114,13 +114,13 @@ describe('deleteDraftInvoice', () => {
 });
 
 describe('issueInvoice', () => {
-  it('allocates a formal INV-YYYY-000001 number and snapshots business settings', async () => {
+  it('allocates a formal VVE-INV-YYYY-013245 number and snapshots business settings', async () => {
     const supabase = createFakeSupabase();
     const { invoiceId } = await createDraftInvoice(supabase, draftInput(), ADMIN_ID);
 
     const result = await issueInvoice(supabase, invoiceId, ADMIN_ID);
     expect(result.ok).toBe(true);
-    expect(result.invoiceNumber).toMatch(/^INV-\d{4}-000001$/);
+    expect(result.invoiceNumber).toMatch(/^VVE-INV-\d{4}-013245$/);
 
     const invoice = supabase._tables.invoices.find((i) => i.id === invoiceId);
     expect(invoice.document_status).toBe('issued');
@@ -138,8 +138,8 @@ describe('issueInvoice', () => {
 
     const r1 = await issueInvoice(supabase, first.invoiceId, ADMIN_ID);
     const r2 = await issueInvoice(supabase, second.invoiceId, ADMIN_ID);
-    expect(r1.invoiceNumber).toMatch(/-000001$/);
-    expect(r2.invoiceNumber).toMatch(/-000002$/);
+    expect(r1.invoiceNumber).toMatch(/-013245$/);
+    expect(r2.invoiceNumber).toMatch(/-013246$/);
   });
 
   it('refuses to issue an invoice that is not a draft', async () => {
@@ -241,7 +241,7 @@ describe('issueInvoice', () => {
 
     const result = await issueInvoice(supabase, invoiceId, ADMIN_ID);
     expect(result.ok).toBe(true);
-    expect(result.invoiceNumber).toMatch(/^INV-\d{4}-000001$/);
+    expect(result.invoiceNumber).toMatch(/^VVE-INV-\d{4}-013245$/);
 
     const issued = supabase._tables.invoices.find((i) => i.id === invoiceId);
     expect(issued.document_status).toBe('issued');

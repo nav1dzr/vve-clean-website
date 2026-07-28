@@ -1,20 +1,26 @@
 // Carpet & upholstery itemised pricing engine.
 // Kept separate so /leaflet or partner pages can import with a custom multiplier.
+//
+// All prices derive from src/data/pricing.ts — the canonical source.
+// Do not edit price constants here; edit pricing.ts and run tests.
 
-export const CARPET_MIN_BOOKING = 85;
+import {
+  CARPET_MIN_BOOKING_P,
+  CARPET_ITEM_PRICES_P,
+  STAIRS_FIRST_P,
+  STAIRS_EXTRA_P,
+  CARPET_BUNDLE_TIERS,
+  type BundleTier,
+} from './pricing';
 
-// Shared, single copy of the discount disclosure — reused wherever a leaflet/
-// promo discount or the minimum booking charge is shown, so the wording never
-// drifts out of sync between the calculator, booking summary and leaflet page.
-export const DISCOUNT_MIN_NOTE = `20% off eligible services. £${CARPET_MIN_BOOKING} minimum booking applies.`;
+// In pounds for components that display £ values.
+export const CARPET_MIN_BOOKING = CARPET_MIN_BOOKING_P / 100;  // 85
 
-// Bundle discount tiers applied to the carpet/upholstery eligible subtotal
-const BUNDLE_TIERS = [
-  { min: 400, pct: 12 },
-  { min: 300, pct: 10 },
-  { min: 200, pct:  5 },
-] as const;
-const MAX_BUNDLE_SAVING = 60;
+// Shared customer-facing disclosure reused in the calculator, booking summary
+// and leaflet page so the wording never drifts out of sync.
+export const DISCOUNT_MIN_NOTE =
+  `Book multiple carpet or upholstery items together and save automatically. ` +
+  `£${CARPET_MIN_BOOKING} minimum booking applies.`;
 
 // Promo codes: key → discount percentage
 const PROMO_CODES: Record<string, number> = {
@@ -26,7 +32,7 @@ export interface BundleInfo {
   saving:      number;              // £ saved (0 if none)
   source:      'bundle' | 'promo' | 'none';
   preDiscount: number;              // adjustedSubtotal before discount (for strikethrough)
-  nextTier:    number | null;       // next tier threshold (200/300/400) or null
+  nextTier:    number | null;       // next tier threshold in £ (e.g. 250/400/600) or null
   toNextTier:  number;              // £ to add to reach next tier (0 if not within £40)
   nextTierPct: number;              // pct at next tier
 }
@@ -45,23 +51,23 @@ export interface CarpetItem {
 
 export const CARPET_ITEM_DEFS: CarpetItem[] = [
   // ── Carpets ──────────────────────────────────────────────────
-  { key: 'bedroom',         label: 'Bedroom',                 group: 'Carpets',            unitPrice: 50 },
-  { key: 'living_room',     label: 'Living / dining room',    group: 'Carpets',            unitPrice: 70 },
-  { key: 'large_lounge',    label: 'Large or through lounge', group: 'Carpets',            unitPrice: 90 },
-  { key: 'hallway',         label: 'Hallway',                 group: 'Carpets',            unitPrice: 25 },
-  { key: 'landing',         label: 'Landing',                 group: 'Carpets',            unitPrice: 15 },
+  { key: 'bedroom',         label: 'Bedroom',                 group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.bedroom         / 100 },
+  { key: 'living_room',     label: 'Living / dining room',    group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.living_room     / 100 },
+  { key: 'large_lounge',    label: 'Large or through lounge', group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.large_lounge    / 100 },
+  { key: 'hallway',         label: 'Hallway',                 group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.hallway         / 100 },
+  { key: 'landing',         label: 'Landing',                 group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.landing         / 100 },
   { key: 'stairs',          label: 'Stairs',                  group: 'Carpets',            unitPrice: null,
-    stairsFirst: 55, stairsExtra: 40,
+    stairsFirst: STAIRS_FIRST_P / 100, stairsExtra: STAIRS_EXTRA_P / 100,
     helper: 'One flight = one set of stairs between floors.' },
-  { key: 'rug',             label: 'Rug',                     group: 'Carpets',            unitPrice: 40,
+  { key: 'rug',             label: 'Rug',                     group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.rug             / 100,
     helper: 'Large or wool rugs — send a photo for a tailored quote.' },
   // ── Sofas & Upholstery ───────────────────────────────────────
-  { key: 'armchair',        label: 'Armchair',                group: 'Sofas & Upholstery', unitPrice: 50  },
-  { key: 'sofa_2',          label: '2-seater sofa',           group: 'Sofas & Upholstery', unitPrice: 75  },
-  { key: 'sofa_3',          label: '3-seater sofa',           group: 'Sofas & Upholstery', unitPrice: 95  },
-  { key: 'sofa_corner',     label: 'Corner / L-shaped sofa',  group: 'Sofas & Upholstery', unitPrice: 130 },
-  { key: 'mattress_single', label: 'Mattress (single)',        group: 'Sofas & Upholstery', unitPrice: 45  },
-  { key: 'mattress_double', label: 'Mattress (double/king)',   group: 'Sofas & Upholstery', unitPrice: 65  },
+  { key: 'armchair',        label: 'Armchair',                group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.armchair        / 100  },
+  { key: 'sofa_2',          label: '2-seater sofa',           group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.sofa_2          / 100  },
+  { key: 'sofa_3',          label: '3-seater sofa',           group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.sofa_3          / 100  },
+  { key: 'sofa_corner',     label: 'Corner / L-shaped sofa',  group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.sofa_corner     / 100 },
+  { key: 'mattress_single', label: 'Mattress (single)',        group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.mattress_single / 100  },
+  { key: 'mattress_double', label: 'Mattress (double/king)',   group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.mattress_double / 100  },
 ];
 
 // Pre-grouped for rendering
@@ -74,7 +80,7 @@ export type CarpetCounts = Partial<Record<string, number>>;
 
 export function stairsLinePrice(n: number): number {
   if (n <= 0) return 0;
-  return 55 + (n - 1) * 40;
+  return STAIRS_FIRST_P / 100 + (n - 1) * (STAIRS_EXTRA_P / 100);
 }
 
 export function itemLinePrice(item: CarpetItem, qty: number): number {
@@ -139,9 +145,11 @@ export function computeCarpetPrice(
 
   // ── Bundle / promo discount (applied after condition multiplier) ──────────
   const promoPct      = promoCode ? (PROMO_CODES[promoCode.toUpperCase()] ?? 0) : 0;
-  const tier          = BUNDLE_TIERS.find((t) => adjustedSubtotal >= t.min);
+  const tier: BundleTier | undefined = CARPET_BUNDLE_TIERS.find(
+    (t) => adjustedSubtotal >= t.minP / 100,
+  );
   const rawBundleSave = tier ? Math.round(adjustedSubtotal * tier.pct / 100) : 0;
-  const bundleSave    = Math.min(rawBundleSave, MAX_BUNDLE_SAVING);
+  const bundleSave    = rawBundleSave;
   const promoSave     = promoPct > 0 ? Math.round(adjustedSubtotal * promoPct / 100) : 0;
   const finalSaving   = Math.max(bundleSave, promoSave);
   const bundleSource: BundleInfo['source'] =
@@ -151,21 +159,18 @@ export function computeCarpetPrice(
   const bundlePct = bundleSource === 'promo' ? promoPct : (tier?.pct ?? 0);
 
   // Next-tier nudge: show if within £40 of the next higher tier
-  const ALL_TIERS = [
-    { threshold: 200, pct: 5 },
-    { threshold: 300, pct: 10 },
-    { threshold: 400, pct: 12 },
-  ];
-  const nextTierEntry  = ALL_TIERS.find((t) => t.threshold > adjustedSubtotal) ?? null;
-  const toNextTier     = nextTierEntry ? nextTierEntry.threshold - adjustedSubtotal : 0;
-  const showNudge      = toNextTier > 0 && toNextTier <= 40;
+  const nextTierEntry = [...CARPET_BUNDLE_TIERS]
+    .reverse()
+    .find((t) => t.minP / 100 > adjustedSubtotal) ?? null;
+  const toNextTier = nextTierEntry ? nextTierEntry.minP / 100 - adjustedSubtotal : 0;
+  const showNudge  = toNextTier > 0 && toNextTier <= 40;
 
   const bundle: BundleInfo = {
     pct:         bundlePct,
     saving:      finalSaving,
     source:      bundleSource,
     preDiscount: adjustedSubtotal,
-    nextTier:    showNudge ? nextTierEntry!.threshold : null,
+    nextTier:    showNudge ? nextTierEntry!.minP / 100 : null,
     toNextTier:  showNudge ? toNextTier : 0,
     nextTierPct: showNudge ? nextTierEntry!.pct : 0,
   };

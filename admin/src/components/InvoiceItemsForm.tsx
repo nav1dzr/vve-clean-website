@@ -1,9 +1,13 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import type {
   InvoiceCustomer, InvoiceDraftInput, InvoiceDraftItemInput, InvoiceServiceContact, PaymentOptionValue,
 } from '../types/invoice';
 import { PAYMENT_OPTION_VALUES } from '../types/invoice';
 import { formatMoney } from '../lib/format';
+import { buildBookingRefBase } from '../lib/bookingRef';
+import ServiceTemplateCombobox from './ServiceTemplateCombobox';
+import CatalogueItemCombobox from './CatalogueItemCombobox';
+import type { CatalogueItem } from '../types/catalogue';
 
 const PAYMENT_OPTION_LABELS: Record<PaymentOptionValue, string> = {
   bank_transfer: 'Bank transfer',
@@ -12,6 +16,12 @@ const PAYMENT_OPTION_LABELS: Record<PaymentOptionValue, string> = {
 };
 
 const MAX_ITEMS = 100;
+
+// Allows: empty, positive integers, decimals up to 2 places.
+// Rejects: negatives, letters, multiple decimal points, 3+ decimal places.
+const NUMERIC_RE = /^$|^\d+\.?\d{0,2}$/;
+
+type RawItemNumerics = Partial<Record<'qty' | 'price' | 'discount', string>>;
 
 interface FormItem extends InvoiceDraftItemInput {
   key: string;
@@ -103,8 +113,106 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
   const [value, setValue] = useState<InvoiceItemsFormValue>(initial);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [serviceContactEnabled, setServiceContactEnabled] = useState(() => hasAnyServiceContactField(initial.serviceContact));
+  // Whether the admin has directly typed into the booking-reference field
+  // (or a value was already prefilled in) — once true, postcode/service-date
+  // changes never auto-populate it again. The Auto-fill button resets this,
+  // so "regenerate" resumes automatic tracking rather than being a one-shot.
+  const [refManuallyEdited, setRefManuallyEdited] = useState(() => Boolean(initial.poReference));
+
+  // Raw string state for each item's numeric inputs while the user is actively
+  // editing. Undefined means "display the committed number from FormItem".
+  // Avoids the controlled-input problem where Number('') = 0 re-inserts zero
+  // immediately after the user clears the field with Backspace or Delete.
+  // Qty and Discount have the identical bug, so the same fix covers all three.
+  const [rawNumerics, setRawNumerics] = useState<Record<string, RawItemNumerics>>({});
+
+  // Template state: tracks the last description text applied via the combobox
+  // per item key so we can detect when the admin has typed custom text since.
+  // If the description still matches the last applied template, a new template
+  // selection replaces it silently; otherwise we surface a confirmation.
+  const [lastAppliedTemplate, setLastAppliedTemplate] = useState<Record<string, string>>({});
+  // Holds a pending template selection for an item when confirmation is needed
+  // (non-empty description that differs from the last applied template).
+  const [pendingTemplate, setPendingTemplate] = useState<Record<string, string>>({});
+
+  function handleTemplateSelect(itemKey: string, template: string) {
+    const item = value.items.find((i) => i.key === itemKey);
+    const currentDesc = item?.description ?? '';
+    if (!currentDesc || currentDesc === (lastAppliedTemplate[itemKey] ?? '')) {
+      updateItem(itemKey, { description: template });
+      setLastAppliedTemplate((m) => ({ ...m, [itemKey]: template }));
+    } else {
+      setPendingTemplate((m) => ({ ...m, [itemKey]: template }));
+    }
+  }
+
+  function confirmTemplateReplace(itemKey: string) {
+    const template = pendingTemplate[itemKey];
+    if (template) {
+      updateItem(itemKey, { description: template });
+      setLastAppliedTemplate((m) => ({ ...m, [itemKey]: template }));
+      setPendingTemplate((m) => { const n = { ...m }; delete n[itemKey]; return n; });
+    }
+  }
+
+  function cancelPendingTemplate(itemKey: string) {
+    setPendingTemplate((m) => { const n = { ...m }; delete n[itemKey]; return n; });
+  }
+
+  // Returns spread-ready props for a numeric text input with live validation.
+  function numericField(
+    itemKey: string,
+    field: 'qty' | 'price' | 'discount',
+    numericValue: number,
+    applyPatch: (v: number) => void,
+  ): React.InputHTMLAttributes<HTMLInputElement> {
+    const raw = rawNumerics[itemKey]?.[field];
+    return {
+      type: 'text',
+      inputMode: 'decimal',
+      value: raw !== undefined ? raw : String(numericValue),
+      onFocus: (e: React.FocusEvent<HTMLInputElement>) => e.target.select(),
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+        const v = e.target.value;
+        if (!NUMERIC_RE.test(v)) return;
+        setRawNumerics((m) => ({ ...m, [itemKey]: { ...m[itemKey], [field]: v } }));
+        const n = parseFloat(v);
+        if (Number.isFinite(n)) applyPatch(n);
+      },
+      onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
+        const v = e.target.value;
+        setRawNumerics((m) => {
+          const entry = m[itemKey];
+          if (!entry) return m;
+          const next = { ...entry };
+          delete next[field];
+          if (Object.keys(next).length === 0) {
+            const result = { ...m };
+            delete result[itemKey];
+            return result;
+          }
+          return { ...m, [itemKey]: next };
+        });
+        const n = parseFloat(v);
+        applyPatch(Number.isFinite(n) ? n : 0);
+      },
+    };
+  }
 
   const totals = previewTotals(value);
+
+  // Prefills the booking reference once postcode + service date are both
+  // available, in the same POSTCODE+DDMMYY style as buildManualBookingRef
+  // (admin/api/_lib/customerLifecycle.js) — never overwrites a value the
+  // admin has manually typed. Purely a convenience default on a free-text
+  // field; does not touch invoice-number generation (the atomic
+  // next_document_number() RPC, unrelated and untouched).
+  useEffect(() => {
+    if (refManuallyEdited) return;
+    if (!value.customer.postcode || !value.serviceDate) return;
+    const suggested = buildBookingRefBase(value.customer.postcode, value.serviceDate);
+    if (suggested) setValue((v) => ({ ...v, poReference: suggested }));
+  }, [value.customer.postcode, value.serviceDate, refManuallyEdited]);
 
   function updateItem(key: string, patch: Partial<FormItem>) {
     setValue((v) => ({ ...v, items: v.items.map((i) => (i.key === key ? { ...i, ...patch } : i)) }));
@@ -113,6 +221,23 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
   function addItem() {
     if (value.items.length >= MAX_ITEMS) return;
     setValue((v) => ({ ...v, items: [...v.items, emptyItem()] }));
+  }
+
+  // Appends a catalogue item as a NEW, plain invoice line. The line stores
+  // only copied text/numbers — deliberately no catalogue id — so editing
+  // the line can never mutate the saved catalogue item, and later edits to
+  // the catalogue item can never alter this (or any already-created)
+  // invoice. unitPrice is exact integer-pence → pounds conversion.
+  function addCatalogueItem(item: CatalogueItem) {
+    if (value.items.length >= MAX_ITEMS) return;
+    const description = item.description ? `${item.name} — ${item.description}` : item.name;
+    setValue((v) => ({
+      ...v,
+      items: [
+        ...v.items,
+        { key: newKey(), description, quantity: 1, unitPrice: item.defaultPricePence / 100, lineDiscount: 0 },
+      ],
+    }));
   }
 
   function removeItem(key: string) {
@@ -270,8 +395,31 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
             <input type="date" value={value.serviceDate} onChange={(e) => setValue((v) => ({ ...v, serviceDate: e.target.value }))} className={inputClass} />
           </label>
           <label className="sm:col-span-3">
-            <span className={labelClass}>PO reference</span>
-            <input type="text" value={value.poReference} onChange={(e) => setValue((v) => ({ ...v, poReference: e.target.value }))} className={inputClass} />
+            <span className={labelClass}>Booking reference</span>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={value.poReference}
+                onChange={(e) => {
+                  setRefManuallyEdited(true);
+                  setValue((v) => ({ ...v, poReference: e.target.value }));
+                }}
+                className={inputClass}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const suggested = buildBookingRefBase(value.customer.postcode, value.serviceDate);
+                  if (suggested) setValue((v) => ({ ...v, poReference: suggested }));
+                  setRefManuallyEdited(false);
+                }}
+                disabled={!value.customer.postcode || !value.serviceDate}
+                title={!value.customer.postcode || !value.serviceDate ? 'Set a postcode and service date first' : 'Fill in from postcode + service date'}
+                className="shrink-0 rounded-lg border border-silver-300 px-3 text-sm font-medium text-navy-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Auto-fill
+              </button>
+            </div>
           </label>
         </div>
       </section>
@@ -282,6 +430,10 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
           <button type="button" onClick={addItem} className="min-h-11 rounded-lg border border-silver-300 px-3 text-sm font-medium text-navy-900 hover:bg-silver-100">
             + Add item
           </button>
+        </div>
+
+        <div className="mb-3">
+          <CatalogueItemCombobox onSelect={addCatalogueItem} />
         </div>
 
         <div className="space-y-3">
@@ -301,22 +453,58 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
                   </button>
                 </div>
               </div>
+              <ServiceTemplateCombobox
+                itemKey={item.key}
+                onSelect={(template) => handleTemplateSelect(item.key, template)}
+              />
+              {pendingTemplate[item.key] && (
+                <div className="mb-2 rounded-lg border border-silver-300 bg-silver-50 p-2 text-sm">
+                  <p className="mb-1.5 text-navy-700">
+                    Replace current description with:{' '}
+                    <span className="font-medium text-navy-950">{pendingTemplate[item.key]}</span>
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => cancelPendingTemplate(item.key)}
+                      className="rounded border border-silver-300 px-2 py-0.5 text-xs text-navy-700 hover:bg-silver-100"
+                    >
+                      Keep existing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => confirmTemplateReplace(item.key)}
+                      className="rounded bg-navy-950 px-2 py-0.5 text-xs font-medium text-white hover:bg-navy-900"
+                    >
+                      Replace
+                    </button>
+                  </div>
+                </div>
+              )}
               <label className="mb-2 block">
                 <span className={labelClass}>Description</span>
-                <input type="text" value={item.description} onChange={(e) => updateItem(item.key, { description: e.target.value })} className={inputClass} />
+                <input
+                  type="text"
+                  value={item.description}
+                  onChange={(e) => {
+                    updateItem(item.key, { description: e.target.value });
+                    if (pendingTemplate[item.key]) cancelPendingTemplate(item.key);
+                  }}
+                  className={inputClass}
+                />
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <label>
                   <span className={labelClass}>Qty</span>
-                  <input type="number" min="0.01" step="0.01" value={item.quantity} onChange={(e) => updateItem(item.key, { quantity: Number(e.target.value) })} className={inputClass} />
+                  <input {...numericField(item.key, 'qty', item.quantity, (v) => updateItem(item.key, { quantity: v }))} className={inputClass} />
                 </label>
                 <label>
                   <span className={labelClass}>Unit price (£)</span>
-                  <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(e) => updateItem(item.key, { unitPrice: Number(e.target.value) })} className={inputClass} />
+                  <input {...numericField(item.key, 'price', item.unitPrice, (v) => updateItem(item.key, { unitPrice: v }))} className={inputClass} />
                 </label>
                 <label>
                   <span className={labelClass}>Discount (£)</span>
-                  <input type="number" min="0" step="0.01" value={item.lineDiscount} onChange={(e) => updateItem(item.key, { lineDiscount: Number(e.target.value) })} className={inputClass} />
+                  <input {...numericField(item.key, 'discount', item.lineDiscount, (v) => updateItem(item.key, { lineDiscount: v }))} className={inputClass} />
                 </label>
               </div>
               <p className="mt-2 text-right text-sm text-navy-700">

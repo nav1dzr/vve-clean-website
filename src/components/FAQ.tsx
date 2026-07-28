@@ -68,7 +68,7 @@ export default function FAQ() {
 
       <section
         id="faq"
-        className="py-20 px-4"
+        className="py-20 px-4 scroll-mt-24"
         style={{ background: '#F7FAF8' }}
       >
         <div style={{ maxWidth: 780, margin: '0 auto' }}>

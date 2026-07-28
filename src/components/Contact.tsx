@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle2 } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
+import { trackPhoneClick, trackWhatsAppClick, trackContactFormSubmitted } from '../lib/analytics';
 
 const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
 
@@ -57,6 +58,7 @@ export default function Contact() {
         setPhone('');
         setMessage('');
         setSubscribe(false);
+        trackContactFormSubmitted();
         setSubmitted(true);
       } else {
         const data = await res.json().catch(() => ({}));
@@ -69,7 +71,7 @@ export default function Contact() {
   };
 
   return (
-    <section id="contact" ref={ref} className="py-24 bg-white">
+    <section id="contact" ref={ref} className="py-24 bg-white scroll-mt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div
           className={`text-center mb-14 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
@@ -103,7 +105,7 @@ export default function Contact() {
                   </div>
                   <div>
                     <div className="text-silver-300 text-xs mb-0.5">Phone</div>
-                    <a href="tel:02080502233" className="text-white font-semibold hover:text-silver-200 transition-colors block">
+                    <a href="tel:02080502233" onClick={() => trackPhoneClick('contact')} className="text-white font-semibold hover:text-silver-200 transition-colors block">
                       020 8050 2233
                     </a>
                   </div>
@@ -114,7 +116,8 @@ export default function Contact() {
                   href={WA_LINK}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-all duration-200 w-full justify-center"
+                  onClick={() => trackWhatsAppClick('contact')}
+                  className="inline-flex items-center gap-2 btn-whatsapp text-sm font-semibold px-4 py-2.5 rounded-lg transition-all duration-200 w-full justify-center"
                 >
                   <WhatsAppIcon size={15} />
                   Open WhatsApp Chat · 07845 451111

@@ -35,6 +35,9 @@ export default function BookingCardItem({ booking }: { booking: BookingCard }) {
               omitted rather than showing "Balance unavailable" on every
               historical card (ADMIN_CRM_PLAN.md Phase 3 8). */}
           {booking.balanceStatus && <StatusBadge {...balanceStatusBadge(booking.balanceStatus)} />}
+          {booking.superseded && (
+            <StatusBadge label="Superseded" className="bg-silver-200 text-navy-500" />
+          )}
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-navy-700">

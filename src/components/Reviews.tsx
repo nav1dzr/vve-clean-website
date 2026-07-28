@@ -2,9 +2,11 @@ import { Star } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
 
 const GOOGLE_REVIEW_LINK  = 'https://g.page/r/CYDRQCaICK7vEAE/review';
-const GOOGLE_PROFILE_LINK = 'https://share.google/tZEyXUs0J0SxXZlDi';
+// Single source of truth for the Google profile URL — also used by the
+// compact GoogleBadge shown in the homepage and service-page heroes.
+export const GOOGLE_PROFILE_LINK = 'https://share.google/tZEyXUs0J0SxXZlDi';
 
-function GoogleIcon({ size = 20 }: { size?: number }) {
+export function GoogleIcon({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -55,7 +57,7 @@ export default function Reviews() {
   const { ref, visible } = useReveal();
 
   return (
-    <section id="reviews" ref={ref} className="py-20 bg-white border-y border-silver-200">
+    <section id="reviews" ref={ref} className="py-20 bg-white border-y border-silver-200 scroll-mt-24">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
 
         {/* Header */}

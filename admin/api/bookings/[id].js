@@ -1,8 +1,8 @@
 import { verifyAdminRequest } from '../_lib/adminAuth.js';
 import { corsHeaders } from '../_lib/cors.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
-import { DETAIL_SELECT, toDetail, BOOKING_STATUS_VALUES } from '../_lib/bookingFields.js';
-import { isValidUuid } from '../_lib/normalise.js';
+import { DETAIL_SELECT, toDetail, toNote, BOOKING_STATUS_VALUES } from '../_lib/bookingFields.js';
+import { isValidUuid, validateNote } from '../_lib/normalise.js';
 import { extractIdParam } from '../_lib/routeParams.js';
 import { readJsonBody } from '../_lib/body.js';
 
@@ -20,6 +20,12 @@ export const config = { api: { bodyParser: false } };
 //       slot for admin/api/customers/[id].js's fix for the confirmed
 //       ellipsis-catch-all Vercel bug (see admin/INVOICES_SETUP.md's
 //       "Vercel function count" section for the full history of that bug).
+// GET|POST /api/bookings/:id?action=notes — internal-notes list/append,
+//       folded in from the former admin/api/bookings/[id]/notes.js the
+//       same way (same documented precedent) to free the function slot
+//       needed by admin/api/catalogue.js — the admin Vercel project is
+//       hard-capped at 12 serverless functions, so every new route file
+//       must be paid for by folding an existing one.
 export default async function handler(req, res) {
   const origin = req.headers.origin || '';
   const headers = { ...corsHeaders(origin), 'Cache-Control': 'no-store', 'Content-Type': 'application/json' };
@@ -35,6 +41,7 @@ export default async function handler(req, res) {
   // 401) — this only needs req.method/req.url, not a verified admin.
   const action = new URL(req.url, 'https://x').searchParams.get('action');
   if (action === 'status') return handleStatus(req, res, headers);
+  if (action === 'notes') return handleNotes(req, res, headers);
   if (req.method !== 'GET') {
     res.writeHead(405, headers);
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
@@ -156,6 +163,124 @@ async function handleStatus(req, res, headers) {
     res.end(JSON.stringify({ id: data.id, status: data.status, updatedAt: data.updated_at }));
   } catch (err) {
     console.error('[admin/api] status unexpected error:', err?.message);
+    res.writeHead(500, headers);
+    res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
+}
+
+const NOTE_SELECT = 'id, note, created_at, author:admin_users(id, display_name)';
+
+// GET  /api/bookings/:id?action=notes — list, newest first.
+// POST /api/bookings/:id?action=notes — append a note. Append-only: there
+// is no PATCH/DELETE route for this table in version one
+// (ADMIN_CRM_PLAN.md 20).
+//
+// Ported unchanged in behaviour from the former
+// admin/api/bookings/[id]/notes.js (folded in to free a Vercel function
+// slot — see the file header) — the only mechanical difference is the
+// booking id now comes from the last path segment (extractIdParam depth
+// 0) instead of the second-to-last, because `/notes` is no longer a path
+// segment but the `?action=notes` query parameter.
+//
+// The author is always the authenticated caller's own admin id
+// (auth.admin.id) — a browser-supplied author id in the request body is
+// never read or trusted.
+async function handleNotes(req, res, headers) {
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    res.writeHead(405, headers);
+    return res.end(JSON.stringify({ error: 'Method not allowed' }));
+  }
+
+  const auth = await verifyAdminRequest(req);
+  if (!auth.ok) {
+    res.writeHead(auth.status, headers);
+    return res.end(JSON.stringify({ error: auth.error }));
+  }
+
+  const bookingId = extractIdParam(req);
+  if (!isValidUuid(bookingId)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'Invalid booking id' }));
+  }
+
+  const supabase = getServiceClient();
+  if (!supabase) {
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: 'Server misconfiguration' }));
+  }
+
+  try {
+    const { data: booking, error: bookingErr } = await supabase
+      .from('bookings')
+      .select('id')
+      .eq('id', bookingId)
+      .maybeSingle();
+
+    if (bookingErr) {
+      console.error('[admin/api] notes: booking lookup failed:', bookingErr.code, bookingErr.message);
+      res.writeHead(500, headers);
+      return res.end(JSON.stringify({ error: 'Failed to load booking' }));
+    }
+
+    if (!booking) {
+      res.writeHead(404, headers);
+      return res.end(JSON.stringify({ error: 'Booking not found' }));
+    }
+
+    if (req.method === 'GET') {
+      const { data, error } = await supabase
+        .from('internal_notes')
+        .select(NOTE_SELECT)
+        .eq('booking_id', bookingId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('[admin/api] notes list failed:', error.code, error.message);
+        res.writeHead(500, headers);
+        return res.end(JSON.stringify({ error: 'Failed to load notes' }));
+      }
+
+      res.writeHead(200, headers);
+      return res.end(JSON.stringify({ notes: (data || []).map(toNote) }));
+    }
+
+    // POST
+    let body;
+    try {
+      body = await readJsonBody(req);
+    } catch (err) {
+      res.writeHead(400, headers);
+      return res.end(JSON.stringify({ error: err.message || 'Invalid request body' }));
+    }
+
+    const validated = validateNote(body.note);
+    if (!validated.ok) {
+      res.writeHead(400, headers);
+      return res.end(JSON.stringify({ error: validated.error }));
+    }
+
+    const { data: inserted, error: insertErr } = await supabase
+      .from('internal_notes')
+      .insert({
+        booking_id: bookingId,
+        author_admin_id: auth.admin.id,
+        note: validated.value,
+      })
+      .select(NOTE_SELECT)
+      .single();
+
+    if (insertErr) {
+      console.error('[admin/api] note insert failed:', insertErr.code, insertErr.message);
+      res.writeHead(500, headers);
+      return res.end(JSON.stringify({ error: 'Failed to save note' }));
+    }
+
+    console.log('[admin/api] note added | booking:', bookingId, '| admin:', auth.admin.id);
+
+    res.writeHead(201, headers);
+    res.end(JSON.stringify(toNote(inserted)));
+  } catch (err) {
+    console.error('[admin/api] notes unexpected error:', err?.message);
     res.writeHead(500, headers);
     res.end(JSON.stringify({ error: 'Internal server error' }));
   }

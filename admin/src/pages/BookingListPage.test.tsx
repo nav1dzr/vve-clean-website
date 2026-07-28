@@ -74,6 +74,29 @@ describe('BookingListPage', () => {
     expect(screen.getByRole('button', { name: /next/i })).toBeEnabled();
   });
 
+  it('hides a superseded booking by default, showing a hidden-count note instead', async () => {
+    const supersededRow = { ...sampleRow, id: '2', fullName: 'Natalie Ashton (abandoned attempt)', paymentStatus: 'pending_payment', superseded: true };
+    authFetchMock.mockResolvedValue({ results: [sampleRow, supersededRow], page: 1, pageSize: 20, totalCount: 2, hasMore: false });
+    renderList();
+
+    await screen.findAllByText('Jasmine Carter');
+    expect(screen.queryByText(/Natalie Ashton/)).not.toBeInTheDocument();
+    expect(screen.getByText(/1 likely-abandoned booking hidden/)).toBeInTheDocument();
+  });
+
+  it('reveals superseded bookings when "Show superseded" is ticked', async () => {
+    const supersededRow = { ...sampleRow, id: '2', fullName: 'Natalie Ashton (abandoned attempt)', paymentStatus: 'pending_payment', superseded: true };
+    authFetchMock.mockResolvedValue({ results: [sampleRow, supersededRow], page: 1, pageSize: 20, totalCount: 2, hasMore: false });
+    const user = userEvent.setup();
+    renderList();
+
+    await screen.findAllByText('Jasmine Carter');
+    await user.click(screen.getByRole('button', { name: /filters/i }));
+    await user.click(screen.getByLabelText(/show superseded/i));
+
+    expect(await screen.findAllByText(/Natalie Ashton/)).not.toHaveLength(0);
+  });
+
   it('sends the selected status filter to the API', async () => {
     authFetchMock.mockResolvedValue({ results: [], page: 1, pageSize: 20, totalCount: 0, hasMore: false });
     const user = userEvent.setup();

@@ -6,7 +6,7 @@ const getServiceClientMock = vi.fn();
 vi.mock('../../../api/_lib/adminAuth.js', () => ({ verifyAdminRequest: (...args) => verifyAdminRequestMock(...args) }));
 vi.mock('../../../api/_lib/supabaseAdmin.js', () => ({ getServiceClient: (...args) => getServiceClientMock(...args) }));
 
-const { default: handler } = await import('../../../api/bookings/[id]/notes.js');
+const { default: handler } = await import('../../../api/bookings/[id].js');
 
 function makeRes() {
   const res = {
@@ -24,7 +24,7 @@ function makeRes() {
   return res;
 }
 
-function makeReq(method, { url = '/api/bookings/x/notes', headers = { authorization: 'Bearer t' }, bodyObj } = {}) {
+function makeReq(method, { url = '/api/bookings/x?action=notes', headers = { authorization: 'Bearer t' }, bodyObj } = {}) {
   const raw = bodyObj === undefined ? '' : JSON.stringify(bodyObj);
   return {
     method,
@@ -70,7 +70,7 @@ function makeClient({ bookingLookup, notesQuery, notesInsert }) {
 
 const VALID_UUID = '123e4567-e89b-12d3-a456-426614174000';
 
-describe('/api/bookings/:id/notes', () => {
+describe('/api/bookings/:id?action=notes', () => {
   beforeEach(() => {
     verifyAdminRequestMock.mockReset();
     getServiceClientMock.mockReset();
@@ -79,14 +79,14 @@ describe('/api/bookings/:id/notes', () => {
   it('rejects unsupported methods', async () => {
     verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: { id: 'admin-1' } });
     const res = makeRes();
-    await handler(makeReq('DELETE', { url: `/api/bookings/${VALID_UUID}/notes` }), res);
+    await handler(makeReq('DELETE', { url: `/api/bookings/${VALID_UUID}?action=notes` }), res);
     expect(res.statusCode).toBe(405);
   });
 
   it('returns 401 for a missing/invalid token before touching the database', async () => {
     verifyAdminRequestMock.mockResolvedValue({ ok: false, status: 401, error: 'Missing bearer token' });
     const res = makeRes();
-    await handler(makeReq('GET', { url: `/api/bookings/${VALID_UUID}/notes` }), res);
+    await handler(makeReq('GET', { url: `/api/bookings/${VALID_UUID}?action=notes` }), res);
     expect(res.statusCode).toBe(401);
     expect(getServiceClientMock).not.toHaveBeenCalled();
   });
@@ -94,14 +94,14 @@ describe('/api/bookings/:id/notes', () => {
   it('returns 403 for an authenticated non-admin', async () => {
     verifyAdminRequestMock.mockResolvedValue({ ok: false, status: 403, error: 'Not an authorised admin' });
     const res = makeRes();
-    await handler(makeReq('GET', { url: `/api/bookings/${VALID_UUID}/notes` }), res);
+    await handler(makeReq('GET', { url: `/api/bookings/${VALID_UUID}?action=notes` }), res);
     expect(res.statusCode).toBe(403);
   });
 
   it('rejects an invalid booking UUID', async () => {
     verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: { id: 'admin-1' } });
     const res = makeRes();
-    await handler(makeReq('GET', { url: '/api/bookings/N15NJ180726/notes' }), res);
+    await handler(makeReq('GET', { url: '/api/bookings/N15NJ180726?action=notes' }), res);
     expect(res.statusCode).toBe(400);
   });
 
@@ -109,7 +109,7 @@ describe('/api/bookings/:id/notes', () => {
     verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: { id: 'admin-1' } });
     getServiceClientMock.mockReturnValue(makeClient({ bookingLookup: { data: null, error: null } }));
     const res = makeRes();
-    await handler(makeReq('GET', { url: `/api/bookings/${VALID_UUID}/notes` }), res);
+    await handler(makeReq('GET', { url: `/api/bookings/${VALID_UUID}?action=notes` }), res);
     expect(res.statusCode).toBe(404);
   });
 
@@ -128,7 +128,7 @@ describe('/api/bookings/:id/notes', () => {
       }),
     );
     const res = makeRes();
-    await handler(makeReq('GET', { url: `/api/bookings/${VALID_UUID}/notes` }), res);
+    await handler(makeReq('GET', { url: `/api/bookings/${VALID_UUID}?action=notes` }), res);
 
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
@@ -144,7 +144,7 @@ describe('/api/bookings/:id/notes', () => {
     getServiceClientMock.mockReturnValue(client);
 
     const res = makeRes();
-    await handler(makeReq('POST', { url: `/api/bookings/${VALID_UUID}/notes`, bodyObj: { note: '   ' } }), res);
+    await handler(makeReq('POST', { url: `/api/bookings/${VALID_UUID}?action=notes`, bodyObj: { note: '   ' } }), res);
 
     expect(res.statusCode).toBe(400);
     // Only the booking-existence lookup should have touched `from` — never internal_notes.
@@ -157,7 +157,7 @@ describe('/api/bookings/:id/notes', () => {
 
     const res = makeRes();
     await handler(
-      makeReq('POST', { url: `/api/bookings/${VALID_UUID}/notes`, bodyObj: { note: 'a'.repeat(2001) } }),
+      makeReq('POST', { url: `/api/bookings/${VALID_UUID}?action=notes`, bodyObj: { note: 'a'.repeat(2001) } }),
       res,
     );
 
@@ -191,7 +191,7 @@ describe('/api/bookings/:id/notes', () => {
     const res = makeRes();
     await handler(
       makeReq('POST', {
-        url: `/api/bookings/${VALID_UUID}/notes`,
+        url: `/api/bookings/${VALID_UUID}?action=notes`,
         bodyObj: { note: 'Note text', author_admin_id: 'attacker-supplied-id', authorAdminId: 'attacker-supplied-id' },
       }),
       res,
@@ -214,7 +214,7 @@ describe('/api/bookings/:id/notes', () => {
       }),
     );
     const res = makeRes();
-    await handler(makeReq('POST', { url: `/api/bookings/${VALID_UUID}/notes`, bodyObj: { note: 'Note text' } }), res);
+    await handler(makeReq('POST', { url: `/api/bookings/${VALID_UUID}?action=notes`, bodyObj: { note: 'Note text' } }), res);
 
     expect(res.body).not.toMatch(/confirmation_token|service.?role/i);
   });
@@ -228,7 +228,7 @@ describe('/api/bookings/:id/notes', () => {
       }),
     );
     const res = makeRes();
-    await handler(makeReq('GET', { url: `/api/bookings/${VALID_UUID}/notes` }), res);
+    await handler(makeReq('GET', { url: `/api/bookings/${VALID_UUID}?action=notes` }), res);
 
     expect(res.statusCode).toBe(500);
     expect(res.body).not.toContain('internal detail');

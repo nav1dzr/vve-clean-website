@@ -156,7 +156,7 @@ describe('/api/invoices/:id[?action=] dispatcher', () => {
     await handler(makeReq({ url: `/api/invoices/${invoiceId}?action=issue`, method: 'POST' }), res);
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
-    expect(body.invoiceNumber).toMatch(/^INV-\d{4}-000001$/);
+    expect(body.invoiceNumber).toMatch(/^VVE-INV-\d{4}-013245$/);
   });
 
   it('POST ?action=issue on an already-issued invoice returns 409', async () => {
@@ -661,7 +661,7 @@ describe('Vercel-style query param routing (req.query.id) + exact frontend reque
       url: `/api/invoices/${invoiceId}?action=issue`, method: 'POST', query: { id: invoiceId },
     }), res);
     expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body).invoiceNumber).toMatch(/^INV-\d{4}-000001$/);
+    expect(JSON.parse(res.body).invoiceNumber).toMatch(/^VVE-INV-\d{4}-013245$/);
   });
 
   it('dispatches ?action=preview with req.query.id set, matching authFetchBlob\'s exact request shape (GET, Authorization header only, no body)', async () => {
@@ -707,7 +707,7 @@ describe('Vercel-style query param routing (req.query.id) + exact frontend reque
       url: `/api/invoices/${invoiceId}?action=issue`, method: 'POST', query: { id: invoiceId },
     }), issueRes);
     expect(issueRes.statusCode).toBe(200);
-    expect(JSON.parse(issueRes.body).invoiceNumber).toMatch(/^INV-\d{4}-000001$/);
+    expect(JSON.parse(issueRes.body).invoiceNumber).toMatch(/^VVE-INV-\d{4}-013245$/);
 
     const detailRes = makeRes();
     await handler(makeReq({ url: `/api/invoices/${invoiceId}`, query: { id: invoiceId } }), detailRes);

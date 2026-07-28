@@ -23,7 +23,7 @@ export function corsHeaders(origin) {
 
   return {
     'Access-Control-Allow-Origin': useOrigin || 'null',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
     Vary: 'Origin',
   };

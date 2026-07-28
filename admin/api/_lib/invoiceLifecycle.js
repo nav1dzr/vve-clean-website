@@ -444,6 +444,38 @@ export async function issueInvoice(supabase, invoiceId, adminId, { generateAndSt
     }
   }
 
+  // If this invoice is a revision of an earlier issued invoice, mark the
+  // original as superseded now that the replacement is confirmed issued.
+  // Done after PDF generation so a PDF failure does not block superseding.
+  // If the supersede update itself fails the issue is still valid — the
+  // original simply remains un-superseded (safe; both are fully visible).
+  // The guarded IS NULL filter prevents double-superseding in the unlikely
+  // case of a concurrent revision being issued against the same original.
+  const originalId = invoice.revised_from_invoice_id ?? null;
+  if (originalId) {
+    const nowSupersede = nowIso();
+    const { data: superseded, error: supersedeErr } = await supabase
+      .from('invoices')
+      .update({ superseded_by_invoice_id: invoiceId, superseded_at: nowSupersede, updated_at: nowSupersede })
+      .eq('id', originalId)
+      .eq('document_status', 'issued')
+      .is('superseded_by_invoice_id', null)
+      .select('id')
+      .maybeSingle();
+
+    if (supersedeErr) {
+      console.error('[admin/api] issueInvoice: supersede original failed:', supersedeErr.code, supersedeErr.message);
+    } else if (superseded) {
+      await logEvent(supabase, {
+        documentType: 'invoice',
+        documentId: originalId,
+        eventType: 'superseded',
+        adminId,
+        metadata: { supersededById: invoiceId, supersededByNumber: issued.invoice_number },
+      });
+    }
+  }
+
   return { ok: true, invoiceNumber: issued.invoice_number };
 }
 
@@ -473,6 +505,149 @@ export async function voidInvoice(supabase, invoiceId, reason, adminId) {
   });
 
   return { ok: true };
+}
+
+// "Revise issued invoice" — safe replacement workflow.
+//
+// Creates a new editable draft copying all content fields from the original.
+// Does NOT mark the original as superseded — that only happens when the
+// revised draft is successfully issued (see the supersede block inside
+// issueInvoice). If the draft is abandoned the original remains fully active.
+//
+// Eligibility: source must be issued, unpaid (payment_status = 'unpaid'),
+// have no associated receipt, and not already superseded.
+export async function reviseIssuedInvoice(supabase, originalInvoiceId, adminId) {
+  const { data: original, error: fetchErr } = await supabase
+    .from('invoices')
+    .select('*')
+    .eq('id', originalInvoiceId)
+    .maybeSingle();
+
+  if (fetchErr) return { ok: false, error: 'Failed to load invoice' };
+  if (!original) return { ok: false, error: 'Invoice not found', status: 404 };
+
+  if (original.document_status !== 'issued') {
+    return { ok: false, error: 'Only an issued invoice can be revised', status: 409 };
+  }
+  if (original.payment_status !== 'unpaid') {
+    return {
+      ok: false,
+      error: 'This invoice has payment activity and cannot be directly revised. A credit-note or accounting adjustment workflow is required.',
+      status: 409,
+    };
+  }
+  if (original.superseded_by_invoice_id) {
+    return { ok: false, error: 'This invoice has already been superseded and cannot be revised again', status: 409 };
+  }
+
+  // A receipt exists only when payment_status = 'paid', so this is a
+  // defensive belt-and-braces check rather than a practical guard —
+  // the payment_status check above would already reject any invoice that
+  // has generated a receipt through the normal recordPayment flow.
+  const { data: receipts, error: receiptsErr } = await supabase
+    .from('receipts')
+    .select('id')
+    .eq('invoice_id', originalInvoiceId);
+  if (receiptsErr) return { ok: false, error: 'Failed to check for existing receipts' };
+  if (receipts && receipts.length > 0) {
+    return {
+      ok: false,
+      error: 'This invoice has payment activity and cannot be directly revised. A credit-note or accounting adjustment workflow is required.',
+      status: 409,
+    };
+  }
+
+  const { data: items, error: itemsErr } = await supabase
+    .from('invoice_items')
+    .select('description, quantity, unit_price, line_discount, line_total, sort_order')
+    .eq('invoice_id', originalInvoiceId)
+    .order('sort_order', { ascending: true });
+  if (itemsErr) return { ok: false, error: 'Failed to load invoice line items' };
+
+  const totalsResult = calculateInvoiceTotals({
+    items: (items || []).map((i) => ({ description: i.description, quantity: i.quantity, unitPrice: i.unit_price, lineDiscount: i.line_discount })),
+    documentDiscount: original.document_discount || 0,
+    depositApplied: original.deposit_applied || 0,
+    payments: [],
+  });
+  if (!totalsResult.ok) return { ok: false, error: totalsResult.error };
+
+  const { data: newInvoice, error: insertErr } = await supabase
+    .from('invoices')
+    .insert({
+      booking_id: original.booking_id,
+      customer_name: original.customer_name,
+      customer_email: original.customer_email,
+      customer_phone: original.customer_phone,
+      customer_address: original.customer_address,
+      customer_postcode: original.customer_postcode,
+      po_reference: original.po_reference,
+      due_date: original.due_date,
+      service_date: original.service_date,
+      booking_ref_snapshot: original.booking_ref_snapshot,
+      subtotal: totalsResult.totals.subtotal,
+      document_discount: totalsResult.totals.documentDiscount,
+      tax_total: totalsResult.totals.taxTotal,
+      total: totalsResult.totals.total,
+      deposit_applied: totalsResult.totals.depositApplied,
+      amount_paid: 0,
+      amount_due: totalsResult.totals.amountDue,
+      customer_notes: original.customer_notes,
+      internal_notes: original.internal_notes,
+      payment_terms: original.payment_terms,
+      document_status: 'draft',
+      payment_status: 'unpaid',
+      created_by_admin_id: adminId,
+      payment_option: original.payment_option,
+      stripe_payment_link_url: original.stripe_payment_link_url,
+      service_contact_name: original.service_contact_name,
+      service_contact_email: original.service_contact_email,
+      service_contact_phone: original.service_contact_phone,
+      service_address: original.service_address,
+      service_contact_postcode: original.service_contact_postcode,
+      invoice_recipient_email: original.invoice_recipient_email,
+      receipt_recipient_email: original.receipt_recipient_email,
+      billing_customer_id: original.billing_customer_id,
+      service_customer_id: original.service_customer_id,
+      // Revision links — NOT copied from original:
+      revised_from_invoice_id: originalInvoiceId,
+      revised_from_invoice_number: original.invoice_number,
+      revised_from_issue_date: original.issue_date,
+      // payment_instructions_snapshot deliberately NOT carried forward —
+      // rebuilt fresh from current settings at issue time (same as duplicate).
+    })
+    .select('id')
+    .single();
+
+  if (insertErr) {
+    console.error('[admin/api] invoice revise create failed:', insertErr.code, insertErr.message);
+    return { ok: false, error: 'Failed to create revised draft' };
+  }
+
+  const itemRows = totalsResult.totals.lineItems.map((item, index) => ({
+    invoice_id: newInvoice.id,
+    description: item.description,
+    quantity: item.quantity,
+    unit_price: item.unitPrice,
+    line_discount: item.lineDiscount || 0,
+    line_total: item.lineTotal,
+    sort_order: index,
+  }));
+  const { error: itemsInsertErr } = await supabase.from('invoice_items').insert(itemRows);
+  if (itemsInsertErr) {
+    await supabase.from('invoices').delete().eq('id', newInvoice.id);
+    return { ok: false, error: 'Failed to copy invoice line items' };
+  }
+
+  await logEvent(supabase, {
+    documentType: 'invoice',
+    documentId: newInvoice.id,
+    eventType: 'revision_created',
+    adminId,
+    metadata: { revisedFromId: originalInvoiceId, revisedFromNumber: original.invoice_number },
+  });
+
+  return { ok: true, invoiceId: newInvoice.id };
 }
 
 // "Duplicate as corrected draft" — the only way to change an issued

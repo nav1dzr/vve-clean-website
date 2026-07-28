@@ -1,0 +1,24 @@
+# Codex checkpoint
+
+- Current branch: `feature/website-final-completion`
+- Base: `f6bc7b0` (frozen release tip `release/vve-v2-pricing-admin` — not modified)
+- Status: ALL PHASES COMPLETE — awaiting Preview deploy and owner review before merge to main
+- Completed phases: 1, 2, 3, 4, 5, 6, 7, 8
+- Latest test results:
+  - Root `npm run typecheck`: PASS
+  - Root `npm run lint`: PASS — 0 errors, 2 pre-existing Fast Refresh warnings
+  - Root `npx vitest run`: PASS — 390/390
+  - Root build: PASS — 12 public routes prerendered
+  - Admin `npm run typecheck`: PASS
+  - Admin `npm run lint`: PASS — 0 errors, 1 pre-existing warning
+  - Admin `npx vitest run`: PASS — 626 passing / 1 todo
+  - Admin build: PASS — 12 serverless functions (at cap)
+- Manual review required:
+  - Live review widget (existing 3 coded reviews stay unchanged)
+  - Google Ads Primary/Secondary action configuration (AW-18214693277)
+  - GA4 property (G-XXXXXXXX) — not yet configured
+  - Desktop carpet hero image (`public/images/carpet-hero-desktop.jpg`) — missing; HeroBackground falls back gracefully
+  - Responsive visual audit at 360/390/768/1440px (Phase 4 stretch items)
+- Final git status: clean tracked tree; known untracked `.playwright-mcp/`, `admin/scripts/`, `docs/`, `scripts/check-crm-readiness.mjs`
+- Next action: owner to deploy feature/website-final-completion to Vercel Preview, validate, then merge to main
+- DO NOT deploy, merge or push to main without owner instruction

@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
+import { Building2, Coffee, ShoppingBag, Key } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import MobileStickyFooter from '../components/MobileStickyFooter';
+import {
+  COMMERCIAL_REGULAR_HOURLY_P,
+  COMMERCIAL_REGULAR_MIN_CHARGE_P,
+  COMMERCIAL_ONCEOFF_HOURLY_P,
+  COMMERCIAL_ONCEOFF_MIN_CHARGE_P,
+  COMMERCIAL_SHOP_CAFE_FROM_P,
+  COMMERCIAL_COMMUNAL_FROM_P,
+  COMMERCIAL_EOL_FROM_P,
+  COMMERCIAL_AFTER_BUILDERS_FROM_P,
+} from '../data/pricing';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -55,22 +66,22 @@ function useRevealLocal() {
 
 const WHO_CARDS = [
   {
-    icon: '🏢',
+    icon: <Building2 size={28} />,
     title: 'Offices & studios',
     body: 'Daily and weekly contracts, with out-of-hours visits so we never disturb your team. The same cleaner every time — they learn your site.',
   },
   {
-    icon: '☕',
+    icon: <Coffee size={28} />,
     title: 'Shops, cafés & restaurants',
     body: 'Front-of-house presentation cleans before you open: floors, glass, washrooms. Priced per visit, invoiced monthly.',
   },
   {
-    icon: '🏬',
+    icon: <ShoppingBag size={28} />,
     title: 'Communal areas — blocks & landlords',
     body: 'Hallways, stairwells, lifts and bin stores on a weekly or fortnightly schedule. One invoice for the whole block.',
   },
   {
-    icon: '🔑',
+    icon: <Key size={28} />,
     title: 'End-of-lease commercial',
     body: 'Full handover cleans for offices and retail units, including carpets, windows and deep sanitisation, ready to re-let.',
   },
@@ -89,12 +100,15 @@ const INCLUDED = [
 
 // ─── Section: Rates ───────────────────────────────────────────────────────────
 
+const p = (pence: number) => `£${pence / 100}`;
+
 const RATES = [
-  { label: 'Office cleaning', price: 'from £20/hour' },
-  { label: 'Communal areas, small block', price: 'from £70/month' },
-  { label: 'Communal areas, large block', price: 'from £140/month' },
-  { label: 'Shop/café presentation clean', price: 'from £35/visit' },
-  { label: 'End-of-lease commercial clean', price: 'from £249 fixed' },
+  { label: 'Regular contract cleaning',         price: `from ${p(COMMERCIAL_REGULAR_HOURLY_P)}/cleaner-hour · min ${p(COMMERCIAL_REGULAR_MIN_CHARGE_P)}/visit` },
+  { label: 'One-off commercial deep clean',      price: `from ${p(COMMERCIAL_ONCEOFF_HOURLY_P)}/cleaner-hour · min ${p(COMMERCIAL_ONCEOFF_MIN_CHARGE_P)}` },
+  { label: 'Shop or café presentation clean',    price: `from ${p(COMMERCIAL_SHOP_CAFE_FROM_P)}/visit` },
+  { label: 'Communal areas',                     price: `from ${p(COMMERCIAL_COMMUNAL_FROM_P)}/visit` },
+  { label: 'End-of-lease commercial clean',      price: `from ${p(COMMERCIAL_EOL_FROM_P)}` },
+  { label: 'Commercial after-builders clean',    price: `from ${p(COMMERCIAL_AFTER_BUILDERS_FROM_P)}` },
 ];
 
 // ─── Section: How it works ────────────────────────────────────────────────────
@@ -198,13 +212,13 @@ export default function CommercialPage() {
               Commercial cleaning that<br className="hidden sm:block" />
               <span className="text-gradient-metallic"> shows up. Every time.</span>
             </h1>
-            <p className="text-silver-300 text-lg max-w-2xl mx-auto mb-8 leading-relaxed">
+            <p className="text-silver-300 text-base sm:text-lg max-w-2xl mx-auto mb-5 sm:mb-8 leading-relaxed">
               Offices, shops, cafés and the communal areas of residential blocks across East &amp; North London.
               Free site visit within 48 hours, fixed written quote the same day, invoiced monthly.
             </p>
 
             {/* Trust row */}
-            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-10 text-silver-400 text-sm">
+            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-6 sm:mb-10 text-silver-400 text-[13px] sm:text-sm">
               <span className="flex items-center gap-1.5">
                 <span className="text-sky-400 font-bold">✓</span> £5m public liability insured
               </span>
@@ -222,7 +236,7 @@ export default function CommercialPage() {
                 href={WA_COMMERCIAL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                className="btn-whatsapp inline-flex items-center gap-2.5 font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 {WA_SVG}
                 Book a free site visit
@@ -257,7 +271,7 @@ export default function CommercialPage() {
                   className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300"
                   style={{ transitionDelay: `${i * 80}ms` }}
                 >
-                  <span className="text-3xl mb-4 block" aria-hidden="true">{card.icon}</span>
+                  <div className="mb-4 text-royal-500" aria-hidden="true">{card.icon}</div>
                   <h3 className="font-display font-bold text-navy-900 text-lg leading-snug mb-2">{card.title}</h3>
                   <p className="text-slate-500 text-sm leading-relaxed">{card.body}</p>
                 </div>
@@ -426,7 +440,7 @@ export default function CommercialPage() {
                 href={WA_COMMERCIAL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                className="btn-whatsapp inline-flex items-center gap-2.5 font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 {WA_SVG}
                 WhatsApp us your address

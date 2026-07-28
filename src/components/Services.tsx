@@ -1,13 +1,18 @@
 import { Link } from 'react-router-dom';
 import { useReveal } from '../hooks/useReveal';
 import { SERVICE_IMAGES } from '../data/services';
+import {
+  EOT_BASE_PRICES_P,
+  MOVEIN_BASE_PRICES_P,
+  AFTER_BUILDERS_START_FROM_P,
+} from '../data/pricing';
 
 const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
 
 const services = [
   {
     title: 'End of tenancy cleaning',
-    price: 'FROM £159 FIXED',
+    price: `FROM £${EOT_BASE_PRICES_P.studio / 100} FIXED`,
     priceFixed: true,
     description:
       'Vacant properties only. Our 67-point agency checklist: inside cupboards, appliances, oven included free, bathrooms descaled, internal windows. 48-hour re-clean guarantee.',
@@ -19,7 +24,7 @@ const services = [
   },
   {
     title: 'Move-in deep clean',
-    price: 'FROM £139 FIXED',
+    price: `FROM £${MOVEIN_BASE_PRICES_P.studio / 100} FIXED`,
     priceFixed: true,
     description:
       'A vacant-property deep clean before you move in — or between tenancies for landlords. Start fresh in a property cleaned to checklist standard.',
@@ -30,7 +35,7 @@ const services = [
   },
   {
     title: 'After builders clean',
-    price: 'FROM £199',
+    price: `FROM £${AFTER_BUILDERS_START_FROM_P / 100}`,
     priceFixed: false,
     description:
       'Fine dust, paint specks, sticker residue and debris. Final price confirmed after a quick photo via WhatsApp — we\'ll reply within the hour.',
@@ -103,7 +108,7 @@ export default function Services() {
   const { ref, visible } = useReveal();
 
   return (
-    <section id="services" ref={ref} className="py-24 bg-[#f5f5f0]">
+    <section id="services" ref={ref} className="py-24 bg-[#f5f5f0] scroll-mt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div
@@ -156,21 +161,29 @@ export default function Services() {
                     href={s.ctaHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`text-sm font-semibold transition-colors ${s.featured ? 'text-white hover:text-[#d4a017]' : 'text-[#1c7a4a] hover:text-[#155f39]'}`}
+                    className="btn-whatsapp inline-flex items-center justify-center gap-1.5 self-start px-5 py-2.5 min-h-[44px] rounded-lg text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1aa851]"
                   >
                     {s.cta}
                   </a>
                 ) : s.ctaHref.startsWith('/') ? (
                   <Link
                     to={s.ctaHref}
-                    className={`text-sm font-semibold transition-colors ${s.featured ? 'text-white hover:text-[#d4a017]' : 'text-[#1c7a4a] hover:text-[#155f39]'}`}
+                    className={`inline-flex items-center justify-center gap-1.5 self-start px-5 py-2.5 min-h-[44px] rounded-lg text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                      s.featured
+                        ? 'bg-white text-[#1c3d24] hover:bg-silver-100 focus-visible:outline-white'
+                        : 'bg-royal-500 text-white hover:bg-royal-600 focus-visible:outline-royal-600'
+                    }`}
                   >
                     {s.cta}
                   </Link>
                 ) : (
                   <a
                     href={s.ctaHref}
-                    className={`text-sm font-semibold transition-colors ${s.featured ? 'text-white hover:text-[#d4a017]' : 'text-[#1c7a4a] hover:text-[#155f39]'}`}
+                    className={`inline-flex items-center justify-center gap-1.5 self-start px-5 py-2.5 min-h-[44px] rounded-lg text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                      s.featured
+                        ? 'bg-white text-[#1c3d24] hover:bg-silver-100 focus-visible:outline-white'
+                        : 'bg-royal-500 text-white hover:bg-royal-600 focus-visible:outline-royal-600'
+                    }`}
                   >
                     {s.cta}
                   </a>

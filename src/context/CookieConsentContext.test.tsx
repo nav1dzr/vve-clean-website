@@ -219,8 +219,8 @@ describe('CookieConsentProvider — Accept and Reject are equally easy to find',
     // was styled as visually dominant over the other.
     expect(acceptClasses).toContain('min-h-[44px]');
     expect(rejectClasses).toContain('min-h-[44px]');
-    expect(acceptClasses).toContain('px-5 rounded-lg text-sm font-semibold');
-    expect(rejectClasses).toContain('px-5 rounded-lg text-sm font-semibold');
+    expect(acceptClasses).toContain('px-3 sm:px-5 rounded-lg text-xs sm:text-sm font-semibold');
+    expect(rejectClasses).toContain('px-3 sm:px-5 rounded-lg text-xs sm:text-sm font-semibold');
   });
 
   it('gives every actionable control at least a 44px minimum tap target', () => {

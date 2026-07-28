@@ -188,6 +188,36 @@ describe('getCustomerDetail', () => {
     expect(result.ok).toBe(false);
     expect(result.status).toBe(404);
   });
+
+  it('matches a booking whose phone was stored in a different format (+44 vs leading 0) — D20', async () => {
+    const supabase = createFakeSupabase({
+      customers: [{ id: 'c-1', name: 'Jane', email: null, phone: '07700900123', postcode: null, customer_type: 'individual', source: 'other' }],
+      bookings: [
+        { id: 'b-1', booking_ref: 'REF1', full_name: 'Jane', email: 'jane@example.com', phone: '+447700900123', postcode: 'N15', service: 'Deep clean', preferred_date: null, preferred_time: null, service_date: null, status: 'new', payment_status: 'paid', balance_status: 'not_due', total_price: 200, created_at: '2026-01-01T00:00:00Z' },
+      ],
+      invoices: [],
+      receipts: [],
+    });
+
+    const result = await getCustomerDetail(supabase, 'c-1');
+    expect(result.bookings.map((b) => b.id)).toEqual(['b-1']);
+  });
+});
+
+describe('phoneMatchCandidates (via getCustomerDetail)', () => {
+  it('does not match an unrelated phone number', async () => {
+    const supabase = createFakeSupabase({
+      customers: [{ id: 'c-1', name: 'Jane', email: null, phone: '07700900123', postcode: null, customer_type: 'individual', source: 'other' }],
+      bookings: [
+        { id: 'b-1', booking_ref: 'REF1', full_name: 'Someone Else', email: 'other@example.com', phone: '07111222333', postcode: 'E1', service: 'Other', preferred_date: null, preferred_time: null, service_date: null, status: 'new', payment_status: 'paid', balance_status: 'not_due', total_price: 50, created_at: '2026-01-02T00:00:00Z' },
+      ],
+      invoices: [],
+      receipts: [],
+    });
+
+    const result = await getCustomerDetail(supabase, 'c-1');
+    expect(result.bookings).toHaveLength(0);
+  });
 });
 
 describe('listCustomers', () => {
@@ -248,5 +278,53 @@ describe('createManualBooking', () => {
     const result = await createManualBooking(supabase, 'missing', { service: 'Deep clean' }, 'admin-1');
     expect(result.ok).toBe(false);
     expect(result.status).toBe(404);
+  });
+
+  // fakeSupabase.js is a plain in-memory array with no unique-constraint
+  // enforcement, so a booking_ref collision (same race class as
+  // api/create-checkout-session.js's buildBookingRef — see
+  // api/stripe-webhook.js's upsertBookingWithRefRetry) needs a
+  // purpose-built minimal mock instead, isolated to this one test so the
+  // shared fake isn't changed for every other test file that uses it.
+  it('retries with a tie-breaking suffix when the manual booking_ref collides (23505), instead of failing outright', async () => {
+    const insertCalls = [];
+    const supabase = {
+      from(table) {
+        if (table === 'customers') {
+          return {
+            select: () => ({
+              eq: () => ({ maybeSingle: () => Promise.resolve({ data: { id: 'c-1', name: 'Jane Doe', email: 'jane@example.com', phone: null, address: null, postcode: 'N15 2NG' }, error: null }) }),
+            }),
+          };
+        }
+        if (table === 'bookings') {
+          return {
+            select: () => ({ like: () => Promise.resolve({ data: [], error: null }) }),
+            insert: (row) => ({
+              select: () => ({
+                single: () => {
+                  insertCalls.push(row);
+                  if (insertCalls.length === 1) {
+                    return Promise.resolve({ data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } });
+                  }
+                  return Promise.resolve({ data: { id: 'b-new', booking_ref: row.booking_ref }, error: null });
+                },
+              }),
+            }),
+          };
+        }
+        if (table === 'internal_notes') {
+          return { insert: () => Promise.resolve({ error: null }) };
+        }
+        throw new Error(`unexpected table: ${table}`);
+      },
+    };
+
+    const result = await createManualBooking(supabase, 'c-1', { service: 'Deep clean', serviceDate: '2026-08-01' }, 'admin-1');
+
+    expect(result.ok).toBe(true);
+    expect(insertCalls).toHaveLength(2);
+    expect(insertCalls[1].booking_ref).toBe(`${insertCalls[0].booking_ref}-1`);
+    expect(result.bookingRef).toBe(insertCalls[1].booking_ref);
   });
 });

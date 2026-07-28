@@ -13,15 +13,14 @@ vi.mock('../../../api/_lib/mailer.js', () => ({
   isMailerConfigured: (...args) => isMailerConfiguredMock(...args),
 }));
 
-// Covers admin/api/receipts/[[...segments]].js — the single dispatcher that
-// replaced the earlier admin/api/receipts/index.js +
-// admin/api/receipts/[id]/[[...action]].js pair (see that file's header
-// comment for why: freeing a function slot for admin/api/customers/
-// [[...segments]].js within the admin Vercel project's 12-function
-// budget). Every assertion below is carried over unchanged from the two
-// files it replaces — only the import path and "no id segment" list-route
-// tests are new.
-const { default: handler } = await import('../../../api/receipts/[[...segments]].js');
+// Covers admin/api/receipts/index.js — the consolidated query-string
+// dispatcher that replaced admin/api/receipts/[[...segments]].js. The
+// catch-all syntax was confirmed broken on this project's Vercel router
+// (the entire bracket interior was treated as a literal one-segment
+// parameter name, so /api/receipts itself 404'd before any code ran).
+// Every action is now expressed as a query-string parameter (?id=&action=)
+// so Vercel's file-system router never needs to inspect path segments.
+const { default: handler } = await import('../../../api/receipts/index.js');
 const { createReceiptIfPaid } = await import('../../../api/_lib/receiptLifecycle.js');
 
 function makeRes() {
@@ -102,7 +101,7 @@ describe('GET /api/receipts (list)', () => {
   });
 });
 
-describe('/api/receipts/:id[/action] dispatcher', () => {
+describe('/api/receipts?id=<uuid>[&action] dispatcher', () => {
   beforeEach(() => {
     verifyAdminRequestMock.mockReset();
     getServiceClientMock.mockReset();
@@ -116,14 +115,14 @@ describe('/api/receipts/:id[/action] dispatcher', () => {
   it('rejects an invalid receipt id', async () => {
     getServiceClientMock.mockReturnValue(createFakeSupabase());
     const res = makeRes();
-    await handler(makeReq({ url: '/api/receipts/not-a-uuid' }), res);
+    await handler(makeReq({ url: '/api/receipts?id=not-a-uuid' }), res);
     expect(res.statusCode).toBe(400);
   });
 
   it('returns 404 for a missing receipt', async () => {
     getServiceClientMock.mockReturnValue(createFakeSupabase());
     const res = makeRes();
-    await handler(makeReq({ url: `/api/receipts/${VALID_UUID}` }), res);
+    await handler(makeReq({ url: `/api/receipts?id=${VALID_UUID}` }), res);
     expect(res.statusCode).toBe(404);
   });
 
@@ -133,7 +132,7 @@ describe('/api/receipts/:id[/action] dispatcher', () => {
     const { receiptId } = await seedReceipt(supabase);
 
     const res = makeRes();
-    await handler(makeReq({ url: `/api/receipts/${receiptId}` }), res);
+    await handler(makeReq({ url: `/api/receipts?id=${receiptId}` }), res);
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body).receiptNumber).toMatch(/^REC-\d{4}-000001$/);
   });
@@ -144,7 +143,7 @@ describe('/api/receipts/:id[/action] dispatcher', () => {
     const { receiptId } = await seedReceipt(supabase);
 
     const res = makeRes();
-    await handler(makeReq({ url: `/api/receipts/${receiptId}/events` }), res);
+    await handler(makeReq({ url: `/api/receipts?id=${receiptId}&action=events` }), res);
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body).results.map((e) => e.eventType)).toEqual(['receipt_created']);
   });
@@ -155,7 +154,7 @@ describe('/api/receipts/:id[/action] dispatcher', () => {
     const { receiptId } = await seedReceipt(supabase); // no PDF generator injected — download must generate on the fly
 
     const res = makeRes();
-    await handler(makeReq({ url: `/api/receipts/${receiptId}/download` }), res);
+    await handler(makeReq({ url: `/api/receipts?id=${receiptId}&action=download` }), res);
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
     expect(body.url).toMatch(/^https:\/\/fake-storage\.test\/financial-documents\/receipts\//);
@@ -167,7 +166,7 @@ describe('/api/receipts/:id[/action] dispatcher', () => {
   it('GET download returns 404 for a missing receipt', async () => {
     getServiceClientMock.mockReturnValue(createFakeSupabase());
     const res = makeRes();
-    await handler(makeReq({ url: `/api/receipts/${VALID_UUID}/download` }), res);
+    await handler(makeReq({ url: `/api/receipts?id=${VALID_UUID}&action=download` }), res);
     expect(res.statusCode).toBe(404);
   });
 
@@ -177,7 +176,7 @@ describe('/api/receipts/:id[/action] dispatcher', () => {
     const { receiptId } = await seedReceipt(supabase);
 
     const res = makeRes();
-    await handler(makeReq({ url: `/api/receipts/${receiptId}/send`, method: 'POST', bodyObj: {} }), res);
+    await handler(makeReq({ url: `/api/receipts?id=${receiptId}&action=send`, method: 'POST', bodyObj: {} }), res);
     expect(res.statusCode).toBe(200);
     expect(sendMailMock.mock.calls[0][0].to).toBe('jane@example.com');
     expect(sendMailMock.mock.calls[0][0].attachments[0].contentType).toBe('application/pdf');
@@ -194,9 +193,9 @@ describe('/api/receipts/:id[/action] dispatcher', () => {
     getServiceClientMock.mockReturnValue(supabase);
     const { receiptId } = await seedReceipt(supabase);
 
-    await handler(makeReq({ url: `/api/receipts/${receiptId}/send`, method: 'POST', bodyObj: {} }), makeRes());
+    await handler(makeReq({ url: `/api/receipts?id=${receiptId}&action=send`, method: 'POST', bodyObj: {} }), makeRes());
     const res = makeRes();
-    await handler(makeReq({ url: `/api/receipts/${receiptId}/resend`, method: 'POST', bodyObj: {} }), res);
+    await handler(makeReq({ url: `/api/receipts?id=${receiptId}&action=resend`, method: 'POST', bodyObj: {} }), res);
     expect(res.statusCode).toBe(200);
 
     const events = supabase._tables.invoice_events.filter((e) => e.document_id === receiptId && (e.event_type === 'sent' || e.event_type === 'resent'));
@@ -209,7 +208,7 @@ describe('/api/receipts/:id[/action] dispatcher', () => {
     const { receiptId } = await seedReceipt(supabase);
 
     const res = makeRes();
-    await handler(makeReq({ url: `/api/receipts/${receiptId}/send`, method: 'POST', bodyObj: { to: 'not-an-email' } }), res);
+    await handler(makeReq({ url: `/api/receipts?id=${receiptId}&action=send`, method: 'POST', bodyObj: { to: 'not-an-email' } }), res);
     expect(res.statusCode).toBe(400);
     expect(sendMailMock).not.toHaveBeenCalled();
   });
@@ -221,7 +220,7 @@ describe('/api/receipts/:id[/action] dispatcher', () => {
     const { receiptId } = await seedReceipt(supabase);
 
     const res = makeRes();
-    await handler(makeReq({ url: `/api/receipts/${receiptId}/send`, method: 'POST', bodyObj: {} }), res);
+    await handler(makeReq({ url: `/api/receipts?id=${receiptId}&action=send`, method: 'POST', bodyObj: {} }), res);
     expect(res.statusCode).toBe(502);
 
     const receipt = supabase._tables.receipts.find((r) => r.id === receiptId);
@@ -234,7 +233,7 @@ describe('/api/receipts/:id[/action] dispatcher', () => {
     const { receiptId } = await seedReceipt(supabase, { recipientEmailOverride: 'landlord@example.com' });
 
     const res = makeRes();
-    await handler(makeReq({ url: `/api/receipts/${receiptId}/send`, method: 'POST', bodyObj: {} }), res);
+    await handler(makeReq({ url: `/api/receipts?id=${receiptId}&action=send`, method: 'POST', bodyObj: {} }), res);
     expect(res.statusCode).toBe(200);
     expect(sendMailMock.mock.calls[0][0].to).toBe('landlord@example.com');
   });

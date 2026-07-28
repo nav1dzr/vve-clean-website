@@ -57,6 +57,7 @@ export default function InvoiceEditorPage() {
                 unitPrice: b.totalPrice || 0,
                 lineDiscount: 0,
               }],
+              poReference: b.bookingRef || '',
               serviceDate: b.serviceDate || '',
               depositApplied: b.depositAmount || 0,
             }),

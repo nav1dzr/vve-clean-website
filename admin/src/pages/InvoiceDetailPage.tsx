@@ -4,7 +4,7 @@ import { authFetch, authFetchBlob, ApiError } from '../lib/authFetch';
 import { openPdfBlob } from '../lib/pdf';
 import type {
   InvoiceDetail, InvoiceDraftInput, IssueResponse, DownloadUrlResponse,
-  RecordPaymentResponse, DuplicateResponse, InvoiceEvent, InvoiceEventsResponse, SendResponse,
+  RecordPaymentResponse, DuplicateResponse, ReviseResponse, InvoiceEvent, InvoiceEventsResponse, SendResponse,
   ReceiptListResponse,
 } from '../types/invoice';
 import InvoiceItemsForm, { emptyFormValue } from '../components/InvoiceItemsForm';
@@ -40,7 +40,7 @@ export default function InvoiceDetailPage() {
   const [receiptId, setReceiptId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [modal, setModal] = useState<null | 'payment' | 'void' | 'send' | 'remind'>(null);
+  const [modal, setModal] = useState<null | 'payment' | 'void' | 'send' | 'remind' | 'revise'>(null);
   const [pendingAction, setPendingAction] = useState<null | 'issue' | 'delete'>(null);
 
   function load() {
@@ -114,6 +114,19 @@ export default function InvoiceDetailPage() {
       navigate(`/invoices/${result.invoiceId}`);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Could not duplicate this invoice.');
+      setBusy(false);
+    }
+  }
+
+  async function handleRevise() {
+    if (!id) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      const result = await authFetch<ReviseResponse>(`/api/invoices/${id}?action=revise`, { method: 'POST' });
+      navigate(`/invoices/${result.invoiceId}`);
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not create a revised draft.');
       setBusy(false);
     }
   }
@@ -248,6 +261,8 @@ export default function InvoiceDetailPage() {
 
   const inv = state.data;
   const isDraft = inv.documentStatus === 'draft';
+  const isSuperseded = !!(inv.supersededByInvoiceId);
+  const isRevision = !!(inv.revisedFromInvoiceId);
   const overdue = isInvoiceOverdue(inv.documentStatus, inv.amountDue, inv.dueDate);
 
   if (isDraft) {
@@ -291,6 +306,20 @@ export default function InvoiceDetailPage() {
             This is a draft — no formal number is allocated yet. Save your changes, then issue it when it&apos;s ready.
           </p>
         </div>
+        {isRevision && (
+          <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+            <p className="font-semibold mb-1">Revised invoice draft</p>
+            <p>
+              This draft will replace{' '}
+              <Link to={`/invoices/${inv.revisedFromInvoiceId}`} className="text-sky-600 hover:text-sky-700 font-medium">
+                {inv.revisedFromInvoiceNumber || 'the original invoice'}
+              </Link>
+              {inv.revisedFromIssueDate ? ` (issued ${inv.revisedFromIssueDate})` : ''}.
+              {' '}The original will be marked Superseded only after this revised invoice is successfully issued.
+              Nothing will be sent to the customer automatically.
+            </p>
+          </div>
+        )}
 
         <InvoiceItemsForm
           initial={initial}
@@ -354,11 +383,37 @@ export default function InvoiceDetailPage() {
           <StatusBadge {...invoiceDocumentStatusBadge(inv.documentStatus)} />
           <StatusBadge {...invoicePaymentStatusBadge(inv.paymentStatus)} />
           {overdue && <StatusBadge label="Overdue" className="bg-red-100 text-red-700" />}
+          {isSuperseded && <StatusBadge label="Superseded" className="bg-slate-200 text-slate-600" />}
         </div>
       </div>
 
       {actionError && (
         <p role="alert" className="mb-3 text-sm text-red-600">{actionError}</p>
+      )}
+
+      {isSuperseded && (
+        <div className="mb-4 rounded-xl border border-slate-300 bg-slate-50 p-4 text-sm text-slate-700">
+          <p className="font-semibold mb-1">This invoice has been superseded</p>
+          <p>
+            It has been replaced by a revised invoice.{' '}
+            <Link to={`/invoices/${inv.supersededByInvoiceId}`} className="text-sky-600 hover:text-sky-700 font-medium">
+              View replacement invoice →
+            </Link>
+          </p>
+        </div>
+      )}
+
+      {isRevision && !isDraft && (
+        <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+          <p className="font-semibold mb-1">Revised invoice</p>
+          <p>
+            This invoice replaces{' '}
+            <Link to={`/invoices/${inv.revisedFromInvoiceId}`} className="text-sky-600 hover:text-sky-700 font-medium">
+              {inv.revisedFromInvoiceNumber || 'the original invoice'}
+            </Link>
+            {inv.revisedFromIssueDate ? ` (issued ${inv.revisedFromIssueDate})` : ''}.
+          </p>
+        </div>
       )}
 
       <Section title="Summary">
@@ -429,26 +484,43 @@ export default function InvoiceDetailPage() {
           <div className="flex flex-wrap gap-2">
             <ActionButton label="Preview" onClick={() => void handlePreview()} disabled={busy} />
             <ActionButton label="Download" onClick={() => void handleDownload()} disabled={busy} />
-            {inv.paymentStatus === 'paid' ? (
-              receiptId && (
-                <Link
-                  to={`/receipts/${receiptId}`}
-                  className="min-h-11 flex items-center rounded-lg border border-silver-300 px-3.5 text-sm font-medium text-navy-900 hover:bg-silver-100"
-                >
-                  View / send receipt
-                </Link>
+            {!isSuperseded && (
+              inv.paymentStatus === 'paid' ? (
+                receiptId && (
+                  <Link
+                    to={`/receipts/${receiptId}`}
+                    className="min-h-11 flex items-center rounded-lg border border-silver-300 px-3.5 text-sm font-medium text-navy-900 hover:bg-silver-100"
+                  >
+                    View / send receipt
+                  </Link>
+                )
+              ) : (
+                <ActionButton label={inv.sentAt ? 'Resend' : 'Send'} onClick={() => setModal('send')} disabled={busy} />
               )
-            ) : (
-              <ActionButton label={inv.sentAt ? 'Resend' : 'Send'} onClick={() => setModal('send')} disabled={busy} />
             )}
-            <ActionButton label="Record payment" onClick={() => setModal('payment')} disabled={busy || inv.amountDue <= 0} primary />
-            {inv.amountDue > 0 && (
+            {!isSuperseded && (
+              <ActionButton label="Record payment" onClick={() => setModal('payment')} disabled={busy || inv.amountDue <= 0} primary />
+            )}
+            {!isSuperseded && inv.amountDue > 0 && (
               <ActionButton label="Send payment reminder" onClick={() => setModal('remind')} disabled={busy} />
             )}
             <ActionButton label="Duplicate as corrected draft" onClick={() => void handleDuplicate()} disabled={busy} />
+            {!isSuperseded && inv.paymentStatus === 'unpaid' && (
+              <ActionButton label="Revise invoice" onClick={() => setModal('revise')} disabled={busy} />
+            )}
+            {isSuperseded && (
+              <p className="w-full text-xs text-slate-500 mt-1">
+                Payment recording, sending, and revision are disabled — this invoice has been superseded.
+              </p>
+            )}
+            {!isSuperseded && inv.paymentStatus !== 'unpaid' && (
+              <p className="w-full text-xs text-navy-500 mt-1">
+                This invoice has payment activity and cannot be directly revised. A credit-note or accounting adjustment workflow is required.
+              </p>
+            )}
             <ActionButton label="Void" onClick={() => setModal('void')} disabled={busy} danger />
           </div>
-          {inv.sentAt && inv.paymentStatus !== 'paid' && <p className="mt-2 text-xs text-navy-500">Last sent {formatDateTime(inv.sentAt)}</p>}
+          {inv.sentAt && inv.paymentStatus !== 'paid' && !isSuperseded && <p className="mt-2 text-xs text-navy-500">Last sent {formatDateTime(inv.sentAt)}</p>}
         </Section>
       )}
 
@@ -502,6 +574,13 @@ export default function InvoiceDetailPage() {
         )}
       </Section>
 
+      {modal === 'revise' && (
+        <ReviseConfirmModal
+          invoiceNumber={inv.invoiceNumber || ''}
+          onClose={() => setModal(null)}
+          onConfirm={() => { setModal(null); void handleRevise(); }}
+        />
+      )}
       {modal === 'payment' && (
         <RecordPaymentModal amountDue={inv.amountDue} onClose={() => setModal(null)} onConfirm={handleRecordPayment} />
       )}
@@ -569,6 +648,48 @@ function ActionButton({
     <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${style}`}>
       {label}
     </button>
+  );
+}
+
+function ReviseConfirmModal({
+  invoiceNumber, onClose, onConfirm,
+}: { invoiceNumber: string; onClose: () => void; onConfirm: () => void }) {
+  return (
+    <div
+      role="dialog"
+      aria-labelledby="revise-modal-title"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/50 p-4"
+    >
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <h2 id="revise-modal-title" className="mb-3 text-lg font-semibold text-navy-950">
+          Revise invoice {invoiceNumber}?
+        </h2>
+        <ul className="mb-4 space-y-1.5 text-sm text-navy-700">
+          <li>• The original invoice will remain preserved and viewable.</li>
+          <li>• A new editable draft will be created with the same line items and customer details.</li>
+          <li>• The original will only be marked Superseded if you successfully issue the revised invoice.</li>
+          <li>• If you abandon the draft, the original stays fully active.</li>
+          <li>• Nothing will be sent to the customer automatically.</li>
+        </ul>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-11 flex-1 rounded-lg border border-silver-300 px-4 text-sm font-medium text-navy-900 hover:bg-silver-100"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="min-h-11 flex-1 rounded-lg bg-navy-950 px-4 text-sm font-semibold text-white hover:bg-navy-900"
+          >
+            Create revised draft
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

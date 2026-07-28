@@ -69,6 +69,11 @@ export interface InvoiceDetail {
   issuedByAdminId: string | null;
   documentVersion: number;
   duplicatedFromId: string | null;
+  revisedFromInvoiceId: string | null;
+  revisedFromInvoiceNumber: string | null;
+  revisedFromIssueDate: string | null;
+  supersededByInvoiceId: string | null;
+  supersededAt: string | null;
   paymentOption: PaymentOptionValue;
   stripePaymentLinkUrl: string | null;
   serviceContact: InvoiceServiceContact | null;
@@ -154,6 +159,11 @@ export interface SendResponse {
 }
 
 export interface DuplicateResponse {
+  ok: true;
+  invoiceId: string;
+}
+
+export interface ReviseResponse {
   ok: true;
   invoiceId: string;
 }

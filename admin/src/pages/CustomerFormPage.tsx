@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
 import type {
   CustomerDetail, CustomerDraftInput, CustomerCreateResponse, CustomerUpdateResponse, CustomerDuplicateWarning,
 } from '../types/customer';
+import type { BookingDetail } from '../types/booking';
 import { CUSTOMER_TYPE_VALUES, CUSTOMER_SOURCE_VALUES, CUSTOMER_CONTACT_METHOD_VALUES } from '../types/customer';
 import { customerTypeLabel } from '../lib/format';
 import ErrorState from '../components/ErrorState';
@@ -27,9 +28,11 @@ type LoadState = { status: 'ready' } | { status: 'loading' } | { status: 'error'
 export default function CustomerFormPage() {
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
+  const [searchParams] = useSearchParams();
+  const fromBookingId = !isEdit ? searchParams.get('fromBookingId') : null;
   const navigate = useNavigate();
   const [value, setValue] = useState<FormValue>(emptyValue());
-  const [load, setLoad] = useState<LoadState>({ status: isEdit ? 'loading' : 'ready' });
+  const [load, setLoad] = useState<LoadState>({ status: isEdit || fromBookingId ? 'loading' : 'ready' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<CustomerDuplicateWarning[]>([]);
@@ -46,6 +49,25 @@ export default function CustomerFormPage() {
       })
       .catch((err) => setLoad({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load this customer.' }));
   }, [id]);
+
+  // Prefill from a booking that has no linked customer record yet (see
+  // BookingCustomerSection's "+ Create customer" link) — a convenience
+  // only, source is set to 'website' since a prefilled booking always
+  // originated from the public booking flow; nothing is submitted until
+  // the admin reviews and saves the form themselves.
+  useEffect(() => {
+    if (!fromBookingId) return;
+    authFetch<BookingDetail>(`/api/bookings/${fromBookingId}`)
+      .then((b) => {
+        setValue((v) => ({
+          ...v,
+          name: b.fullName || v.name, email: b.email || v.email, phone: b.phone || v.phone,
+          address: b.address || v.address, postcode: b.postcode || v.postcode, source: 'website',
+        }));
+        setLoad({ status: 'ready' });
+      })
+      .catch((err) => setLoad({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load the booking to prefill from.' }));
+  }, [fromBookingId]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();

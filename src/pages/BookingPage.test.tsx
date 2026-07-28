@@ -4,6 +4,12 @@ import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import BookingPage from './BookingPage';
 
+// Draft persistence writes to localStorage; clear it before every test so it
+// never leaks between describe blocks and causes false validation passes.
+beforeEach(() => {
+  localStorage.clear();
+});
+
 function renderBookingPage() {
   return render(
     <MemoryRouter initialEntries={['/booking']}>
@@ -155,6 +161,34 @@ describe('BookingPage — required preferred date and arrival window', () => {
     expect(await screen.findByText('Please choose your preferred arrival window.')).toBeInTheDocument();
   });
 
+  it('sets the date input\'s min attribute to today, preventing past-date picks in the native picker', () => {
+    // Pin the clock to a fixed local-time instant. Constructing the date from
+    // local components (year, month, day) means the expected value is the same
+    // in every time zone, matching the component's local-getter logic — no
+    // dependence on where UTC midnight falls relative to local midnight.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 15, 12, 0, 0));
+    try {
+      renderBookingPage();
+      const dateInput = screen.getByLabelText(/preferred date/i) as HTMLInputElement;
+      expect(dateInput.min).toBe('2026-06-15');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('blocks submission and shows an error when the typed date has already passed', async () => {
+    const user = userEvent.setup();
+    renderBookingPage();
+    await fillContactDetails(user);
+    await user.type(screen.getByLabelText(/preferred date/i), '2020-01-01');
+    await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
+
+    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
+
+    expect(await screen.findByText('Please choose a date that has not already passed.')).toBeInTheDocument();
+  });
+
   it('does not call the checkout API when required fields are missing', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     const user = userEvent.setup();
@@ -168,6 +202,81 @@ describe('BookingPage — required preferred date and arrival window', () => {
     });
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+});
+
+describe('BookingPage — booking-form draft persistence', () => {
+  const DRAFT_KEY = 'vve_form_draft_v1';
+
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+    seedSelection();
+  });
+
+  it('restores saved draft fields when the page mounts', async () => {
+    const draft = {
+      expires: Date.now() + 48 * 60 * 60 * 1000,
+      form: {
+        fullName: 'Jane Smith', address: '12 High Street', postcode: 'E8 1AA',
+        phone: '07700900000', email: '', date: '2026-09-01', time: 'Morning (8am–12pm)', message: '',
+      },
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    renderBookingPage();
+
+    await waitFor(() => {
+      expect((screen.getByLabelText(/full name/i) as HTMLInputElement).value).toBe('Jane Smith');
+    });
+    expect((screen.getByLabelText(/^address/i) as HTMLInputElement).value).toBe('12 High Street');
+    expect((screen.getByLabelText(/postcode/i) as HTMLInputElement).value).toBe('E8 1AA');
+  });
+
+  it('saves a draft to localStorage when a field is changed', async () => {
+    const user = userEvent.setup();
+    renderBookingPage();
+    await user.type(screen.getByLabelText(/full name/i), 'Alex');
+
+    const stored = localStorage.getItem(DRAFT_KEY);
+    expect(stored).not.toBeNull();
+    const parsed = JSON.parse(stored!);
+    expect(parsed.form.fullName).toBe('Alex');
+    expect(parsed.expires).toBeGreaterThan(Date.now());
+  });
+
+  it('ignores an expired draft', () => {
+    const draft = {
+      expires: Date.now() - 1000,
+      form: { fullName: 'Old Name', address: '', postcode: '', phone: '', email: '', date: '', time: '', message: '' },
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    renderBookingPage();
+
+    expect((screen.getByLabelText(/full name/i) as HTMLInputElement).value).toBe('');
+  });
+
+  it('does not restore terms acceptance from the draft', () => {
+    const draft = {
+      expires: Date.now() + 48 * 60 * 60 * 1000,
+      form: { fullName: 'Jane', address: '', postcode: '', phone: '', email: '', date: '', time: '', message: '' },
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    renderBookingPage();
+
+    const checkbox = screen.getByRole('checkbox', { name: /terms of service/i });
+    expect(checkbox).not.toBeChecked();
+  });
+
+  it('handles corrupt draft storage without crashing', () => {
+    localStorage.setItem(DRAFT_KEY, '{not valid json}}}');
+    expect(() => renderBookingPage()).not.toThrow();
+    expect(screen.getByRole('heading', { name: 'Complete your booking request' })).toBeInTheDocument();
+  });
+
+  it('handles unavailable localStorage without crashing', () => {
+    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
+    expect(() => renderBookingPage()).not.toThrow();
+    spy.mockRestore();
   });
 });
 

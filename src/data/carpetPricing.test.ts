@@ -76,14 +76,26 @@ describe('computeCarpetPrice — leaflet 20% discount vs minimum booking charge'
     expect(result.showSaving).toBe(false);
   });
 
-  it('shows a real saving for a non-promo bundle-tier discount that stays above the minimum', () => {
-    // large_lounge (90) + sofa_3 (95) + landing (15) = 200 → 5% bundle tier
+  it('does NOT apply a bundle discount below the £250 threshold (adjustedSubtotal £200)', () => {
+    // large_lounge (90) + sofa_3 (95) + landing (15) = 200 — below the £250 minimum tier
     const result = computeCarpetPrice({ large_lounge: 1, sofa_3: 1, landing: 1 }, 'normal');
 
     expect(result.adjustedSubtotal).toBe(200);
+    expect(result.bundle.source).toBe('none');
+    expect(result.bundle.saving).toBe(0);
+    expect(result.discountedSubtotal).toBe(200);
+    expect(result.minApplied).toBe(false);
+    expect(result.showSaving).toBe(false);
+  });
+
+  it('shows a real saving for a non-promo bundle-tier discount that stays above the minimum', () => {
+    // sofa_corner (130) + sofa_3 (95) + sofa_2 (75) = 300 → 5% bundle tier (min £250)
+    const result = computeCarpetPrice({ sofa_corner: 1, sofa_3: 1, sofa_2: 1 }, 'normal');
+
+    expect(result.adjustedSubtotal).toBe(300);
     expect(result.bundle.source).toBe('bundle');
-    expect(result.bundle.saving).toBe(10);
-    expect(result.discountedSubtotal).toBe(190);
+    expect(result.bundle.saving).toBe(15);  // Math.round(300 * 5/100) = 15
+    expect(result.discountedSubtotal).toBe(285);
     expect(result.minApplied).toBe(false);
     expect(result.showSaving).toBe(true);
   });

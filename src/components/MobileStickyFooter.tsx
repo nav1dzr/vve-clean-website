@@ -36,7 +36,10 @@ export default function MobileStickyFooter() {
   const helpLink = state === 'manual' ? waLink : WA_HELP;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
+    <div
+      className="fixed bottom-0 left-0 right-0 z-50 lg:hidden transition-[bottom] duration-200"
+      style={{ bottom: 'var(--vve-cookie-banner-h, 0px)' }}
+    >
       <div
         className="flex items-stretch shadow-[0_-4px_24px_rgba(0,0,0,0.18)]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
@@ -47,7 +50,7 @@ export default function MobileStickyFooter() {
             href={waLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-bold text-sm py-4 min-h-[44px] transition-colors duration-200 border-r border-white/20"
+            className="flex-1 flex items-center justify-center gap-2 btn-whatsapp font-bold text-sm py-4 min-h-[44px] transition-colors duration-200 border-r border-white/20"
             aria-label="Request a quote via WhatsApp"
           >
             {WA_ICON}
@@ -70,7 +73,7 @@ export default function MobileStickyFooter() {
           href={helpLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-semibold text-sm py-4 min-h-[44px] transition-colors duration-200"
+          className="flex-1 flex items-center justify-center gap-2 btn-whatsapp font-semibold text-sm py-4 min-h-[44px] transition-colors duration-200"
           aria-label="Need help? Chat on WhatsApp"
         >
           {WA_ICON}

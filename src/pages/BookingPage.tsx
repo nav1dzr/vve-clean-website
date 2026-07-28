@@ -9,6 +9,33 @@ import { TERMS_VERSION, CANCELLATION_POLICY_VERSION } from '../lib/termsVersion'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STORAGE_KEY  = 'vve_booking';
+
+// ─── Booking-form draft ───────────────────────────────────────────────────────
+// Persists contact/scheduling fields across Stripe Checkout and page refreshes.
+// Cleared only after verify-payment confirms paid: true (in confirmation.html).
+// Terms acceptance is intentionally excluded.
+
+const DRAFT_KEY = 'vve_form_draft_v1';
+const DRAFT_TTL = 48 * 60 * 60 * 1000; // 48 hours
+
+function saveDraft(form: FormData): void {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ expires: Date.now() + DRAFT_TTL, form }));
+  } catch { /* storage unavailable or full — silently ignore */ }
+}
+
+function loadDraft(): FormData | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const parsed: { expires?: number; form?: FormData } = JSON.parse(raw);
+    if (!parsed?.expires || Date.now() > parsed.expires) {
+      localStorage.removeItem(DRAFT_KEY);
+      return null;
+    }
+    return parsed.form ?? null;
+  } catch { return null; }
+}
 const BACKEND_URL  = '/api/create-checkout-session';
 const WA_NUMBER    = '447845451111';
 const DEPOSIT      = 30;
@@ -56,7 +83,7 @@ function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
 
           {/* Need help */}
           <a href={BOOKING_WA} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1.5 bg-green-600 hover:bg-green-500 text-white font-semibold text-xs sm:text-sm px-3 py-2 rounded-full transition-colors min-h-[36px]"
+            className="flex items-center gap-1.5 btn-whatsapp font-semibold text-xs sm:text-sm px-3 py-2 rounded-full transition-colors min-h-[36px]"
             aria-label="Need help? Chat on WhatsApp">
             <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
             <span>Need help?</span>
@@ -80,6 +107,51 @@ function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
         </div>
       </div>
     </header>
+  );
+}
+
+// Two-phase progress indicator — step 1 is the quote/service selector,
+// step 2 is the details, date and £30 deposit form. Rendered in both
+// phases so visitors always know where they are and what comes next.
+function StepIndicator({ current }: { current: 1 | 2 }) {
+  const steps: Array<{ n: 1 | 2; label: string }> = [
+    { n: 1, label: 'Service & price' },
+    { n: 2, label: `Details, date & £${DEPOSIT} deposit` },
+  ];
+  return (
+    <ol aria-label="Booking progress" className="max-w-5xl mx-auto px-4 pt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-xs sm:text-sm">
+      {steps.map((step, i) => {
+        const active = step.n === current;
+        const done = step.n < current;
+        return (
+          <li key={step.n} className="flex items-center gap-2 min-w-0" aria-current={active ? 'step' : undefined}>
+            {i > 0 && <span className="w-6 sm:w-10 h-px bg-silver-300 flex-shrink-0" aria-hidden="true" />}
+            <span
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full font-semibold sm:whitespace-nowrap ${
+                active
+                  ? 'bg-navy-900 text-white'
+                  : done
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-silver-100 text-silver-500'
+              }`}
+            >
+              <span
+                className={`w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center flex-shrink-0 ${
+                  active ? 'bg-white text-navy-900' : done ? 'bg-green-600 text-white' : 'bg-silver-300 text-white'
+                }`}
+                aria-hidden="true"
+              >
+                {done ? '✓' : step.n}
+              </span>
+              <span className="leading-tight">
+                <span className="sr-only">{`Step ${step.n} of 2${active ? ', current' : done ? ', completed' : ''}: `}</span>
+                {step.label}
+              </span>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -198,8 +270,18 @@ interface FormData {
 }
 
 const REQUIRED_DATE_ERROR  = 'Please choose your preferred date.';
+const PAST_DATE_ERROR      = 'Please choose a date that has not already passed.';
 const REQUIRED_TIME_ERROR  = 'Please choose your preferred arrival window.';
 const REQUIRED_TERMS_ERROR = 'Please read and accept the booking and cancellation terms.';
+
+// YYYY-MM-DD for today in the visitor's local time zone — matches the
+// plain-string format <input type="date"> both stores and displays, so a
+// lexicographic string comparison against it is a correct "is this in the
+// past" check with no Date-object time zone handling needed.
+function todayIsoDate(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 type FormErrors = Partial<Record<keyof FormData | 'contact', string>>;
 
@@ -215,6 +297,12 @@ export default function BookingPage() {
   const [submitting,    setSubmitting]    = useState(false);
   const [submitError,   setSubmitError]   = useState('');
   const formTopRef = useRef<HTMLDivElement>(null);
+
+  // ── Restore booking-form draft on mount (before any user input) ───────────
+  useEffect(() => {
+    const draft = loadDraft();
+    if (draft) setForm(draft);
+  }, []);
 
   // ── Load selection from sessionStorage or fall back to URL params ──────────
   useEffect(() => {
@@ -236,10 +324,10 @@ export default function BookingPage() {
     // carry no quoteConfig and the server now requires one for price authority.
     // Silently discard the params so the user sees the calculator and generates
     // a valid selection with server-verifiable pricing.
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('service')) {
-      window.history.replaceState({}, '', '/booking');
-    }
+    // No query values are price-authoritative. Remove all of them after the
+    // legacy hand-off has been handled so stale prices, tracking parameters and
+    // unsupported service names are not left in the address bar.
+    if (window.location.search) window.history.replaceState({}, '', '/booking');
   }, []);
 
   // ── Callbacks ──────────────────────────────────────────────────────────────
@@ -257,7 +345,9 @@ export default function BookingPage() {
 
   const setField = (field: keyof FormData) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-      setForm(f => ({ ...f, [field]: e.target.value }));
+      const next = { ...form, [field]: e.target.value };
+      setForm(next);
+      saveDraft(next);
       setErrors(err => ({ ...err, [field]: undefined, contact: undefined }));
       setSubmitError('');
     };
@@ -272,6 +362,7 @@ export default function BookingPage() {
     if (form.phone && !validPhone(form.phone))   e.phone = 'Please enter a valid phone number.';
     if (form.email && !validEmail(form.email))   e.email = 'Please enter a valid email address.';
     if (!form.date)                     e.date = REQUIRED_DATE_ERROR;
+    else if (form.date < todayIsoDate()) e.date = PAST_DATE_ERROR;
     if (!form.time)                     e.time = REQUIRED_TIME_ERROR;
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -374,6 +465,7 @@ export default function BookingPage() {
     return (
       <div className="min-h-screen" style={{ background: '#f9f9f5' }}>
         <BookingHeader isLeaflet={selection?.offerCode === 'LEAFLET20'} />
+        <StepIndicator current={1} />
         {showSelector && selection && (
           <div className="max-w-5xl mx-auto px-4 pt-5 pb-1 text-center">
             <p className="text-sm text-silver-600">
@@ -390,6 +482,7 @@ export default function BookingPage() {
   return (
     <div className="min-h-screen" style={{ background: '#f9f9f5' }}>
       <BookingHeader isLeaflet={selection?.offerCode === 'LEAFLET20'} />
+      <StepIndicator current={2} />
 
       <main className="max-w-xl mx-auto px-4 py-7 pb-24" ref={formTopRef}>
         {/* Page title */}
@@ -503,6 +596,7 @@ export default function BookingPage() {
                   Preferred date <span style={{ color: '#D14343' }}>*</span>
                 </label>
                 <input id="booking-date" type="date" value={form.date} onChange={setField('date')}
+                  min={todayIsoDate()}
                   aria-invalid={!!errors.date}
                   aria-describedby={errors.date ? 'date-error' : undefined}
                   className={`w-full rounded-xl border-[1.5px] px-3.5 py-3 text-[16px] outline-none transition-colors font-sans ${
@@ -538,8 +632,12 @@ export default function BookingPage() {
                 Anything else? <span className="font-normal text-silver-500">(optional)</span>
               </label>
               <textarea value={form.message} onChange={setField('message')} rows={3}
+                maxLength={500}
                 placeholder="Access notes, number of rooms, pets, parking, anything we should know…"
                 className="w-full rounded-xl border-[1.5px] border-[#E3E7EE] bg-white px-3.5 py-3 text-[16px] text-navy-900 outline-none focus:border-[#0ea5e9] transition-colors font-sans resize-none" />
+              <div className="flex justify-end mt-1">
+                <span className="text-xs text-silver-400">{form.message.length}/500</span>
+              </div>
             </div>
           </div>
 

@@ -5,6 +5,7 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    scroll-padding-top: 5rem; /* offset sticky navbar (h-20) for anchor links */
   }
   body {
     font-family: 'Inter', system-ui, sans-serif;
@@ -63,6 +64,28 @@
   }
   .cyan-gradient {
     background: linear-gradient(135deg, #ecfeff 0%, #cffafe 50%, #a5f3fc 100%);
+  }
+  /* Subtle lift for white text over the homepage hero photo — keeps
+     headings and supporting copy readable where the image is bright. */
+  .text-shadow-hero {
+    text-shadow: 0 1px 3px rgba(2, 11, 36, 0.55);
+  }
+}
+
+@layer components {
+  /* Single source for WhatsApp CTA backgrounds — official brand green with
+     a darker hover/focus/active step. Layout utilities (padding, radius,
+     width) stay on the element; this class only owns colour. */
+  .btn-whatsapp {
+    background-color: #25d366;
+    color: #ffffff;
+  }
+  .btn-whatsapp:hover,
+  .btn-whatsapp:focus-visible {
+    background-color: #1ebe5d;
+  }
+  .btn-whatsapp:active {
+    background-color: #1aa851;
   }
 }
 

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { trackBookingInitiated } from '../lib/analytics';
 import { Calculator, CheckCircle2, Plus, Minus, Info, AlertCircle } from 'lucide-react';
 import { useBookingCtx } from '../context/BookingContext';
 import { useReveal } from '../hooks/useReveal';
@@ -12,6 +13,20 @@ import {
   type CarpetCondition,
   type CarpetCounts,
 } from '../data/carpetPricing';
+import {
+  EOT_BASE_PRICES_P,
+  EOT_EXTRA_BATH_P,
+  EOT_CARPET_BUNDLE_P,
+  MOVEIN_BASE_PRICES_P,
+  MOVEIN_EXTRA_BATH_P,
+  AFTER_BUILDERS_FROM_PRICES_P,
+  AFTER_BUILDERS_START_FROM_P,
+  ADDON_PRICES_P,
+  EOT_CARPET_ADDON_PRICES_P,
+  COMMERCIAL_REGULAR_HOURLY_P,
+  COMMERCIAL_REGULAR_MIN_HOURS,
+  CARPET_BUNDLE_TIERS,
+} from '../data/pricing';
 
 // ─── Pricing engine (non-carpet services) ────────────────────────────────────
 
@@ -29,39 +44,66 @@ const DEEP_SERVICE_LABELS: Record<DeepServiceType, string> = {
   after_builders:    'After builders',
 };
 
+// Prices in £ derived from the canonical pence values in pricing.ts.
 const BASE_PRICES: Record<DeepServiceType, Record<SizeKey, number>> = {
-  carpet_upholstery: { studio:  90, bed1: 150, bed2: 210, bed3: 270, bed4: 330 },
-  end_of_tenancy:    { studio: 159, bed1: 199, bed2: 249, bed3: 329, bed4: 419 },
-  move_in:           { studio: 139, bed1: 169, bed2: 219, bed3: 269, bed4: 329 },
-  after_builders:    { studio: 199, bed1: 239, bed2: 299, bed3: 369, bed4: 449 },
+  carpet_upholstery: { studio:  90, bed1: 150, bed2: 210, bed3: 270, bed4: 330 }, // unused — carpet uses computeCarpetPrice
+  end_of_tenancy:    {
+    studio: EOT_BASE_PRICES_P.studio / 100,  // 199
+    bed1:   EOT_BASE_PRICES_P.bed1   / 100,  // 249
+    bed2:   EOT_BASE_PRICES_P.bed2   / 100,  // 299
+    bed3:   EOT_BASE_PRICES_P.bed3   / 100,  // 369
+    bed4:   EOT_BASE_PRICES_P.bed4   / 100,  // 469
+  },
+  move_in: {
+    studio: MOVEIN_BASE_PRICES_P.studio / 100,  // 179
+    bed1:   MOVEIN_BASE_PRICES_P.bed1   / 100,  // 219
+    bed2:   MOVEIN_BASE_PRICES_P.bed2   / 100,  // 269
+    bed3:   MOVEIN_BASE_PRICES_P.bed3   / 100,  // 329
+    bed4:   MOVEIN_BASE_PRICES_P.bed4   / 100,  // 429
+  },
+  // after_builders uses "from" prices — BASE_PRICES is not used for quoting
+  after_builders: {
+    studio: AFTER_BUILDERS_FROM_PRICES_P.studio / 100,  // 279
+    bed1:   AFTER_BUILDERS_FROM_PRICES_P.bed1   / 100,  // 329
+    bed2:   AFTER_BUILDERS_FROM_PRICES_P.bed2   / 100,  // 399
+    bed3:   AFTER_BUILDERS_FROM_PRICES_P.bed3   / 100,  // 499
+    bed4:   AFTER_BUILDERS_FROM_PRICES_P.bed4   / 100,  // 625
+  },
 };
 
 const BATH_SURCHARGE: Record<DeepServiceType, number> = {
-  carpet_upholstery: 0, end_of_tenancy: 20, move_in: 18, after_builders: 25,
+  carpet_upholstery: 0,
+  end_of_tenancy:    EOT_EXTRA_BATH_P     / 100,  // 50
+  move_in:           MOVEIN_EXTRA_BATH_P  / 100,  // 40
+  after_builders:    0, // not quoted interactively
 };
 
+// EOT carpet add-on bundle prices (whole home — at reduced EOT rates).
 const CARPET_BUNDLE_PRICE: Record<SizeKey, number> = {
-  studio: 50, bed1: 50, bed2: 75, bed3: 100, bed4: 125,
-};
-const CARPET_STANDALONE_PRICE: Record<SizeKey, number> = {
-  studio: 90, bed1: 150, bed2: 210, bed3: 270, bed4: 330,
+  studio: EOT_CARPET_BUNDLE_P.studio / 100,  // 60
+  bed1:   EOT_CARPET_BUNDLE_P.bed1   / 100,  // 60
+  bed2:   EOT_CARPET_BUNDLE_P.bed2   / 100,  // 100
+  bed3:   EOT_CARPET_BUNDLE_P.bed3   / 100,  // 150
+  bed4:   EOT_CARPET_BUNDLE_P.bed4   / 100,  // 195
 };
 
-const STAIR_PRICES = [0, 45, 80, 115];
+const _stairFirst = EOT_CARPET_ADDON_PRICES_P.stairs_first / 100;  // 45
+const _stairExtra = EOT_CARPET_ADDON_PRICES_P.stairs_extra / 100;  // 35
+const STAIR_PRICES = [0, _stairFirst, _stairFirst + _stairExtra, _stairFirst + 2 * _stairExtra];
 
 const windowPrices: Record<string, number> = { small: 35, medium: 45, large: 55 };
 const gutterPrices: Record<string, number>  = { terraced: 75, semi_detached: 110, detached: 160 };
-const HOURLY_RATE      = 22.50;
-const MIN_OFFICE_HOURS = 4;
+const HOURLY_RATE      = COMMERCIAL_REGULAR_HOURLY_P / 100;  // 27.50
+const MIN_OFFICE_HOURS = COMMERCIAL_REGULAR_MIN_HOURS;       // 2
 
 const addOnDefs = [
-  { key: 'oven',          label: 'Inside oven',           price: 35 },
-  { key: 'fridge',        label: 'Fridge / freezer',      price: 20 },
+  { key: 'oven',          label: 'Inside oven',           price: ADDON_PRICES_P.oven        / 100 },  // 35
+  { key: 'fridge',        label: 'Fridge / freezer',      price: ADDON_PRICES_P.fridge      / 100 },  // 20
   { key: 'carpet_bundle', label: 'Carpets — whole home',  price: 0  },
-  { key: 'ext_windows',   label: 'Exterior windows',      price: 35 },
-  { key: 'wall_marks',    label: 'Wall marks & scuffs',   price: 25 },
-  { key: 'key_collect',   label: 'Key collection/return', price: 10 },
-  { key: 'rubbish',       label: 'Rubbish removal',       price: 40 },
+  { key: 'ext_windows',   label: 'Exterior windows',      price: ADDON_PRICES_P.ext_windows / 100 },  // 35
+  { key: 'wall_marks',    label: 'Wall marks & scuffs',   price: ADDON_PRICES_P.wall_marks  / 100 },  // 25
+  { key: 'key_collect',   label: 'Key collection/return', price: ADDON_PRICES_P.key_collect / 100 },  // 10
+  { key: 'rubbish',       label: 'Rubbish removal',       price: ADDON_PRICES_P.rubbish     / 100 },  // 40
   // legacy carpet add-ons (kept for quoteConfig backward compat)
   { key: 'sofa',     label: 'Sofa (2–3 seats)',    price: 40 },
   { key: 'mattress', label: 'Mattress',             price: 25 },
@@ -117,7 +159,7 @@ function Counter({
         onClick={() => onChange(Math.max(min, value - 1))}
         disabled={value <= min}
         aria-label={`Decrease ${itemLabel} quantity`}
-        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-silver-300 flex items-center justify-center text-silver-500 hover:border-royal-400 hover:text-royal-600 active:bg-royal-50 transition-colors disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
+        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-silver-300 flex items-center justify-center text-silver-500 hover:border-royal-400 hover:text-royal-600 active:bg-royal-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
       >
         <Minus size={14} />
       </button>
@@ -127,7 +169,7 @@ function Counter({
         onClick={() => onChange(value + 1)}
         disabled={max !== undefined && value >= max}
         aria-label={`Increase ${itemLabel} quantity`}
-        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-silver-300 flex items-center justify-center text-silver-500 hover:border-royal-400 hover:text-royal-600 active:bg-royal-50 transition-colors disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
+        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-silver-300 flex items-center justify-center text-silver-500 hover:border-royal-400 hover:text-royal-600 active:bg-royal-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
       >
         <Plus size={14} />
       </button>
@@ -387,6 +429,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
         ...(isCarpet ? { carpetCounts, carpetCondition } : {}),
       },
     };
+    trackBookingInitiated(bookingServiceName);
     if (onBook) {
       onBook(sel);
     } else {
@@ -440,7 +483,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <section id="quote" ref={ref} className="py-20 bg-gradient-to-br from-navy-950 via-navy-900 to-navy-800">
+    <section id="quote" ref={ref} className="py-20 bg-gradient-to-br from-navy-950 via-navy-900 to-navy-800 scroll-mt-24">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Header */}
@@ -456,10 +499,10 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
         </div>
 
         {/* Card grid */}
-        <div className={`grid lg:grid-cols-5 gap-0 rounded-2xl overflow-hidden shadow-2xl transition-all duration-700 delay-200 lg:items-start ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+        <div className={`grid lg:grid-cols-5 gap-0 rounded-2xl shadow-2xl transition-all duration-700 delay-200 lg:items-start ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
 
           {/* ── Left: configurator ── */}
-          <div className="lg:col-span-3 bg-white p-6 md:p-8">
+          <div className="lg:col-span-3 bg-white p-6 md:p-8 rounded-tl-2xl rounded-tr-2xl lg:rounded-tr-none lg:rounded-bl-2xl">
             <div ref={serviceAreaRef} className="space-y-5">
 
               {/* Step label */}
@@ -496,9 +539,9 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                   {isAfterBuilders && (
                     <div className="rounded-2xl px-5 py-5 bg-amber-50 border-2 border-amber-200 space-y-3 text-center">
                       <div className="text-amber-700 text-[10px] font-bold tracking-widest uppercase">After Builders Clean</div>
-                      <div className="font-display font-bold text-4xl text-amber-900">From £199</div>
+                      <div className="font-display font-bold text-4xl text-amber-900">From £{AFTER_BUILDERS_START_FROM_P / 100}</div>
                       <p className="text-silver-600 text-sm leading-relaxed max-w-xs mx-auto">
-                        The extent of after-builders work varies — fine dust, paint specks, sticker residue and debris. Send us a photo and we'll confirm your exact price within the hour.
+                        The extent of after-builders work varies — fine dust, paint specks, sticker residue and debris. Send us a photo and we'll confirm your price before any work starts.
                       </p>
                     </div>
                   )}
@@ -594,7 +637,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                       {/* Bundle savings info — hidden when a promo code already gives a better saving */}
                       {!promoCode && (
                         <p className="text-xs text-silver-700 leading-relaxed px-1">
-                          Book items together and save automatically — 5% over £200, 10% over £300, 12% over £400.
+                          Book items together and save automatically — {CARPET_BUNDLE_TIERS.map((t) => `${t.display} over £${t.minP / 100}`).join(', ')}.
                         </p>
                       )}
                     </>
@@ -653,7 +696,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                             .map((a) => {
                               const isOvenFree   = a.key === 'oven' && deepService === 'end_of_tenancy';
                               const dynamicPrice = a.key === 'carpet_bundle' ? CARPET_BUNDLE_PRICE[deepSize] : isOvenFree ? 0 : a.price;
-                              const saving       = a.key === 'carpet_bundle' ? CARPET_STANDALONE_PRICE[deepSize] - CARPET_BUNDLE_PRICE[deepSize] : 0;
+                              const saving       = a.key === 'carpet_bundle' ? BASE_PRICES.carpet_upholstery[deepSize] - CARPET_BUNDLE_PRICE[deepSize] : 0;
                               return (
                                 <div key={a.key}
                                   className={`flex items-center justify-between rounded-xl px-3 py-2 border transition-all duration-200 ${isOvenFree ? 'bg-amber-50 border-amber-200' : 'bg-silver-50 border-silver-200'}`}>
@@ -732,7 +775,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                     </div>
                     <div className="flex items-center gap-3">
                       <button type="button" onClick={() => setOfficeHours(Math.max(MIN_OFFICE_HOURS, officeHours - 1))} disabled={officeHours <= MIN_OFFICE_HOURS}
-                        className="w-9 h-9 rounded-full border-2 border-silver-300 flex items-center justify-center text-navy-700 hover:border-royal-400 transition-colors disabled:opacity-30">
+                        className="w-9 h-9 rounded-full border-2 border-silver-300 flex items-center justify-center text-navy-700 hover:border-royal-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                         <Minus size={14} />
                       </button>
                       <span className="text-2xl font-bold text-navy-900 w-8 text-center">{officeHours}</span>
@@ -911,8 +954,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                   href={waLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2.5 w-full py-4 min-h-[44px] rounded-full font-bold text-base text-white transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#16a34a]"
-                  style={{ backgroundColor: '#22C55E' }}
+                  className="btn-whatsapp flex items-center justify-center gap-2.5 w-full py-4 min-h-[44px] rounded-full font-bold text-base transition-all duration-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#16a34a]"
                 >
                   <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 flex-shrink-0" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                   {isAfterBuilders ? 'Request a quote →' : 'Send photos for a quote →'}
@@ -921,8 +963,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                 <button
                   type="button"
                   onClick={isReadyToBook ? handleBookNow : handleBookWithValidation}
-                  className="flex items-center justify-center gap-2 w-full py-4 min-h-[44px] rounded-full font-bold text-white text-base transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
-                  style={{ backgroundColor: '#0ea5e9' }}
+                  className="flex items-center justify-center gap-2 w-full py-4 min-h-[44px] rounded-full font-bold text-white text-base bg-royal-500 hover:bg-royal-600 transition-all duration-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
                   aria-label={isReadyToBook ? 'Book online — pay £30 deposit' : 'Book online'}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -957,7 +998,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
           </div>
 
           {/* ── Right: price panel ── */}
-          <div className="lg:col-span-2 navy-gradient p-6 flex flex-col justify-between lg:sticky lg:top-24 lg:self-start">
+          <div className="lg:col-span-2 navy-gradient p-6 flex flex-col justify-between rounded-br-2xl rounded-bl-2xl lg:rounded-bl-none lg:rounded-tr-2xl lg:sticky lg:top-24 lg:self-start">
             <div>
               <h3 className="text-silver-400 text-xs font-medium tracking-widest uppercase mb-2">
                 {isAfterBuilders ? 'Starting From' : isCarpet && carpetResult?.isPhotoQuote ? 'Photo Quote' : 'Your price'}
@@ -969,11 +1010,11 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
               )}
               <div className="text-5xl font-bold font-display text-white mb-1 transition-all duration-300">
                 {isAfterBuilders
-                  ? 'From £199'
+                  ? `From £${AFTER_BUILDERS_START_FROM_P / 100}`
                   : isCarpet && carpetResult?.isPhotoQuote
                     ? 'Photo quote'
                     : isCarpet && (carpetResult?.totalItems ?? 0) === 0
-                      ? '—'
+                      ? `From £${CARPET_MIN_BOOKING}`
                       : `${isCarpet && carpetCondition === 'heavy' ? '~' : ''}£${Math.round(price)}`}
               </div>
               {isCarpet && carpetResult?.showSaving && (
@@ -1022,8 +1063,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                   <button
                     type="button"
                     onClick={handleBookNow}
-                    className="flex items-center justify-center gap-2 w-full py-3 min-h-[44px] rounded-full font-bold text-white text-sm transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
-                    style={{ backgroundColor: '#0ea5e9' }}
+                    className="flex items-center justify-center gap-2 w-full py-3 min-h-[44px] rounded-full font-bold text-white text-sm bg-royal-500 hover:bg-royal-600 transition-all duration-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
                     aria-label="Book online — pay £30 deposit"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -1036,17 +1076,19 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
                 </div>
               )}
               {!isReadyToBook && !isManualQuote && (
-                <div className="mb-3">
+                <div className="mb-3 space-y-1.5">
                   <button
                     type="button"
                     onClick={handleBookWithValidation}
-                    className="flex items-center justify-center gap-2 w-full py-3 min-h-[44px] rounded-full font-bold text-white text-sm transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
-                    style={{ backgroundColor: '#0ea5e9' }}
+                    className="flex items-center justify-center gap-2 w-full py-3 min-h-[44px] rounded-full font-bold text-white text-sm bg-royal-500 hover:bg-royal-600 transition-all duration-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
                     aria-label="Book online"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     Book online
                   </button>
+                  <p className="text-silver-500 text-[11px] text-center leading-snug">
+                    You pay a £30 deposit today — it comes straight off your bill.
+                  </p>
                 </div>
               )}
 
@@ -1127,7 +1169,7 @@ export default function QuoteCalculator({ onBook, promoCode }: Props = {}) {
 
             <div className="space-y-3">
               <a href={waLink} target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full bg-green-700 hover:bg-green-600 text-white font-semibold py-2.5 rounded-xl transition-all duration-300 text-sm">
+                className="btn-whatsapp flex items-center justify-center gap-2 w-full font-semibold py-2.5 rounded-xl transition-all duration-300 text-sm">
                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                 {isAfterBuilders ? 'WhatsApp a photo for your quote' : 'Need help? Chat on WhatsApp'}
               </a>

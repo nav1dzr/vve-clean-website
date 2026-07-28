@@ -27,7 +27,7 @@ export default function Guarantee() {
     <section
       ref={ref}
       id="guarantee"
-      className="py-20 px-4"
+      className="py-20 px-4 scroll-mt-24"
       style={{ background: 'linear-gradient(160deg, #020b24 0%, #0a1e4a 100%)' }}
     >
       <div className="max-w-4xl mx-auto">
