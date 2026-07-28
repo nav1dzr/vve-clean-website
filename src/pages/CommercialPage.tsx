@@ -2,6 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import MobileStickyFooter from '../components/MobileStickyFooter';
+import {
+  COMMERCIAL_REGULAR_HOURLY_P,
+  COMMERCIAL_REGULAR_MIN_CHARGE_P,
+  COMMERCIAL_ONCEOFF_HOURLY_P,
+  COMMERCIAL_ONCEOFF_MIN_CHARGE_P,
+  COMMERCIAL_SHOP_CAFE_FROM_P,
+  COMMERCIAL_COMMUNAL_FROM_P,
+  COMMERCIAL_EOL_FROM_P,
+  COMMERCIAL_AFTER_BUILDERS_FROM_P,
+} from '../data/pricing';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -89,12 +99,15 @@ const INCLUDED = [
 
 // ─── Section: Rates ───────────────────────────────────────────────────────────
 
+const p = (pence: number) => `£${pence / 100}`;
+
 const RATES = [
-  { label: 'Office cleaning', price: 'from £20/hour' },
-  { label: 'Communal areas, small block', price: 'from £70/month' },
-  { label: 'Communal areas, large block', price: 'from £140/month' },
-  { label: 'Shop/café presentation clean', price: 'from £35/visit' },
-  { label: 'End-of-lease commercial clean', price: 'from £249 fixed' },
+  { label: 'Regular contract cleaning',         price: `from ${p(COMMERCIAL_REGULAR_HOURLY_P)}/cleaner-hour · min ${p(COMMERCIAL_REGULAR_MIN_CHARGE_P)}/visit` },
+  { label: 'One-off commercial deep clean',      price: `from ${p(COMMERCIAL_ONCEOFF_HOURLY_P)}/cleaner-hour · min ${p(COMMERCIAL_ONCEOFF_MIN_CHARGE_P)}` },
+  { label: 'Shop or café presentation clean',    price: `from ${p(COMMERCIAL_SHOP_CAFE_FROM_P)}/visit` },
+  { label: 'Communal areas',                     price: `from ${p(COMMERCIAL_COMMUNAL_FROM_P)}/visit` },
+  { label: 'End-of-lease commercial clean',      price: `from ${p(COMMERCIAL_EOL_FROM_P)}` },
+  { label: 'Commercial after-builders clean',    price: `from ${p(COMMERCIAL_AFTER_BUILDERS_FROM_P)}` },
 ];
 
 // ─── Section: How it works ────────────────────────────────────────────────────

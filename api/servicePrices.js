@@ -1,23 +1,25 @@
 // Backend pricing engine — authoritative source for price validation.
-// Must stay in sync with QuoteCalculator.tsx / carpetPricing.ts when prices change.
+// Must stay in sync with src/data/pricing.ts when prices change.
 
 const BASE_PRICES = {
-  end_of_tenancy:    { studio: 159, bed1: 199, bed2: 249, bed3: 329, bed4: 419 },
-  move_in:           { studio: 139, bed1: 169, bed2: 219, bed3: 269, bed4: 329 },
-  after_builders:    { studio: 199, bed1: 239, bed2: 299, bed3: 369, bed4: 449 },
+  end_of_tenancy:    { studio: 199, bed1: 249, bed2: 299, bed3: 369, bed4: 469 },
+  move_in:           { studio: 179, bed1: 219, bed2: 269, bed3: 329, bed4: 429 },
+  after_builders:    { studio: 279, bed1: 329, bed2: 399, bed3: 499, bed4: 625 },
   carpet_upholstery: { studio:  90, bed1: 150, bed2: 210, bed3: 270, bed4: 330 },
 };
 
 const BATH_SURCHARGE = {
-  end_of_tenancy: 20, move_in: 18, after_builders: 25, carpet_upholstery: 0,
+  end_of_tenancy: 50, move_in: 40, after_builders: 0, carpet_upholstery: 0,
 };
 
-const CARPET_BUNDLE_PRICE = { studio: 50, bed1: 50, bed2: 75, bed3: 100, bed4: 125 };
+// EOT carpet bundle add-on (reduced rates for add-on to EOT clean)
+const CARPET_BUNDLE_PRICE = { studio: 60, bed1: 60, bed2: 100, bed3: 150, bed4: 195 };
 const STAIR_PRICES        = [0, 45, 80, 115];
 const WINDOW_PRICES       = { small: 35, medium: 45, large: 55 };
 const GUTTER_PRICES       = { terraced: 75, semi_detached: 110, detached: 160 };
-const HOURLY_RATE         = 22.5;
-const MIN_OFFICE_HOURS    = 4;
+const HOURLY_RATE         = 27.5;
+const MIN_OFFICE_HOURS    = 2;
+const MIN_OFFICE_CHARGE   = 55;
 const MIN_CHARGE          = 90;
 
 const ADDON_PRICES = {
@@ -29,11 +31,10 @@ const ADDON_PRICES = {
 const CARPET_MIN_BOOKING = 85;
 
 const CARPET_BUNDLE_DISCOUNT_TIERS = [
-  { min: 400, pct: 12 },
-  { min: 300, pct: 10 },
-  { min: 200, pct:  5 },
+  { min: 600, pct: 10  },
+  { min: 400, pct: 7.5 },
+  { min: 250, pct: 5   },
 ];
-const MAX_BUNDLE_SAVING = 60;
 
 const CARPET_ITEM_PRICES = {
   bedroom: 50, living_room: 70, large_lounge: 90, hallway: 25, landing: 15,
@@ -63,11 +64,10 @@ function computeCarpetItemisedPrice(carpetCounts, carpetCondition) {
   if (carpetCondition === 'heavy') subtotal = Math.round(subtotal * 1.2);
   if (subtotal <= 0) return null;
 
-  // Apply same-visit bundle discount (mirrors carpetPricing.ts)
+  // Apply same-visit bundle discount (mirrors src/data/carpetPricing.ts)
   const tier = CARPET_BUNDLE_DISCOUNT_TIERS.find((t) => subtotal >= t.min);
   if (tier) {
-    const saving = Math.min(Math.round(subtotal * tier.pct / 100), MAX_BUNDLE_SAVING);
-    subtotal -= saving;
+    subtotal -= Math.round(subtotal * tier.pct / 100);
   }
 
   return Math.max(subtotal, CARPET_MIN_BOOKING);
@@ -132,7 +132,7 @@ export function computePrice(quoteConfig) {
 
   if (service === 'office') {
     const h = Math.max(Number(officeHours) || MIN_OFFICE_HOURS, MIN_OFFICE_HOURS);
-    return Math.max(h * HOURLY_RATE, MIN_CHARGE);
+    return Math.max(h * HOURLY_RATE, MIN_OFFICE_CHARGE);
   }
 
   return null;
