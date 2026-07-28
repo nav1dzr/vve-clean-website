@@ -80,6 +80,53 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
+```
+
+## Admin validation
+
+Run from `admin/`:
+
+```bash
+npm ci
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+Do not claim a command passed unless it completed successfully.
+
+Record pre-existing warnings separately from new failures. Do not hide, suppress, or casually fix unrelated warnings during focused work.
+
+## Database and migration rules
+
+- Inspect existing migrations and schema conventions first.
+- Prefer additive and backward-compatible migrations.
+- Explain migration order, compatibility, rollback, and deployment sequence.
+- Do not apply migrations without Navid's explicit approval.
+- Creating a migration file is not permission to apply it.
+- Do not expose service-role keys, database passwords, tokens, or customer data.
+- Treat customer, booking, invoice, receipt, and payment records as sensitive.
+- Preserve audit history and referential integrity.
+
+## Stripe and payment rules
+
+- Never create charges, refunds, payment links, webhook changes, or live-mode changes without explicit approval.
+- Clearly distinguish test mode from live mode.
+- Verify payment state server-side.
+- Do not trust client-supplied amounts, payment status, booking references, or invoice identifiers.
+- Preserve idempotency and audit history.
+
+## Application rules
+
+- Preserve the established design unless the task requests a redesign.
+- Use British English for customer-facing website and CRM content.
+- Do not invent prices, availability, policies, guarantees, or business claims.
+- Avoid unrelated refactors.
+- Add or update tests when behaviour changes.
+- Keep API validation and error handling explicit.
+- Do not create unnecessary Vercel serverless functions.
+- Treat accessibility, mobile behaviour, and security as acceptance criteria.
 
 ## Required handoff evidence
 
