@@ -89,9 +89,9 @@ body:
       label: Does this involve a sensitive action?
       description: Sensitive actions include production, secrets, payments, permissions, customer data, migrations, and destructive changes.
       options:
-        - No
-        - Maybe or unsure
-        - Yes
+        - "No"
+        - "Maybe or unsure"
+        - "Yes"
     validations:
       required: true
 
