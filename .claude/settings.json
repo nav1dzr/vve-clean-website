@@ -1,0 +1,60 @@
+{
+  "env": {
+    "CLAUDE_CODE_USE_POWERSHELL_TOOL": "1"
+  },
+  "permissions": {
+    "defaultMode": "default",
+    "disableBypassPermissionsMode": "disable",
+    "ask": [
+      "Bash(git push *)",
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+      "Bash(git reset *)",
+      "Bash(git clean *)",
+      "Bash(git switch *)",
+      "Bash(git checkout *)",
+      "Bash(git stash *)",
+      "Bash(git branch -d *)",
+      "Bash(git branch -D *)",
+      "Bash(git worktree remove *)",
+      "Bash(gh pr merge *)",
+      "Bash(rm *)",
+      "Bash(vercel *)",
+      "Bash(npx vercel *)",
+      "Bash(supabase *)",
+      "Bash(npx supabase *)",
+      "Bash(stripe *)",
+      "Bash(npx stripe *)",
+
+      "PowerShell(git push *)",
+      "PowerShell(git merge *)",
+      "PowerShell(git rebase *)",
+      "PowerShell(git reset *)",
+      "PowerShell(git clean *)",
+      "PowerShell(git switch *)",
+      "PowerShell(git checkout *)",
+      "PowerShell(git stash *)",
+      "PowerShell(git branch -d *)",
+      "PowerShell(git branch -D *)",
+      "PowerShell(git worktree remove *)",
+      "PowerShell(gh pr merge *)",
+      "PowerShell(Remove-Item *)",
+      "PowerShell(vercel *)",
+      "PowerShell(npx vercel *)",
+      "PowerShell(supabase *)",
+      "PowerShell(npx supabase *)",
+      "PowerShell(stripe *)",
+      "PowerShell(npx stripe *)"
+    ],
+    "deny": [
+      "Read(/.env)",
+      "Read(/.env.*)",
+      "Read(/admin/.env)",
+      "Read(/admin/.env.*)",
+      "Edit(/.env)",
+      "Edit(/.env.*)",
+      "Edit(/admin/.env)",
+      "Edit(/admin/.env.*)"
+    ]
+  }
+}
