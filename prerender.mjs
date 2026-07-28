@@ -22,10 +22,10 @@ const routes = [
     path: '/pricing',
     title: 'Cleaning Prices East & North London | End of Tenancy, Carpet & Upholstery | VVE Clean',
     description:
-      'Fixed cleaning prices for East & North London. End of tenancy from £159, carpet cleaning from £90, upholstery cleaning from £40, move-in deep clean from £139, after builders from £199. No hidden fees — the price you see is the price you pay.',
+      'Fixed cleaning prices for East & North London. End of tenancy from £199, carpet from £90, sofa cleaning from £75, move-in deep clean from £179, after builders from £249. No hidden fees — the price you see is the price you pay.',
     ogTitle: 'Cleaning Prices London | VVE Clean',
     ogDescription:
-      'Fixed cleaning prices for East & North London. End of tenancy from £159, carpet cleaning from £90. No hidden fees.',
+      'Fixed cleaning prices for East & North London. End of tenancy from £199, carpet from £90, sofa from £75. No hidden fees.',
   },
   {
     path: '/booking',
@@ -100,21 +100,21 @@ const routes = [
   },
   {
     path: '/end-of-tenancy-cleaning-london',
-    title: 'End of Tenancy Cleaning London | From £159 | VVE Clean',
+    title: 'End of Tenancy Cleaning London | From £199 | VVE Clean',
     description:
-      'Professional end of tenancy cleaning in London from £159. 67-point agency checklist, free oven clean included, 48-hour re-clean guarantee. Covering East and North London — E1–E17 and N1–N19.',
+      'Professional end of tenancy cleaning in London from £199. 67-point agency checklist, free oven clean included, 48-hour re-clean guarantee. Covering East and North London — E1–E17 and N1–N19.',
     ogTitle: 'End of Tenancy Cleaning London | VVE Clean',
     ogDescription:
-      'End of tenancy cleaning from £159. 67-point checklist, free oven clean, 48-hour re-clean guarantee across East and North London.',
+      'End of tenancy cleaning from £199. 67-point checklist, free oven clean, 48-hour re-clean guarantee across East and North London.',
   },
   {
     path: '/after-builders-cleaning-london',
-    title: 'After Builders Cleaning London | From £199 | VVE Clean',
+    title: 'After Builders Cleaning London | From £249 | VVE Clean',
     description:
-      'Post-construction cleaning in London from £199. We remove fine dust, paint splashes, sticker residue and construction debris — leaving your space spotless and move-in ready. Quote by photo within the hour.',
+      'Post-construction cleaning in London from £249. We remove fine dust, paint splashes, sticker residue and construction debris — leaving your space spotless and move-in ready. Quote by photo within the hour.',
     ogTitle: 'After Builders Cleaning London | VVE Clean',
     ogDescription:
-      'Post-construction cleaning from £199. Fine dust, paint splashes and debris removed. Quote by photo within the hour across East and North London.',
+      'Post-construction cleaning from £249. Fine dust, paint splashes and debris removed. Quote by photo within the hour across East and North London.',
   },
 ];
 
