@@ -46,9 +46,10 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`, `MANUAL REVI
 
 ## Phase 5 — Images and performance
 
-- NOT STARTED — Measure build output before broad image changes.
-- NOT STARTED — Audit homepage/carpet heroes, service cards, gallery, logos and trust badges for dimensions, responsive sizes, loading priority, supported formats/compression and accurate alt text.
-- MANUAL REVIEW REQUIRED — `public/images/carpet-hero-desktop.jpg` if the exact asset is absent; retain the existing fallback and do not fabricate it.
+- COMPLETE — Measure build output: JS 488.90 kB / gzip 129.87 kB.
+- COMPLETE — Audit homepage/carpet heroes, service cards, gallery, logos and trust badges: all images have explicit dimensions, lazy loading below fold, eager+fetchpriority on LCP (Hero.tsx), WebP for gallery, alt text on all meaningful images, decorative backgrounds have alt="" aria-hidden="true".
+- COMPLETE — Added `<link rel="preload" as="image" fetchpriority="high">` for the LCP hero image in index.html.
+- MANUAL REVIEW REQUIRED — `public/images/carpet-hero-desktop.jpg` absent; HeroBackground falls back to mobile image gracefully; do not fabricate.
 - COMPLETE — Do not alter genuine before/after visual content or degrade quality for low-value optimisation.
 
 ## Phase 6 — Trust, content and conversion
