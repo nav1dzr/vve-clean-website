@@ -465,9 +465,13 @@ export async function generateInvoicePdfBuffer(invoice, items, settings, { isDra
   drawWordmark(doc, fonts, PAGE_MARGIN, PAGE_MARGIN);
   const businessBlockHeight = drawBusinessBlock(doc, fonts, settings, doc.page.width - PAGE_MARGIN - 220, PAGE_MARGIN, 220);
 
+  const isRevision = !!(invoice.revised_from_invoice_id || invoice.revised_from_invoice_number);
   let y = Math.max(PAGE_MARGIN + 62, PAGE_MARGIN + businessBlockHeight + 20);
   doc.font(fonts.bold).fontSize(17).fillColor(NAVY);
-  doc.text(isDraft ? 'Invoice (draft)' : 'Invoice', PAGE_MARGIN, y);
+  const titleText = isDraft
+    ? (isRevision ? 'Revised invoice (draft)' : 'Invoice (draft)')
+    : (isRevision ? 'Revised invoice' : 'Invoice');
+  doc.text(titleText, PAGE_MARGIN, y);
   drawStatusBadge(doc, fonts, isDraft ? 'draft' : 'invoice', doc.page.width - PAGE_MARGIN, y - 2);
   y += 24;
   doc.font(fonts.regular).fontSize(9.5).fillColor(GREY);
@@ -491,6 +495,11 @@ export async function generateInvoicePdfBuffer(invoice, items, settings, { isDra
     ['Issue Date', formatDate(invoice.issue_date)],
     ['Due Date', formatDate(invoice.due_date)],
     invoice.service_date ? ['Service Date', formatDate(invoice.service_date)] : null,
+    (invoice.revised_from_invoice_number)
+      ? ['Replaces', invoice.revised_from_issue_date
+        ? `${invoice.revised_from_invoice_number} (issued ${formatDate(invoice.revised_from_issue_date)})`
+        : invoice.revised_from_invoice_number]
+      : null,
   ].filter(Boolean);
   let detailY = y + 14;
   doc.font(fonts.regular).fontSize(9.5);
