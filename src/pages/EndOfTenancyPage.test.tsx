@@ -53,12 +53,12 @@ describe('EndOfTenancyPage — complete package', () => {
     expect(screen.getByRole('button', { name: 'House / maisonette' })).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('prices the approved four-bedroom house carpet example transparently', async () => {
+  it('prices the approved four-bedroom house carpet example transparently, including the +£35 house adjustment', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: 'House / maisonette' }));
-    await user.click(screen.getByRole('button', { name: '4+ Bed' }));
+    await user.click(screen.getByRole('button', { name: '4 Bed' }));
     await user.click(screen.getByRole('button', {
       name: 'Increase 4 bedroom carpets + hallway + landing quantity',
     }));
@@ -69,8 +69,47 @@ describe('EndOfTenancyPage — complete package', () => {
       name: 'Increase Flights of stairs quantity',
     }));
 
-    expect(screen.getAllByText('£844').length).toBeGreaterThan(0);
+    // £549 base + £35 house adjustment + £195 carpets + £55 living carpet + £45 stairs = £879
+    expect(screen.getAllByText('£879').length).toBeGreaterThan(0);
     expect(screen.getAllByText('4 bedroom carpets + hallway + landing').length).toBeGreaterThan(0);
+    expect(screen.getByText('House/maisonette adjustment')).toBeInTheDocument();
+  });
+
+  it('prices a 4-bed house base at £584 (£549 base + £35 house adjustment) with no other extras', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'House / maisonette' }));
+    await user.click(screen.getByRole('button', { name: '4 Bed' }));
+
+    expect(screen.getAllByText('£584').length).toBeGreaterThan(0);
+  });
+
+  it('does not add the house adjustment for a flat at 4 Bed (£549)', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: '4 Bed' }));
+
+    expect(screen.getAllByText('£549').length).toBeGreaterThan(0);
+    expect(screen.queryByText('House/maisonette adjustment')).not.toBeInTheDocument();
+  });
+
+  it('routes 5+ bedroom properties to a tailored quote with no fixed total shown', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: '5+ Bedrooms' }));
+
+    expect(screen.getByText('Tailored Quote Required')).toBeInTheDocument();
+    expect(screen.getAllByText('Tailored quote').length).toBeGreaterThan(0);
+    expect(screen.getByRole('link', { name: 'Request tailored quote →' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('5%2B%20bedroom'),
+    );
+    // Neither "Book online" CTA variant is offered for a tailored quote —
+    // WhatsApp is the only path forward, matching the after-builders pattern.
+    expect(screen.queryByRole('button', { name: /Book online/i })).not.toBeInTheDocument();
   });
 
   it('caps scope reductions and clearly changes the product to Custom EOT', async () => {

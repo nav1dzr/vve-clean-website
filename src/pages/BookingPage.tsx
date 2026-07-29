@@ -5,6 +5,13 @@ import QuoteCalculator, { type BookingSelection } from '../components/QuoteCalcu
 import { getAttribution } from '../lib/attribution';
 import { CARPET_MIN_BOOKING, DISCOUNT_MIN_NOTE } from '../data/carpetPricing';
 import { TERMS_VERSION, CANCELLATION_POLICY_VERSION } from '../lib/termsVersion';
+import { PARKING_ESTIMATE_P, CONGESTION_CHARGE_P, PARKING_CHARGED_AT_ACTUAL_COST_NOTE } from '../data/pricing';
+
+const PARKING_ESTIMATE    = PARKING_ESTIMATE_P / 100;
+const CONGESTION_CHARGE   = CONGESTION_CHARGE_P / 100;
+
+type ParkingAnswer    = '' | 'yes' | 'no' | 'not_sure';
+type CongestionAnswer = '' | 'no' | 'yes' | 'not_sure';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -267,12 +274,26 @@ interface FormData {
   date:     string;
   time:     string;
   message:  string;
+  parkingAvailable: ParkingAnswer;
+  congestionZone:   CongestionAnswer;
 }
 
-const REQUIRED_DATE_ERROR  = 'Please choose your preferred date.';
-const PAST_DATE_ERROR      = 'Please choose a date that has not already passed.';
-const REQUIRED_TIME_ERROR  = 'Please choose your preferred arrival window.';
-const REQUIRED_TERMS_ERROR = 'Please read and accept the booking and cancellation terms.';
+const REQUIRED_DATE_ERROR       = 'Please choose your preferred date.';
+const PAST_DATE_ERROR           = 'Please choose a date that has not already passed.';
+const REQUIRED_TIME_ERROR       = 'Please choose your preferred arrival window.';
+const REQUIRED_PARKING_ERROR    = 'Please tell us whether free parking is available for our cleaning team.';
+const REQUIRED_CONGESTION_ERROR = 'Please tell us whether the property is inside the Congestion Charge zone.';
+const REQUIRED_TERMS_ERROR      = 'Please read and accept the booking and cancellation terms.';
+
+// Surcharge for a given parking/Congestion Charge answer — £0 for the
+// no-extra-cost answer, the centralised estimate otherwise (mirrors
+// api/servicePrices.js's accessSurcharge, the server-side authority).
+function parkingSurcharge(answer: ParkingAnswer): number {
+  return answer === 'no' || answer === 'not_sure' ? PARKING_ESTIMATE : 0;
+}
+function congestionSurcharge(answer: CongestionAnswer): number {
+  return answer === 'yes' || answer === 'not_sure' ? CONGESTION_CHARGE : 0;
+}
 
 // YYYY-MM-DD for today in the visitor's local time zone — matches the
 // plain-string format <input type="date"> both stores and displays, so a
@@ -290,6 +311,7 @@ export default function BookingPage() {
   const [showSelector, setShowSelector] = useState(false);
   const [form,         setForm]         = useState<FormData>({
     fullName: '', address: '', postcode: '', phone: '', email: '', date: '', time: '', message: '',
+    parkingAvailable: '', congestionZone: '',
   });
   const [errors,        setErrors]        = useState<FormErrors>({});
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -301,7 +323,14 @@ export default function BookingPage() {
   // ── Restore booking-form draft on mount (before any user input) ───────────
   useEffect(() => {
     const draft = loadDraft();
-    if (draft) setForm(draft);
+    if (draft) {
+      setForm((current) => ({
+        ...current,
+        ...draft,
+        parkingAvailable: draft.parkingAvailable ?? '',
+        congestionZone: draft.congestionZone ?? '',
+      }));
+    }
   }, []);
 
   // ── Load selection from sessionStorage or fall back to URL params ──────────
@@ -352,6 +381,16 @@ export default function BookingPage() {
       setSubmitError('');
     };
 
+  // Button-group choices (parking / congestion) aren't native form inputs,
+  // so they set a value directly rather than reading e.target.value.
+  const setChoice = <K extends 'parkingAvailable' | 'congestionZone'>(field: K, value: FormData[K]) => {
+    const next = { ...form, [field]: value };
+    setForm(next);
+    saveDraft(next);
+    setErrors(err => ({ ...err, [field]: undefined }));
+    setSubmitError('');
+  };
+
   const validate = (): boolean => {
     const e: FormErrors = {};
     if (!form.fullName.trim())          e.fullName = 'Please enter your full name.';
@@ -364,6 +403,8 @@ export default function BookingPage() {
     if (!form.date)                     e.date = REQUIRED_DATE_ERROR;
     else if (form.date < todayIsoDate()) e.date = PAST_DATE_ERROR;
     if (!form.time)                     e.time = REQUIRED_TIME_ERROR;
+    if (!form.parkingAvailable)          e.parkingAvailable = REQUIRED_PARKING_ERROR;
+    if (!form.congestionZone)            e.congestionZone = REQUIRED_CONGESTION_ERROR;
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -388,9 +429,13 @@ export default function BookingPage() {
     const attribution = getAttribution();
     const payload = {
       service:     selection.serviceName,
-      price:       selection.price,
+      price:       totalWithAccessCharges,
       deposit:     DEPOSIT,
-      quoteConfig: selection.quoteConfig,
+      quoteConfig: {
+        ...selection.quoteConfig,
+        parkingAvailable: form.parkingAvailable,
+        congestionZone:   form.congestionZone,
+      },
       fullName:    form.fullName.trim(),
       address:     form.address.trim(),
       postcode:    form.postcode.trim().toUpperCase(),
@@ -448,7 +493,13 @@ export default function BookingPage() {
       : "Hi VVE Clean, I'd like to book a cleaning service."
   )}`;
 
-  const remaining = selection && selection.price > DEPOSIT ? selection.price - DEPOSIT : 0;
+  // Access charges (parking / Congestion Charge) are answered on this page,
+  // after the quote calculator already produced selection.price — so the
+  // displayed total and deposit/remaining split must account for them here.
+  const parkingCharge    = parkingSurcharge(form.parkingAvailable);
+  const congestionCharge = congestionSurcharge(form.congestionZone);
+  const totalWithAccessCharges = (selection?.price ?? 0) + parkingCharge + congestionCharge;
+  const remaining = totalWithAccessCharges > DEPOSIT ? totalWithAccessCharges - DEPOSIT : 0;
 
   // ── CSS helpers ────────────────────────────────────────────────────────────
   const inputCls = (field: keyof FormData) =>
@@ -590,8 +641,8 @@ export default function BookingPage() {
               Choose your preferred date and arrival window. We will confirm availability within one business hour.
             </p>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div data-error={!!errors.date}>
+            <div data-testid="booking-schedule-fields" className="grid min-w-0 grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="min-w-0" data-error={!!errors.date}>
                 <label htmlFor="booking-date" className="block text-navy-900 font-semibold text-sm mb-1.5">
                   Preferred date <span style={{ color: '#D14343' }}>*</span>
                 </label>
@@ -599,21 +650,21 @@ export default function BookingPage() {
                   min={todayIsoDate()}
                   aria-invalid={!!errors.date}
                   aria-describedby={errors.date ? 'date-error' : undefined}
-                  className={`w-full rounded-xl border-[1.5px] px-3.5 py-3 text-[16px] outline-none transition-colors font-sans ${
+                  className={`block h-12 w-full min-w-0 max-w-full box-border rounded-xl border-[1.5px] px-3.5 text-[16px] outline-none transition-colors font-sans ${
                     errors.date
                       ? 'border-[#D14343] bg-red-50 text-navy-900'
                       : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0ea5e9]'
                   }`} />
                 {errors.date && <p id="date-error" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.date}</p>}
               </div>
-              <div data-error={!!errors.time}>
+              <div className="min-w-0" data-error={!!errors.time}>
                 <label htmlFor="booking-time" className="block text-navy-900 font-semibold text-sm mb-1.5">
                   Preferred arrival window <span style={{ color: '#D14343' }}>*</span>
                 </label>
                 <select id="booking-time" value={form.time} onChange={setField('time')}
                   aria-invalid={!!errors.time}
                   aria-describedby={errors.time ? 'time-error' : undefined}
-                  className={`w-full rounded-xl border-[1.5px] px-3.5 py-3 text-[16px] outline-none transition-colors font-sans ${
+                  className={`block h-12 w-full min-w-0 max-w-full box-border rounded-xl border-[1.5px] pl-3.5 pr-10 text-[16px] outline-none transition-colors font-sans ${
                     errors.time
                       ? 'border-[#D14343] bg-red-50 text-navy-900'
                       : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0ea5e9]'
@@ -628,17 +679,116 @@ export default function BookingPage() {
             </div>
 
             <div>
-              <label className="block text-navy-900 font-semibold text-sm mb-1.5">
+              <label htmlFor="booking-notes" className="block text-navy-900 font-semibold text-sm mb-1.5">
                 Anything else? <span className="font-normal text-silver-500">(optional)</span>
               </label>
-              <textarea value={form.message} onChange={setField('message')} rows={3}
+              <textarea id="booking-notes" value={form.message} onChange={setField('message')} rows={3}
                 maxLength={500}
                 placeholder="Access notes, number of rooms, pets, parking, anything we should know…"
-                className="w-full rounded-xl border-[1.5px] border-[#E3E7EE] bg-white px-3.5 py-3 text-[16px] text-navy-900 outline-none focus:border-[#0ea5e9] transition-colors font-sans resize-none" />
+                className="block w-full min-w-0 max-w-full box-border rounded-xl border-[1.5px] border-[#E3E7EE] bg-white px-3.5 py-3 text-[16px] text-navy-900 outline-none focus:border-[#0ea5e9] transition-colors font-sans resize-none" />
               <div className="flex justify-end mt-1">
                 <span className="text-xs text-silver-400">{form.message.length}/500</span>
               </div>
             </div>
+          </div>
+
+          {/* ── Step 4: Parking & Congestion Charge ─────────────────────────── */}
+          <div className="bg-white border border-[#E3E7EE] rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-[#0ea5e9] text-white text-xs font-bold flex items-center justify-center">4</span>
+              <span className="text-navy-900 text-sm font-semibold">Parking &amp; Congestion Charge</span>
+            </div>
+
+            <fieldset data-error={!!errors.parkingAvailable}>
+              <legend className="block text-navy-900 font-semibold text-sm mb-1.5">
+                Is free parking available for our cleaning team? <span style={{ color: '#D14343' }}>*</span>
+              </legend>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {([
+                  ['yes', 'Yes'],
+                  ['no', 'No'],
+                  ['not_sure', 'Not sure'],
+                ] as [ParkingAnswer, string][]).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setChoice('parkingAvailable', value)}
+                    aria-pressed={form.parkingAvailable === value}
+                    className={`min-h-[44px] py-2.5 px-3 rounded-xl border-[1.5px] text-sm font-semibold transition-colors ${
+                      form.parkingAvailable === value
+                        ? 'border-[#0ea5e9] bg-[#f0f9ff] text-[#0ea5e9]'
+                        : 'border-[#E3E7EE] text-navy-800 hover:border-navy-300'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-silver-600 text-xs mt-1.5">{PARKING_CHARGED_AT_ACTUAL_COST_NOTE}</p>
+              {parkingCharge > 0 && (
+                <p className="text-xs font-semibold mt-1" style={{ color: '#0ea5e9' }}>
+                  +{money(parkingCharge)} estimated parking allowance
+                </p>
+              )}
+              {errors.parkingAvailable && <p role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.parkingAvailable}</p>}
+            </fieldset>
+
+            <fieldset data-error={!!errors.congestionZone}>
+              <legend className="block text-navy-900 font-semibold text-sm mb-1.5">
+                Is the property inside the Congestion Charge zone? <span style={{ color: '#D14343' }}>*</span>
+              </legend>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {([
+                  ['no', 'No'],
+                  ['yes', 'Yes'],
+                  ['not_sure', 'Not sure'],
+                ] as [CongestionAnswer, string][]).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setChoice('congestionZone', value)}
+                    aria-pressed={form.congestionZone === value}
+                    className={`min-h-[44px] py-2.5 px-3 rounded-xl border-[1.5px] text-sm font-semibold transition-colors ${
+                      form.congestionZone === value
+                        ? 'border-[#0ea5e9] bg-[#f0f9ff] text-[#0ea5e9]'
+                        : 'border-[#E3E7EE] text-navy-800 hover:border-navy-300'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-silver-600 text-xs mt-1.5">
+                This is a pass-through Congestion Charge, not a cleaning-service fee.
+              </p>
+              {congestionCharge > 0 && (
+                <p className="text-xs font-semibold mt-1" style={{ color: '#0ea5e9' }}>
+                  +{money(congestionCharge)} {form.congestionZone === 'not_sure' ? 'estimated pending address confirmation' : 'Congestion Charge'}
+                </p>
+              )}
+              {errors.congestionZone && <p role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.congestionZone}</p>}
+            </fieldset>
+
+            {form.parkingAvailable && form.congestionZone && (
+              <div className="rounded-xl border border-[#E3E7EE] px-3.5 py-3 space-y-1" style={{ background: '#F7F8FA' }}>
+                <div className="flex justify-between text-xs text-silver-600">
+                  <span>Service subtotal</span>
+                  <span>{money(selection.price)}</span>
+                </div>
+                <div className="flex justify-between gap-3 text-xs text-navy-700">
+                  <span>{parkingCharge > 0 ? 'Estimated parking allowance' : 'Free parking available'}</span>
+                  <span>{parkingCharge > 0 ? `+${money(parkingCharge)}` : '£0'}</span>
+                </div>
+                <div className="flex justify-between gap-3 text-xs text-navy-700">
+                  <span>Congestion Charge (pass-through)</span>
+                  <span>{congestionCharge > 0 ? `+${money(congestionCharge)}` : '£0'}</span>
+                </div>
+                <div className="flex justify-between text-xs font-bold text-navy-900 border-t border-[#E3E7EE] pt-1 mt-1">
+                  <span>Estimated total</span>
+                  <span>{money(totalWithAccessCharges)}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Payment breakdown ───────────────────────────────────────────── */}

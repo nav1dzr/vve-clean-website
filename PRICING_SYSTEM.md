@@ -89,6 +89,7 @@ base price with essential inspection items sold separately.
 | 2 bedrooms | £369 |
 | 3 bedrooms | £449 |
 | 4 bedrooms | £549 |
+| 5+ bedrooms | Tailored quote required |
 
 The package includes the oven/hob/extractor, inside an emptied fridge and
 defrosted freezer, accessible dishwasher/washing-machine compartments,
@@ -96,8 +97,14 @@ cupboards inside and out, internal windows, descaling, standard rooms and
 floors, products and equipment. Carpet steam cleaning remains a genuine
 upgrade; ordinary vacuuming is included.
 
-Property type does not create an automatic surcharge. Additional rooms,
-bathrooms, carpet areas and access costs price the real scope instead.
+Flats/apartments have no property-type adjustment. Houses and maisonettes add
+£35 (`EOT_HOUSE_ADJUSTMENT_P`) for the normal additional hallway, landing,
+internal-staircase cleaning and movement between floors. Carpet steam cleaning
+for stairs remains a separate upgrade.
+
+Five-bedroom and larger properties never reuse the four-bedroom price. They
+use the `bed5` tailored-quote path and may submit an enquiry without being shown
+a misleading fixed total.
 
 Customers may remove only the approved inspection-ready items in
 `EOT_SCOPE_CREDITS_P`. The reduction is capped at the lower of 10% of the base
@@ -108,6 +115,22 @@ The EOT quote offers upholstery and mattress upgrades at the same canonical
 item prices used by the carpet/upholstery service. Curtains and blinds, full
 wall washing, extreme buildup, mould, biohazards and unusual access remain
 photo-review items rather than invented fixed-price extras.
+
+## Parking and Congestion Charge
+
+Access charges are shared by every fixed-price booking and are stored centrally:
+
+- Free parking available: £0
+- No free parking / not sure: £15 estimated allowance
+  (`PARKING_ESTIMATE_P`). Parking is charged at actual cost and the final
+  balance is adjusted if it costs less or more.
+- Outside the Congestion Charge zone: £0
+- Inside / not sure: £18 pass-through charge
+  (`CONGESTION_CHARGE_P`), with “not sure” marked as estimated pending address
+  confirmation.
+
+The Congestion Charge is not a cleaning-service fee. There is no automatic ULEZ
+fee and no same-day or next-day surcharge.
 
 ---
 

@@ -35,6 +35,27 @@ const EOT_SCOPE_CREDITS = {
   oven: 15, fridge_freezer: 10, cupboards: 10, internal_windows: 10,
 };
 
+// Transparent house/maisonette adjustment (mirrors EOT_HOUSE_ADJUSTMENT_P).
+const EOT_HOUSE_ADJUSTMENT = 35;
+
+// Access charges — required booking questions, apply regardless of service
+// (mirrors PARKING_ESTIMATE_P / CONGESTION_CHARGE_P). Parking is an estimated
+// allowance reconciled to actual cost; the Congestion Charge is a pass-through,
+// never a cleaning-service fee.
+const PARKING_ESTIMATE  = 15;
+const CONGESTION_CHARGE = 18;
+
+function accessSurcharge(quoteConfig) {
+  let add = 0;
+  if (quoteConfig.parkingAvailable === 'no' || quoteConfig.parkingAvailable === 'not_sure') {
+    add += PARKING_ESTIMATE;
+  }
+  if (quoteConfig.congestionZone === 'yes' || quoteConfig.congestionZone === 'not_sure') {
+    add += CONGESTION_CHARGE;
+  }
+  return add;
+}
+
 function eotScopeCredit(base, excludedItems) {
   const unique = [...new Set(Array.isArray(excludedItems) ? excludedItems : [])];
   const requested = unique.reduce((sum, key) => sum + (EOT_SCOPE_CREDITS[key] ?? 0), 0);
@@ -97,8 +118,17 @@ function computeCarpetItemisedPrice(carpetCounts, carpetCondition) {
 export function computePrice(quoteConfig) {
   if (!quoteConfig || !quoteConfig.service) return null;
 
+  const result = computeBasePrice(quoteConfig);
+
+  // Access charges (parking / Congestion Charge) apply on top of any fixed
+  // price, regardless of service — never on a null (manual/photo-quote) result.
+  if (result === null) return null;
+  return result + accessSurcharge(quoteConfig);
+}
+
+function computeBasePrice(quoteConfig) {
   const {
-    service, deepService, deepSize, deepBaths,
+    service, deepService, deepSize, deepBaths, propertyType,
     addOnCounts, windowSize, gutterType, officeHours,
     carpetCounts, carpetCondition, eotScopeExclusions,
   } = quoteConfig;
@@ -110,6 +140,9 @@ export function computePrice(quoteConfig) {
     }
 
     // ── Other deep services (EOT, move-in, after-builders) ──────────────────
+    // 5+ bedroom EOT properties have no fixed price by design (tailored quote
+    // required) — bp[deepSize] is undefined for 'bed5' and this correctly
+    // falls through to null, never inventing a fixed total.
     const bp = BASE_PRICES[deepService];
     if (!bp) return null;
     const base = bp[deepSize];
@@ -117,6 +150,9 @@ export function computePrice(quoteConfig) {
 
     const isCarpet  = deepService === 'carpet_upholstery';
     const bathExtra = isCarpet ? 0 : (((deepBaths || 1) - 1) * (BATH_SURCHARGE[deepService] || 0));
+    const houseAdjustment = deepService === 'end_of_tenancy' && propertyType === 'house'
+      ? EOT_HOUSE_ADJUSTMENT
+      : 0;
 
     let addons = 0;
     if (addOnCounts && typeof addOnCounts === 'object') {
@@ -137,7 +173,7 @@ export function computePrice(quoteConfig) {
     const scopeCredit = deepService === 'end_of_tenancy'
       ? eotScopeCredit(base, eotScopeExclusions)
       : 0;
-    return base + bathExtra + addons - scopeCredit;
+    return base + houseAdjustment + bathExtra + addons - scopeCredit;
   }
 
   if (service === 'window') {

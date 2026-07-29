@@ -90,6 +90,7 @@ describe('formatBookingItemLines — end of tenancy / deep clean', () => {
     expect(lines).toEqual([
       'End of tenancy — House, 3 Bed, 2 bathrooms',
       'Oven, fridge/freezer, cupboards and internal windows included',
+      'House/maisonette adjustment: +£35 — covers normal additional hallways, landing, internal staircase cleaning and movement between floors',
       '1 × Exterior windows',
       '1 × Flights of stairs',
     ]);
@@ -142,6 +143,93 @@ describe('formatBookingItemLines — end of tenancy / deep clean', () => {
       '1 × Inside oven',
       '1 × Wall marks & scuffs',
     ]);
+  });
+});
+
+describe('formatBookingItemLines — house/maisonette adjustment', () => {
+  it('does not add a house-adjustment line for a flat', () => {
+    const lines = formatBookingItemLines({
+      service: 'deep',
+      deepService: 'end_of_tenancy',
+      deepSize: 'bed4',
+      deepBaths: 1,
+      propertyType: 'flat',
+      addOnCounts: {},
+    });
+    expect(lines).toEqual([
+      'End of tenancy — Flat, 4 Bed, 1 bathroom',
+      'Oven, fridge/freezer, cupboards and internal windows included',
+    ]);
+  });
+});
+
+describe('formatBookingItemLines — access charges (parking / Congestion Charge)', () => {
+  it('adds no access-charge line when parking is available and outside the zone', () => {
+    const lines = formatBookingItemLines({
+      service: 'window', windowSize: 'medium', parkingAvailable: 'yes', congestionZone: 'no',
+    });
+    expect(lines).toEqual([
+      'Window cleaning — 3 Bed',
+      'Parking: free parking available — £0',
+      'Congestion Charge zone: no — £0',
+    ]);
+  });
+
+  it('adds the parking estimate line when parking is not available', () => {
+    const lines = formatBookingItemLines({
+      service: 'window', windowSize: 'medium', parkingAvailable: 'no',
+    });
+    expect(lines).toEqual([
+      'Window cleaning — 3 Bed',
+      'Parking: not available on-site — +£15 estimated parking allowance (charged at actual cost)',
+    ]);
+  });
+
+  it('adds the parking estimate line when parking is not sure', () => {
+    const lines = formatBookingItemLines({
+      service: 'window', windowSize: 'medium', parkingAvailable: 'not_sure',
+    });
+    expect(lines).toEqual([
+      'Window cleaning — 3 Bed',
+      'Parking: not sure — +£15 estimated parking allowance (charged at actual cost)',
+    ]);
+  });
+
+  it('adds the Congestion Charge line when the property is inside the zone', () => {
+    const lines = formatBookingItemLines({
+      service: 'window', windowSize: 'medium', congestionZone: 'yes',
+    });
+    expect(lines).toEqual([
+      'Window cleaning — 3 Bed',
+      'Congestion Charge zone — +£18 pass-through Congestion Charge',
+    ]);
+  });
+
+  it('adds the estimated Congestion Charge line when not sure', () => {
+    const lines = formatBookingItemLines({
+      service: 'window', windowSize: 'medium', congestionZone: 'not_sure',
+    });
+    expect(lines).toEqual([
+      'Window cleaning — 3 Bed',
+      'Congestion Charge zone: not sure — £18 estimated pending address confirmation (pass-through Congestion Charge)',
+    ]);
+  });
+
+  it('adds both lines when parking is unavailable and the property is in the zone', () => {
+    const lines = formatBookingItemLines({
+      service: 'gutter', gutterType: 'semi_detached', parkingAvailable: 'no', congestionZone: 'yes',
+    });
+    expect(lines).toEqual([
+      'Gutter clearing — Semi-Detached',
+      'Parking: not available on-site — +£15 estimated parking allowance (charged at actual cost)',
+      'Congestion Charge zone — +£18 pass-through Congestion Charge',
+    ]);
+  });
+
+  it('adds no access-charge lines for an unrecognised service, even with access-charge answers set', () => {
+    expect(formatBookingItemLines({
+      service: 'unknown_future_service', parkingAvailable: 'no', congestionZone: 'yes',
+    })).toEqual([]);
   });
 });
 

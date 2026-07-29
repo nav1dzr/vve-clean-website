@@ -77,8 +77,19 @@ export const EOT_BASE_PRICES_P: Record<string, number> = {
   bed1:   29900,  // £299
   bed2:   36900,  // £369 (1 bathroom)
   bed3:   44900,  // £449 (1 bathroom)
-  bed4:   54900,  // £549 (1 bathroom)
+  bed4:   54900,  // £549 (1 bathroom) — labelled "4 Bed", not "4+"
 };
+
+// 5+ bedroom properties require a tailored quote — never a fixed EOT total.
+// No price constant exists for this tier by design; the quote calculator and
+// server validation must both route this to a manual/tailored-quote path.
+export const EOT_TAILORED_QUOTE_SIZE = 'bed5';
+
+// Transparent house/maisonette adjustment. Covers the normal additional
+// hallways, landing, internal staircase cleaning and movement between floors
+// that a house has versus a flat. Stair carpet steam cleaning remains a
+// separate upgrade (EOT_CARPET_ADDON_PRICES_P.stairs_first/extra).
+export const EOT_HOUSE_ADJUSTMENT_P = 3500;  // +£35
 
 // Per additional bathroom beyond the first (integer pence).
 export const EOT_EXTRA_BATH_P = 5000;  // £50
@@ -211,6 +222,19 @@ export const EOT_CARPET_BUNDLE_P: Record<string, number> = {
 // ─── Booking constants ────────────────────────────────────────────────────────
 
 export const DEPOSIT_P = 3000;  // £30 — deducted from final balance
+
+// ─── Access charges (parking / Congestion Charge) ────────────────────────────
+//
+// Asked as required booking questions on every booking, regardless of
+// service. Parking uses an allowance that is reconciled to actual cost on the
+// final balance. The Congestion Charge is a pass-through of Transport for
+// London's charge, never a cleaning-service fee.
+
+export const PARKING_ESTIMATE_P    = 1500;  // £15 — estimated parking allowance
+export const CONGESTION_CHARGE_P   = 1800;  // £18 — pass-through Congestion Charge
+
+export const PARKING_CHARGED_AT_ACTUAL_COST_NOTE =
+  'Parking is charged at the actual cost. The final balance will be adjusted if it costs less or more.';
 
 // ─── Same-day / next-day policy (no surcharge) ───────────────────────────────
 //

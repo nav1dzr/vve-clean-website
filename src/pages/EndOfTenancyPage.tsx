@@ -2,7 +2,14 @@ import ServiceLandingLayout, { type ServiceLandingData } from '../components/Ser
 import EotGallery from '../components/EotGallery';
 import QuoteCalculator from '../components/QuoteCalculator';
 import { ClipboardList, PackageCheck, RefreshCw, Camera } from 'lucide-react';
-import { EOT_BASE_PRICES_P, EOT_EXTRA_BATH_P, EOT_EXTRA_WC_P } from '../data/pricing';
+import {
+  EOT_BASE_PRICES_P,
+  EOT_EXTRA_BATH_P,
+  EOT_EXTRA_WC_P,
+  EOT_HOUSE_ADJUSTMENT_P,
+  PARKING_ESTIMATE_P,
+  CONGESTION_CHARGE_P,
+} from '../data/pricing';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20book%20an%20end%20of%20tenancy%20clean.';
 
@@ -32,7 +39,7 @@ const SCHEMA = JSON.stringify({
         { '@type': 'Offer', name: '1 Bedroom', price: p(EOT_BASE_PRICES_P.bed1), priceCurrency: 'GBP' },
         { '@type': 'Offer', name: '2 Bedroom', price: p(EOT_BASE_PRICES_P.bed2), priceCurrency: 'GBP' },
         { '@type': 'Offer', name: '3 Bedroom', price: p(EOT_BASE_PRICES_P.bed3), priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: '4+ Bedroom', price: p(EOT_BASE_PRICES_P.bed4), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: '4 Bedroom', price: p(EOT_BASE_PRICES_P.bed4), priceCurrency: 'GBP' },
       ],
     },
     {
@@ -75,7 +82,7 @@ const SCHEMA = JSON.stringify({
           name: 'What is not included in the end of tenancy price?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: `Prices apply to normally maintained, vacant properties. Additional bathrooms beyond the first are +${pDisplay(EOT_EXTRA_BATH_P)} each; additional WC +${pDisplay(EOT_EXTRA_WC_P)}. Carpet steam cleaning, upholstery, exterior windows, balconies, full wall washing, parking, congestion and access costs are genuine extras. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and a revised price agreed before work starts.`,
+            text: `Prices apply to normally maintained, vacant properties. Additional bathrooms beyond the first are +${pDisplay(EOT_EXTRA_BATH_P)} each; additional WC +${pDisplay(EOT_EXTRA_WC_P)}. A house or maisonette adds a transparent +${pDisplay(EOT_HOUSE_ADJUSTMENT_P)} for the normal additional hallways, landing, internal staircase cleaning and movement between floors — stair carpet steam cleaning stays a separate upgrade. 5+ bedroom properties need a tailored quote rather than a fixed online price. Every booking also asks two required questions: free parking for our team (+${pDisplay(PARKING_ESTIMATE_P)} estimate if not available or unsure, charged at actual cost) and the Congestion Charge zone (+${pDisplay(CONGESTION_CHARGE_P)} pass-through if inside the zone or unsure). Carpet steam cleaning, upholstery, exterior windows, balconies and full wall washing are genuine extras. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and a revised price agreed before work starts.`,
           },
         },
       ],
@@ -145,18 +152,20 @@ const DATA: ServiceLandingData = {
 
   pricingH2: 'Complete fixed prices by property size',
   pricingIntro:
-    'The base price covers one kitchen, one living/reception room and one bathroom in a normally maintained, vacant property. There is no automatic house surcharge: the quote prices the rooms and genuine extra work.',
+    'The base price covers one kitchen, one living/reception room and one bathroom in a normally maintained, vacant flat. A house or maisonette adds a transparent, centrally-priced adjustment for the normal additional hallways, landing, internal staircase cleaning and movement between floors — never a hidden or automatic surcharge.',
   pricingRows: [
     { label: 'Studio',                             price: pDisplay(EOT_BASE_PRICES_P.studio) },
     { label: '1 Bedroom / 1 bathroom',             price: pDisplay(EOT_BASE_PRICES_P.bed1) },
     { label: '2 Bedrooms / 1 bathroom',            price: pDisplay(EOT_BASE_PRICES_P.bed2) },
     { label: '3 Bedrooms / 1 bathroom',            price: pDisplay(EOT_BASE_PRICES_P.bed3) },
-    { label: '4+ Bedrooms / 1 bathroom',           price: pDisplay(EOT_BASE_PRICES_P.bed4) },
+    { label: '4 Bedrooms / 1 bathroom',            price: pDisplay(EOT_BASE_PRICES_P.bed4) },
+    { label: 'House / maisonette adjustment',      price: `+${pDisplay(EOT_HOUSE_ADJUSTMENT_P)}` },
     { label: 'Each additional full bathroom',      price: `+${pDisplay(EOT_EXTRA_BATH_P)}` },
     { label: 'Additional WC (half bathroom)',       price: `+${pDisplay(EOT_EXTRA_WC_P)}` },
+    { label: '5+ Bedrooms',                        price: 'Tailored quote' },
   ],
   pricingNote:
-    'Prices are customer totals; no VAT wording is added. Carpet steam cleaning, upholstery, exterior windows, extra rooms, parking/congestion and difficult access are separate only when they genuinely expand the job. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and a revised price agreed before work starts.',
+    `Prices are customer totals; no VAT wording is added. 5+ bedroom properties vary too much for a fixed online price — we agree a tailored quote instead. Every booking also asks two required questions: free parking for our team (+${pDisplay(PARKING_ESTIMATE_P)} estimate if not available or unsure, charged at actual cost) and the Congestion Charge zone (+${pDisplay(CONGESTION_CHARGE_P)} pass-through if inside the zone or unsure). Carpet steam cleaning, upholstery, exterior windows and extra rooms are separate only when they genuinely expand the job. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and a revised price agreed before work starts.`,
   pricingCta: { href: '/end-of-tenancy-cleaning-london#quote', label: 'Build my complete quote' },
 
   faqs: [
@@ -178,7 +187,7 @@ const DATA: ServiceLandingData = {
     },
     {
       q: 'What is not included in the price?',
-      a: `Prices apply to normally maintained, vacant properties. Each additional bathroom beyond the first is +${pDisplay(EOT_EXTRA_BATH_P)}, and an additional WC is +${pDisplay(EOT_EXTRA_WC_P)}. Carpet steam cleaning, upholstery, exterior windows, balconies, full wall washing, parking, congestion and difficult access are genuine extras. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and price agreement before work starts.`,
+      a: `Prices apply to normally maintained, vacant properties. Each additional bathroom beyond the first is +${pDisplay(EOT_EXTRA_BATH_P)}, and an additional WC is +${pDisplay(EOT_EXTRA_WC_P)}. A house or maisonette adds a transparent +${pDisplay(EOT_HOUSE_ADJUSTMENT_P)} for the normal additional hallways, landing, internal staircase cleaning and movement between floors. Every booking also asks whether free parking is available for our team (+${pDisplay(PARKING_ESTIMATE_P)} estimate if not) and whether the property is in the Congestion Charge zone (+${pDisplay(CONGESTION_CHARGE_P)} pass-through if so). Carpet steam cleaning, upholstery, exterior windows, balconies and full wall washing are genuine extras. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and price agreement before work starts.`,
     },
     {
       q: 'Can I pay less if something is already cleaned?',

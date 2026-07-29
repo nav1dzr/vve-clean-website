@@ -48,7 +48,64 @@ async function fillAllRequiredFields(user: ReturnType<typeof userEvent.setup>) {
   await fillContactDetails(user);
   await user.type(screen.getByLabelText(/preferred date/i), '2026-08-01');
   await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
+  await user.click(screen.getAllByRole('button', { name: 'Yes' })[0]);
+  await user.click(screen.getAllByRole('button', { name: 'No' })[1]);
 }
+
+describe('BookingPage — mobile scheduling and access charges', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    seedSelection();
+  });
+
+  it('uses a one-column mobile schedule with full-width, clipping-safe controls and notes', () => {
+    renderBookingPage();
+
+    expect(screen.getByTestId('booking-schedule-fields')).toHaveClass('grid-cols-1', 'sm:grid-cols-2', 'min-w-0');
+    expect(screen.getByLabelText(/preferred date/i)).toHaveClass('w-full', 'min-w-0', 'max-w-full', 'h-12');
+    expect(screen.getByLabelText(/preferred arrival window/i)).toHaveClass('w-full', 'min-w-0', 'max-w-full', 'h-12', 'pr-10');
+    expect(screen.getByLabelText(/anything else/i)).toHaveClass('w-full', 'min-w-0', 'max-w-full');
+  });
+
+  it('requires both access questions before checkout', async () => {
+    const user = userEvent.setup();
+    renderBookingPage();
+    await fillContactDetails(user);
+    await user.type(screen.getByLabelText(/preferred date/i), '2026-08-01');
+    await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
+    await user.click(screen.getByRole('checkbox', { name: /terms of service/i }));
+    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
+
+    expect(await screen.findByText('Please tell us whether free parking is available for our cleaning team.')).toBeInTheDocument();
+    expect(screen.getByText('Please tell us whether the property is inside the Congestion Charge zone.')).toBeInTheDocument();
+  });
+
+  it('adds £15 parking and £18 Congestion Charge to the carried booking total', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({ checkoutUrl: 'https://checkout.stripe.com/test' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const user = userEvent.setup();
+    renderBookingPage();
+    await fillContactDetails(user);
+    await user.type(screen.getByLabelText(/preferred date/i), '2026-08-01');
+    await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
+    await user.click(screen.getAllByRole('button', { name: 'No' })[0]);
+    await user.click(screen.getAllByRole('button', { name: 'Yes' })[1]);
+    await user.click(screen.getByRole('checkbox', { name: /terms of service/i }));
+    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.price).toBe(153);
+    expect(body.quoteConfig.parkingAvailable).toBe('no');
+    expect(body.quoteConfig.congestionZone).toBe('yes');
+    expect(screen.getByText('£153')).toBeInTheDocument();
+
+    vi.unstubAllGlobals();
+  });
+});
 
 describe('BookingPage — booking request wording', () => {
   beforeEach(() => {

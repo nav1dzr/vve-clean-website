@@ -20,6 +20,7 @@ import {
   EOT_EXTRA_AREAS_P,
   EOT_CARPET_BUNDLE_P,
   EOT_SCOPE_CREDITS_P,
+  EOT_HOUSE_ADJUSTMENT_P,
   eotScopeCreditPence,
   MOVEIN_BASE_PRICES_P,
   MOVEIN_EXTRA_BATH_P,
@@ -282,6 +283,10 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
   const [eotScopeExclusions, setEotScopeExclusions] = useState<string[]>(
     () => _restore?.eotScopeExclusions ?? [],
   );
+  // "5+ Bedrooms" is a tailored-quote-only UI state, never a priced size —
+  // it never reaches handleBookNow/checkout, mirroring the after-builders
+  // and delicate-carpet manual-quote paths.
+  const [eotTailoredQuote, setEotTailoredQuote] = useState(false);
 
   // ── Carpet-specific state ──
   const [carpetCounts,    setCarpetCounts]    = useState<CarpetCounts>(
@@ -322,8 +327,11 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
       ) / 100
     : 0;
 
+  const houseAdjustment = isEot && propertyType === 'house' ? EOT_HOUSE_ADJUSTMENT_P / 100 : 0;
+
   // Non-carpet price calculation
   const calcDeepOrOtherPrice = (): number => {
+    if (isEot && eotTailoredQuote) return 0; // tailored quote — no fixed total
     if (service === 'deep') {
       const base      = BASE_PRICES[deepService][deepSize];
       const bathExtra = (deepBaths - 1) * BATH_SURCHARGE[deepService];
@@ -331,7 +339,7 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
         if (a.key === 'staircase') return s + STAIR_PRICES[Math.min(addOnCounts.staircase, 3)];
         return s + addOnCounts[a.key] * getAddOnPrice(a.key);
       }, 0);
-      return base + bathExtra + addOns - eotScopeCredit;
+      return base + houseAdjustment + bathExtra + addOns - eotScopeCredit;
     }
     if (service === 'window') return Math.max(windowPrices[windowSize] ?? 35, MIN_CHARGE);
     if (service === 'gutter') return Math.max(gutterPrices[gutterType] ?? 75, MIN_CHARGE);
@@ -367,6 +375,12 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
     // After builders
     if (isAfterBuilders) {
       const msg = `Hello VVE Clean, I'd like a quote for an after builders clean. I'll send photos of the space to confirm the scope.\nMy postcode is: `;
+      return `${WA_BASE}?text=${encodeURIComponent(msg)}`;
+    }
+
+    // EOT — 5+ bedrooms (tailored quote, no fixed total)
+    if (isEot && eotTailoredQuote) {
+      const msg = `Hello VVE Clean, I'd like a tailored quote for an end of tenancy clean at a 5+ bedroom ${propertyType}. I'll share the exact room count and access details.\nMy postcode is: `;
       return `${WA_BASE}?text=${encodeURIComponent(msg)}`;
     }
 
@@ -425,7 +439,10 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
         const scopeLine = eotScopeExclusions.length > 0
           ? ` Custom scope excludes: ${eotScopeExclusions.join(', ')}.`
           : '';
-        extrasLine = `Complete package includes appliances, cupboards and internal windows${extras ? `; upgrades: ${extras}` : ''}.${scopeLine}`;
+        const houseLine = propertyType === 'house'
+          ? ` House/maisonette adjustment: +£${EOT_HOUSE_ADJUSTMENT_P / 100}.`
+          : '';
+        extrasLine = `Complete package includes appliances, cupboards and internal windows${extras ? `; upgrades: ${extras}` : ''}.${houseLine}${scopeLine}`;
       } else {
         const extras = addOnDefs
           .filter((a) => addOnCounts[a.key] > 0)
@@ -511,9 +528,10 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
   };
 
   // ── Can the "Book Online" button be shown? ─────────────────────────────────
-  const canBookOnline = !isAfterBuilders && !(isCarpet && (carpetResult?.isPhotoQuote || (carpetResult?.totalItems ?? 0) === 0));
+  const canBookOnline = !isAfterBuilders && !(isEot && eotTailoredQuote)
+    && !(isCarpet && (carpetResult?.isPhotoQuote || (carpetResult?.totalItems ?? 0) === 0));
 
-  const isManualQuote = isAfterBuilders || (isCarpet && (carpetResult?.isPhotoQuote ?? false));
+  const isManualQuote = isAfterBuilders || (isEot && eotTailoredQuote) || (isCarpet && (carpetResult?.isPhotoQuote ?? false));
   const isReadyToBook = canBookOnline && price > 0;
 
   // Stable ref wrapper — lets context consumers call handleBookNow without stale closures
@@ -607,6 +625,7 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
                           onClick={() => {
                             setDeepService(k);
                             setAddOnCounts(Object.fromEntries(addOnDefs.map((a) => [a.key, 0])));
+                            setEotTailoredQuote(false);
                           }}
                           className={`py-2.5 px-3 rounded-xl border-2 text-xs font-semibold text-left transition-all duration-200 ${
                             deepService === k
@@ -772,7 +791,9 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
                               ))}
                             </div>
                             <p className="text-silver-600 text-[10px] mt-1.5">
-                              No automatic house surcharge. We price the real scope: rooms, bathrooms and selected carpet areas.
+                              {propertyType === 'house'
+                                ? `Transparent +£${EOT_HOUSE_ADJUSTMENT_P / 100} house/maisonette adjustment — covers normal additional hallways, landing, internal staircase cleaning and movement between floors. Carpet steam cleaning for stairs remains a separate upgrade.`
+                                : `House / maisonette adds a transparent +£${EOT_HOUSE_ADJUSTMENT_P / 100} to cover normal additional hallways, landing, internal staircase cleaning and movement between floors.`}
                             </p>
                           </fieldset>
                         </>
@@ -781,18 +802,34 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
                       {/* Property size */}
                       <div>
                         <label className="block text-navy-900 font-semibold text-sm mb-2">Property Size</label>
-                        <div className="grid grid-cols-5 gap-1.5">
-                          {([['studio','Studio'],['bed1','1 Bed'],['bed2','2 Bed'],['bed3','3 Bed'],['bed4','4+ Bed']] as [SizeKey, string][]).map(([k, l]) => (
-                            <button key={k} type="button" onClick={() => setDeepSize(k)}
+                        <div className={`grid gap-1.5 ${isEot ? 'grid-cols-3' : 'grid-cols-5'}`}>
+                          {([['studio','Studio'],['bed1','1 Bed'],['bed2','2 Bed'],['bed3','3 Bed'],['bed4', isEot ? '4 Bed' : '4+ Bed']] as [SizeKey, string][]).map(([k, l]) => (
+                            <button key={k} type="button" onClick={() => { setDeepSize(k); setEotTailoredQuote(false); }}
                               className={`py-2.5 rounded-xl border-2 text-xs font-bold transition-all duration-200 ${
-                                deepSize === k ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-navy-700 hover:border-royal-300'
+                                !eotTailoredQuote && deepSize === k ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-navy-700 hover:border-royal-300'
                               }`}>
                               {l}
                             </button>
                           ))}
+                          {isEot && (
+                            <button type="button" onClick={() => setEotTailoredQuote(true)}
+                              aria-pressed={eotTailoredQuote}
+                              className={`py-2.5 rounded-xl border-2 text-xs font-bold transition-all duration-200 ${
+                                eotTailoredQuote ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-navy-700 hover:border-royal-300'
+                              }`}>
+                              5+ Bedrooms
+                            </button>
+                          )}
                         </div>
+                        {eotTailoredQuote && (
+                          <p className="text-silver-600 text-[10px] mt-1.5">
+                            5+ bedroom properties need a tailored quote — send us a few details on WhatsApp and we'll confirm your price. No fixed total is shown because it would not reflect the real scope.
+                          </p>
+                        )}
                       </div>
 
+                      {!eotTailoredQuote && (
+                      <>
                       {/* Bathrooms */}
                       <div>
                         <label className="block text-navy-900 font-semibold text-sm mb-2">Bathrooms / WCs</label>
@@ -968,6 +1005,8 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
                           </div>
                         </div>
                       )}
+                      </>
+                      )}
                     </>
                   )}
                 </>
@@ -1040,8 +1079,16 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
               {/* ── Price / quote box ── */}
               {!isAfterBuilders && (
                 <>
-                  {/* Carpet: photo-quote state (delicate condition) */}
-                  {isCarpet && carpetResult?.isPhotoQuote ? (
+                  {/* EOT: 5+ bedrooms — tailored quote, no fixed total */}
+                  {isEot && eotTailoredQuote ? (
+                    <div className="rounded-2xl px-5 py-5 bg-amber-50 border-2 border-amber-200 space-y-3 text-center">
+                      <div className="text-amber-700 text-[10px] font-bold tracking-widest uppercase">Tailored Quote Required</div>
+                      <div className="font-display font-bold text-2xl text-amber-900">5+ bedroom property</div>
+                      <p className="text-amber-700 text-sm leading-relaxed max-w-xs mx-auto">
+                        Properties this size vary too much for a fixed online price. Send us the room count and a few details on WhatsApp and we'll confirm your price.
+                      </p>
+                    </div>
+                  ) : isCarpet && carpetResult?.isPhotoQuote ? (
                     <div className="rounded-2xl px-5 py-5 bg-purple-50 border-2 border-purple-200 space-y-3 text-center">
                       <div className="text-purple-700 text-[10px] font-bold tracking-widest uppercase">Photo Quote Required</div>
                       <div className="font-display font-bold text-2xl text-purple-900">Delicate fabric clean</div>
@@ -1209,7 +1256,11 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
                   className="btn-whatsapp flex items-center justify-center gap-2.5 w-full py-4 min-h-[44px] rounded-full font-bold text-base transition-all duration-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#16a34a]"
                 >
                   <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 flex-shrink-0" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                  {isAfterBuilders ? 'Request a quote →' : 'Send photos for a quote →'}
+                  {isAfterBuilders
+                    ? 'Request a quote →'
+                    : isEot && eotTailoredQuote
+                      ? 'Request tailored quote →'
+                      : 'Send photos for a quote →'}
                 </a>
               ) : (
                 <button
@@ -1253,7 +1304,7 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
           <div className="lg:col-span-2 navy-gradient p-6 flex flex-col justify-between rounded-br-2xl rounded-bl-2xl lg:rounded-bl-none lg:rounded-tr-2xl lg:sticky lg:top-24 lg:self-start">
             <div>
               <h3 className="text-silver-400 text-xs font-medium tracking-widest uppercase mb-2">
-                {isAfterBuilders ? 'Starting From' : isCarpet && carpetResult?.isPhotoQuote ? 'Photo Quote' : 'Your price'}
+                {isAfterBuilders ? 'Starting From' : (isEot && eotTailoredQuote) ? 'Tailored Quote' : isCarpet && carpetResult?.isPhotoQuote ? 'Photo Quote' : 'Your price'}
               </h3>
               {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
                 <div className="text-silver-400 text-base line-through mb-0.5">
@@ -1268,11 +1319,13 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
               <div className="text-5xl font-bold font-display text-white mb-1 transition-all duration-300">
                 {isAfterBuilders
                   ? `From £${AFTER_BUILDERS_START_FROM_P / 100}`
-                  : isCarpet && carpetResult?.isPhotoQuote
-                    ? 'Photo quote'
-                    : isCarpet && (carpetResult?.totalItems ?? 0) === 0
-                      ? `From £${CARPET_MIN_BOOKING}`
-                      : `${isCarpet && carpetCondition === 'heavy' ? '~' : ''}£${Math.round(price)}`}
+                  : isEot && eotTailoredQuote
+                    ? 'Tailored quote'
+                    : isCarpet && carpetResult?.isPhotoQuote
+                      ? 'Photo quote'
+                      : isCarpet && (carpetResult?.totalItems ?? 0) === 0
+                        ? `From £${CARPET_MIN_BOOKING}`
+                        : `${isCarpet && carpetCondition === 'heavy' ? '~' : ''}£${Math.round(price)}`}
               </div>
               {isCarpet && carpetResult?.showSaving && (
                 <div className="text-green-400 text-xs font-semibold mb-1">
@@ -1436,6 +1489,12 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
                             </div>
                           ))}
                         </div>
+                        {propertyType === 'house' && (
+                          <div className="flex justify-between gap-3 border-t border-white/10 pt-2 text-[11px]">
+                            <span className="text-silver-300">House/maisonette adjustment</span>
+                            <span className="text-white font-semibold">+£{EOT_HOUSE_ADJUSTMENT_P / 100}</span>
+                          </div>
+                        )}
                         {Object.entries(addOnCounts).some(([key, count]) => (
                           count > 0 && !['oven', 'fridge', 'sofa', 'mattress'].includes(key)
                         )) && (
