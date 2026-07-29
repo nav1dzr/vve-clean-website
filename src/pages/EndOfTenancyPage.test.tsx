@@ -1,0 +1,99 @@
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+import EndOfTenancyPage from './EndOfTenancyPage';
+import { BookingProvider } from '../context/BookingContext';
+import { CookieConsentProvider } from '../context/CookieConsentContext';
+
+beforeAll(() => {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+});
+
+function renderPage() {
+  return render(
+    <MemoryRouter initialEntries={['/end-of-tenancy-cleaning-london']}>
+      <CookieConsentProvider>
+        <BookingProvider>
+          <EndOfTenancyPage />
+        </BookingProvider>
+      </CookieConsentProvider>
+    </MemoryRouter>,
+  );
+}
+
+describe('EndOfTenancyPage — complete package', () => {
+  it('presents the approved complete-package proposition and EOT-only quote', () => {
+    renderPage();
+
+    expect(
+      screen.getByRole('heading', { name: /Complete End of Tenancy Cleaning London/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /Build Your Complete Clean/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Service Type')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Oven, hob, grill and extractor').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Inside emptied fridge and defrosted freezer').length).toBeGreaterThan(0);
+    expect(screen.getByText('2-seater sofa steam clean')).toBeInTheDocument();
+    expect(screen.getByText('Double / king mattress steam clean')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Flat / apartment' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'House / maisonette' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('prices the approved four-bedroom house carpet example transparently', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'House / maisonette' }));
+    await user.click(screen.getByRole('button', { name: '4+ Bed' }));
+    await user.click(screen.getByRole('button', {
+      name: 'Increase 4 bedroom carpets + hallway + landing quantity',
+    }));
+    await user.click(screen.getByRole('button', {
+      name: 'Increase Living / dining room carpet quantity',
+    }));
+    await user.click(screen.getByRole('button', {
+      name: 'Increase Flights of stairs quantity',
+    }));
+
+    expect(screen.getAllByText('£844').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('4 bedroom carpets + hallway + landing').length).toBeGreaterThan(0);
+  });
+
+  it('caps scope reductions and clearly changes the product to Custom EOT', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const scopeDetails = screen
+      .getByText('Already cleaned something? Reduce the scope')
+      .closest('details');
+
+    if (!scopeDetails) {
+      throw new Error('Scope-reduction details element was not rendered');
+    }
+
+    const scopeCheckboxes = scopeDetails.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+    expect(scopeCheckboxes).toHaveLength(4);
+
+    for (const checkbox of scopeCheckboxes) {
+      await user.click(checkbox);
+    }
+
+    expect(screen.getAllByText(/Custom EOT clean/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/£30 credit is applied/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('£339').length).toBeGreaterThan(0);
+  });
+});

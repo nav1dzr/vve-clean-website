@@ -88,7 +88,7 @@ export default function PricingPage() {
                   <div className="flex flex-col items-center gap-1">
                     <span className="bg-amber-400 text-amber-900 text-[9px] font-bold px-2 py-0.5 rounded-full tracking-widest uppercase">Most Booked</span>
                     End of Tenancy
-                    <span className="text-green-400 text-[10px] font-normal normal-case tracking-normal">Oven clean FREE — most companies charge up to £45</span>
+                    <span className="text-green-400 text-[10px] font-normal normal-case tracking-normal">Complete package — appliances, cupboards and internal windows included</span>
                   </div>
                 </th>
                 <th className="px-6 py-4 font-semibold text-silver-300 uppercase tracking-widest text-xs">Move-in Deep Clean</th>
@@ -117,7 +117,7 @@ export default function PricingPage() {
                 <div className="bg-royal-50 rounded-xl p-3">
                   <div className="text-royal-600 font-bold text-lg">£{eot}</div>
                   <div className="text-silver-700 mt-0.5">End of Tenancy</div>
-                  <div className="text-green-600 text-[9px] font-semibold mt-0.5">Oven FREE</div>
+                  <div className="text-green-600 text-[9px] font-semibold mt-0.5">Complete package</div>
                 </div>
                 <div className="bg-silver-100 rounded-xl p-3">
                   <div className="text-navy-900 font-bold text-lg">£{movein}</div>
@@ -278,8 +278,8 @@ export default function PricingPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {[
-            { label: 'Inside oven',               price: `FREE with every End of Tenancy · +£${ADDON_PRICES_P.oven / 100} on its own`, highlight: true },
-            { label: 'Fridge / freezer',           price: `+£${ADDON_PRICES_P.fridge / 100}` },
+            { label: 'Oven, hob & extractor',      price: `Included with every Complete EOT · +£${ADDON_PRICES_P.oven / 100} on its own`, highlight: true },
+            { label: 'Inside fridge / freezer',    price: `Included with every Complete EOT · +£${ADDON_PRICES_P.fridge / 100} on its own`, highlight: true },
             { label: 'Exterior windows',           price: `+£${ADDON_PRICES_P.ext_windows / 100}` },
             { label: 'Wall marks & scuffs',        price: `+£${ADDON_PRICES_P.wall_marks / 100}` },
             { label: 'Key collection/return',      price: `+£${ADDON_PRICES_P.key_collect / 100}` },

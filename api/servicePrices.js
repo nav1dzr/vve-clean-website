@@ -2,7 +2,7 @@
 // Must stay in sync with src/data/pricing.ts when prices change.
 
 const BASE_PRICES = {
-  end_of_tenancy:    { studio: 199, bed1: 249, bed2: 299, bed3: 369, bed4: 469 },
+  end_of_tenancy:    { studio: 229, bed1: 299, bed2: 369, bed3: 449, bed4: 549 },
   move_in:           { studio: 179, bed1: 219, bed2: 269, bed3: 329, bed4: 429 },
   after_builders:    { studio: 279, bed1: 329, bed2: 399, bed3: 499, bed4: 625 },
   carpet_upholstery: { studio:  90, bed1: 150, bed2: 210, bed3: 270, bed4: 330 },
@@ -25,7 +25,22 @@ const MIN_CHARGE          = 90;
 const ADDON_PRICES = {
   oven: 35, fridge: 20, ext_windows: 35, wall_marks: 25, key_collect: 10, rubbish: 40,
   sofa: 40, mattress: 25,
+  extra_wc: 25, reception: 35, conservatory: 40, balcony: 25, utility: 25,
+  eot_living_carpet: 55,
+  eot_sofa_2: 75, eot_sofa_3: 95, eot_sofa_corner: 130,
+  eot_mattress_single: 45, eot_mattress_double: 65,
 };
+
+const EOT_SCOPE_CREDITS = {
+  oven: 15, fridge_freezer: 10, cupboards: 10, internal_windows: 10,
+};
+
+function eotScopeCredit(base, excludedItems) {
+  const unique = [...new Set(Array.isArray(excludedItems) ? excludedItems : [])];
+  const requested = unique.reduce((sum, key) => sum + (EOT_SCOPE_CREDITS[key] ?? 0), 0);
+  const percentageCap = Math.floor(base * 0.1);
+  return Math.min(requested, 30, percentageCap);
+}
 
 // ── Carpet itemised engine (mirrors carpetPricing.ts) ────────────────────────
 const CARPET_MIN_BOOKING = 85;
@@ -85,7 +100,7 @@ export function computePrice(quoteConfig) {
   const {
     service, deepService, deepSize, deepBaths,
     addOnCounts, windowSize, gutterType, officeHours,
-    carpetCounts, carpetCondition,
+    carpetCounts, carpetCondition, eotScopeExclusions,
   } = quoteConfig;
 
   if (service === 'deep') {
@@ -112,14 +127,17 @@ export function computePrice(quoteConfig) {
           addons += STAIR_PRICES[Math.min(n, 3)];
         } else if (key === 'carpet_bundle') {
           addons += (CARPET_BUNDLE_PRICE[deepSize] ?? 0) * n;
-        } else if (key === 'oven' && deepService === 'end_of_tenancy') {
-          // FREE for end of tenancy
+        } else if ((key === 'oven' || key === 'fridge') && deepService === 'end_of_tenancy') {
+          // Included in every complete end-of-tenancy package.
         } else {
           addons += (ADDON_PRICES[key] ?? 0) * n;
         }
       }
     }
-    return base + bathExtra + addons;
+    const scopeCredit = deepService === 'end_of_tenancy'
+      ? eotScopeCredit(base, eotScopeExclusions)
+      : 0;
+    return base + bathExtra + addons - scopeCredit;
   }
 
   if (service === 'window') {

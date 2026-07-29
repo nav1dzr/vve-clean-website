@@ -77,6 +77,40 @@ Base prices assume 1 bathroom. Additional bathrooms are charged as add-ons:
 
 ---
 
+## Complete End of Tenancy package
+
+The approved EOT product is a complete, fixed-price clean rather than a low
+base price with essential inspection items sold separately.
+
+| Property | Complete EOT price |
+|----------|-------------------:|
+| Studio | £229 |
+| 1 bedroom | £299 |
+| 2 bedrooms | £369 |
+| 3 bedrooms | £449 |
+| 4 bedrooms | £549 |
+
+The package includes the oven/hob/extractor, inside an emptied fridge and
+defrosted freezer, accessible dishwasher/washing-machine compartments,
+cupboards inside and out, internal windows, descaling, standard rooms and
+floors, products and equipment. Carpet steam cleaning remains a genuine
+upgrade; ordinary vacuuming is included.
+
+Property type does not create an automatic surcharge. Additional rooms,
+bathrooms, carpet areas and access costs price the real scope instead.
+
+Customers may remove only the approved inspection-ready items in
+`EOT_SCOPE_CREDITS_P`. The reduction is capped at the lower of 10% of the base
+price or £30. Any reduction changes the label to Custom EOT and removes the
+excluded item from the 48-hour re-clean guarantee.
+
+The EOT quote offers upholstery and mattress upgrades at the same canonical
+item prices used by the carpet/upholstery service. Curtains and blinds, full
+wall washing, extreme buildup, mould, biohazards and unusual access remain
+photo-review items rather than invented fixed-price extras.
+
+---
+
 ## After-builders pricing
 
 After-builders prices are **always "from" / estimated**. The final price is confirmed by photo before work starts. The `AFTER_BUILDERS_FROM_PRICES_P` table gives indicative starting prices by size. Do not show these as fixed prices anywhere on the site.

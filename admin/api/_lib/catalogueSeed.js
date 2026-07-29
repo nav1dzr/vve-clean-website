@@ -22,11 +22,11 @@ const seed = (name, pounds, category, description = null) => ({
 
 export const CATALOGUE_SEED_ITEMS = [
   // ── End of tenancy (EOT_BASE_PRICES_P / 100) ──────────────────────────
-  seed('End of tenancy clean — studio',     199, 'End of tenancy', 'Fixed price, oven clean included. 1 bathroom.'),
-  seed('End of tenancy clean — 1 bedroom',  249, 'End of tenancy', 'Fixed price, oven clean included. 1 bathroom.'),
-  seed('End of tenancy clean — 2 bedroom',  299, 'End of tenancy', 'Fixed price, oven clean included. 1 bathroom.'),
-  seed('End of tenancy clean — 3 bedroom',  369, 'End of tenancy', 'Fixed price, oven clean included. 1 bathroom.'),
-  seed('End of tenancy clean — 4 bedroom',  469, 'End of tenancy', 'Fixed price, oven clean included. 1 bathroom.'),
+  seed('End of tenancy clean — studio',     229, 'End of tenancy', 'Complete fixed-price package. Appliances, cupboards and internal windows included. 1 bathroom.'),
+  seed('End of tenancy clean — 1 bedroom',  299, 'End of tenancy', 'Complete fixed-price package. Appliances, cupboards and internal windows included. 1 bathroom.'),
+  seed('End of tenancy clean — 2 bedroom',  369, 'End of tenancy', 'Complete fixed-price package. Appliances, cupboards and internal windows included. 1 bathroom.'),
+  seed('End of tenancy clean — 3 bedroom',  449, 'End of tenancy', 'Complete fixed-price package. Appliances, cupboards and internal windows included. 1 bathroom.'),
+  seed('End of tenancy clean — 4 bedroom',  549, 'End of tenancy', 'Complete fixed-price package. Appliances, cupboards and internal windows included. 1 bathroom.'),
 
   // ── EOT bath surcharges (EOT_EXTRA_BATH_P, EOT_EXTRA_WC_P) ───────────
   seed('EOT — additional full bathroom',    50,  'End of tenancy', 'Per extra bathroom beyond the first.'),

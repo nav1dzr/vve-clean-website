@@ -67,15 +67,17 @@ export const CARPET_BUNDLE_TIERS: BundleTier[] = [
 // Prices assume the property is vacant, in normal condition, with reasonable
 // access. Heavy soiling, mould, biohazard, pet accidents or extreme conditions
 // require a photo/video review and customer approval before work starts.
-// Oven clean, hob, extractor filter and grill included as standard.
+// Complete package: oven/hob/extractor, emptied fridge/defrosted freezer,
+// accessible appliance compartments, cupboards, internal windows, descaling,
+// standard rooms and floors, products and equipment included as standard.
 // 48-hour re-clean guarantee included.
 
 export const EOT_BASE_PRICES_P: Record<string, number> = {
-  studio: 19900,  // £199
-  bed1:   24900,  // £249
-  bed2:   29900,  // £299 (1 bathroom)
-  bed3:   36900,  // £369 (1 bathroom)
-  bed4:   46900,  // £469 (1 bathroom)
+  studio: 22900,  // £229
+  bed1:   29900,  // £299
+  bed2:   36900,  // £369 (1 bathroom)
+  bed3:   44900,  // £449 (1 bathroom)
+  bed4:   54900,  // £549 (1 bathroom)
 };
 
 // Per additional bathroom beyond the first (integer pence).
@@ -90,6 +92,33 @@ export const EOT_EXTRA_AREAS_P: Record<string, number> = {
   balcony:     2500,  // £25 from
   utility:     2500,  // £25
 };
+
+// Optional scope reductions for customers who have already completed a
+// verifiable inspection item. Core cleaning cannot be removed. Selecting any
+// reduction changes the product to a Custom EOT clean and removes that item
+// from the 48-hour re-clean guarantee.
+export const EOT_SCOPE_CREDITS_P: Record<string, number> = {
+  oven:             1500,  // −£15
+  fridge_freezer:   1000,  // −£10
+  cupboards:        1000,  // −£10
+  internal_windows: 1000,  // −£10
+};
+
+export const EOT_SCOPE_CREDIT_MAX_P = 3000; // never reduce by more than £30
+export const EOT_SCOPE_CREDIT_MAX_PERCENT = 10;
+
+export function eotScopeCreditPence(basePricePence: number, excludedItems: string[] = []): number {
+  const uniqueItems = [...new Set(excludedItems)];
+  const requested = uniqueItems.reduce(
+    (sum, key) => sum + (EOT_SCOPE_CREDITS_P[key] ?? 0),
+    0,
+  );
+  // Whole-pound cap keeps the displayed total simple and never exceeds 10%.
+  const percentageCap = Math.floor(
+    (basePricePence * EOT_SCOPE_CREDIT_MAX_PERCENT) / 100 / 100,
+  ) * 100;
+  return Math.min(requested, EOT_SCOPE_CREDIT_MAX_P, percentageCap);
+}
 
 // EOT carpet add-on prices (reduced because travel/setup already covered).
 // These do NOT receive an automatic carpet bundle discount.

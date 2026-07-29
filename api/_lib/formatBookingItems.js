@@ -34,6 +34,17 @@ const ADDON_LABELS = {
   oven:          'Inside oven',
   fridge:        'Fridge / freezer',
   carpet_bundle: 'Carpets — whole home',
+  eot_living_carpet: 'Living / dining room carpet',
+  extra_wc:      'Additional WC',
+  reception:     'Additional reception room',
+  conservatory:  'Conservatory',
+  balcony:       'Balcony / small patio',
+  utility:       'Utility room',
+  eot_sofa_2:    '2-seater sofa steam clean',
+  eot_sofa_3:    '3-seater sofa steam clean',
+  eot_sofa_corner: 'Corner / L-shaped sofa steam clean',
+  eot_mattress_single: 'Single mattress steam clean',
+  eot_mattress_double: 'Double / king mattress steam clean',
   ext_windows:   'Exterior windows',
   wall_marks:    'Wall marks & scuffs',
   key_collect:   'Key collection/return',
@@ -86,21 +97,37 @@ function carpetItemLines(carpetCounts) {
   return lines;
 }
 
-function deepCleanLines(deepService, deepSize, deepBaths, addOnCounts) {
+const EOT_SCOPE_LABELS = {
+  oven: 'oven',
+  fridge_freezer: 'fridge/freezer',
+  cupboards: 'cupboards',
+  internal_windows: 'internal windows',
+};
+
+function deepCleanLines(deepService, deepSize, deepBaths, addOnCounts, propertyType, eotScopeExclusions) {
   const lines = [];
   const size  = sizeLabel(deepSize);
   const baths = Number(deepBaths) || 1;
-  lines.push(`${DEEP_SERVICE_LABELS[deepService]} — ${size}, ${baths} bathroom${baths !== 1 ? 's' : ''}`);
+  const property = isEotProperty(deepService, propertyType);
+  lines.push(`${DEEP_SERVICE_LABELS[deepService]} — ${property}${size}, ${baths} bathroom${baths !== 1 ? 's' : ''}`);
 
   const counts = addOnCounts && typeof addOnCounts === 'object' ? addOnCounts : {};
   const isEot  = deepService === 'end_of_tenancy';
 
-  if (isEot) lines.push('Inside oven (included free)');
+  if (isEot) {
+    lines.push('Oven, fridge/freezer, cupboards and internal windows included');
+    const exclusions = Array.isArray(eotScopeExclusions)
+      ? eotScopeExclusions.map((key) => EOT_SCOPE_LABELS[key]).filter(Boolean)
+      : [];
+    if (exclusions.length > 0) {
+      lines.push(`Custom scope excludes: ${exclusions.join(', ')}`);
+    }
+  }
 
   // Legacy carpet add-ons (sofa/mattress/staircase) were superseded by the
   // itemised carpet flow above but can still appear in restored sessions —
   // mirrors the exclusion list in QuoteCalculator.tsx's WhatsApp summary.
-  const excluded = isEot ? ['oven', 'sofa', 'mattress', 'staircase'] : [];
+  const excluded = isEot ? ['oven', 'fridge', 'sofa', 'mattress'] : [];
 
   for (const [key, qty] of Object.entries(counts)) {
     if (excluded.includes(key)) continue;
@@ -113,6 +140,12 @@ function deepCleanLines(deepService, deepSize, deepBaths, addOnCounts) {
   return lines;
 }
 
+function isEotProperty(deepService, propertyType) {
+  if (deepService !== 'end_of_tenancy') return '';
+  if (propertyType === 'house') return 'House, ';
+  return 'Flat, ';
+}
+
 /**
  * Returns an array of readable item lines for a validated quoteConfig, e.g.
  * ["1 × Double mattress", "1 × 3-seater sofa"]. Returns [] when quoteConfig
@@ -123,14 +156,25 @@ function deepCleanLines(deepService, deepSize, deepBaths, addOnCounts) {
 export function formatBookingItemLines(quoteConfig) {
   if (!quoteConfig || typeof quoteConfig !== 'object') return [];
 
-  const { service, deepService, deepSize, deepBaths, addOnCounts, windowSize, gutterType, officeHours, carpetCounts } = quoteConfig;
+  const {
+    service, deepService, deepSize, deepBaths, addOnCounts,
+    windowSize, gutterType, officeHours, carpetCounts,
+    propertyType, eotScopeExclusions,
+  } = quoteConfig;
 
   if (service === 'deep' && deepService === 'carpet_upholstery') {
     return carpetItemLines(carpetCounts);
   }
 
   if (service === 'deep' && DEEP_SERVICE_LABELS[deepService]) {
-    return deepCleanLines(deepService, deepSize, deepBaths, addOnCounts);
+    return deepCleanLines(
+      deepService,
+      deepSize,
+      deepBaths,
+      addOnCounts,
+      propertyType,
+      eotScopeExclusions,
+    );
   }
 
   if (service === 'window') {

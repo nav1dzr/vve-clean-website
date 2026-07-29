@@ -63,15 +63,19 @@ describe('formatBookingItemLines — carpet & upholstery', () => {
 });
 
 describe('formatBookingItemLines — end of tenancy / deep clean', () => {
-  it('shows property size, bathroom count and included-free oven', () => {
+  it('shows property type, size, bathroom count and complete-package inclusions', () => {
     const lines = formatBookingItemLines({
       service: 'deep',
       deepService: 'end_of_tenancy',
       deepSize: 'bed2',
       deepBaths: 1,
+      propertyType: 'flat',
       addOnCounts: {},
     });
-    expect(lines).toEqual(['End of tenancy — 2 Bed, 1 bathroom', 'Inside oven (included free)']);
+    expect(lines).toEqual([
+      'End of tenancy — Flat, 2 Bed, 1 bathroom',
+      'Oven, fridge/freezer, cupboards and internal windows included',
+    ]);
   });
 
   it('lists selected add-ons for end of tenancy', () => {
@@ -80,13 +84,48 @@ describe('formatBookingItemLines — end of tenancy / deep clean', () => {
       deepService: 'end_of_tenancy',
       deepSize: 'bed3',
       deepBaths: 2,
-      addOnCounts: { ext_windows: 1, fridge: 1 },
+      propertyType: 'house',
+      addOnCounts: { ext_windows: 1, fridge: 1, staircase: 1 },
     });
     expect(lines).toEqual([
-      'End of tenancy — 3 Bed, 2 bathrooms',
-      'Inside oven (included free)',
+      'End of tenancy — House, 3 Bed, 2 bathrooms',
+      'Oven, fridge/freezer, cupboards and internal windows included',
       '1 × Exterior windows',
-      '1 × Fridge / freezer',
+      '1 × Flights of stairs',
+    ]);
+  });
+
+  it('records custom-scope exclusions separately from included items', () => {
+    const lines = formatBookingItemLines({
+      service: 'deep',
+      deepService: 'end_of_tenancy',
+      deepSize: 'bed1',
+      deepBaths: 1,
+      propertyType: 'flat',
+      eotScopeExclusions: ['oven', 'internal_windows'],
+      addOnCounts: {},
+    });
+    expect(lines).toEqual([
+      'End of tenancy — Flat, 1 Bed, 1 bathroom',
+      'Oven, fridge/freezer, cupboards and internal windows included',
+      'Custom scope excludes: oven, internal windows',
+    ]);
+  });
+
+  it('itemises EOT upholstery and mattress upgrades', () => {
+    const lines = formatBookingItemLines({
+      service: 'deep',
+      deepService: 'end_of_tenancy',
+      deepSize: 'bed1',
+      deepBaths: 1,
+      propertyType: 'flat',
+      addOnCounts: { eot_sofa_2: 1, eot_mattress_double: 1 },
+    });
+    expect(lines).toEqual([
+      'End of tenancy — Flat, 1 Bed, 1 bathroom',
+      'Oven, fridge/freezer, cupboards and internal windows included',
+      '1 × 2-seater sofa steam clean',
+      '1 × Double / king mattress steam clean',
     ]);
   });
 

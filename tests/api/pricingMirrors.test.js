@@ -65,6 +65,46 @@ describe('servicePrices.js — EOT base prices mirror pricing.ts', () => {
     const withBath = deepPrice('end_of_tenancy', 'studio', 2);
     expect(withBath - base).toBe(EOT_EXTRA_BATH_P / 100);
   });
+
+  it('includes oven and fridge/freezer in the complete EOT base price', () => {
+    const base = EOT_BASE_PRICES_P.bed2 / 100;
+    expect(deepPrice('end_of_tenancy', 'bed2', 1, { oven: 1, fridge: 1 })).toBe(base);
+  });
+
+  it('prices a four-bedroom house carpet scope explicitly', () => {
+    const base = EOT_BASE_PRICES_P.bed4 / 100;
+    const result = deepPrice('end_of_tenancy', 'bed4', 1, {
+      carpet_bundle: 1,
+      eot_living_carpet: 1,
+      staircase: 1,
+    });
+    expect(result).toBe(base + 195 + 55 + 45);
+  });
+
+  it('uses canonical upholstery and mattress prices for EOT upgrades', () => {
+    const base = EOT_BASE_PRICES_P.bed1 / 100;
+    const result = deepPrice('end_of_tenancy', 'bed1', 1, {
+      eot_sofa_2: 1,
+      eot_mattress_double: 1,
+    });
+    expect(result).toBe(
+      base
+      + CARPET_ITEM_PRICES_P.sofa_2 / 100
+      + CARPET_ITEM_PRICES_P.mattress_double / 100,
+    );
+  });
+
+  it('applies approved custom-scope credits with a £30 cap', () => {
+    const base = EOT_BASE_PRICES_P.bed3 / 100;
+    const result = computePrice({
+      service: 'deep',
+      deepService: 'end_of_tenancy',
+      deepSize: 'bed3',
+      deepBaths: 1,
+      eotScopeExclusions: ['oven', 'fridge_freezer', 'cupboards'],
+    });
+    expect(result).toBe(base - 30);
+  });
 });
 
 describe('servicePrices.js — move-in base prices mirror pricing.ts', () => {
