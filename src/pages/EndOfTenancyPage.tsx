@@ -1,6 +1,6 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
-import EotGallery from '../components/EotGallery';
 import QuoteCalculator from '../components/QuoteCalculator';
+import ServiceProofSection from '../components/gallery/ServiceProofSection';
 import { ClipboardList, PackageCheck, RefreshCw, Camera } from 'lucide-react';
 import {
   EOT_BASE_PRICES_P,
@@ -108,6 +108,8 @@ const DATA: ServiceLandingData = {
   secondaryLabel: 'WhatsApp us first',
   secondaryIsWa: true,
 
+  afterHeroSection: <QuoteCalculator mode="eot" />,
+
   introH2: 'One complete clean — not a cheap price with essential extras',
   introText:
     'Our Complete End of Tenancy Clean includes the work customers reasonably expect an inventory clean to cover: oven, hob and extractor; inside an emptied fridge and defrosted freezer; accessible appliance compartments; cupboards inside and out; descaled bathrooms; internal windows; skirting, doors, switches and floors. You choose the property size first, then add only genuine scope expansions such as carpet steam cleaning, an extra reception room or exterior windows. We cover East London (E1–E17) and North London (N1–N19) and provide a photographic receipt to support your checkout.',
@@ -196,10 +198,13 @@ const DATA: ServiceLandingData = {
   ],
 
   afterPricingSection: (
-    <>
-      <QuoteCalculator mode="eot" />
-      <EotGallery />
-    </>
+    <ServiceProofSection
+      heading="Recent end of tenancy results"
+      subheading="Featured before/after jobs and a rotating results gallery are coming soon — check back shortly."
+      galleryLabel="End of Tenancy"
+      galleryCategory="end-of-tenancy"
+      secondary={{ type: 'rotating' }}
+    />
   ),
 
   relatedLinks: [

@@ -188,7 +188,10 @@ export interface BookingSelection {
 interface Props {
   onBook?:    (sel: BookingSelection) => void;
   promoCode?: string;
-  mode?:       'all-services' | 'eot';
+  // 'carpet'/'upholstery' lock the calculator onto the carpet_upholstery
+  // deep-service branch (same pricing engine as 'all-services') and only
+  // render the relevant CARPET_GROUPS item list — no separate calculator.
+  mode?:       'all-services' | 'eot' | 'carpet' | 'upholstery';
 }
 
 // ─── Shared counter widget ────────────────────────────────────────────────────
@@ -259,11 +262,19 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
     sessionStorage.removeItem('vve_restore_quote');
   }, []);
 
-  const isEotFocused = mode === 'eot';
+  const isEotFocused        = mode === 'eot';
+  const isCarpetFocused     = mode === 'carpet';
+  const isUpholsteryFocused = mode === 'upholstery';
+  // Any locked mode forces a single deep-service branch and hides the
+  // Service Type switcher — only 'all-services' lets the visitor choose.
+  const focusGroup: 'Carpets' | 'Sofas & Upholstery' | null =
+    isCarpetFocused ? 'Carpets' : isUpholsteryFocused ? 'Sofas & Upholstery' : null;
   const [deepService,   setDeepService]   = useState<DeepServiceType>(
     () => isEotFocused
       ? 'end_of_tenancy'
-      : ((_restore?.deepService as DeepServiceType | undefined) ?? 'carpet_upholstery'),
+      : (isCarpetFocused || isUpholsteryFocused)
+        ? 'carpet_upholstery'
+        : ((_restore?.deepService as DeepServiceType | undefined) ?? 'carpet_upholstery'),
   );
   const [deepSize,      setDeepSize]      = useState<SizeKey>(
     () => (_restore?.deepSize as SizeKey | undefined) ?? 'bed2',
@@ -581,12 +592,16 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
           <div className="inline-flex items-center gap-2 border-2 border-white/40 rounded-full px-4 py-1.5 mb-4">
             <Calculator size={14} className="text-white" />
             <span className="text-white text-xs tracking-widest font-semibold uppercase">
-              {isEotFocused ? 'Complete EOT Pricing' : 'Instant Pricing'}
+              {isEotFocused ? 'Complete EOT Pricing' : isCarpetFocused ? 'Instant Carpet Pricing' : isUpholsteryFocused ? 'Instant Upholstery Pricing' : 'Instant Pricing'}
             </span>
           </div>
           <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-3">
             {isEotFocused ? (
               <>Build Your <span className="text-gradient-metallic">Complete Clean</span></>
+            ) : isCarpetFocused ? (
+              <>Build Your <span className="text-gradient-metallic">Carpet Quote</span></>
+            ) : isUpholsteryFocused ? (
+              <>Build Your <span className="text-gradient-metallic">Upholstery Quote</span></>
             ) : (
               <>Get Your <span className="text-gradient-metallic">Instant Quote</span></>
             )}
@@ -594,7 +609,11 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
           <p className="text-silver-400 text-lg">
             {isEotFocused
               ? 'One complete package. Essential inspection items included. Genuine upgrades shown separately.'
-              : 'Transparent pricing. No hidden fees. Tailored to your needs.'}
+              : isCarpetFocused
+                ? 'Pick your rooms and stairs — fixed prices, added up as you go.'
+                : isUpholsteryFocused
+                  ? 'Pick your sofas, chairs and mattresses — fixed prices, added up as you go.'
+                  : 'Transparent pricing. No hidden fees. Tailored to your needs.'}
           </p>
         </div>
 
@@ -609,7 +628,11 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
               <div className="flex items-center gap-2 mb-1">
                 <span className="w-6 h-6 rounded-full bg-royal-500 text-white text-xs font-bold flex items-center justify-center">1</span>
                 <span className="text-navy-900 text-sm font-semibold">
-                  {isEotFocused ? 'Tell us about the property' : 'Select your service & get an instant price'}
+                  {isEotFocused
+                    ? 'Tell us about the property'
+                    : (isCarpetFocused || isUpholsteryFocused)
+                      ? 'Add your rooms and get an instant price'
+                      : 'Select your service & get an instant price'}
                 </span>
               </div>
 
@@ -617,7 +640,7 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
               {service === 'deep' && (
                 <>
                   {/* Service Type selector — carpet is first */}
-                  {!isEotFocused && <div>
+                  {mode === 'all-services' && <div>
                     <label className="block text-navy-900 font-semibold text-sm mb-2">Service Type</label>
                     <div className="grid grid-cols-2 gap-1.5">
                       {(Object.keys(DEEP_SERVICE_LABELS) as DeepServiceType[]).map((k) => (
@@ -691,8 +714,10 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
                         )}
                       </div>
 
-                      {/* Item groups */}
-                      {CARPET_GROUPS.map((grp) => (
+                      {/* Item groups — a focused mode (carpet/upholstery) only
+                          shows its own group; the counts/pricing engine is
+                          identical either way, so no logic is duplicated. */}
+                      {CARPET_GROUPS.filter((grp) => !focusGroup || grp.group === focusGroup).map((grp) => (
                         <div key={grp.group}>
                           {/* Sub-heading */}
                           <div className="flex items-center gap-2 mb-2">

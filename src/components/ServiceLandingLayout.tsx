@@ -53,6 +53,11 @@ export interface ServiceLandingData {
   secondaryLabel: string;
   secondaryIsWa?: boolean;
 
+  // Optional section rendered directly after the hero (before Intro) — used
+  // for the compact, service-specific quote calculator so it sits as close
+  // to the top of the page as the design allows.
+  afterHeroSection?: React.ReactNode;
+
   // Intro
   introH2: string;
   introText: string;
@@ -273,6 +278,9 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
             )}
           </div>
         </section>
+
+        {/* ── 1b. SERVICE-SPECIFIC QUOTE (optional, directly after hero) ── */}
+        {data.afterHeroSection}
 
         {/* ── 2. INTRO ── */}
         <section className="max-w-3xl mx-auto px-4 py-16">

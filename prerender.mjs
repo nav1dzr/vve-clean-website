@@ -116,6 +116,15 @@ const routes = [
     ogDescription:
       'Post-construction cleaning from £249. Fine dust, paint splashes and debris removed. Quote by photo within the hour across East and North London.',
   },
+  {
+    path: '/gallery',
+    title: 'Gallery | Real Cleaning Results | VVE Clean',
+    description:
+      'Browse real end of tenancy, carpet and sofa & upholstery cleaning results from VVE Clean across East and North London.',
+    ogTitle: 'Gallery | VVE Clean',
+    ogDescription:
+      'Real end of tenancy, carpet and sofa & upholstery cleaning results from VVE Clean.',
+  },
 ];
 
 const { render } = await import('./dist/server/entry-server.js');
