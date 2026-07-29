@@ -76,7 +76,7 @@ export default function Hero() {
           >
             {[
               { short: '67-point end of tenancy checklist', long: "Our 67-point checklist mirrors the one your letting agent's clerk uses" },
-              { short: 'Oven clean included', long: 'Oven clean included free with every end of tenancy (most companies charge up to £45) — booked on its own, £35' },
+              { short: 'Essential appliances included', long: 'Oven, hob, extractor, emptied fridge and defrosted freezer are included with every Complete End of Tenancy Clean' },
               { short: 'Fixed prices · £30 deposit', long: "Fixed prices. £30 reserves your requested appointment and comes off the final balance — we confirm availability separately" },
             ].map((item) => (
               <li key={item.short} className="flex items-start gap-2.5">

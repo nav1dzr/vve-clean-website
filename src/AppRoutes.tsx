@@ -11,6 +11,7 @@ import SofaCleaningPage from './pages/SofaCleaningPage';
 import CommercialCarpetPage from './pages/CommercialCarpetPage';
 import EndOfTenancyPage from './pages/EndOfTenancyPage';
 import AfterBuildersPage from './pages/AfterBuildersPage';
+import GalleryPage from './pages/GalleryPage';
 
 export default function AppRoutes() {
   return (
@@ -27,6 +28,7 @@ export default function AppRoutes() {
       <Route path="/commercial-carpet-cleaning-london" element={<CommercialCarpetPage />} />
       <Route path="/end-of-tenancy-cleaning-london" element={<EndOfTenancyPage />} />
       <Route path="/after-builders-cleaning-london" element={<AfterBuildersPage />} />
+      <Route path="/gallery" element={<GalleryPage />} />
     </Routes>
   );
 }

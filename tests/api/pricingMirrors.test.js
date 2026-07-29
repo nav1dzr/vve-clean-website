@@ -20,6 +20,7 @@ import {
   EOT_EXTRA_BATH_P,
   EOT_EXTRA_WC_P,
   EOT_CARPET_ADDON_PRICES_P,
+  EOT_HOUSE_ADJUSTMENT_P,
   MOVEIN_BASE_PRICES_P,
   MOVEIN_EXTRA_BATH_P,
   AFTER_BUILDERS_FROM_PRICES_P,
@@ -29,6 +30,8 @@ import {
   STAIRS_FIRST_P,
   COMMERCIAL_REGULAR_HOURLY_P,
   COMMERCIAL_REGULAR_MIN_CHARGE_P,
+  PARKING_ESTIMATE_P,
+  CONGESTION_CHARGE_P,
 } from '../../src/data/pricing.ts';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -64,6 +67,143 @@ describe('servicePrices.js — EOT base prices mirror pricing.ts', () => {
     const base = EOT_BASE_PRICES_P.studio / 100;
     const withBath = deepPrice('end_of_tenancy', 'studio', 2);
     expect(withBath - base).toBe(EOT_EXTRA_BATH_P / 100);
+  });
+
+  it('includes oven and fridge/freezer in the complete EOT base price', () => {
+    const base = EOT_BASE_PRICES_P.bed2 / 100;
+    expect(deepPrice('end_of_tenancy', 'bed2', 1, { oven: 1, fridge: 1 })).toBe(base);
+  });
+
+  it('prices a four-bedroom house carpet scope explicitly', () => {
+    const base = EOT_BASE_PRICES_P.bed4 / 100;
+    const result = deepPrice('end_of_tenancy', 'bed4', 1, {
+      carpet_bundle: 1,
+      eot_living_carpet: 1,
+      staircase: 1,
+    });
+    expect(result).toBe(base + 195 + 55 + 45);
+  });
+
+  it('uses canonical upholstery and mattress prices for EOT upgrades', () => {
+    const base = EOT_BASE_PRICES_P.bed1 / 100;
+    const result = deepPrice('end_of_tenancy', 'bed1', 1, {
+      eot_sofa_2: 1,
+      eot_mattress_double: 1,
+    });
+    expect(result).toBe(
+      base
+      + CARPET_ITEM_PRICES_P.sofa_2 / 100
+      + CARPET_ITEM_PRICES_P.mattress_double / 100,
+    );
+  });
+
+  it('applies approved custom-scope credits with a £30 cap', () => {
+    const base = EOT_BASE_PRICES_P.bed3 / 100;
+    const result = computePrice({
+      service: 'deep',
+      deepService: 'end_of_tenancy',
+      deepSize: 'bed3',
+      deepBaths: 1,
+      eotScopeExclusions: ['oven', 'fridge_freezer', 'cupboards'],
+    });
+    expect(result).toBe(base - 30);
+  });
+});
+
+describe('servicePrices.js — EOT house/maisonette adjustment mirrors EOT_HOUSE_ADJUSTMENT_P', () => {
+  it('4-bed house base is £584 (£549 base + £35 house adjustment)', () => {
+    const result = computePrice({
+      service: 'deep', deepService: 'end_of_tenancy', deepSize: 'bed4', deepBaths: 1, propertyType: 'house',
+    });
+    expect(result).toBe((EOT_BASE_PRICES_P.bed4 + EOT_HOUSE_ADJUSTMENT_P) / 100);
+    expect(result).toBe(584);
+  });
+
+  it('does not add the house adjustment for a flat', () => {
+    const result = computePrice({
+      service: 'deep', deepService: 'end_of_tenancy', deepSize: 'bed4', deepBaths: 1, propertyType: 'flat',
+    });
+    expect(result).toBe(EOT_BASE_PRICES_P.bed4 / 100);
+  });
+
+  it('does not add the house adjustment to non-EOT deep services', () => {
+    const result = computePrice({
+      service: 'deep', deepService: 'move_in', deepSize: 'bed4', deepBaths: 1, propertyType: 'house',
+    });
+    expect(result).toBe(MOVEIN_BASE_PRICES_P.bed4 / 100);
+  });
+});
+
+describe('servicePrices.js — 5+ bedroom EOT has no fixed price (tailored quote required)', () => {
+  it('returns null for deepSize "bed5" — no BASE_PRICES entry exists by design', () => {
+    const result = computePrice({
+      service: 'deep', deepService: 'end_of_tenancy', deepSize: 'bed5', deepBaths: 1,
+    });
+    expect(result).toBeNull();
+  });
+
+  it('returns null for a 5+ bedroom house too — the tailored-quote path never invents a total', () => {
+    const result = computePrice({
+      service: 'deep', deepService: 'end_of_tenancy', deepSize: 'bed5', deepBaths: 1, propertyType: 'house',
+    });
+    expect(result).toBeNull();
+  });
+});
+
+describe('servicePrices.js — parking / Congestion Charge access charges', () => {
+  it('mirrors PARKING_ESTIMATE_P (£15) and CONGESTION_CHARGE_P (£18)', () => {
+    expect(PARKING_ESTIMATE_P).toBe(1500);
+    expect(CONGESTION_CHARGE_P).toBe(1800);
+  });
+
+  it('adds nothing when parking is available and the property is outside the zone', () => {
+    const result = computePrice({
+      service: 'window', windowSize: 'medium', parkingAvailable: 'yes', congestionZone: 'no',
+    });
+    expect(result).toBe(90);
+  });
+
+  it('adds £15 when parking is not available', () => {
+    const result = computePrice({
+      service: 'window', windowSize: 'medium', parkingAvailable: 'no', congestionZone: 'no',
+    });
+    expect(result).toBe(105);
+  });
+
+  it('adds £15 when parking is not sure (estimate)', () => {
+    const result = computePrice({
+      service: 'window', windowSize: 'medium', parkingAvailable: 'not_sure', congestionZone: 'no',
+    });
+    expect(result).toBe(105);
+  });
+
+  it('adds £18 when inside the Congestion Charge zone', () => {
+    const result = computePrice({
+      service: 'window', windowSize: 'medium', parkingAvailable: 'yes', congestionZone: 'yes',
+    });
+    expect(result).toBe(108);
+  });
+
+  it('adds £18 when not sure about the Congestion Charge zone (estimate pending address confirmation)', () => {
+    const result = computePrice({
+      service: 'window', windowSize: 'medium', parkingAvailable: 'yes', congestionZone: 'not_sure',
+    });
+    expect(result).toBe(108);
+  });
+
+  it('adds both charges together when parking is unavailable and inside the zone', () => {
+    const result = computePrice({
+      service: 'window', windowSize: 'medium', parkingAvailable: 'no', congestionZone: 'yes',
+    });
+    expect(result).toBe(90 + 15 + 18);
+  });
+
+  it('never adds an access charge on top of a null (manual/tailored-quote) result', () => {
+    const result = computePrice({
+      service: 'deep', deepService: 'end_of_tenancy', deepSize: 'bed5', deepBaths: 1,
+      parkingAvailable: 'no', congestionZone: 'yes',
+    });
+    expect(result).toBeNull();
   });
 });
 

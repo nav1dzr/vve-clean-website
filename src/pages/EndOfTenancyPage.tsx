@@ -1,7 +1,15 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
-import EotGallery from '../components/EotGallery';
-import { ClipboardList, Flame, RefreshCw, Camera } from 'lucide-react';
-import { EOT_BASE_PRICES_P, EOT_EXTRA_BATH_P, EOT_EXTRA_WC_P } from '../data/pricing';
+import QuoteCalculator from '../components/QuoteCalculator';
+import ServiceProofSection from '../components/gallery/ServiceProofSection';
+import { ClipboardList, PackageCheck, RefreshCw, Camera } from 'lucide-react';
+import {
+  EOT_BASE_PRICES_P,
+  EOT_EXTRA_BATH_P,
+  EOT_EXTRA_WC_P,
+  EOT_HOUSE_ADJUSTMENT_P,
+  PARKING_ESTIMATE_P,
+  CONGESTION_CHARGE_P,
+} from '../data/pricing';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20book%20an%20end%20of%20tenancy%20clean.';
 
@@ -22,7 +30,7 @@ const SCHEMA = JSON.stringify({
       '@type': 'Service',
       name: 'End of Tenancy Cleaning London',
       description:
-        'Inventory-grade end of tenancy cleaning across East and North London. 67-point agency checklist, free oven clean, 48-hour re-clean guarantee and photographic receipt included as standard.',
+        'Complete end of tenancy cleaning across East and North London. Essential appliances, cupboards, internal windows, a 67-point checklist, 48-hour re-clean guarantee and photographic receipt included as standard.',
       provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
       url: 'https://vveclean.co.uk/end-of-tenancy-cleaning-london',
@@ -31,7 +39,7 @@ const SCHEMA = JSON.stringify({
         { '@type': 'Offer', name: '1 Bedroom', price: p(EOT_BASE_PRICES_P.bed1), priceCurrency: 'GBP' },
         { '@type': 'Offer', name: '2 Bedroom', price: p(EOT_BASE_PRICES_P.bed2), priceCurrency: 'GBP' },
         { '@type': 'Offer', name: '3 Bedroom', price: p(EOT_BASE_PRICES_P.bed3), priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: '4+ Bedroom', price: p(EOT_BASE_PRICES_P.bed4), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: '4 Bedroom', price: p(EOT_BASE_PRICES_P.bed4), priceCurrency: 'GBP' },
       ],
     },
     {
@@ -47,10 +55,10 @@ const SCHEMA = JSON.stringify({
         },
         {
           '@type': 'Question',
-          name: 'Is the oven clean really included for free?',
+          name: 'Which appliances are included in the complete price?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Yes. Oven cleaning is included in every end of tenancy clean at no extra cost. Most companies charge between £35–£45 extra for this. Hob, extractor filter and grill are included too.',
+            text: 'The complete price includes the oven, hob, grill, extractor, inside an emptied fridge and defrosted freezer, and accessible dishwasher and washing-machine compartments. Appliances must be empty and accessible; repairs and dismantling are not included.',
           },
         },
         {
@@ -74,7 +82,7 @@ const SCHEMA = JSON.stringify({
           name: 'What is not included in the end of tenancy price?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: `Prices apply to normally maintained, vacant properties. Additional bathrooms beyond the first are +${pDisplay(EOT_EXTRA_BATH_P)} each; additional WC +${pDisplay(EOT_EXTRA_WC_P)}. Carpet cleaning, exterior windows, wall marks, key collection and rubbish removal are available as paid extras. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions may require a revised quote agreed with you before work starts.`,
+            text: `Prices apply to normally maintained, vacant properties. Additional bathrooms beyond the first are +${pDisplay(EOT_EXTRA_BATH_P)} each; additional WC +${pDisplay(EOT_EXTRA_WC_P)}. A house or maisonette adds a transparent +${pDisplay(EOT_HOUSE_ADJUSTMENT_P)} for the normal additional hallways, landing, internal staircase cleaning and movement between floors — stair carpet steam cleaning stays a separate upgrade. 5+ bedroom properties need a tailored quote rather than a fixed online price. Every booking also asks two required questions: free parking for our team (+${pDisplay(PARKING_ESTIMATE_P)} estimate if not available or unsure, charged at actual cost) and the Congestion Charge zone (+${pDisplay(CONGESTION_CHARGE_P)} pass-through if inside the zone or unsure). Carpet steam cleaning, upholstery, exterior windows, balconies and full wall washing are genuine extras. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and a revised price agreed before work starts.`,
           },
         },
       ],
@@ -87,22 +95,24 @@ const DATA: ServiceLandingData = {
   breadcrumb: 'End of Tenancy Cleaning London',
 
   eyebrow: 'End of Tenancy Cleaning',
-  h1: 'End of Tenancy Cleaning London',
-  h1Highlight: '— 67-Point Agency Checklist',
+  h1: 'Complete End of Tenancy Cleaning London',
+  h1Highlight: '— Everything Essential Included',
   heroBadges: [
-    'Free oven clean included',
+    'Oven, fridge & freezer included',
     '48-hour re-clean guarantee',
     'Photographic receipt for your agent',
   ],
-  primaryHref: '/booking',
-  primaryLabel: 'Book your clean',
+  primaryHref: '/end-of-tenancy-cleaning-london#quote',
+  primaryLabel: 'Build my complete quote',
   secondaryHref: WA,
   secondaryLabel: 'WhatsApp us first',
   secondaryIsWa: true,
 
-  introH2: 'The clean your agent actually checks for',
+  afterHeroSection: <QuoteCalculator mode="eot" />,
+
+  introH2: 'One complete clean — not a cheap price with essential extras',
   introText:
-    'End of tenancy cleans are not the same as a regular deep clean. Letting agents work from a detailed inventory checklist — and so do we. Our 67-point clean covers every item a standard agent inspection requires: inside appliances, inside cupboards, descaled bathrooms, internal windows, skirting boards, light switches and more. Oven cleaning is included free in every booking. We cover East London (E1–E17) and North London (N1–N19) and give you a photographic receipt to support your deposit return.',
+    'Our Complete End of Tenancy Clean includes the work customers reasonably expect an inventory clean to cover: oven, hob and extractor; inside an emptied fridge and defrosted freezer; accessible appliance compartments; cupboards inside and out; descaled bathrooms; internal windows; skirting, doors, switches and floors. You choose the property size first, then add only genuine scope expansions such as carpet steam cleaning, an extra reception room or exterior windows. We cover East London (E1–E17) and North London (N1–N19) and provide a photographic receipt to support your checkout.',
 
   benefitsH2: 'Why tenants and landlords choose VVE Clean',
   benefits: [
@@ -112,9 +122,9 @@ const DATA: ServiceLandingData = {
       body: 'Every item your letting agent checks at inventory — we clean it. No area is missed because we work from the same standard checklist agents use.',
     },
     {
-      icon: <Flame size={28} />,
-      title: 'Free oven clean included',
-      body: 'Inside oven, hob, extractor filter and grill — all included at no extra cost. Most companies charge up to £45 extra for this alone.',
+      icon: <PackageCheck size={28} />,
+      title: 'Essential appliances included',
+      body: 'Oven, hob, extractor, emptied fridge, defrosted freezer and accessible appliance compartments are part of the complete package — not surprise add-ons.',
     },
     {
       icon: <RefreshCw size={28} />,
@@ -131,7 +141,9 @@ const DATA: ServiceLandingData = {
   whyH2: 'What every end of tenancy clean includes',
   whyPoints: [
     '67-point agency checklist — the same one your agent uses',
-    'Inside oven, hob, extractor filter and grill — free',
+    'Oven, hob, grill and extractor — included',
+    'Inside emptied fridge and defrosted freezer — included',
+    'Accessible dishwasher and washing-machine compartments — included',
     'Inside all cupboards, drawers and wardrobes',
     'Bathrooms fully descaled, tiles, grouting and fixtures',
     'Internal windows cleaned streak-free',
@@ -140,21 +152,23 @@ const DATA: ServiceLandingData = {
     'Photographic cleaning receipt emailed on completion',
   ],
 
-  pricingH2: 'Fixed end of tenancy cleaning prices',
+  pricingH2: 'Complete fixed prices by property size',
   pricingIntro:
-    'Prices are fixed by property size for normally maintained, vacant properties. The price you book is the price you pay — oven clean included in every booking.',
+    'The base price covers one kitchen, one living/reception room and one bathroom in a normally maintained, vacant flat. A house or maisonette adds a transparent, centrally-priced adjustment for the normal additional hallways, landing, internal staircase cleaning and movement between floors — never a hidden or automatic surcharge.',
   pricingRows: [
     { label: 'Studio',                             price: pDisplay(EOT_BASE_PRICES_P.studio) },
     { label: '1 Bedroom / 1 bathroom',             price: pDisplay(EOT_BASE_PRICES_P.bed1) },
     { label: '2 Bedrooms / 1 bathroom',            price: pDisplay(EOT_BASE_PRICES_P.bed2) },
     { label: '3 Bedrooms / 1 bathroom',            price: pDisplay(EOT_BASE_PRICES_P.bed3) },
-    { label: '4+ Bedrooms / 1 bathroom',           price: pDisplay(EOT_BASE_PRICES_P.bed4) },
+    { label: '4 Bedrooms / 1 bathroom',            price: pDisplay(EOT_BASE_PRICES_P.bed4) },
+    { label: 'House / maisonette adjustment',      price: `+${pDisplay(EOT_HOUSE_ADJUSTMENT_P)}` },
     { label: 'Each additional full bathroom',      price: `+${pDisplay(EOT_EXTRA_BATH_P)}` },
     { label: 'Additional WC (half bathroom)',       price: `+${pDisplay(EOT_EXTRA_WC_P)}` },
+    { label: '5+ Bedrooms',                        price: 'Tailored quote' },
   ],
   pricingNote:
-    'Prices are for normally maintained, vacant properties with reasonable access. Carpet cleaning, exterior windows, wall marks and rubbish removal are available as paid extras. Heavy soiling, mould, biohazard contamination or extreme conditions require a photo review and revised price agreed with you before work starts.',
-  pricingCta: { href: '/booking', label: 'Book your clean now' },
+    `Prices are customer totals; no VAT wording is added. 5+ bedroom properties vary too much for a fixed online price — we agree a tailored quote instead. Every booking also asks two required questions: free parking for our team (+${pDisplay(PARKING_ESTIMATE_P)} estimate if not available or unsure, charged at actual cost) and the Congestion Charge zone (+${pDisplay(CONGESTION_CHARGE_P)} pass-through if inside the zone or unsure). Carpet steam cleaning, upholstery, exterior windows and extra rooms are separate only when they genuinely expand the job. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and a revised price agreed before work starts.`,
+  pricingCta: { href: '/end-of-tenancy-cleaning-london#quote', label: 'Build my complete quote' },
 
   faqs: [
     {
@@ -162,8 +176,8 @@ const DATA: ServiceLandingData = {
       a: 'Yes. We follow a 67-point checklist based on standard letting agency inventory requirements. This covers inside appliances, inside cupboards, descaling bathrooms, internal windows, skirting boards and more. We also provide a photographic cleaning receipt you can share with your agent.',
     },
     {
-      q: 'Is the oven clean really included for free?',
-      a: 'Yes. Oven cleaning is included in every end of tenancy clean at no extra cost. Most companies charge between £35–£45 extra for this. Hob, extractor filter and grill are also included.',
+      q: 'Which appliances are included?',
+      a: 'The complete price includes the oven, hob, grill, extractor, inside an emptied fridge and defrosted freezer, and accessible dishwasher and washing-machine compartments. Appliances must be empty and accessible; repairs and dismantling are not included.',
     },
     {
       q: 'What is the 48-hour re-clean guarantee?',
@@ -175,11 +189,23 @@ const DATA: ServiceLandingData = {
     },
     {
       q: 'What is not included in the price?',
-      a: `Prices apply to normally maintained, vacant properties. Each additional bathroom beyond the first is +${pDisplay(EOT_EXTRA_BATH_P)}, and an additional WC is +${pDisplay(EOT_EXTRA_WC_P)}. Carpet cleaning, exterior windows, wall marks, key collection and rubbish removal are available as paid extras. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and price agreement before work starts.`,
+      a: `Prices apply to normally maintained, vacant properties. Each additional bathroom beyond the first is +${pDisplay(EOT_EXTRA_BATH_P)}, and an additional WC is +${pDisplay(EOT_EXTRA_WC_P)}. A house or maisonette adds a transparent +${pDisplay(EOT_HOUSE_ADJUSTMENT_P)} for the normal additional hallways, landing, internal staircase cleaning and movement between floors. Every booking also asks whether free parking is available for our team (+${pDisplay(PARKING_ESTIMATE_P)} estimate if not) and whether the property is in the Congestion Charge zone (+${pDisplay(CONGESTION_CHARGE_P)} pass-through if so). Carpet steam cleaning, upholstery, exterior windows, balconies and full wall washing are genuine extras. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and price agreement before work starts.`,
+    },
+    {
+      q: 'Can I pay less if something is already cleaned?',
+      a: 'Yes, for a small number of verifiable inspection items. The quote can apply a limited credit of up to £30, capped at 10% of the base price. The booking becomes a Custom EOT clean, and any removed item is excluded from the 48-hour re-clean guarantee.',
     },
   ],
 
-  afterPricingSection: <EotGallery />,
+  afterPricingSection: (
+    <ServiceProofSection
+      heading="Recent end of tenancy results"
+      subheading="Featured before/after jobs and a rotating results gallery are coming soon — check back shortly."
+      galleryLabel="End of Tenancy"
+      galleryCategory="end-of-tenancy"
+      secondary={{ type: 'rotating' }}
+    />
+  ),
 
   relatedLinks: [
     { href: '/carpet-cleaning-london', label: 'Carpet Cleaning' },

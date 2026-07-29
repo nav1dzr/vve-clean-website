@@ -63,15 +63,19 @@ describe('formatBookingItemLines — carpet & upholstery', () => {
 });
 
 describe('formatBookingItemLines — end of tenancy / deep clean', () => {
-  it('shows property size, bathroom count and included-free oven', () => {
+  it('shows property type, size, bathroom count and complete-package inclusions', () => {
     const lines = formatBookingItemLines({
       service: 'deep',
       deepService: 'end_of_tenancy',
       deepSize: 'bed2',
       deepBaths: 1,
+      propertyType: 'flat',
       addOnCounts: {},
     });
-    expect(lines).toEqual(['End of tenancy — 2 Bed, 1 bathroom', 'Inside oven (included free)']);
+    expect(lines).toEqual([
+      'End of tenancy — Flat, 2 Bed, 1 bathroom',
+      'Oven, fridge/freezer, cupboards and internal windows included',
+    ]);
   });
 
   it('lists selected add-ons for end of tenancy', () => {
@@ -80,13 +84,49 @@ describe('formatBookingItemLines — end of tenancy / deep clean', () => {
       deepService: 'end_of_tenancy',
       deepSize: 'bed3',
       deepBaths: 2,
-      addOnCounts: { ext_windows: 1, fridge: 1 },
+      propertyType: 'house',
+      addOnCounts: { ext_windows: 1, fridge: 1, staircase: 1 },
     });
     expect(lines).toEqual([
-      'End of tenancy — 3 Bed, 2 bathrooms',
-      'Inside oven (included free)',
+      'End of tenancy — House, 3 Bed, 2 bathrooms',
+      'Oven, fridge/freezer, cupboards and internal windows included',
+      'House/maisonette adjustment: +£35 — covers normal additional hallways, landing, internal staircase cleaning and movement between floors',
       '1 × Exterior windows',
-      '1 × Fridge / freezer',
+      '1 × Flights of stairs',
+    ]);
+  });
+
+  it('records custom-scope exclusions separately from included items', () => {
+    const lines = formatBookingItemLines({
+      service: 'deep',
+      deepService: 'end_of_tenancy',
+      deepSize: 'bed1',
+      deepBaths: 1,
+      propertyType: 'flat',
+      eotScopeExclusions: ['oven', 'internal_windows'],
+      addOnCounts: {},
+    });
+    expect(lines).toEqual([
+      'End of tenancy — Flat, 1 Bed, 1 bathroom',
+      'Oven, fridge/freezer, cupboards and internal windows included',
+      'Custom scope excludes: oven, internal windows',
+    ]);
+  });
+
+  it('itemises EOT upholstery and mattress upgrades', () => {
+    const lines = formatBookingItemLines({
+      service: 'deep',
+      deepService: 'end_of_tenancy',
+      deepSize: 'bed1',
+      deepBaths: 1,
+      propertyType: 'flat',
+      addOnCounts: { eot_sofa_2: 1, eot_mattress_double: 1 },
+    });
+    expect(lines).toEqual([
+      'End of tenancy — Flat, 1 Bed, 1 bathroom',
+      'Oven, fridge/freezer, cupboards and internal windows included',
+      '1 × 2-seater sofa steam clean',
+      '1 × Double / king mattress steam clean',
     ]);
   });
 
@@ -103,6 +143,93 @@ describe('formatBookingItemLines — end of tenancy / deep clean', () => {
       '1 × Inside oven',
       '1 × Wall marks & scuffs',
     ]);
+  });
+});
+
+describe('formatBookingItemLines — house/maisonette adjustment', () => {
+  it('does not add a house-adjustment line for a flat', () => {
+    const lines = formatBookingItemLines({
+      service: 'deep',
+      deepService: 'end_of_tenancy',
+      deepSize: 'bed4',
+      deepBaths: 1,
+      propertyType: 'flat',
+      addOnCounts: {},
+    });
+    expect(lines).toEqual([
+      'End of tenancy — Flat, 4 Bed, 1 bathroom',
+      'Oven, fridge/freezer, cupboards and internal windows included',
+    ]);
+  });
+});
+
+describe('formatBookingItemLines — access charges (parking / Congestion Charge)', () => {
+  it('adds no access-charge line when parking is available and outside the zone', () => {
+    const lines = formatBookingItemLines({
+      service: 'window', windowSize: 'medium', parkingAvailable: 'yes', congestionZone: 'no',
+    });
+    expect(lines).toEqual([
+      'Window cleaning — 3 Bed',
+      'Parking: free parking available — £0',
+      'Congestion Charge zone: no — £0',
+    ]);
+  });
+
+  it('adds the parking estimate line when parking is not available', () => {
+    const lines = formatBookingItemLines({
+      service: 'window', windowSize: 'medium', parkingAvailable: 'no',
+    });
+    expect(lines).toEqual([
+      'Window cleaning — 3 Bed',
+      'Parking: not available on-site — +£15 estimated parking allowance (charged at actual cost)',
+    ]);
+  });
+
+  it('adds the parking estimate line when parking is not sure', () => {
+    const lines = formatBookingItemLines({
+      service: 'window', windowSize: 'medium', parkingAvailable: 'not_sure',
+    });
+    expect(lines).toEqual([
+      'Window cleaning — 3 Bed',
+      'Parking: not sure — +£15 estimated parking allowance (charged at actual cost)',
+    ]);
+  });
+
+  it('adds the Congestion Charge line when the property is inside the zone', () => {
+    const lines = formatBookingItemLines({
+      service: 'window', windowSize: 'medium', congestionZone: 'yes',
+    });
+    expect(lines).toEqual([
+      'Window cleaning — 3 Bed',
+      'Congestion Charge zone — +£18 pass-through Congestion Charge',
+    ]);
+  });
+
+  it('adds the estimated Congestion Charge line when not sure', () => {
+    const lines = formatBookingItemLines({
+      service: 'window', windowSize: 'medium', congestionZone: 'not_sure',
+    });
+    expect(lines).toEqual([
+      'Window cleaning — 3 Bed',
+      'Congestion Charge zone: not sure — £18 estimated pending address confirmation (pass-through Congestion Charge)',
+    ]);
+  });
+
+  it('adds both lines when parking is unavailable and the property is in the zone', () => {
+    const lines = formatBookingItemLines({
+      service: 'gutter', gutterType: 'semi_detached', parkingAvailable: 'no', congestionZone: 'yes',
+    });
+    expect(lines).toEqual([
+      'Gutter clearing — Semi-Detached',
+      'Parking: not available on-site — +£15 estimated parking allowance (charged at actual cost)',
+      'Congestion Charge zone — +£18 pass-through Congestion Charge',
+    ]);
+  });
+
+  it('adds no access-charge lines for an unrecognised service, even with access-charge answers set', () => {
+    expect(formatBookingItemLines({
+      service: 'unknown_future_service', parkingAvailable: 'no', congestionZone: 'yes',
+    })).toEqual([]);
   });
 });
 

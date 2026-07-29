@@ -1,5 +1,6 @@
 import { useReveal } from '../hooks/useReveal';
 import { BEFORE_AFTER_PAIRS } from '../data/services';
+import { INSTAGRAM_URL } from '../data/social';
 
 const beforeAfterPairs = BEFORE_AFTER_PAIRS;
 
@@ -83,7 +84,7 @@ export default function Gallery() {
             Do You Want to <span className="italic">See More?</span>
           </p>
           <a
-            href="https://www.instagram.com/vve__clean"
+            href={INSTAGRAM_URL}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Follow VVE Clean on Instagram"

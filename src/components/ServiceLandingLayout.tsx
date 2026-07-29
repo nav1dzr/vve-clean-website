@@ -7,6 +7,7 @@ import Footer from './Footer';
 import MobileStickyFooter from './MobileStickyFooter';
 import Gallery from './Gallery';
 import Reviews from './Reviews';
+import { BookingProvider } from '../context/BookingContext';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,11 @@ export interface ServiceLandingData {
   secondaryHref: string;
   secondaryLabel: string;
   secondaryIsWa?: boolean;
+
+  // Optional section rendered directly after the hero (before Intro) — used
+  // for the compact, service-specific quote calculator so it sits as close
+  // to the top of the page as the design allows.
+  afterHeroSection?: React.ReactNode;
 
   // Intro
   introH2: string;
@@ -194,7 +200,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
   const ctaReveal     = useReveal();
 
   return (
-    <>
+    <BookingProvider>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: data.schema }}
@@ -272,6 +278,9 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
             )}
           </div>
         </section>
+
+        {/* ── 1b. SERVICE-SPECIFIC QUOTE (optional, directly after hero) ── */}
+        {data.afterHeroSection}
 
         {/* ── 2. INTRO ── */}
         <section className="max-w-3xl mx-auto px-4 py-16">
@@ -527,6 +536,6 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
       </div>
 
       <MobileStickyFooter />
-    </>
+    </BookingProvider>
   );
 }

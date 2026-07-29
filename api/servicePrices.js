@@ -2,7 +2,7 @@
 // Must stay in sync with src/data/pricing.ts when prices change.
 
 const BASE_PRICES = {
-  end_of_tenancy:    { studio: 199, bed1: 249, bed2: 299, bed3: 369, bed4: 469 },
+  end_of_tenancy:    { studio: 229, bed1: 299, bed2: 369, bed3: 449, bed4: 549 },
   move_in:           { studio: 179, bed1: 219, bed2: 269, bed3: 329, bed4: 429 },
   after_builders:    { studio: 279, bed1: 329, bed2: 399, bed3: 499, bed4: 625 },
   carpet_upholstery: { studio:  90, bed1: 150, bed2: 210, bed3: 270, bed4: 330 },
@@ -25,7 +25,43 @@ const MIN_CHARGE          = 90;
 const ADDON_PRICES = {
   oven: 35, fridge: 20, ext_windows: 35, wall_marks: 25, key_collect: 10, rubbish: 40,
   sofa: 40, mattress: 25,
+  extra_wc: 25, reception: 35, conservatory: 40, balcony: 25, utility: 25,
+  eot_living_carpet: 55,
+  eot_sofa_2: 75, eot_sofa_3: 95, eot_sofa_corner: 130,
+  eot_mattress_single: 45, eot_mattress_double: 65,
 };
+
+const EOT_SCOPE_CREDITS = {
+  oven: 15, fridge_freezer: 10, cupboards: 10, internal_windows: 10,
+};
+
+// Transparent house/maisonette adjustment (mirrors EOT_HOUSE_ADJUSTMENT_P).
+const EOT_HOUSE_ADJUSTMENT = 35;
+
+// Access charges — required booking questions, apply regardless of service
+// (mirrors PARKING_ESTIMATE_P / CONGESTION_CHARGE_P). Parking is an estimated
+// allowance reconciled to actual cost; the Congestion Charge is a pass-through,
+// never a cleaning-service fee.
+const PARKING_ESTIMATE  = 15;
+const CONGESTION_CHARGE = 18;
+
+function accessSurcharge(quoteConfig) {
+  let add = 0;
+  if (quoteConfig.parkingAvailable === 'no' || quoteConfig.parkingAvailable === 'not_sure') {
+    add += PARKING_ESTIMATE;
+  }
+  if (quoteConfig.congestionZone === 'yes' || quoteConfig.congestionZone === 'not_sure') {
+    add += CONGESTION_CHARGE;
+  }
+  return add;
+}
+
+function eotScopeCredit(base, excludedItems) {
+  const unique = [...new Set(Array.isArray(excludedItems) ? excludedItems : [])];
+  const requested = unique.reduce((sum, key) => sum + (EOT_SCOPE_CREDITS[key] ?? 0), 0);
+  const percentageCap = Math.floor(base * 0.1);
+  return Math.min(requested, 30, percentageCap);
+}
 
 // ── Carpet itemised engine (mirrors carpetPricing.ts) ────────────────────────
 const CARPET_MIN_BOOKING = 85;
@@ -82,10 +118,19 @@ function computeCarpetItemisedPrice(carpetCounts, carpetCondition) {
 export function computePrice(quoteConfig) {
   if (!quoteConfig || !quoteConfig.service) return null;
 
+  const result = computeBasePrice(quoteConfig);
+
+  // Access charges (parking / Congestion Charge) apply on top of any fixed
+  // price, regardless of service — never on a null (manual/photo-quote) result.
+  if (result === null) return null;
+  return result + accessSurcharge(quoteConfig);
+}
+
+function computeBasePrice(quoteConfig) {
   const {
-    service, deepService, deepSize, deepBaths,
+    service, deepService, deepSize, deepBaths, propertyType,
     addOnCounts, windowSize, gutterType, officeHours,
-    carpetCounts, carpetCondition,
+    carpetCounts, carpetCondition, eotScopeExclusions,
   } = quoteConfig;
 
   if (service === 'deep') {
@@ -95,6 +140,9 @@ export function computePrice(quoteConfig) {
     }
 
     // ── Other deep services (EOT, move-in, after-builders) ──────────────────
+    // 5+ bedroom EOT properties have no fixed price by design (tailored quote
+    // required) — bp[deepSize] is undefined for 'bed5' and this correctly
+    // falls through to null, never inventing a fixed total.
     const bp = BASE_PRICES[deepService];
     if (!bp) return null;
     const base = bp[deepSize];
@@ -102,6 +150,9 @@ export function computePrice(quoteConfig) {
 
     const isCarpet  = deepService === 'carpet_upholstery';
     const bathExtra = isCarpet ? 0 : (((deepBaths || 1) - 1) * (BATH_SURCHARGE[deepService] || 0));
+    const houseAdjustment = deepService === 'end_of_tenancy' && propertyType === 'house'
+      ? EOT_HOUSE_ADJUSTMENT
+      : 0;
 
     let addons = 0;
     if (addOnCounts && typeof addOnCounts === 'object') {
@@ -112,14 +163,17 @@ export function computePrice(quoteConfig) {
           addons += STAIR_PRICES[Math.min(n, 3)];
         } else if (key === 'carpet_bundle') {
           addons += (CARPET_BUNDLE_PRICE[deepSize] ?? 0) * n;
-        } else if (key === 'oven' && deepService === 'end_of_tenancy') {
-          // FREE for end of tenancy
+        } else if ((key === 'oven' || key === 'fridge') && deepService === 'end_of_tenancy') {
+          // Included in every complete end-of-tenancy package.
         } else {
           addons += (ADDON_PRICES[key] ?? 0) * n;
         }
       }
     }
-    return base + bathExtra + addons;
+    const scopeCredit = deepService === 'end_of_tenancy'
+      ? eotScopeCredit(base, eotScopeExclusions)
+      : 0;
+    return base + houseAdjustment + bathExtra + addons - scopeCredit;
   }
 
   if (service === 'window') {

@@ -38,7 +38,12 @@ function makeRes() {
   return res;
 }
 
-const VALID_QUOTE_CONFIG = { service: 'window', windowSize: 'medium' };
+const VALID_QUOTE_CONFIG = {
+  service: 'window',
+  windowSize: 'medium',
+  parkingAvailable: 'yes',
+  congestionZone: 'no',
+};
 
 function basePayload(overrides = {}) {
   return {
@@ -114,6 +119,57 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
     expect(sessionsCreateMock).not.toHaveBeenCalled();
   });
 
+  it('rejects a request with no parking availability answer', async () => {
+    const res = makeRes();
+    await handler(makeReq(basePayload({
+      quoteConfig: { ...VALID_QUOTE_CONFIG, parkingAvailable: undefined },
+    })), res);
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body).error).toMatch(/parking/i);
+    expect(sessionsCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a request with an invalid parking availability answer', async () => {
+    const res = makeRes();
+    await handler(makeReq(basePayload({
+      quoteConfig: { ...VALID_QUOTE_CONFIG, parkingAvailable: 'maybe' },
+    })), res);
+    expect(res.statusCode).toBe(400);
+    expect(sessionsCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a request with no Congestion Charge zone answer', async () => {
+    const res = makeRes();
+    await handler(makeReq(basePayload({
+      quoteConfig: { ...VALID_QUOTE_CONFIG, congestionZone: undefined },
+    })), res);
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body).error).toMatch(/congestion/i);
+    expect(sessionsCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a request with an invalid Congestion Charge zone answer', async () => {
+    const res = makeRes();
+    await handler(makeReq(basePayload({
+      quoteConfig: { ...VALID_QUOTE_CONFIG, congestionZone: 'maybe' },
+    })), res);
+    expect(res.statusCode).toBe(400);
+    expect(sessionsCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('server-computed price includes the parking estimate and Congestion Charge, not just the base service price', async () => {
+    const res = makeRes();
+    await handler(makeReq(basePayload({
+      quoteConfig: { ...VALID_QUOTE_CONFIG, parkingAvailable: 'no', congestionZone: 'yes' },
+    })), res);
+
+    expect(res.statusCode).toBe(200);
+    const call = sessionsCreateMock.mock.calls[0][0];
+    // The existing £90 minimum booking charge applies before access costs:
+    // £90 + £15 parking + £18 congestion = £123.
+    expect(call.metadata.price).toBe('123');
+  });
+
   it('rejects a request where termsAccepted is not true, before creating a Stripe session', async () => {
     const res = makeRes();
     await handler(makeReq(basePayload({ termsAccepted: false })), res);
@@ -186,11 +242,18 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
         service: 'deep',
         deepService: 'carpet_upholstery',
         carpetCounts: { mattress_double: 1, sofa_3: 1 },
+        parkingAvailable: 'yes',
+        congestionZone: 'no',
       },
     })), res);
 
     const call = sessionsCreateMock.mock.calls[0][0];
-    expect(call.metadata.service_detail).toBe('1 × 3-seater sofa\n1 × Mattress (double/king)');
+    expect(call.metadata.service_detail).toBe(
+      '1 × 3-seater sofa\n'
+      + '1 × Mattress (double/king)\n'
+      + 'Parking: free parking available — £0\n'
+      + 'Congestion Charge zone: no — £0',
+    );
   });
 
   it('falls back to the broad service category in service_detail when quoteConfig has no item-level detail', async () => {
@@ -202,6 +265,8 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
         deepService: 'carpet_upholstery',
         carpetCondition: 'delicate',
         carpetCounts: {},
+        parkingAvailable: 'yes',
+        congestionZone: 'no',
       },
     })), res);
 

@@ -230,6 +230,21 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'A preferred arrival window is required' }));
   }
 
+  // Parking and Congestion Charge are required questions on the booking page
+  // (mirrors date/time) — the server must not trust that they were answered
+  // and enforce it too. computePrice() already prices whichever answer is
+  // given; this only guards against a request that skips answering entirely.
+  const VALID_PARKING_ANSWERS    = ['yes', 'no', 'not_sure'];
+  const VALID_CONGESTION_ANSWERS = ['yes', 'no', 'not_sure'];
+  if (!VALID_PARKING_ANSWERS.includes(quoteConfig.parkingAvailable)) {
+    res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'Please tell us whether free parking is available for our cleaning team' }));
+  }
+  if (!VALID_CONGESTION_ANSWERS.includes(quoteConfig.congestionZone)) {
+    res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'Please tell us whether the property is inside the Congestion Charge zone' }));
+  }
+
   // Payment must not proceed without the customer accepting the booking and
   // cancellation terms — enforced server-side, not just by disabling the button.
   if (termsAccepted !== true) {
