@@ -100,12 +100,12 @@ const routes = [
   },
   {
     path: '/end-of-tenancy-cleaning-london',
-    title: 'End of Tenancy Cleaning London | From £199 | VVE Clean',
+    title: 'End of Tenancy Cleaning London | Complete from £229 | VVE Clean',
     description:
-      'Professional end of tenancy cleaning in London from £199. 67-point agency checklist, free oven clean included, 48-hour re-clean guarantee. Covering East and North London — E1–E17 and N1–N19.',
+      'Complete end of tenancy cleaning in London from £229. Oven, emptied fridge/freezer, cupboards and internal windows included, with a 48-hour re-clean guarantee.',
     ogTitle: 'End of Tenancy Cleaning London | VVE Clean',
     ogDescription:
-      'End of tenancy cleaning from £199. 67-point checklist, free oven clean, 48-hour re-clean guarantee across East and North London.',
+      'Complete end of tenancy packages from £229, with essential appliances, cupboards and internal windows included as standard.',
   },
   {
     path: '/after-builders-cleaning-london',
