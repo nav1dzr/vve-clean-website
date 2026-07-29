@@ -1416,7 +1416,16 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
               {/* Selection summary card */}
               <div className="glass-card rounded-xl p-3 mb-2">
                 <div className="text-silver-400 text-[10px] uppercase tracking-widest font-semibold mb-1.5">Your Selection</div>
-                {isCarpet ? (
+                {isEot && eotTailoredQuote ? (
+                  <div className="space-y-1">
+                    <p className="text-white text-xs font-semibold">
+                      End of tenancy · {propertyType === 'flat' ? 'Flat / apartment' : 'House / maisonette'}
+                    </p>
+                    <p className="text-silver-300 text-[11px] leading-relaxed">
+                      5+ bedrooms · tailored quote required. No fixed total or online booking is shown.
+                    </p>
+                  </div>
+                ) : isCarpet ? (
                   (carpetResult?.lines ?? []).length > 0 ? (
                     <div className="space-y-0.5">
                       {carpetResult!.lines.map((l) => (

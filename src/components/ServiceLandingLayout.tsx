@@ -7,6 +7,7 @@ import Footer from './Footer';
 import MobileStickyFooter from './MobileStickyFooter';
 import Gallery from './Gallery';
 import Reviews from './Reviews';
+import { BookingProvider } from '../context/BookingContext';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -194,7 +195,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
   const ctaReveal     = useReveal();
 
   return (
-    <>
+    <BookingProvider>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: data.schema }}
@@ -527,6 +528,6 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
       </div>
 
       <MobileStickyFooter />
-    </>
+    </BookingProvider>
   );
 }

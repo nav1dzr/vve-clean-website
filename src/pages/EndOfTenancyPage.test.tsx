@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import EndOfTenancyPage from './EndOfTenancyPage';
-import { BookingProvider } from '../context/BookingContext';
 import { CookieConsentProvider } from '../context/CookieConsentContext';
 
 beforeAll(() => {
@@ -26,9 +25,7 @@ function renderPage() {
   return render(
     <MemoryRouter initialEntries={['/end-of-tenancy-cleaning-london']}>
       <CookieConsentProvider>
-        <BookingProvider>
-          <EndOfTenancyPage />
-        </BookingProvider>
+        <EndOfTenancyPage />
       </CookieConsentProvider>
     </MemoryRouter>,
   );
@@ -107,6 +104,11 @@ describe('EndOfTenancyPage — complete package', () => {
       'href',
       expect.stringContaining('5%2B%20bedroom'),
     );
+    expect(screen.getByRole('link', { name: 'Request a quote via WhatsApp' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('5%2B%20bedroom'),
+    );
+    expect(screen.getByText(/5\+ bedrooms · tailored quote required/i)).toBeInTheDocument();
     // Neither "Book online" CTA variant is offered for a tailored quote —
     // WhatsApp is the only path forward, matching the after-builders pattern.
     expect(screen.queryByRole('button', { name: /Book online/i })).not.toBeInTheDocument();
