@@ -32,26 +32,34 @@ function renderAt(initialEntry: string) {
   );
 }
 
-// The owner is actively reorganising the photo/video folders behind this
-// page (old paths retired, new ones unfinished). Until an approved set is
-// handed back, every category manifest must stay empty — no auto-scanned or
-// hard-coded media path may sneak back in.
+// End of Tenancy now ships with the owner-approved photo set (3 before/after
+// pairs + 13 supporting photos = 16 items). Carpet and Sofa & Upholstery
+// remain empty placeholders — the owner is still organising those folders,
+// so nothing unapproved should be referenced until a final set is supplied.
 describe('GalleryPage — categories, deep links, empty states, keyboard nav', () => {
-  it('ships with every category manifest empty (no current or unfinished media paths referenced)', () => {
-    expect(GALLERY_MEDIA['end-of-tenancy']).toEqual([]);
+  it('ships End of Tenancy populated with the approved 16-item set, and Carpet/Sofa still empty', () => {
+    expect(GALLERY_MEDIA['end-of-tenancy']).toHaveLength(16);
+    expect(GALLERY_MEDIA['end-of-tenancy'].filter((i) => i.type === 'before-after')).toHaveLength(3);
+    expect(GALLERY_MEDIA['end-of-tenancy'].filter((i) => i.type === 'photo')).toHaveLength(13);
     expect(GALLERY_MEDIA.carpet).toEqual([]);
     expect(GALLERY_MEDIA['sofa-upholstery']).toEqual([]);
   });
 
-  it('defaults to the End of Tenancy tab and shows an honest, category-specific empty state', () => {
+  it('has no duplicate ids between the before/after source pairs and the combined comparison photos', () => {
+    const ids = GALLERY_MEDIA['end-of-tenancy'].map((i) => i.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('defaults to the End of Tenancy tab and shows the real, approved photos', () => {
     renderAt('/gallery');
 
     expect(screen.getByRole('tab', { name: 'End of Tenancy' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Kitchen hob')).toBeInTheDocument();
+    expect(screen.getByText('Oven')).toBeInTheDocument();
+    expect(screen.getByText('Shower')).toBeInTheDocument();
     expect(
-      screen.getByText('Our End of Tenancy results library is being organised and will be added here shortly.'),
-    ).toBeInTheDocument();
-    // Never implies real jobs are already on display.
-    expect(screen.queryByText(/real jobs/i)).not.toBeInTheDocument();
+      screen.queryByText('Our End of Tenancy results library is being organised and will be added here shortly.'),
+    ).not.toBeInTheDocument();
   });
 
   it('deep-links directly into the Carpet category via a query param, with its own empty state', () => {

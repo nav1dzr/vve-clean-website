@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useReveal } from '../hooks/useReveal';
 import GoogleBadge from './GoogleBadge';
@@ -21,6 +21,27 @@ export interface ServiceFaq {
   q: string;
   a: string;
 }
+
+// The movable middle sections between the hero/quote (always first) and the
+// final CTA (always last). Pages default to DEFAULT_SECTION_ORDER below —
+// that preserves today's exact layout for every page that doesn't opt in.
+// A page only needs `sectionOrder` when it wants a different reading order
+// (e.g. moving real proof media directly under its quote); omitting a key
+// simply skips that section for that page.
+export type ServiceSectionKey =
+  | 'intro'
+  | 'benefits'
+  | 'gallery'
+  | 'reviews'
+  | 'why'
+  | 'pricing'
+  | 'media'
+  | 'faq'
+  | 'related';
+
+const DEFAULT_SECTION_ORDER: ServiceSectionKey[] = [
+  'intro', 'benefits', 'gallery', 'reviews', 'why', 'pricing', 'media', 'faq', 'related',
+];
 
 export interface ServiceLandingData {
   // Schema
@@ -77,7 +98,10 @@ export interface ServiceLandingData {
   pricingNote?: string;
   pricingCta: { href: string; label: string; isWa?: boolean };
 
-  // Optional section rendered between Pricing and FAQ (e.g. page-specific gallery)
+  // Content for the optional 'media' section (e.g. page-specific proof
+  // gallery). Rendered wherever 'media' falls in sectionOrder — between
+  // Pricing and FAQ by default, but a page can reorder it (e.g. directly
+  // under its quote) via sectionOrder without renaming this field.
   afterPricingSection?: React.ReactNode;
 
   // FAQ
@@ -91,6 +115,12 @@ export interface ServiceLandingData {
   ctaBody: string;
   ctaPrimary: { href: string; label: string; isWa?: boolean };
   ctaSecondary: { href: string; label: string; isTel?: boolean };
+
+  // Optional reading order for the movable middle sections (see
+  // ServiceSectionKey). Defaults to DEFAULT_SECTION_ORDER — every existing
+  // page keeps its current layout unless it explicitly opts into a
+  // different order.
+  sectionOrder?: ServiceSectionKey[];
 }
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
@@ -144,7 +174,13 @@ function CtaButton({
   const primaryCls = isWa
     ? `${base} btn-whatsapp`
     : `${base} bg-royal-500 hover:bg-royal-600 text-white`;
-  const secondaryCls = `${base} border-2 border-white/40 hover:border-white text-white hover:bg-white/10`;
+  // WhatsApp is a brand-recognised action — give it the same solid green
+  // treatment used everywhere else on the site (btn-whatsapp), even when it's
+  // rendered in the "secondary" hero slot, rather than the plain outlined
+  // style used for non-WhatsApp secondary actions.
+  const secondaryCls = isWa
+    ? `${base} btn-whatsapp`
+    : `${base} border-2 border-white/40 hover:border-white text-white hover:bg-white/10`;
   const external = href.startsWith('http') || href.startsWith('tel:') || href.startsWith('mailto:');
 
   return external ? (
@@ -198,6 +234,211 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
   const faqReveal     = useReveal();
   const relatedReveal = useReveal();
   const ctaReveal     = useReveal();
+
+  const sections: Record<ServiceSectionKey, ReactNode> = {
+    intro: (
+      <section className="max-w-3xl mx-auto px-4 py-16">
+        <div
+          ref={introReveal.ref}
+          className={`transition-all duration-700 ${introReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+        >
+          <Eyebrow>About this service</Eyebrow>
+          <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 leading-tight text-center mb-5">
+            {data.introH2}
+          </h2>
+          <p className="text-slate-600 text-base leading-relaxed text-center">{data.introText}</p>
+        </div>
+      </section>
+    ),
+
+    benefits: (
+      <section className="bg-[#f0f7ff] py-16 px-4">
+        <div
+          ref={benefitsReveal.ref}
+          className={`max-w-6xl mx-auto transition-all duration-700 ${benefitsReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+        >
+          <div className="text-center mb-12">
+            <Eyebrow>What you get</Eyebrow>
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 leading-tight">
+              {data.benefitsH2}
+            </h2>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {data.benefits.map((b, i) => (
+              <div
+                key={b.title}
+                className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300"
+                style={{ transitionDelay: `${i * 80}ms` }}
+              >
+                <div className="mb-4 text-royal-500" aria-hidden="true">{b.icon}</div>
+                <h3 className="font-display font-bold text-navy-900 text-lg leading-snug mb-2">{b.title}</h3>
+                <p className="text-slate-500 text-sm leading-relaxed">{b.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    ),
+
+    gallery: <Gallery />,
+
+    reviews: <Reviews />,
+
+    why: (
+      <section className="bg-navy-900 py-16 px-4">
+        <div
+          ref={whyReveal.ref}
+          className={`max-w-4xl mx-auto transition-all duration-700 ${whyReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+        >
+          <div className="text-center mb-10">
+            <Eyebrow dark>Why choose us</Eyebrow>
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-white leading-tight">
+              {data.whyH2}
+            </h2>
+          </div>
+          <ul className="grid sm:grid-cols-2 gap-x-12 gap-y-4">
+            {data.whyPoints.map((point) => (
+              <li key={point} className="flex items-start gap-3 text-silver-200 text-sm leading-relaxed">
+                <span className="text-[#F6B62B] font-bold text-base mt-0.5 flex-shrink-0">✓</span>
+                {point}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    ),
+
+    pricing: (
+      <section className="max-w-3xl mx-auto px-4 py-20">
+        <div
+          ref={pricingReveal.ref}
+          className={`transition-all duration-700 ${pricingReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+        >
+          <div className="text-center mb-10">
+            <Eyebrow>Pricing</Eyebrow>
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 leading-tight">
+              {data.pricingH2}
+            </h2>
+            <p className="text-slate-500 text-sm mt-3 max-w-lg mx-auto">{data.pricingIntro}</p>
+          </div>
+
+          {data.pricingRows && data.pricingRows.length > 0 ? (
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-md overflow-hidden">
+              <div className="bg-navy-900 px-6 py-4">
+                <p className="font-mono text-silver-400 text-xs tracking-widest uppercase">VVE Clean · Fixed Prices</p>
+              </div>
+              <div className="divide-y divide-dashed divide-slate-200">
+                {data.pricingRows.map((row) => (
+                  <div key={row.label} className="flex items-center justify-between px-6 py-4 gap-4">
+                    <span className="text-slate-700 text-sm">{row.label}</span>
+                    <span className="font-mono text-navy-900 font-bold text-sm whitespace-nowrap tabular-nums">
+                      {row.price}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {data.pricingNote && (
+                <div className="border-t border-dashed border-slate-200 px-6 py-4 bg-slate-50">
+                  <p className="text-slate-500 text-xs leading-relaxed">{data.pricingNote}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-md text-center">
+              <p className="text-slate-600 text-base leading-relaxed mb-6">{data.pricingNote}</p>
+            </div>
+          )}
+
+          <div className="flex justify-center mt-8">
+            {data.pricingCta.isWa ? (
+              <a
+                href={data.pricingCta.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-whatsapp inline-flex items-center gap-2.5 font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                {WA_SVG}
+                {data.pricingCta.label}
+              </a>
+            ) : (
+              <Link
+                to={data.pricingCta.href}
+                className="inline-flex items-center gap-2 bg-royal-500 hover:bg-royal-600 text-white font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                {data.pricingCta.label}
+              </Link>
+            )}
+          </div>
+        </div>
+      </section>
+    ),
+
+    media: data.afterPricingSection,
+
+    faq: (
+      <section className="bg-[#f0f7ff] py-16 px-4">
+        <div
+          ref={faqReveal.ref}
+          className={`max-w-3xl mx-auto transition-all duration-700 ${faqReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+        >
+          <div className="text-center mb-10">
+            <Eyebrow>FAQs</Eyebrow>
+            <h2 className="font-display text-3xl font-bold text-navy-900">Common questions</h2>
+          </div>
+          <ul className="faq-list">
+            {data.faqs.map((faq) => (
+              <li key={faq.q} className="faq-item">
+                <details>
+                  <summary className="faq-summary">
+                    <span className="faq-question">{faq.q}</span>
+                    <span className="faq-icon" aria-hidden="true">+</span>
+                  </summary>
+                  <div className="faq-answer"><p>{faq.a}</p></div>
+                </details>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    ),
+
+    related: (
+      <section className="max-w-4xl mx-auto px-4 py-16">
+        <div
+          ref={relatedReveal.ref}
+          className={`transition-all duration-700 ${relatedReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+        >
+          <h2 className="font-display text-xl font-bold text-navy-900 mb-5 text-center">
+            Other services
+          </h2>
+          <div className="flex flex-wrap justify-center gap-3">
+            {data.relatedLinks.map((link) => {
+              const external = link.href.startsWith('http');
+              return external ? (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 border border-slate-300 hover:border-royal-500 text-slate-700 hover:text-royal-600 text-sm font-medium px-4 py-2 rounded-full transition-all duration-200 bg-white hover:bg-royal-50"
+                >
+                  {link.label}
+                </a>
+              ) : (
+                <Link
+                  key={link.href}
+                  to={link.href}
+                  className="inline-flex items-center gap-1.5 border border-slate-300 hover:border-royal-500 text-slate-700 hover:text-royal-600 text-sm font-medium px-4 py-2 rounded-full transition-all duration-200 bg-white hover:bg-royal-50"
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    ),
+  };
 
   return (
     <BookingProvider>
@@ -282,205 +523,10 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
         {/* ── 1b. SERVICE-SPECIFIC QUOTE (optional, directly after hero) ── */}
         {data.afterHeroSection}
 
-        {/* ── 2. INTRO ── */}
-        <section className="max-w-3xl mx-auto px-4 py-16">
-          <div
-            ref={introReveal.ref}
-            className={`transition-all duration-700 ${introReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            <Eyebrow>About this service</Eyebrow>
-            <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 leading-tight text-center mb-5">
-              {data.introH2}
-            </h2>
-            <p className="text-slate-600 text-base leading-relaxed text-center">{data.introText}</p>
-          </div>
-        </section>
-
-        {/* ── 3. BENEFITS ── */}
-        <section className="bg-[#f0f7ff] py-16 px-4">
-          <div
-            ref={benefitsReveal.ref}
-            className={`max-w-6xl mx-auto transition-all duration-700 ${benefitsReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            <div className="text-center mb-12">
-              <Eyebrow>What you get</Eyebrow>
-              <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 leading-tight">
-                {data.benefitsH2}
-              </h2>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {data.benefits.map((b, i) => (
-                <div
-                  key={b.title}
-                  className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300"
-                  style={{ transitionDelay: `${i * 80}ms` }}
-                >
-                  <div className="mb-4 text-royal-500" aria-hidden="true">{b.icon}</div>
-                  <h3 className="font-display font-bold text-navy-900 text-lg leading-snug mb-2">{b.title}</h3>
-                  <p className="text-slate-500 text-sm leading-relaxed">{b.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── 4. GALLERY ── */}
-        <Gallery />
-
-        {/* ── 5. REVIEWS ── */}
-        <Reviews />
-
-        {/* ── 6. WHY VVE CLEAN (navy band) ── */}
-        <section className="bg-navy-900 py-16 px-4">
-          <div
-            ref={whyReveal.ref}
-            className={`max-w-4xl mx-auto transition-all duration-700 ${whyReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            <div className="text-center mb-10">
-              <Eyebrow dark>Why choose us</Eyebrow>
-              <h2 className="font-display text-3xl md:text-4xl font-bold text-white leading-tight">
-                {data.whyH2}
-              </h2>
-            </div>
-            <ul className="grid sm:grid-cols-2 gap-x-12 gap-y-4">
-              {data.whyPoints.map((point) => (
-                <li key={point} className="flex items-start gap-3 text-silver-200 text-sm leading-relaxed">
-                  <span className="text-[#F6B62B] font-bold text-base mt-0.5 flex-shrink-0">✓</span>
-                  {point}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        {/* ── 7. PRICING ── */}
-        <section className="max-w-3xl mx-auto px-4 py-20">
-          <div
-            ref={pricingReveal.ref}
-            className={`transition-all duration-700 ${pricingReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            <div className="text-center mb-10">
-              <Eyebrow>Pricing</Eyebrow>
-              <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 leading-tight">
-                {data.pricingH2}
-              </h2>
-              <p className="text-slate-500 text-sm mt-3 max-w-lg mx-auto">{data.pricingIntro}</p>
-            </div>
-
-            {data.pricingRows && data.pricingRows.length > 0 ? (
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-md overflow-hidden">
-                <div className="bg-navy-900 px-6 py-4">
-                  <p className="font-mono text-silver-400 text-xs tracking-widest uppercase">VVE Clean · Fixed Prices</p>
-                </div>
-                <div className="divide-y divide-dashed divide-slate-200">
-                  {data.pricingRows.map((row) => (
-                    <div key={row.label} className="flex items-center justify-between px-6 py-4 gap-4">
-                      <span className="text-slate-700 text-sm">{row.label}</span>
-                      <span className="font-mono text-navy-900 font-bold text-sm whitespace-nowrap tabular-nums">
-                        {row.price}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                {data.pricingNote && (
-                  <div className="border-t border-dashed border-slate-200 px-6 py-4 bg-slate-50">
-                    <p className="text-slate-500 text-xs leading-relaxed">{data.pricingNote}</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-md text-center">
-                <p className="text-slate-600 text-base leading-relaxed mb-6">{data.pricingNote}</p>
-              </div>
-            )}
-
-            <div className="flex justify-center mt-8">
-              {data.pricingCta.isWa ? (
-                <a
-                  href={data.pricingCta.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-whatsapp inline-flex items-center gap-2.5 font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                >
-                  {WA_SVG}
-                  {data.pricingCta.label}
-                </a>
-              ) : (
-                <Link
-                  to={data.pricingCta.href}
-                  className="inline-flex items-center gap-2 bg-royal-500 hover:bg-royal-600 text-white font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                >
-                  {data.pricingCta.label}
-                </Link>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* ── 8. OPTIONAL PAGE-SPECIFIC SECTION (e.g. EOT gallery) ── */}
-        {data.afterPricingSection}
-
-        {/* ── 9. FAQ ── */}
-        <section className="bg-[#f0f7ff] py-16 px-4">
-          <div
-            ref={faqReveal.ref}
-            className={`max-w-3xl mx-auto transition-all duration-700 ${faqReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            <div className="text-center mb-10">
-              <Eyebrow>FAQs</Eyebrow>
-              <h2 className="font-display text-3xl font-bold text-navy-900">Common questions</h2>
-            </div>
-            <ul className="faq-list">
-              {data.faqs.map((faq) => (
-                <li key={faq.q} className="faq-item">
-                  <details>
-                    <summary className="faq-summary">
-                      <span className="faq-question">{faq.q}</span>
-                      <span className="faq-icon" aria-hidden="true">+</span>
-                    </summary>
-                    <div className="faq-answer"><p>{faq.a}</p></div>
-                  </details>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        {/* ── 9. RELATED SERVICES ── */}
-        <section className="max-w-4xl mx-auto px-4 py-16">
-          <div
-            ref={relatedReveal.ref}
-            className={`transition-all duration-700 ${relatedReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            <h2 className="font-display text-xl font-bold text-navy-900 mb-5 text-center">
-              Other services
-            </h2>
-            <div className="flex flex-wrap justify-center gap-3">
-              {data.relatedLinks.map((link) => {
-                const external = link.href.startsWith('http');
-                return external ? (
-                  <a
-                    key={link.href}
-                    href={link.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 border border-slate-300 hover:border-royal-500 text-slate-700 hover:text-royal-600 text-sm font-medium px-4 py-2 rounded-full transition-all duration-200 bg-white hover:bg-royal-50"
-                  >
-                    {link.label}
-                  </a>
-                ) : (
-                  <Link
-                    key={link.href}
-                    to={link.href}
-                    className="inline-flex items-center gap-1.5 border border-slate-300 hover:border-royal-500 text-slate-700 hover:text-royal-600 text-sm font-medium px-4 py-2 rounded-full transition-all duration-200 bg-white hover:bg-royal-50"
-                  >
-                    {link.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        </section>
+        {/* ── 2-9. MOVABLE MIDDLE SECTIONS — see data.sectionOrder ── */}
+        {(data.sectionOrder ?? DEFAULT_SECTION_ORDER).map((key) => (
+          <Fragment key={key}>{sections[key]}</Fragment>
+        ))}
 
         {/* ── 10. FINAL CTA ── */}
         <section
