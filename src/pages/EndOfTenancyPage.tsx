@@ -1,6 +1,6 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
 import QuoteCalculator from '../components/QuoteCalculator';
-import ServiceProofSection from '../components/gallery/ServiceProofSection';
+import EotResultsSection from '../components/gallery/EotResultsSection';
 import { ClipboardList, PackageCheck, RefreshCw, Camera } from 'lucide-react';
 import {
   EOT_BASE_PRICES_P,
@@ -197,15 +197,16 @@ const DATA: ServiceLandingData = {
     },
   ],
 
-  afterPricingSection: (
-    <ServiceProofSection
-      heading="Recent end of tenancy results"
-      subheading="Featured before/after jobs and a rotating results gallery are coming soon — check back shortly."
-      galleryLabel="End of Tenancy"
-      galleryCategory="end-of-tenancy"
-      secondary={{ type: 'rotating' }}
-    />
-  ),
+  afterPricingSection: <EotResultsSection />,
+
+  // Conversion-focused reading order for this page: hero → quote (via
+  // afterHeroSection, always directly under the hero) → real proof media →
+  // reviews → why customers choose us → about this service → why choose us
+  // (navy band) → pricing → FAQ/related/final CTA. The generic homepage-style
+  // Gallery block is intentionally omitted here — it duplicates the real
+  // before/after proof already shown above and even repeats a generic End of
+  // Tenancy pair, adding no distinct evidence on this page.
+  sectionOrder: ['media', 'reviews', 'benefits', 'intro', 'why', 'pricing', 'faq', 'related'],
 
   relatedLinks: [
     { href: '/carpet-cleaning-london', label: 'Carpet Cleaning' },

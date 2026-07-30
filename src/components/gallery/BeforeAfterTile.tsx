@@ -32,10 +32,16 @@ export default function BeforeAfterTile({
     );
   }
 
+  // Source photos are a mix of landscape and portrait orientations. Cropping
+  // to a fixed aspect ratio with object-cover would cut real content out of
+  // whichever photo doesn't match the container — so every image sits on a
+  // fixed 4:3 stage with object-contain instead: the full, uncropped photo is
+  // always shown, letterboxed on a neutral background when its orientation
+  // differs from the stage.
   return (
     <figure className="rounded-2xl overflow-hidden border border-silver-200 shadow-sm bg-silver-50">
       <div className="grid grid-cols-2">
-        <div className="relative">
+        <div className="relative aspect-[4/3] bg-navy-950">
           <img
             src={entry.before}
             alt={entry.beforeAlt}
@@ -43,13 +49,13 @@ export default function BeforeAfterTile({
             height={300}
             loading="lazy"
             decoding="async"
-            className="w-full aspect-[4/3] object-cover block"
+            className="absolute inset-0 w-full h-full object-contain"
           />
           <div className="absolute bottom-0 left-0 right-0 py-1.5 text-center text-xs font-semibold tracking-wide bg-black/55 text-white">
             Before
           </div>
         </div>
-        <div className="relative">
+        <div className="relative aspect-[4/3] bg-navy-950">
           <img
             src={entry.after}
             alt={entry.afterAlt}
@@ -57,7 +63,7 @@ export default function BeforeAfterTile({
             height={300}
             loading="lazy"
             decoding="async"
-            className="w-full aspect-[4/3] object-cover block"
+            className="absolute inset-0 w-full h-full object-contain"
           />
           <div className="absolute bottom-0 left-0 right-0 py-1.5 text-center text-xs font-semibold tracking-wide bg-emerald-600/85 text-white">
             After

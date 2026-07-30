@@ -72,7 +72,7 @@ export default function GalleryPage() {
             VVE Clean Gallery
           </h1>
           <p className="text-silver-200 text-base sm:text-lg max-w-xl mx-auto">
-            Choose a category below. We're organising our end of tenancy, carpet and sofa &amp; upholstery results library and will add photos and videos here shortly.
+            Explore real end of tenancy results now. Carpet and sofa &amp; upholstery photos and short videos will be added as their approved sets are ready.
           </p>
         </div>
       </div>
@@ -130,15 +130,17 @@ export default function GalleryPage() {
                 }
                 return (
                   <figure key={item.id} className="rounded-2xl overflow-hidden border border-silver-200 shadow-sm bg-silver-50">
-                    <img
-                      src={item.src}
-                      alt={item.alt}
-                      width={600}
-                      height={450}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full aspect-[4/3] object-cover block"
-                    />
+                    <div className="aspect-[4/3] bg-navy-950">
+                      <img
+                        src={item.src}
+                        alt={item.alt}
+                        width={600}
+                        height={450}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-contain block"
+                      />
+                    </div>
                     <figcaption className="text-center text-sm font-semibold text-navy-800 py-3 px-4">
                       {item.label}
                     </figcaption>
