@@ -62,6 +62,7 @@ export default function GalleryPage() {
   return (
     <div className="min-h-screen bg-[#fafbfd] pb-[56px] lg:pb-0">
       <Navbar />
+      <main id="main-content">
 
       <div className="navy-gradient pt-32 pb-14 px-4">
         <div className="max-w-5xl mx-auto text-center">
@@ -156,6 +157,7 @@ export default function GalleryPage() {
         </div>
       </section>
 
+      </main>
       <Footer />
     </div>
   );

@@ -517,14 +517,16 @@ export default function BookingPage() {
       <div className="min-h-screen" style={{ background: '#f9f9f5' }}>
         <BookingHeader isLeaflet={selection?.offerCode === 'LEAFLET20'} />
         <StepIndicator current={1} />
-        {showSelector && selection && (
-          <div className="max-w-5xl mx-auto px-4 pt-5 pb-1 text-center">
-            <p className="text-sm text-silver-600">
-              Selecting a new service will update your booking below.
-            </p>
-          </div>
-        )}
-        <QuoteCalculator onBook={handleBook} />
+        <main id="main-content">
+          {showSelector && selection && (
+            <div className="max-w-5xl mx-auto px-4 pt-5 pb-1 text-center">
+              <p className="text-sm text-silver-600">
+                Selecting a new service will update your booking below.
+              </p>
+            </div>
+          )}
+          <QuoteCalculator onBook={handleBook} />
+        </main>
       </div>
     );
   }
