@@ -39,14 +39,14 @@ describe('EndOfTenancyPage — approved section order and real media', () => {
   it('places the complete EOT quote calculator directly after the hero, with a working CTA href', () => {
     renderPage();
 
-    expect(screen.getByRole('heading', { name: /Build Your Complete Clean/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Build your complete quote/i })).toBeInTheDocument();
 
     const heroCta = screen.getAllByRole('link', { name: 'Build my complete quote' })[0];
     expect(heroCta).toHaveAttribute('href', '/end-of-tenancy-cleaning-london#quote');
 
     const positions = Array.from(document.querySelectorAll('h1, h2')).map((el) => el.textContent);
     const h1Index = positions.findIndex((t) => t?.includes('Complete End of Tenancy Cleaning London'));
-    const quoteHeadingIndex = positions.findIndex((t) => t?.includes('Build Your Complete Clean'));
+    const quoteHeadingIndex = positions.findIndex((t) => t?.includes('Build your complete quote'));
     expect(h1Index).toBeGreaterThanOrEqual(0);
     expect(quoteHeadingIndex).toBeGreaterThan(h1Index);
     expect(quoteHeadingIndex - h1Index).toBeLessThanOrEqual(1);
@@ -59,7 +59,7 @@ describe('EndOfTenancyPage — approved section order and real media', () => {
     const indexOf = (needle: string) => positions.findIndex((t) => t.includes(needle));
 
     const hero      = indexOf('Complete End of Tenancy Cleaning London');
-    const quote     = indexOf('Build Your Complete Clean');
+    const quote     = indexOf('Build your complete quote');
     const media     = indexOf('See the difference');
     const reviews   = indexOf('Rated by London customers on Google');
     const benefits  = indexOf('Why tenants and landlords choose VVE Clean');

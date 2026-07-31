@@ -38,11 +38,14 @@ export default function EotQuoteProgressive() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setSheetOpen(false);
     };
+    // Captured now: by cleanup time the ref may already point elsewhere, and
+    // focus must return to the control that opened the sheet.
+    const opener = sheetTriggerRef.current;
     document.addEventListener('keydown', onKey);
     sheetRef.current?.focus();
     return () => {
       document.removeEventListener('keydown', onKey);
-      sheetTriggerRef.current?.focus();
+      opener?.focus();
     };
   }, [sheetOpen]);
 
