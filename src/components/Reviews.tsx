@@ -51,6 +51,28 @@ const REVIEWS = [
     isLocalGuide: false,
     text: 'Really happy with the service. The team did a brilliant job on my end of tenancy carpet clean. The carpets looked fresh and like new again. Friendly, professional, and great results. Would definitely recommend.',
   },
+  {
+    name: 'Snehal F.',
+    initial: 'S',
+    color: '#7b1fa2',
+    location: 'London',
+    service: 'Carpet & Sofa',
+    // No verified date is available for this review, so we show a neutral
+    // "Google review" label instead of guessing — never fabricate a date.
+    date: 'Google review',
+    isLocalGuide: false,
+    text: 'Brilliant service from VVE clean. They done a great job at my house. My carpets and couch look like I just bought it new. Thankyou so much! Very good customer service.',
+  },
+  {
+    name: 'Sam M.',
+    initial: 'S',
+    color: '#00796b',
+    location: 'London',
+    service: 'Carpet Cleaning',
+    date: 'Google review',
+    isLocalGuide: false,
+    text: 'Very professional, punctual, and polite. My carpets look brand new again after the cleaning. I highly recommend them and will definitely use their services again.',
+  },
 ];
 
 export default function Reviews() {
@@ -154,6 +176,8 @@ export default function Reviews() {
                       ? 'bg-sky-50 text-sky-700 border-sky-200'
                       : r.service === 'Sofa Cleaning'
                       ? 'bg-silver-100 text-silver-700 border-silver-300'
+                      : r.service === 'Carpet & Sofa'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       : 'bg-royal-50 text-royal-600 border-royal-100'
                   }`}
                 >

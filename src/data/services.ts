@@ -27,10 +27,15 @@ export const BEFORE_AFTER_IMAGES = {
 // 900px wide / quality 78. The original .jpg/.png files are left in place
 // untouched in public/gallery/, only unreferenced, per the note above about
 // never renaming/removing what's already in public/.
+//
+// End of Tenancy uses the verified real-job kitchen pair from
+// public/end_of_tenancy/before-after/ (same source as the full Gallery page
+// and the EOT landing page) instead of the old generic stock-style pair —
+// kept in .jpg since no .webp has been generated for these yet.
 export const BEFORE_AFTER_PAIRS = [
   {
-    before: '/gallery/End_of_tenancy_before.webp',
-    after:  '/gallery/End_of_tenancy_after.webp',
+    before: '/end_of_tenancy/before-after/kitchen1_before.jpg',
+    after:  '/end_of_tenancy/before-after/kitchen1_after.jpg',
     label:  'End of Tenancy',
   },
   {
