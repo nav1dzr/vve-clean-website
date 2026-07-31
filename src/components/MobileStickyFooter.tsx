@@ -20,6 +20,9 @@ const CAL_ICON = (
 export default function MobileStickyFooter() {
   const { state, waLink, onBook } = useBookingCtx();
 
+  // A page that owns its own fixed bottom bar suppresses this one entirely.
+  if (state === 'hidden') return null;
+
   const handlePrimaryClick = () => {
     if (state === 'bookable') {
       onBook();

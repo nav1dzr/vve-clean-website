@@ -5,7 +5,7 @@ const FAQS = [
   },
   {
     q: "What's included in an end of tenancy clean?",
-    a: 'Every room, top to bottom: kitchen including inside cupboards and appliances, a full oven clean included free, bathrooms descaled, internal windows, skirting boards, doors, light switches and all floors. If your agent has a specific checklist, send it over — we\'ll work from theirs.',
+    a: 'Every Complete End of Tenancy Clean covers the kitchen including the oven, hob, extractor, emptied fridge and defrosted freezer, accessible appliance compartments, cupboards inside and out, descaled bathrooms, internal windows, skirting boards, doors, switches and all floors. Carpet steam cleaning, exterior windows and other genuine scope expansions are shown separately.',
   },
   {
     q: 'Are your cleaners insured and vetted?',

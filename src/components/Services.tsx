@@ -15,7 +15,7 @@ const services = [
     price: `FROM £${EOT_BASE_PRICES_P.studio / 100} FIXED`,
     priceFixed: true,
     description:
-      'Vacant properties only. Our 67-point agency checklist: inside cupboards, appliances, oven included free, bathrooms descaled, internal windows. 48-hour re-clean guarantee.',
+      'Vacant properties only. Complete package with oven, emptied fridge/defrosted freezer, inside cupboards, descaled bathrooms and internal windows included. 48-hour re-clean guarantee.',
     cta: 'Get your price →',
     ctaHref: '#quote',
     featured: true,

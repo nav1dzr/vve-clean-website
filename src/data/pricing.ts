@@ -67,16 +67,29 @@ export const CARPET_BUNDLE_TIERS: BundleTier[] = [
 // Prices assume the property is vacant, in normal condition, with reasonable
 // access. Heavy soiling, mould, biohazard, pet accidents or extreme conditions
 // require a photo/video review and customer approval before work starts.
-// Oven clean, hob, extractor filter and grill included as standard.
+// Complete package: oven/hob/extractor, emptied fridge/defrosted freezer,
+// accessible appliance compartments, cupboards, internal windows, descaling,
+// standard rooms and floors, products and equipment included as standard.
 // 48-hour re-clean guarantee included.
 
 export const EOT_BASE_PRICES_P: Record<string, number> = {
-  studio: 19900,  // £199
-  bed1:   24900,  // £249
-  bed2:   29900,  // £299 (1 bathroom)
-  bed3:   36900,  // £369 (1 bathroom)
-  bed4:   46900,  // £469 (1 bathroom)
+  studio: 22900,  // £229
+  bed1:   29900,  // £299
+  bed2:   36900,  // £369 (1 bathroom)
+  bed3:   44900,  // £449 (1 bathroom)
+  bed4:   54900,  // £549 (1 bathroom) — labelled "4 Bed", not "4+"
 };
+
+// 5+ bedroom properties require a tailored quote — never a fixed EOT total.
+// No price constant exists for this tier by design; the quote calculator and
+// server validation must both route this to a manual/tailored-quote path.
+export const EOT_TAILORED_QUOTE_SIZE = 'bed5';
+
+// Transparent house/maisonette adjustment. Covers the normal additional
+// hallways, landing, internal staircase cleaning and movement between floors
+// that a house has versus a flat. Stair carpet steam cleaning remains a
+// separate upgrade (EOT_CARPET_ADDON_PRICES_P.stairs_first/extra).
+export const EOT_HOUSE_ADJUSTMENT_P = 3500;  // +£35
 
 // Per additional bathroom beyond the first (integer pence).
 export const EOT_EXTRA_BATH_P = 5000;  // £50
@@ -90,6 +103,33 @@ export const EOT_EXTRA_AREAS_P: Record<string, number> = {
   balcony:     2500,  // £25 from
   utility:     2500,  // £25
 };
+
+// Optional scope reductions for customers who have already completed a
+// verifiable inspection item. Core cleaning cannot be removed. Selecting any
+// reduction changes the product to a Custom EOT clean and removes that item
+// from the 48-hour re-clean guarantee.
+export const EOT_SCOPE_CREDITS_P: Record<string, number> = {
+  oven:             1500,  // −£15
+  fridge_freezer:   1000,  // −£10
+  cupboards:        1000,  // −£10
+  internal_windows: 1000,  // −£10
+};
+
+export const EOT_SCOPE_CREDIT_MAX_P = 3000; // never reduce by more than £30
+export const EOT_SCOPE_CREDIT_MAX_PERCENT = 10;
+
+export function eotScopeCreditPence(basePricePence: number, excludedItems: string[] = []): number {
+  const uniqueItems = [...new Set(excludedItems)];
+  const requested = uniqueItems.reduce(
+    (sum, key) => sum + (EOT_SCOPE_CREDITS_P[key] ?? 0),
+    0,
+  );
+  // Whole-pound cap keeps the displayed total simple and never exceeds 10%.
+  const percentageCap = Math.floor(
+    (basePricePence * EOT_SCOPE_CREDIT_MAX_PERCENT) / 100 / 100,
+  ) * 100;
+  return Math.min(requested, EOT_SCOPE_CREDIT_MAX_P, percentageCap);
+}
 
 // EOT carpet add-on prices (reduced because travel/setup already covered).
 // These do NOT receive an automatic carpet bundle discount.
@@ -182,6 +222,19 @@ export const EOT_CARPET_BUNDLE_P: Record<string, number> = {
 // ─── Booking constants ────────────────────────────────────────────────────────
 
 export const DEPOSIT_P = 3000;  // £30 — deducted from final balance
+
+// ─── Access charges (parking / Congestion Charge) ────────────────────────────
+//
+// Asked as required booking questions on every booking, regardless of
+// service. Parking uses an allowance that is reconciled to actual cost on the
+// final balance. The Congestion Charge is a pass-through of Transport for
+// London's charge, never a cleaning-service fee.
+
+export const PARKING_ESTIMATE_P    = 1500;  // £15 — estimated parking allowance
+export const CONGESTION_CHARGE_P   = 1800;  // £18 — pass-through Congestion Charge
+
+export const PARKING_CHARGED_AT_ACTUAL_COST_NOTE =
+  'Parking is charged at the actual cost. The final balance will be adjusted if it costs less or more.';
 
 // ─── Same-day / next-day policy (no surcharge) ───────────────────────────────
 //

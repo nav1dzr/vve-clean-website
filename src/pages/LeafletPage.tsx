@@ -72,6 +72,7 @@ export default function LeafletPage() {
     <div className="min-h-screen" style={{ background: '#f9f9f5' }}>
       <LeafletHeader />
 
+      <main id="main-content">
       {/* ── Hero ────────────────────────────────────────────────────── */}
       <section style={{ background: '#020b24' }} className="px-4 py-14 text-center">
         <div className="max-w-2xl mx-auto">
@@ -202,6 +203,7 @@ export default function LeafletPage() {
       <div id="quote" className="scroll-mt-24">
         <QuoteCalculator onBook={handleBook} promoCode="LEAFLET20" />
       </div>
+      </main>
 
       {/* ── Footer ──────────────────────────────────────────────────── */}
       <footer style={{ background: '#020b24', borderTop: '1px solid rgba(255,255,255,0.05)' }}

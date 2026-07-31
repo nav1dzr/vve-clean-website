@@ -22,15 +22,18 @@ const seed = (name, pounds, category, description = null) => ({
 
 export const CATALOGUE_SEED_ITEMS = [
   // ── End of tenancy (EOT_BASE_PRICES_P / 100) ──────────────────────────
-  seed('End of tenancy clean — studio',     199, 'End of tenancy', 'Fixed price, oven clean included. 1 bathroom.'),
-  seed('End of tenancy clean — 1 bedroom',  249, 'End of tenancy', 'Fixed price, oven clean included. 1 bathroom.'),
-  seed('End of tenancy clean — 2 bedroom',  299, 'End of tenancy', 'Fixed price, oven clean included. 1 bathroom.'),
-  seed('End of tenancy clean — 3 bedroom',  369, 'End of tenancy', 'Fixed price, oven clean included. 1 bathroom.'),
-  seed('End of tenancy clean — 4 bedroom',  469, 'End of tenancy', 'Fixed price, oven clean included. 1 bathroom.'),
+  seed('End of tenancy clean — studio',     229, 'End of tenancy', 'Complete fixed-price package. Appliances, cupboards and internal windows included. 1 bathroom.'),
+  seed('End of tenancy clean — 1 bedroom',  299, 'End of tenancy', 'Complete fixed-price package. Appliances, cupboards and internal windows included. 1 bathroom.'),
+  seed('End of tenancy clean — 2 bedroom',  369, 'End of tenancy', 'Complete fixed-price package. Appliances, cupboards and internal windows included. 1 bathroom.'),
+  seed('End of tenancy clean — 3 bedroom',  449, 'End of tenancy', 'Complete fixed-price package. Appliances, cupboards and internal windows included. 1 bathroom.'),
+  seed('End of tenancy clean — 4 bedroom',  549, 'End of tenancy', 'Complete fixed-price package. Appliances, cupboards and internal windows included. 1 bathroom.'),
 
   // ── EOT bath surcharges (EOT_EXTRA_BATH_P, EOT_EXTRA_WC_P) ───────────
   seed('EOT — additional full bathroom',    50,  'End of tenancy', 'Per extra bathroom beyond the first.'),
   seed('EOT — additional WC',               25,  'End of tenancy', 'Per additional WC / half bathroom.'),
+
+  // ── EOT house/maisonette adjustment (EOT_HOUSE_ADJUSTMENT_P) ─────────
+  seed('EOT — house/maisonette adjustment', 35,  'End of tenancy', 'Covers normal additional hallways, landing, internal staircase cleaning and movement between floors. Stair carpet steam cleaning remains a separate upgrade.'),
 
   // ── Move-in (MOVEIN_BASE_PRICES_P / 100) ─────────────────────────────
   seed('Move-in clean — studio',            179, 'Move-in / move-out'),
@@ -95,6 +98,12 @@ export const CATALOGUE_SEED_ITEMS = [
   seed('Gutter cleaning — terraced',         75,  'Gutters'),
   seed('Gutter cleaning — semi-detached',   110,  'Gutters'),
   seed('Gutter cleaning — detached',        160,  'Gutters'),
+
+  // ── Access charges (PARKING_ESTIMATE_P, CONGESTION_CHARGE_P) ─────────
+  // Required booking questions on every booking. Parking is an estimated
+  // allowance reconciled to actual cost; congestion is a pass-through charge.
+  seed('Parking allowance (estimated)',      15,  'Access charges', 'Charged at actual cost. Adjusted on the final balance if it costs less or more.'),
+  seed('Congestion Charge (pass-through)',   18,  'Access charges', 'Pass-through of the Congestion Charge — never a cleaning-service fee.'),
 
   // ── Commercial (COMMERCIAL_* constants) ──────────────────────────────
   seed('Commercial cleaning — regular contract (per hour)', 27.5, 'Commercial', 'Minimum 2 hours (£55) per visit.'),

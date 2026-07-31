@@ -1,4 +1,6 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import QuoteCalculator from '../components/QuoteCalculator';
+import ServiceProofSection from '../components/gallery/ServiceProofSection';
 import { Droplets, Leaf, Clock, Tag } from 'lucide-react';
 import {
   CARPET_ITEM_PRICES_P,
@@ -104,11 +106,13 @@ const DATA: ServiceLandingData = {
   heroGoogleBadge: true,
   heroCompactMobile: true,
   heroTrustLine: 'Fully Insured · DBS-checked technicians',
-  primaryHref: '/booking',
-  primaryLabel: 'Get My Fixed Price',
+  primaryHref: '/carpet-cleaning-london#quote',
+  primaryLabel: 'Build my carpet quote',
   secondaryHref: WA,
   secondaryLabel: 'WhatsApp for a quote',
   secondaryIsWa: true,
+
+  afterHeroSection: <QuoteCalculator mode="carpet" />,
 
   introH2: 'Deep carpet cleaning, not just surface freshening',
   introText:
@@ -166,6 +170,16 @@ const DATA: ServiceLandingData = {
   pricingNote:
     'Large, wool or specialist rugs need a photo quote first. Book multiple carpet or upholstery items together and save automatically — see our discount tiers on the pricing page.',
   pricingCta: { href: '/pricing', label: 'See all prices' },
+
+  afterPricingSection: (
+    <ServiceProofSection
+      heading="Recent carpet cleaning results"
+      subheading="We're building our photo and video library for this service — check back soon."
+      galleryLabel="Carpet"
+      galleryCategory="carpet"
+      secondary={{ type: 'video' }}
+    />
+  ),
 
   faqs: [
     {

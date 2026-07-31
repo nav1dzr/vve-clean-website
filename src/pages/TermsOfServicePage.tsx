@@ -294,6 +294,7 @@ export default function TermsOfServicePage() {
   return (
     <div className="min-h-screen bg-[#f5f6f8] pb-[56px] lg:pb-0">
       <Navbar />
+      <main id="main-content">
 
       {/* Hero */}
       <div className="navy-gradient pt-32 pb-16 px-4">
@@ -350,6 +351,7 @@ export default function TermsOfServicePage() {
         </div>
       </div>
 
+      </main>
       <Footer />
 
       {/* Mobile sticky bar */}

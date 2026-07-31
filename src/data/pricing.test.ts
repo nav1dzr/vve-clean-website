@@ -6,6 +6,8 @@ import {
   EOT_EXTRA_BATH_P,
   EOT_EXTRA_WC_P,
   EOT_CARPET_ADDON_PRICES_P,
+  EOT_SCOPE_CREDIT_MAX_P,
+  eotScopeCreditPence,
   MOVEIN_BASE_PRICES_P,
   MOVEIN_EXTRA_BATH_P,
   AFTER_BUILDERS_FROM_PRICES_P,
@@ -22,17 +24,44 @@ import { computeCarpetPrice, CARPET_MIN_BOOKING } from './carpetPricing';
 
 describe('EOT base prices — canonical values in pence', () => {
   it.each([
-    ['studio', 19900],
-    ['bed1',   24900],
-    ['bed2',   29900],
-    ['bed3',   36900],
-    ['bed4',   46900],
+    ['studio', 22900],
+    ['bed1',   29900],
+    ['bed2',   36900],
+    ['bed3',   44900],
+    ['bed4',   54900],
   ])('%s is %ip', (key, expected) => {
     expect(EOT_BASE_PRICES_P[key]).toBe(expected);
   });
 
   it('extra bath is £50 (5000p)', () => expect(EOT_EXTRA_BATH_P).toBe(5000));
   it('extra WC is £25 (2500p)', () => expect(EOT_EXTRA_WC_P).toBe(2500));
+});
+
+describe('EOT scope credits', () => {
+  it('applies the approved item credits', () => {
+    expect(eotScopeCreditPence(44900, ['oven', 'fridge_freezer'])).toBe(2500);
+  });
+
+  it('caps combined credits at £30', () => {
+    expect(eotScopeCreditPence(44900, [
+      'oven',
+      'fridge_freezer',
+      'cupboards',
+      'internal_windows',
+    ])).toBe(EOT_SCOPE_CREDIT_MAX_P);
+  });
+
+  it('also caps the reduction at 10% of the base price, rounded down to pounds', () => {
+    expect(eotScopeCreditPence(22900, [
+      'oven',
+      'fridge_freezer',
+      'cupboards',
+    ])).toBe(2200);
+  });
+
+  it('does not count duplicates or unknown keys', () => {
+    expect(eotScopeCreditPence(29900, ['oven', 'oven', 'unknown'])).toBe(1500);
+  });
 });
 
 describe('move-in base prices — canonical values in pence', () => {

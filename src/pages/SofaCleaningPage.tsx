@@ -1,4 +1,6 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import QuoteCalculator from '../components/QuoteCalculator';
+import ServiceProofSection from '../components/gallery/ServiceProofSection';
 import { PawPrint, Shield, Palette, RefreshCw } from 'lucide-react';
 import {
   CARPET_ITEM_PRICES_P,
@@ -96,11 +98,13 @@ const DATA: ServiceLandingData = {
     'Colour-safe on most fabrics',
     'Removes pet odours & allergens',
   ],
-  primaryHref: '/booking',
-  primaryLabel: 'Book a sofa clean',
+  primaryHref: '/sofa-cleaning-london#quote',
+  primaryLabel: 'Build my upholstery quote',
   secondaryHref: WA,
   secondaryLabel: 'WhatsApp for a quote',
   secondaryIsWa: true,
+
+  afterHeroSection: <QuoteCalculator mode="upholstery" />,
 
   introH2: 'Sofa cleaning that goes deeper than vacuuming',
   introText:
@@ -156,6 +160,16 @@ const DATA: ServiceLandingData = {
   pricingNote:
     'Combine a sofa and carpet clean on the same visit to save automatically on bundle discount tiers — see all prices for details.',
   pricingCta: { href: '/pricing', label: 'See all prices' },
+
+  afterPricingSection: (
+    <ServiceProofSection
+      heading="Recent sofa & upholstery results"
+      subheading="We're building our photo and video library for this service — check back soon."
+      galleryLabel="Sofa & Upholstery"
+      galleryCategory="sofa-upholstery"
+      secondary={{ type: 'video' }}
+    />
+  ),
 
   faqs: [
     {

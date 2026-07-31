@@ -1,5 +1,3 @@
-import { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
 import { BookingProvider } from '../context/BookingContext';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
@@ -18,22 +16,11 @@ import Footer from '../components/Footer';
 import MobileStickyFooter from '../components/MobileStickyFooter';
 
 export default function HomePage() {
-  const { hash } = useLocation();
-
-  useEffect(() => {
-    if (!hash) return;
-    const el = document.querySelector(hash);
-    if (!el) return;
-    const timer = setTimeout(() => {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 80);
-    return () => clearTimeout(timer);
-  }, [hash]);
-
   return (
     <BookingProvider>
     <div className="min-h-screen mobile-page-bottom lg:pb-0">
       <Navbar />
+      <main id="main-content">
       <Hero />
       <AreaMarquee />
       <TrustBadges />
@@ -46,6 +33,7 @@ export default function HomePage() {
       <Areas />
       <Contact />
       <FAQ />
+      </main>
       <Footer />
       <MobileStickyFooter />
     </div>

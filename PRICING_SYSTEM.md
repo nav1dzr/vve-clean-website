@@ -77,6 +77,63 @@ Base prices assume 1 bathroom. Additional bathrooms are charged as add-ons:
 
 ---
 
+## Complete End of Tenancy package
+
+The approved EOT product is a complete, fixed-price clean rather than a low
+base price with essential inspection items sold separately.
+
+| Property | Complete EOT price |
+|----------|-------------------:|
+| Studio | £229 |
+| 1 bedroom | £299 |
+| 2 bedrooms | £369 |
+| 3 bedrooms | £449 |
+| 4 bedrooms | £549 |
+| 5+ bedrooms | Tailored quote required |
+
+The package includes the oven/hob/extractor, inside an emptied fridge and
+defrosted freezer, accessible dishwasher/washing-machine compartments,
+cupboards inside and out, internal windows, descaling, standard rooms and
+floors, products and equipment. Carpet steam cleaning remains a genuine
+upgrade; ordinary vacuuming is included.
+
+Flats/apartments have no property-type adjustment. Houses and maisonettes add
+£35 (`EOT_HOUSE_ADJUSTMENT_P`) for the normal additional hallway, landing,
+internal-staircase cleaning and movement between floors. Carpet steam cleaning
+for stairs remains a separate upgrade.
+
+Five-bedroom and larger properties never reuse the four-bedroom price. They
+use the `bed5` tailored-quote path and may submit an enquiry without being shown
+a misleading fixed total.
+
+Customers may remove only the approved inspection-ready items in
+`EOT_SCOPE_CREDITS_P`. The reduction is capped at the lower of 10% of the base
+price or £30. Any reduction changes the label to Custom EOT and removes the
+excluded item from the 48-hour re-clean guarantee.
+
+The EOT quote offers upholstery and mattress upgrades at the same canonical
+item prices used by the carpet/upholstery service. Curtains and blinds, full
+wall washing, extreme buildup, mould, biohazards and unusual access remain
+photo-review items rather than invented fixed-price extras.
+
+## Parking and Congestion Charge
+
+Access charges are shared by every fixed-price booking and are stored centrally:
+
+- Free parking available: £0
+- No free parking / not sure: £15 estimated allowance
+  (`PARKING_ESTIMATE_P`). Parking is charged at actual cost and the final
+  balance is adjusted if it costs less or more.
+- Outside the Congestion Charge zone: £0
+- Inside / not sure: £18 pass-through charge
+  (`CONGESTION_CHARGE_P`), with “not sure” marked as estimated pending address
+  confirmation.
+
+The Congestion Charge is not a cleaning-service fee. There is no automatic ULEZ
+fee and no same-day or next-day surcharge.
+
+---
+
 ## After-builders pricing
 
 After-builders prices are **always "from" / estimated**. The final price is confirmed by photo before work starts. The `AFTER_BUILDERS_FROM_PRICES_P` table gives indicative starting prices by size. Do not show these as fixed prices anywhere on the site.
