@@ -41,7 +41,7 @@ export function TrustBadge({
   const Icon = BADGE_ICONS[icon];
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold leading-tight ${BADGE_TONES[tone]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[11.5px] font-semibold leading-tight ${BADGE_TONES[tone]} ${className}`}
     >
       <Icon className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" strokeWidth={2.25} />
       {children}
@@ -113,29 +113,29 @@ export function SelectionCardGroup({
             aria-label={o.caption ? `${o.title} — ${o.caption}` : o.title}
             tabIndex={selected || (value === null && i === 0) ? 0 : -1}
             onClick={() => onChange(o.value)}
-            className={`group relative flex min-h-[68px] w-full flex-col justify-center gap-0.5 rounded-xl border-2 p-3.5 pr-9 text-left
+            className={`group relative flex min-h-[76px] w-full flex-col justify-center gap-1 rounded-2xl border-2 p-4 pr-10 text-left
               motion-safe:transition-[background-color,border-color,box-shadow] motion-safe:duration-200
               focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-500
-              active:scale-[0.995]
+              active:scale-[0.99]
               ${selected
-                ? 'border-royal-500 bg-royal-50 shadow-[0_1px_2px_rgba(2,132,199,0.10)]'
-                : 'border-silver-200 bg-white hover:border-royal-300 hover:bg-silver-50/70'}`}
+                ? 'border-royal-500 bg-royal-50 shadow-[0_0_0_3px_rgba(2,132,199,0.10)]'
+                : 'border-silver-200 bg-white hover:border-royal-300 hover:bg-royal-50/30 hover:shadow-[0_1px_3px_rgba(16,24,40,0.06)]'}`}
           >
-            <span className={`font-display text-[15px] font-bold leading-tight ${selected ? 'text-royal-700' : 'text-navy-900'}`}>
+            <span className={`font-display text-base font-bold leading-tight ${selected ? 'text-royal-700' : 'text-navy-900'}`}>
               {o.title}
             </span>
             {o.caption && (
-              <span className={`text-[11.5px] leading-snug ${selected ? 'text-royal-600' : 'text-slate-600'}`}>
+              <span className={`text-[12px] leading-[1.3] ${selected ? 'text-royal-600' : 'text-slate-600'}`}>
                 {o.caption}
               </span>
             )}
             <span
               aria-hidden="true"
-              className={`absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full border-2
+              className={`absolute right-3 top-1/2 flex h-[22px] w-[22px] -translate-y-1/2 items-center justify-center rounded-full border-2
                 motion-safe:transition-colors motion-safe:duration-200
                 ${selected ? 'border-royal-500 bg-royal-500' : 'border-silver-300 bg-white group-hover:border-royal-300'}`}
             >
-              {selected && <Check className="h-3 w-3 text-white" strokeWidth={3.5} />}
+              {selected && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3.5} />}
             </span>
           </button>
         );
@@ -155,10 +155,10 @@ export function StepperControl({
 }) {
   const id = useId();
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-silver-200 bg-white p-3.5">
+    <div className="flex items-center gap-3 rounded-2xl border border-silver-200 bg-white p-4">
       <div className="min-w-0 flex-1">
-        <p id={id} className="text-[15px] font-semibold leading-tight text-navy-900">{label}</p>
-        {hint && <p className="mt-0.5 text-[11.5px] leading-snug text-slate-600">{hint}</p>}
+        <p id={id} className="font-display text-base font-bold leading-tight text-navy-900">{label}</p>
+        {hint && <p className="mt-0.5 text-[12.5px] leading-snug text-slate-600">{hint}</p>}
       </div>
       <div className="flex flex-shrink-0 items-center gap-1.5">
         <button
@@ -166,13 +166,13 @@ export function StepperControl({
           onClick={() => onChange(Math.max(min, value - 1))}
           disabled={value <= min}
           aria-label={`Decrease ${label}`}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-silver-300 bg-white text-navy-800 disabled:opacity-30 hover:border-royal-400 hover:text-royal-600 motion-safe:transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-500"
+          className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-silver-300 bg-white text-navy-800 disabled:opacity-30 hover:border-royal-400 hover:bg-royal-50 hover:text-royal-600 motion-safe:transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-500"
         >
           <Minus className="h-4 w-4" aria-hidden="true" strokeWidth={2.5} />
         </button>
         <output
           aria-live="polite"
-          className="w-8 text-center font-display text-lg font-bold tabular-nums text-navy-900"
+          className="w-9 text-center font-display text-xl font-bold tabular-nums text-navy-900"
         >
           <span className="sr-only">{label}: </span>{value}
         </output>
@@ -181,7 +181,7 @@ export function StepperControl({
           onClick={() => onChange(Math.min(max, value + 1))}
           disabled={value >= max}
           aria-label={`Increase ${label}`}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-silver-300 bg-white text-navy-800 disabled:opacity-30 hover:border-royal-400 hover:text-royal-600 motion-safe:transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-500"
+          className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-silver-300 bg-white text-navy-800 disabled:opacity-30 hover:border-royal-400 hover:bg-royal-50 hover:text-royal-600 motion-safe:transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-500"
         >
           <Plus className="h-4 w-4" aria-hidden="true" strokeWidth={2.5} />
         </button>
@@ -202,7 +202,7 @@ export function QuoteDisclosure({
   const panelId = useId();
   const buttonId = useId();
   return (
-    <div className="overflow-hidden rounded-xl border border-silver-200 bg-white">
+    <div className="overflow-hidden rounded-2xl border border-silver-200 bg-white">
       <button
         type="button"
         id={buttonId}
@@ -233,11 +233,11 @@ export function UpgradeRow({
   name: string; description?: string; selected: boolean; onToggle: () => void;
 }) {
   return (
-    <div className={`flex items-center gap-3 rounded-xl border p-3.5 motion-safe:transition-colors
-      ${selected ? 'border-royal-300 bg-royal-50/70' : 'border-silver-200 bg-white'}`}>
+    <div className={`flex items-center gap-3 rounded-2xl border p-4 motion-safe:transition-colors
+      ${selected ? 'border-royal-400 bg-royal-50/70' : 'border-silver-200 bg-white'}`}>
       <div className="min-w-0 flex-1">
-        <p className="text-[14.5px] font-semibold leading-tight text-navy-900">{name}</p>
-        {description && <p className="mt-0.5 text-[11.5px] leading-snug text-slate-600">{description}</p>}
+        <p className="text-[15px] font-semibold leading-tight text-navy-900">{name}</p>
+        {description && <p className="mt-0.5 text-[12.5px] leading-snug text-slate-600">{description}</p>}
       </div>
       <button
         type="button"

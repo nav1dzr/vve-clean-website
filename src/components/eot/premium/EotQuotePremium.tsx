@@ -30,21 +30,11 @@ import {
   TrustBadge, QuoteDisclosure, UpgradeRow,
 } from './QuoteParts';
 import {
-  LiveQuoteSummary, LiveTotal, QuoteBreakdown, QuoteProgress, QUOTE_STEPS,
+  LiveQuoteSummary, LiveTotal, QuoteBreakdown, QuoteProgress,
 } from './QuoteSummaryParts';
-
-const WA_BASE = 'https://wa.me/447845451111';
-
-const INCLUDED_ITEMS = [
-  'Oven, hob, grill and extractor',
-  'Inside an emptied fridge and defrosted freezer',
-  'Dishwasher and washing-machine accessible compartments',
-  'Cupboards, drawers and wardrobes inside and outside',
-  'Internal windows, frames and sills',
-  'Kitchen and bathroom descaling',
-  'Skirting, doors, handles, switches and sockets',
-  'Vacuuming, mopping, products and equipment',
-] as const;
+import {
+  INCLUDED_ITEMS, QUOTE_STEPS, SCOPE_REASSURANCE, WA_BASE,
+} from './quoteContent';
 
 /* Upgrade grouping, per the approved direction. */
 const CARPET_KEYS = ['eot_living_carpet'] as const;
@@ -75,7 +65,7 @@ export default function EotQuotePremium() {
   // This quote owns the only fixed bar on the page — suppress the site-wide
   // sticky footer so mobile never shows two stacked bars.
   useEffect(() => {
-    setCtx({ state: 'none', price: 0, waLink: '', onBook: () => {} });
+    setCtx({ state: 'hidden', price: 0, waLink: '', onBook: () => {} });
   }, [setCtx]);
 
   // Move focus to each new step heading so keyboard and screen-reader users are
@@ -93,6 +83,16 @@ export default function EotQuotePremium() {
   // exists. It is the single mobile price surface — there is no second in-flow
   // total card, so the customer never sees two competing figures.
   const showMobileBar = Boolean(result) && !q.isTailored;
+
+  // On the final step the desktop summary carries the booking action, so the
+  // in-card copy must stand down there too — otherwise desktop shows two
+  // "Secure my date" buttons. Ownership by breakpoint:
+  //   below lg → the fixed bar owns it (once a price exists)
+  //   lg and up on the last step → the summary owns it
+  const summaryOwnsAction = step === last && !q.isTailored;
+  const inCardActionClass = showMobileBar
+    ? (summaryOwnsAction ? 'hidden' : 'hidden lg:block')
+    : (summaryOwnsAction ? 'lg:hidden' : '');
 
   const goNext = () => setStep((s) => Math.min(last, q.isTailored ? last : s + 1));
   const goBack = () => setStep((s) => Math.max(0, s - 1));
@@ -221,8 +221,7 @@ export default function EotQuotePremium() {
                     {/* Scope reassurance. Every room named here is explicitly
                         covered by the published base-package definition. */}
                     <p className="rounded-xl border border-silver-200 bg-silver-50/70 px-4 py-3 text-[12.5px] leading-snug text-slate-700">
-                      Your complete clean covers the kitchen, living/reception room, bathroom and
-                      every bedroom — in a normally maintained, vacant property.
+                      {SCOPE_REASSURANCE}
                     </p>
                   </div>
                 )}
@@ -363,7 +362,9 @@ export default function EotQuotePremium() {
                 {/* ── Step 5: Book ── */}
                 {step === 4 && result && !q.isTailored && (
                   <div className="mt-4 space-y-4">
-                    <div className="rounded-xl border border-silver-200 bg-silver-50/60 p-4">
+                    {/* Below lg the fixed bar already shows this total, so this
+                        block stands down there — never two totals on one screen. */}
+                    <div className={`rounded-2xl border border-silver-200 bg-silver-50/60 p-4 ${showMobileBar ? 'hidden lg:block' : ''}`}>
                       <p className="text-[12px] font-semibold uppercase tracking-widest text-slate-500">
                         Your total
                       </p>
@@ -375,10 +376,9 @@ export default function EotQuotePremium() {
                         {' · '}{displayPence(result.balancePence)} after your clean
                       </p>
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-2">
                       <TrustBadge icon="check" tone="emerald">£30 secures your preferred date</TrustBadge>
                       <TrustBadge icon="check" tone="sky">Included in your total</TrustBadge>
-                      <TrustBadge icon="guarantee" tone="navy">48-hour re-clean guarantee</TrustBadge>
                     </div>
                     <p className="text-[12.5px] leading-snug text-slate-600">
                       Next you will choose your preferred date and arrival window, and answer two
@@ -404,7 +404,7 @@ export default function EotQuotePremium() {
                     CTAs on the same screen. */}
                 <div className="mt-6 flex items-center gap-3 border-t border-silver-100 pt-5">
                   {step > 0 && <SecondaryButton onClick={goBack}>Back</SecondaryButton>}
-                  <div className={`min-w-0 flex-1 ${showMobileBar ? 'hidden lg:block' : ''}`}>
+                  <div className={`min-w-0 flex-1 ${inCardActionClass}`}>
                     {primaryAction}
                   </div>
                 </div>
