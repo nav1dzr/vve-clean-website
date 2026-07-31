@@ -1,6 +1,11 @@
 import { createContext, useContext, useState } from 'react';
 
-export type StickyState = 'none' | 'bookable' | 'manual';
+// 'hidden' fully suppresses the site-wide mobile sticky footer. It exists for
+// pages that render their own bottom bar (the EOT quote) and would otherwise
+// stack two — or three, with the cookie banner — fixed bars on top of each
+// other. 'none' deliberately still renders the footer, so no existing page
+// changes behaviour.
+export type StickyState = 'none' | 'bookable' | 'manual' | 'hidden';
 
 export interface StickyBookingValue {
   state:  StickyState;

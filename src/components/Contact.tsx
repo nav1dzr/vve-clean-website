@@ -187,8 +187,9 @@ export default function Contact() {
                 />
                 <div className="grid sm:grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-navy-900 font-semibold text-sm mb-1.5">Full Name *</label>
+                    <label htmlFor="contact-name" className="block text-navy-900 font-semibold text-sm mb-1.5">Full Name *</label>
                     <input
+                      id="contact-name"
                       type="text"
                       name="name"
                       value={name}
@@ -196,11 +197,14 @@ export default function Contact() {
                       placeholder="John Smith"
                       className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-royal-400 transition-colors"
                       required
+                      aria-required="true"
+                      {...(error ? { 'aria-describedby': 'contact-error' } : {})}
                     />
                   </div>
                   <div>
-                    <label className="block text-navy-900 font-semibold text-sm mb-1.5">Email Address *</label>
+                    <label htmlFor="contact-email" className="block text-navy-900 font-semibold text-sm mb-1.5">Email Address *</label>
                     <input
+                      id="contact-email"
                       type="email"
                       name="email"
                       value={email}
@@ -208,25 +212,31 @@ export default function Contact() {
                       placeholder="john@example.com"
                       className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-royal-400 transition-colors"
                       required
+                      aria-required="true"
+                      {...(error ? { 'aria-describedby': 'contact-error' } : {})}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-navy-900 font-semibold text-sm mb-1.5">Phone Number</label>
+                  <label htmlFor="contact-phone" className="block text-navy-900 font-semibold text-sm mb-1.5">Phone Number</label>
                   <input
+                    id="contact-phone"
                     type="tel"
                     name="phone"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="07845 451111"
+                    aria-describedby="contact-phone-hint"
                     className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-royal-400 transition-colors"
                   />
+                  <p id="contact-phone-hint" className="sr-only">Optional</p>
                 </div>
 
                 <div>
-                  <label className="block text-navy-900 font-semibold text-sm mb-1.5">Message *</label>
+                  <label htmlFor="contact-message" className="block text-navy-900 font-semibold text-sm mb-1.5">Message *</label>
                   <textarea
+                    id="contact-message"
                     name="message"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
@@ -234,10 +244,21 @@ export default function Contact() {
                     placeholder="Tell us about the service you need, your property, preferred dates..."
                     className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-royal-400 transition-colors resize-none"
                     required
+                    aria-required="true"
+                    {...(error ? { 'aria-describedby': 'contact-error' } : {})}
                   />
                 </div>
 
-                {error && <p className="text-red-500 text-sm">{error}</p>}
+                {/* Always present so assistive tech announces the error when it
+                    appears, rather than only discovering it on re-navigation. */}
+                <p
+                  id="contact-error"
+                  role="alert"
+                  aria-live="assertive"
+                  className={error ? 'text-red-500 text-sm' : 'sr-only'}
+                >
+                  {error}
+                </p>
 
                 <label className="flex items-start gap-2.5 cursor-pointer group">
                   <input

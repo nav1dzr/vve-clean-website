@@ -449,6 +449,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
 
       <div className="min-h-screen bg-[#fafbfd] pb-[56px] lg:pb-0">
         <Navbar />
+        <main id="main-content">
 
         {/* ── Breadcrumb ── */}
         <nav
@@ -578,6 +579,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
           </div>
         </section>
 
+        </main>
         <Footer />
       </div>
 

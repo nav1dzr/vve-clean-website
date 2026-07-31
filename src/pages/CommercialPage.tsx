@@ -200,6 +200,7 @@ export default function CommercialPage() {
 
       <div className="min-h-screen bg-[#fafbfd] pb-[56px] lg:pb-0">
         <Navbar />
+        <main id="main-content">
 
         {/* ── 1. HERO ── */}
         <section className="navy-gradient pt-28 pb-20 px-4">
@@ -456,6 +457,7 @@ export default function CommercialPage() {
           </div>
         </section>
 
+        </main>
         <Footer />
       </div>
       <MobileStickyFooter />

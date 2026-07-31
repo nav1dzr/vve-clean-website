@@ -20,6 +20,7 @@ export default function HomePage() {
     <BookingProvider>
     <div className="min-h-screen mobile-page-bottom lg:pb-0">
       <Navbar />
+      <main id="main-content">
       <Hero />
       <AreaMarquee />
       <TrustBadges />
@@ -32,6 +33,7 @@ export default function HomePage() {
       <Areas />
       <Contact />
       <FAQ />
+      </main>
       <Footer />
       <MobileStickyFooter />
     </div>
