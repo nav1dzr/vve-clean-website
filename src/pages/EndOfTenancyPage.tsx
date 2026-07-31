@@ -1,5 +1,5 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
-import QuoteCalculator from '../components/QuoteCalculator';
+import EotQuoteWizard from '../components/eot/EotQuoteWizard';
 import EotResultsSection from '../components/gallery/EotResultsSection';
 import { ClipboardList, PackageCheck, RefreshCw, Camera } from 'lucide-react';
 import {
@@ -108,7 +108,7 @@ const DATA: ServiceLandingData = {
   secondaryLabel: 'WhatsApp us first',
   secondaryIsWa: true,
 
-  afterHeroSection: <QuoteCalculator mode="eot" />,
+  afterHeroSection: <EotQuoteWizard />,
 
   introH2: 'One complete clean — not a cheap price with essential extras',
   introText:

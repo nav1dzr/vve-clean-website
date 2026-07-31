@@ -344,8 +344,10 @@ export default function EotQuoteWizard() {
                   {displayPence(result.totalWithAccessPence)}
                 </span>
               </div>
+              {/* No step counter here — the progress bar above already states
+                  it, and repeating it wastes scarce mobile bar width. */}
               <span className="flex-shrink-0 text-[11px] text-silver-300">
-                Step {step + 1} of {STEPS.length}
+                Updates as you choose
               </span>
             </div>
           </div>
