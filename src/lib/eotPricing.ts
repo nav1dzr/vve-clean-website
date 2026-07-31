@@ -8,11 +8,13 @@
 // component. eotPricing.test.ts pins the results against the documented
 // examples so a future refactor cannot silently move a price.
 //
-// Access charges (parking / Congestion Charge) are deliberately NOT part of
-// `total`. The booking page is authoritative for them and adds them exactly
-// once on top of the handed-off `selection.price` (see BookingPage.tsx). The
-// quote surfaces them separately as `accessCharges` so the customer still sees
-// an honest all-in figure before committing.
+// Access charges (parking / Congestion Charge) are NOT part of this engine at
+// all. They are asked once, later, on the booking page, which is authoritative:
+// BookingPage adds them on top of the handed-off `selection.price` and the
+// server independently recomputes them from `quoteConfig.parkingAvailable` /
+// `.congestionZone` (api/servicePrices.js accessSurcharge). Asking here too
+// would duplicate the question and risk a quote/booking mismatch, so the quote
+// states that they are confirmed at booking instead of pricing them.
 
 import {
   EOT_BASE_PRICES_P,
@@ -25,15 +27,12 @@ import {
   EOT_SCOPE_CREDITS_P,
   ADDON_PRICES_P,
   CARPET_ITEM_PRICES_P,
-  PARKING_ESTIMATE_P,
-  CONGESTION_CHARGE_P,
   DEPOSIT_P,
   eotScopeCreditPence,
 } from '../data/pricing';
 
 export type EotPropertyType = 'flat' | 'house';
 export type EotSizeKey = 'studio' | 'bed1' | 'bed2' | 'bed3' | 'bed4' | 'bed5';
-export type AccessAnswer = '' | 'yes' | 'no' | 'unsure';
 
 /** 5+ bedrooms never receives a fixed online price. */
 export const EOT_TAILORED_SIZE: EotSizeKey = 'bed5';
@@ -91,8 +90,6 @@ export interface EotQuoteConfig {
   /** Whole-home carpet bundle for this property size. */
   carpetWholeHome: boolean;
   scopeExclusions: string[];
-  parkingAvailable: AccessAnswer;
-  congestionZone: AccessAnswer;
 }
 
 export interface EotLine {
@@ -115,18 +112,12 @@ export interface EotQuoteResult {
   totalPence: number;
   /** What the total would be with no scope credit applied. */
   standardPence: number;
-  parkingPence: number;
-  congestionPence: number;
-  accessChargesPence: number;
-  /** Honest all-in figure shown to the customer before booking. */
-  totalWithAccessPence: number;
   depositPence: number;
   balancePence: number;
   baseLine: EotLine;
   adjustmentLines: EotLine[];
   optionalLines: EotLine[];
   creditLines: EotLine[];
-  accessLines: EotLine[];
 }
 
 const priceOf = (key: string): number => {
@@ -145,33 +136,10 @@ const labelOf = (key: string): string => {
   return key;
 };
 
-/** Parking is an estimate charged at actual cost; "unsure" is treated as "no". */
-export function parkingSurchargePence(answer: AccessAnswer): number {
-  return answer === 'no' || answer === 'unsure' ? PARKING_ESTIMATE_P : 0;
-}
-
-/** Congestion Charge is a pass-through; "unsure" is treated as "yes". */
-export function congestionSurchargePence(answer: AccessAnswer): number {
-  return answer === 'yes' || answer === 'unsure' ? CONGESTION_CHARGE_P : 0;
-}
-
 export function computeEotQuote(config: EotQuoteConfig): EotQuoteResult {
   const {
-    propertyType, size, bathrooms, counts, carpetWholeHome,
-    scopeExclusions, parkingAvailable, congestionZone,
+    propertyType, size, bathrooms, counts, carpetWholeHome, scopeExclusions,
   } = config;
-
-  const parkingPence    = parkingSurchargePence(parkingAvailable);
-  const congestionPence = congestionSurchargePence(congestionZone);
-  const accessChargesPence = parkingPence + congestionPence;
-
-  const accessLines: EotLine[] = [];
-  if (parkingPence > 0) {
-    accessLines.push({ key: 'parking', label: 'Parking (estimate, charged at actual cost)', qty: 1, pence: parkingPence });
-  }
-  if (congestionPence > 0) {
-    accessLines.push({ key: 'congestion', label: 'Congestion Charge (pass-through)', qty: 1, pence: congestionPence });
-  }
 
   // 5+ bedrooms: never produce a fixed total.
   if (size === EOT_TAILORED_SIZE) {
@@ -179,10 +147,9 @@ export function computeEotQuote(config: EotQuoteConfig): EotQuoteResult {
       isTailored: true,
       basePence: 0, houseAdjustmentPence: 0, extraBathroomPence: 0,
       extrasPence: 0, scopeCreditPence: 0, totalPence: 0, standardPence: 0,
-      parkingPence, congestionPence, accessChargesPence,
-      totalWithAccessPence: 0, depositPence: DEPOSIT_P, balancePence: 0,
+      depositPence: DEPOSIT_P, balancePence: 0,
       baseLine: { key: 'base', label: '5+ bedroom tailored quote', qty: 1, pence: 0 },
-      adjustmentLines: [], optionalLines: [], creditLines: [], accessLines,
+      adjustmentLines: [], optionalLines: [], creditLines: [],
     };
   }
 
@@ -233,22 +200,20 @@ export function computeEotQuote(config: EotQuoteConfig): EotQuoteResult {
 
   const standardPence = basePence + houseAdjustmentPence + extraBathroomPence + extrasPence;
   const totalPence = standardPence - scopeCreditPence;
-  const totalWithAccessPence = totalPence + accessChargesPence;
 
   return {
     isTailored: false,
     basePence, houseAdjustmentPence, extraBathroomPence, extrasPence,
     scopeCreditPence, totalPence, standardPence,
-    parkingPence, congestionPence, accessChargesPence, totalWithAccessPence,
     depositPence: DEPOSIT_P,
-    balancePence: totalWithAccessPence - DEPOSIT_P,
+    balancePence: totalPence - DEPOSIT_P,
     baseLine: {
       key: 'base',
       label: `${EOT_SIZES.find((s) => s.key === size)?.label ?? size} ${propertyType === 'house' ? 'house' : 'flat'} — complete package`,
       qty: 1,
       pence: basePence,
     },
-    adjustmentLines, optionalLines, creditLines, accessLines,
+    adjustmentLines, optionalLines, creditLines,
   };
 }
 

@@ -6,20 +6,13 @@
 // If a redesign ever changes arithmetic instead of presentation, this fails.
 
 import { describe, it, expect } from 'vitest';
-import {
-  computeEotQuote,
-  parkingSurchargePence,
-  congestionSurchargePence,
-  type EotQuoteConfig,
-} from './eotPricing';
+import { computeEotQuote, type EotQuoteConfig } from './eotPricing';
 import {
   EOT_BASE_PRICES_P,
   EOT_HOUSE_ADJUSTMENT_P,
   EOT_EXTRA_BATH_P,
   EOT_EXTRA_WC_P,
   DEPOSIT_P,
-  PARKING_ESTIMATE_P,
-  CONGESTION_CHARGE_P,
 } from '../data/pricing';
 
 const base = (over: Partial<EotQuoteConfig> = {}): EotQuoteConfig => ({
@@ -29,8 +22,6 @@ const base = (over: Partial<EotQuoteConfig> = {}): EotQuoteConfig => ({
   counts: {},
   carpetWholeHome: false,
   scopeExclusions: [],
-  parkingAvailable: 'yes',
-  congestionZone: 'no',
   ...over,
 });
 
@@ -115,27 +106,24 @@ describe('EOT quote engine — scope credits stay capped', () => {
   });
 });
 
-describe('EOT quote engine — access charges are separate from the booking price', () => {
-  it('treats unsure parking as unavailable and unsure congestion as inside the zone', () => {
-    expect(parkingSurchargePence('yes')).toBe(0);
-    expect(parkingSurchargePence('no')).toBe(PARKING_ESTIMATE_P);
-    expect(parkingSurchargePence('unsure')).toBe(PARKING_ESTIMATE_P);
-    expect(congestionSurchargePence('no')).toBe(0);
-    expect(congestionSurchargePence('yes')).toBe(CONGESTION_CHARGE_P);
-    expect(congestionSurchargePence('unsure')).toBe(CONGESTION_CHARGE_P);
+describe('EOT quote engine — access charges are never priced here', () => {
+  it('exposes no parking or Congestion Charge fields at all', () => {
+    const r = computeEotQuote(base());
+    // The quote must not ask for or price access charges. BookingPage asks the
+    // two required questions once and adds them on top of totalPence, and the
+    // server recomputes them from quoteConfig. Reintroducing them here would
+    // double-charge the customer or desynchronise the two totals.
+    expect(r).not.toHaveProperty('parkingPence');
+    expect(r).not.toHaveProperty('congestionPence');
+    expect(r).not.toHaveProperty('accessChargesPence');
+    expect(r).not.toHaveProperty('totalWithAccessPence');
+    expect(r).not.toHaveProperty('accessLines');
   });
 
-  it('EXCLUDES access charges from totalPence so BookingPage cannot double-count', () => {
-    const r = computeEotQuote(base({ parkingAvailable: 'no', congestionZone: 'yes' }));
-    expect(r.totalPence).toBe(36900);
-    expect(r.accessChargesPence).toBe(PARKING_ESTIMATE_P + CONGESTION_CHARGE_P);
-    expect(r.totalWithAccessPence).toBe(36900 + 3300);
-  });
-
-  it('keeps the £30 deposit inside the total and shows the remaining balance', () => {
-    const r = computeEotQuote(base({ parkingAvailable: 'no', congestionZone: 'yes' }));
+  it('keeps the deposit inside the total and reports the remaining balance', () => {
+    const r = computeEotQuote(base());
     expect(r.depositPence).toBe(DEPOSIT_P);
-    expect(r.balancePence).toBe(r.totalWithAccessPence - DEPOSIT_P);
+    expect(r.balancePence).toBe(r.totalPence - DEPOSIT_P);
   });
 });
 
@@ -163,7 +151,7 @@ describe('EOT quote engine — breakdown integrity', () => {
     const r = computeEotQuote(base({
       size: 'bed3', propertyType: 'house', bathrooms: 2,
       counts: { reception: 1, eot_sofa_2: 1 }, carpetWholeHome: true,
-      scopeExclusions: ['oven'], parkingAvailable: 'no', congestionZone: 'yes',
+      scopeExclusions: ['oven'],
     }));
     const summed =
       r.baseLine.pence
@@ -171,7 +159,5 @@ describe('EOT quote engine — breakdown integrity', () => {
       + r.optionalLines.reduce((s, l) => s + l.pence, 0)
       + r.creditLines.reduce((s, l) => s + l.pence, 0);
     expect(summed).toBe(r.totalPence);
-    expect(summed + r.accessLines.reduce((s, l) => s + l.pence, 0))
-      .toBe(r.totalWithAccessPence);
   });
 });

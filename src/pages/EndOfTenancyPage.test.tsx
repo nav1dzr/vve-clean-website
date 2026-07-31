@@ -1,11 +1,10 @@
 // Business guarantees for the End of Tenancy page, asserted through the
-// redesigned guided-wizard quote UI.
+// premium guided quote UI.
 //
-// These are the same commitments the previous calculator-driven tests pinned —
-// the £35 house adjustment, the documented £584 four-bed-house example, the
-// 5+ tailored-quote route and the capped scope credit. Only the interactions
-// changed with the redesign; the promises did not. Pure-arithmetic coverage
-// additionally lives in src/lib/eotPricing.test.ts.
+// Same commitments the original calculator-driven tests pinned — the £35 house
+// adjustment, the documented £584 four-bed-house example, the 5+ tailored
+// route and the capped scope credit. Only the interactions changed.
+// Pure-arithmetic coverage lives in src/lib/eotPricing.test.ts.
 
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
@@ -39,9 +38,9 @@ function renderPage() {
 }
 
 /**
- * Scopes queries to the quote itself. The page also carries a static pricing
- * table that repeats phrases like "House / maisonette adjustment", so page-wide
- * queries would match copy the customer never sees inside the calculator.
+ * Scopes queries to the quote. The page also carries a static pricing table
+ * that repeats phrases like "House / maisonette adjustment", so page-wide
+ * queries would match copy the customer never sees inside the quote.
  */
 function quote() {
   const el = document.getElementById('quote');
@@ -51,27 +50,21 @@ function quote() {
 
 type User = ReturnType<typeof userEvent.setup>;
 
-const choose = (user: User, name: string) =>
-  user.click(quote().getByRole('button', { name }));
+const pick = (user: User, group: string, name: RegExp) =>
+  user.click(within(quote().getByRole('radiogroup', { name: group })).getByRole('radio', { name }));
 
-const next = (user: User) =>
-  user.click(quote().getByRole('button', { name: /Continue|See tailored quote/i }));
+const advance = (user: User) =>
+  user.click(quote().getAllByRole('button', { name: /Continue|Review quote/i })[0]);
 
-/** Each access question is its own fieldset, so Yes/No must be scoped to one. */
-const parkingQuestion = () =>
-  within(quote().getByRole('group', { name: /free parking available/i }));
-const congestionQuestion = () =>
-  within(quote().getByRole('group', { name: /Congestion Charge zone/i }));
-
-/** Walks from step 1 to the access step, choosing the given size. */
-async function goToAccess(user: User, size: string) {
-  await choose(user, size);
-  await next(user); // → details
-  await next(user); // → options
-  await next(user); // → access
+/** Property → Bathrooms → Upgrades → Review. */
+async function goToReview(user: User, size: RegExp = /^2 bed$/) {
+  await pick(user, 'Property size', size);
+  await advance(user); // → Bathrooms
+  await advance(user); // → Upgrades
+  await advance(user); // → Review
 }
 
-describe('EndOfTenancyPage — complete package', () => {
+describe('EndOfTenancyPage — premium guided quote', () => {
   it('presents the approved proposition and an EOT-only quote', () => {
     renderPage();
     expect(
@@ -83,135 +76,153 @@ describe('EndOfTenancyPage — complete package', () => {
     expect(screen.queryByText('Service Type')).not.toBeInTheDocument();
   });
 
-  it('starts on step 1 of 5 with an explicit empty price state', () => {
+  it('starts on step 1 of 5 with the official wordmark and a secure-quote badge', () => {
     renderPage();
     expect(quote().getByText(/Step 1 of 5/i)).toBeInTheDocument();
-    expect(quote().getByText(/Your price appears here/i)).toBeInTheDocument();
+    expect(quote().getAllByText('VVE Clean').length).toBeGreaterThan(0);
+    expect(quote().getByText('Secure quote')).toBeInTheDocument();
+  });
+
+  it('exposes property choices as an accessible radiogroup', () => {
+    renderPage();
+    const sizes = quote().getByRole('radiogroup', { name: 'Property size' });
+    expect(within(sizes).getAllByRole('radio')).toHaveLength(6);
+    const types = quote().getByRole('radiogroup', { name: 'Property type' });
+    expect(within(types).getByRole('radio', { name: /^Flat/ })).toHaveAttribute('aria-checked', 'true');
   });
 
   it('shows a price immediately after property type and size, still on step 1', async () => {
     const user = userEvent.setup();
     renderPage();
-    await choose(user, '2 bedrooms');
+    await pick(user, 'Property size', /^2 bed$/);
     expect(quote().getAllByText('£369').length).toBeGreaterThan(0);
     expect(quote().getByText(/Step 1 of 5/i)).toBeInTheDocument();
   });
 
-  it('blocks advancing until a property size is chosen', async () => {
+  it('never shows the +£35 house adjustment beside the House option', async () => {
     const user = userEvent.setup();
     renderPage();
-    expect(quote().getByRole('button', { name: /Continue/i })).toBeDisabled();
-    expect(quote().getByText(/Choose a property size to continue/i)).toBeInTheDocument();
-    await choose(user, 'Studio');
-    expect(quote().getByRole('button', { name: /Continue/i })).toBeEnabled();
-  });
-
-  it('prices a 4-bed house at £584 (£549 base + £35 house adjustment)', async () => {
-    const user = userEvent.setup();
-    renderPage();
-    await choose(user, 'House or maisonette, adds £35');
-    await choose(user, '4 bedrooms');
-    expect(quote().getAllByText('£584').length).toBeGreaterThan(0);
-    expect(quote().getAllByText(/House \/ maisonette adjustment/i).length).toBeGreaterThan(0);
-  });
-
-  it('does not add the house adjustment for a flat at 4 bedrooms (£549)', async () => {
-    const user = userEvent.setup();
-    renderPage();
-    await choose(user, '4 bedrooms');
+    const types = quote().getByRole('radiogroup', { name: 'Property type' });
+    expect(within(types).getByRole('radio', { name: /^House/ })).toHaveTextContent(
+      'House or maisonette',
+    );
+    expect(within(types).queryByText(/£35/)).not.toBeInTheDocument();
+    // ...but it still moves the live total.
+    await pick(user, 'Property size', /^4 bed$/);
     expect(quote().getAllByText('£549').length).toBeGreaterThan(0);
-    expect(quote().queryByText(/House \/ maisonette adjustment/i)).not.toBeInTheDocument();
+    await pick(user, 'Property type', /^House/);
+    expect(quote().getAllByText('£584').length).toBeGreaterThan(0);
   });
 
-  it('adds £50 per additional bathroom and £25 per additional WC on step 2', async () => {
+  it('does not show per-item amounts beside the bathroom or WC steppers', async () => {
     const user = userEvent.setup();
     renderPage();
-    await choose(user, '2 bedrooms');
-    await next(user);
-    await user.click(quote().getByRole('button', { name: 'Add one Full bathrooms' }));
+    await pick(user, 'Property size', /^2 bed$/);
+    await advance(user);
+    expect(quote().queryByText(/\+£50 each/i)).not.toBeInTheDocument();
+    expect(quote().queryByText(/\+£25 each/i)).not.toBeInTheDocument();
+    // The total still updates.
+    await user.click(quote().getByRole('button', { name: 'Increase Full bathrooms' }));
     expect(quote().getAllByText('£419').length).toBeGreaterThan(0);
-    await user.click(quote().getByRole('button', { name: 'Add one Additional WC' }));
+    await user.click(quote().getByRole('button', { name: 'Increase Additional WC' }));
     expect(quote().getAllByText('£444').length).toBeGreaterThan(0);
+  });
+
+  it('itemises every hidden adjustment on the review step', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await pick(user, 'Property size', /^4 bed$/);
+    await pick(user, 'Property type', /^House/);
+    await advance(user);
+    await user.click(quote().getByRole('button', { name: 'Increase Full bathrooms' }));
+    await advance(user);
+    await advance(user);
+    expect(quote().getByText(/Price breakdown/i)).toBeInTheDocument();
+    expect(quote().getByText(/House \/ maisonette adjustment/i)).toBeInTheDocument();
+    expect(quote().getByText(/Additional full bathroom/i)).toBeInTheDocument();
+    expect(quote().getAllByText('£634').length).toBeGreaterThan(0); // 549 + 35 + 50
+    expect(quote().getAllByText(/£30 deposit today/i).length).toBeGreaterThan(0);
+    expect(quote().getAllByText(/Balance after your clean/i).length).toBeGreaterThan(0);
+  });
+
+  it('never asks for parking or the Congestion Charge in the quote', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await goToReview(user);
+    expect(quote().queryByRole('group', { name: /parking/i })).not.toBeInTheDocument();
+    expect(quote().queryByRole('group', { name: /Congestion/i })).not.toBeInTheDocument();
+    // It does disclose that they are confirmed later, so the total stays honest.
+    expect(
+      quote().getByText(/Parking and the Congestion Charge are confirmed at booking/i),
+    ).toBeInTheDocument();
   });
 
   it('routes 5+ bedroom properties to a tailored quote with no fixed total', async () => {
     const user = userEvent.setup();
     renderPage();
-    await choose(user, '5+ bedrooms');
-    expect(quote().getAllByText(/Tailored quote/i)[0]).toBeInTheDocument();
+    await pick(user, 'Property size', /^5\+ bed/);
+    expect(quote().getAllByText(/Tailored quote/i).length).toBeGreaterThan(0);
     expect(
-      quote().getByRole('link', { name: /Request my tailored quote/i }),
+      quote().getAllByRole('link', { name: /Request my tailored quote/i })[0],
     ).toHaveAttribute('href', expect.stringContaining('wa.me'));
-    expect(quote().queryByRole('button', { name: /Book online/i })).not.toBeInTheDocument();
+    expect(quote().queryByRole('button', { name: /Secure my date/i })).not.toBeInTheDocument();
   });
 
-  it('caps the scope credit at £30 and never applies more than requested', async () => {
+  it('caps the scope credit at £30', async () => {
     const user = userEvent.setup();
     renderPage();
-    await choose(user, '4 bedrooms');
-    await next(user); // → details
-    await next(user); // → options
+    await pick(user, 'Property size', /^4 bed$/);
+    await advance(user); // → Bathrooms
+    await advance(user); // → Upgrades
+    await user.click(quote().getByRole('button', { name: /Already cleaned something yourself/i }));
     for (const label of [
       /Oven is already inspection-ready/i,
       /Fridge\/freezer is empty and inspection-ready/i,
       /Empty cupboards are already inspection-ready/i,
       /Internal windows are already cleaned/i,
     ]) {
-      await user.click(quote().getByRole('checkbox', { name: label }));
+      await user.click(quote().getByRole('button', { name: new RegExp(`Add ${label.source}`, 'i') }));
     }
     // £549 − £30 cap = £519, never £549 − £45.
     expect(quote().getAllByText('£519').length).toBeGreaterThan(0);
   });
 
-  it('requires both access answers before it will advance to review', async () => {
+  it('keeps "what\'s included" collapsed behind an accessible disclosure', async () => {
     const user = userEvent.setup();
     renderPage();
-    await goToAccess(user, '2 bedrooms');
-    expect(quote().getByRole('button', { name: /Continue/i })).toBeDisabled();
-    expect(quote().getAllByText(/Answer both access questions/i).length).toBeGreaterThan(0);
-    await user.click(parkingQuestion().getByRole('button', { name: 'Yes' }));
-    await user.click(congestionQuestion().getByRole('button', { name: 'No' }));
-    expect(quote().getByRole('button', { name: /Continue/i })).toBeEnabled();
+    await pick(user, 'Property size', /^2 bed$/);
+    await advance(user);
+    const toggle = quote().getByRole('button', { name: /What's included in every clean/i });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(quote().getByText(/Oven, hob, grill and extractor/i)).toBeInTheDocument();
   });
 
-  it('keeps access charges out of the base price but shows them in the total', async () => {
+  it('offers exactly one primary action per step and ends on Secure my date', async () => {
     const user = userEvent.setup();
     renderPage();
-    await goToAccess(user, '2 bedrooms');
-    await user.click(parkingQuestion().getByRole('button', { name: 'No' }));      // +£15
-    await user.click(congestionQuestion().getByRole('button', { name: 'Yes' })); // +£18
-    expect(quote().getAllByText('£402').length).toBeGreaterThan(0);
-    expect(quote().getAllByText(/Congestion Charge \(pass-through\)/i).length).toBeGreaterThan(0);
-  });
-
-  it('ends on a review step with the deposit reassurance and remaining balance', async () => {
-    const user = userEvent.setup();
-    renderPage();
-    await goToAccess(user, '2 bedrooms');
-    await user.click(parkingQuestion().getByRole('button', { name: 'Yes' }));
-    await user.click(congestionQuestion().getByRole('button', { name: 'No' }));
-    await next(user); // → review
+    await goToReview(user);
+    await advance(user); // Review → Book
     expect(quote().getByText(/Step 5 of 5/i)).toBeInTheDocument();
-    expect(
-      quote().getAllByText(/£30 secures your preferred date and is included in your total/i).length,
-    ).toBeGreaterThan(0);
-    expect(quote().getAllByText(/Balance after your clean/i).length).toBeGreaterThan(0);
-    expect(quote().getAllByText('£339').length).toBeGreaterThan(0); // £369 − £30 deposit
-    expect(
-      quote().getAllByRole('button', { name: /Book online — pay £30 deposit/i })[0],
-    ).toBeEnabled();
+    const secure = quote().getAllByRole('button', { name: /Secure my date/i });
+    expect(secure.length).toBeGreaterThan(0);
+    expect(secure[0]).toBeEnabled();
+    expect(quote().queryByRole('button', { name: /^Continue$/i })).not.toBeInTheDocument();
   });
 
-  it('lets the customer go back without losing their answers', async () => {
+  it('states the deposit reassurance and keeps answers when going back', async () => {
     const user = userEvent.setup();
     renderPage();
-    await choose(user, '2 bedrooms');
-    await next(user);
-    await user.click(quote().getByRole('button', { name: 'Add one Full bathrooms' }));
+    await pick(user, 'Property size', /^2 bed$/);
+    await advance(user);
+    await user.click(quote().getByRole('button', { name: 'Increase Full bathrooms' }));
     expect(quote().getAllByText('£419').length).toBeGreaterThan(0);
     await user.click(quote().getByRole('button', { name: 'Back' }));
     expect(quote().getByText(/Step 1 of 5/i)).toBeInTheDocument();
-    // The £419 total survives the trip backwards.
     expect(quote().getAllByText('£419').length).toBeGreaterThan(0);
+    expect(
+      quote().getAllByText(/£30 secures your preferred date and is included in your total/i).length,
+    ).toBeGreaterThan(0);
   });
 });

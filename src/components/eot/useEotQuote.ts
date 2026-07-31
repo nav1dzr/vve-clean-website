@@ -9,7 +9,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   computeEotQuote,
   EOT_TAILORED_SIZE,
-  type AccessAnswer,
   type EotPropertyType,
   type EotQuoteResult,
   type EotSizeKey,
@@ -31,8 +30,6 @@ export interface EotQuoteState {
   counts: Record<string, number>;
   carpetWholeHome: boolean;
   scopeExclusions: string[];
-  parkingAvailable: AccessAnswer;
-  congestionZone: AccessAnswer;
 }
 
 const INITIAL: EotQuoteState = {
@@ -42,8 +39,6 @@ const INITIAL: EotQuoteState = {
   counts: {},
   carpetWholeHome: false,
   scopeExclusions: [],
-  parkingAvailable: '',
-  congestionZone: '',
 };
 
 export function useEotQuote() {
@@ -82,21 +77,21 @@ export function useEotQuote() {
       counts: state.counts,
       carpetWholeHome: state.carpetWholeHome,
       scopeExclusions: state.scopeExclusions,
-      parkingAvailable: state.parkingAvailable,
-      congestionZone: state.congestionZone,
     });
   }, [state]);
 
   const isTailored = state.size === EOT_TAILORED_SIZE;
-  const hasAccessAnswers = state.parkingAvailable !== '' && state.congestionZone !== '';
-  const canBook = Boolean(result) && !isTailored && hasAccessAnswers;
+  // Parking and Congestion Charge are asked once, later, on the booking page —
+  // never here. Nothing else gates booking beyond having a priced size.
+  const canBook = Boolean(result) && !isTailored;
 
   /**
    * Hands off to /booking exactly as the legacy calculator does.
    *
-   * `price` deliberately EXCLUDES parking and Congestion Charge: BookingPage
-   * adds those once from its own required questions, and the server recomputes
-   * from quoteConfig. Including them here would double-charge the customer.
+   * `price` EXCLUDES parking and Congestion Charge by design. BookingPage asks
+   * those two required questions itself and adds them once on top, and the
+   * server independently recomputes them from quoteConfig. The quote must not
+   * supply them, or the customer would be asked twice and could be charged twice.
    */
   const bookNow = useCallback(() => {
     if (!result || isTailored) return;
@@ -139,6 +134,6 @@ export function useEotQuote() {
 
   return {
     state, setField, setCount, toggleScope, reset,
-    result, isTailored, hasAccessAnswers, canBook, bookNow,
+    result, isTailored, canBook, bookNow,
   };
 }
