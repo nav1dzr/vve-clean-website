@@ -31,14 +31,19 @@ function renderCalc(mode: 'carpet' | 'upholstery' | 'all-services') {
 }
 
 describe('QuoteCalculator focused modes — reuse, no duplicated pricing logic', () => {
-  it('carpet mode shows only carpet items and hides the Service Type switcher', () => {
+  it('carpet mode leads with carpets and offers upholstery as an optional add-on', () => {
     renderCalc('carpet');
 
     expect(screen.queryByText('Service Type')).not.toBeInTheDocument();
     expect(screen.getByText('Bedroom')).toBeInTheDocument();
     expect(screen.getByText('Hallway')).toBeInTheDocument();
-    expect(screen.queryByText('2-seater sofa')).not.toBeInTheDocument();
-    expect(screen.queryByText('Mattress (double/king)')).not.toBeInTheDocument();
+
+    // Upholstery is offered inside the same quote rather than sending the
+    // customer to a different calculator — framed as optional, not as a
+    // second service the customer has to switch to.
+    expect(screen.getByText('Would you also like upholstery cleaning?')).toBeInTheDocument();
+    expect(screen.getByText('2-seater sofa')).toBeInTheDocument();
+    expect(screen.getByText('Mattress (double/king)')).toBeInTheDocument();
   });
 
   it('upholstery mode shows only sofa/upholstery items and hides the Service Type switcher', () => {

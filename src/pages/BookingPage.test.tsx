@@ -10,6 +10,25 @@ beforeEach(() => {
   localStorage.clear();
 });
 
+/**
+ * A booking date that is always genuinely in the future.
+ *
+ * These tests previously hard-coded '2026-08-01', which was future when written
+ * and silently became past — after which every test that submits the form
+ * failed with "The preferred date has already passed". Deriving the date from
+ * the current clock means it cannot rot again. Built from local components so
+ * it matches BookingPage's own local-time min/validation logic in any time
+ * zone. Tests that deliberately exercise a *past* date still hard-code one.
+ */
+function futureDateISO(daysAhead = 30): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+const FUTURE_DATE = futureDateISO();
+
 function renderBookingPage() {
   return render(
     <MemoryRouter initialEntries={['/booking']}>
@@ -46,7 +65,7 @@ async function fillContactDetails(user: ReturnType<typeof userEvent.setup>) {
 
 async function fillAllRequiredFields(user: ReturnType<typeof userEvent.setup>) {
   await fillContactDetails(user);
-  await user.type(screen.getByLabelText(/preferred date/i), '2026-08-01');
+  await user.type(screen.getByLabelText(/preferred date/i), FUTURE_DATE);
   await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
   await user.click(screen.getAllByRole('button', { name: 'Yes' })[0]);
   await user.click(screen.getAllByRole('button', { name: 'No' })[1]);
@@ -71,7 +90,7 @@ describe('BookingPage — mobile scheduling and access charges', () => {
     const user = userEvent.setup();
     renderBookingPage();
     await fillContactDetails(user);
-    await user.type(screen.getByLabelText(/preferred date/i), '2026-08-01');
+    await user.type(screen.getByLabelText(/preferred date/i), FUTURE_DATE);
     await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
     await user.click(screen.getByRole('checkbox', { name: /terms of service/i }));
     await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
@@ -89,7 +108,7 @@ describe('BookingPage — mobile scheduling and access charges', () => {
     const user = userEvent.setup();
     renderBookingPage();
     await fillContactDetails(user);
-    await user.type(screen.getByLabelText(/preferred date/i), '2026-08-01');
+    await user.type(screen.getByLabelText(/preferred date/i), FUTURE_DATE);
     await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
     await user.click(screen.getAllByRole('button', { name: 'No' })[0]);
     await user.click(screen.getAllByRole('button', { name: 'Yes' })[1]);
@@ -170,7 +189,7 @@ describe('BookingPage — accessible labels on property/contact fields', () => {
     renderBookingPage();
     await user.type(screen.getByLabelText(/^address/i), '12 High Street');
     await user.type(screen.getByLabelText(/postcode/i), 'E8 1AA');
-    await user.type(screen.getByLabelText(/preferred date/i), '2026-08-01');
+    await user.type(screen.getByLabelText(/preferred date/i), FUTURE_DATE);
     await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
     await user.click(screen.getByRole('checkbox', { name: /agree to the/i }));
     await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
@@ -211,7 +230,7 @@ describe('BookingPage — required preferred date and arrival window', () => {
     renderBookingPage();
     await fillContactDetails(user);
     const dateInput = screen.getByLabelText(/preferred date/i);
-    await user.type(dateInput, '2026-08-01');
+    await user.type(dateInput, FUTURE_DATE);
 
     await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
 
@@ -432,7 +451,7 @@ describe('BookingPage — required terms acceptance', () => {
     expect(body.termsVersion).toBeTruthy();
     expect(body.cancellationPolicyVersion).toBeTruthy();
     // Preferred date and arrival window must still reach the backend.
-    expect(body.date).toBe('2026-08-01');
+    expect(body.date).toBe(FUTURE_DATE);
     expect(body.time).toBe('Flexible');
 
     vi.unstubAllGlobals();
