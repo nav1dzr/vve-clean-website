@@ -1,8 +1,8 @@
 // End of Tenancy quote pricing — headless engine shared by every EOT quote UI.
 //
-// IMPORTANT: this module introduces NO new prices. Every figure is derived from
-// the central constants in src/data/pricing.ts, which remains the single source
-// of truth mirrored by api/servicePrices.js for server-authoritative checkout.
+// IMPORTANT: this module introduces NO new prices. Every figure comes through
+// src/data/pricing.ts from admin/shared/pricingCatalogue.js. The checkout API
+// imports that same catalogue for server-authoritative validation.
 // It exists only so that a redesigned quote UI can compute exactly what the
 // legacy QuoteCalculator computes, without duplicating the arithmetic in each
 // component. eotPricing.test.ts pins the results against the documented

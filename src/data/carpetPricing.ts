@@ -1,8 +1,8 @@
 // Carpet & upholstery itemised pricing engine.
 // Kept separate so /leaflet or partner pages can import with a custom multiplier.
 //
-// All prices derive from src/data/pricing.ts — the canonical source.
-// Do not edit price constants here; edit pricing.ts and run tests.
+// All prices come through src/data/pricing.ts from the shared catalogue.
+// Do not edit price constants here; edit admin/shared/pricingCatalogue.js.
 
 import {
   CARPET_MIN_BOOKING_P,

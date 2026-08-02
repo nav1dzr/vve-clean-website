@@ -244,9 +244,9 @@ async function handleUpdate(req, res, headers) {
   }
 }
 
-// Explicit, admin-clicked seed of the site's published price list
-// (_lib/catalogueSeed.js — every price transcribed from the repo's verified
-// pricing constants). Idempotent: names already in the catalogue (any
+// Explicit, admin-clicked seed of the site's published price list.
+// _lib/catalogueSeed.js builds every price from shared/pricingCatalogue.js.
+// Idempotent: names already in the catalogue (any
 // status, matched case-insensitively via the lower(name) unique index) are
 // skipped, never overwritten — an admin's own edits to a seeded item are
 // never clobbered by re-running the import.

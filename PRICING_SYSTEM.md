@@ -6,30 +6,41 @@ Internal reference for how pricing is stored, calculated and maintained. Not pub
 
 ## Canonical source
 
-All customer-facing prices live in **`src/data/pricing.ts`**.
+All approved prices live in **`admin/shared/pricingCatalogue.js`**. This is the
+one file to edit when a price changes.
 
-Every price is stored as an **integer pence** value to avoid floating-point error (`19900` = £199). Display conversion uses `/100`; never store pounds with decimals.
+Every price is stored as an **integer pence** value to avoid floating-point
+error (`19900` = £199). Display conversion uses `/100`; never store prices as
+decimal pounds in the catalogue.
 
-The file is TypeScript-only. Two plain-JS runtime files cannot import TypeScript directly, so they are **manually-maintained mirrors** of `pricing.ts`:
+The catalogue is plain JavaScript so every runtime imports the same values:
 
-| File | What to keep in sync |
-|------|---------------------|
-| `api/servicePrices.js` | EOT/move-in/after-builders base prices, bath surcharges, carpet bundle discount tiers, commercial hourly rate and minimum, carpet item prices, EOT staircase add-on rates |
-| `admin/api/_lib/catalogueSeed.js` | All prices listed above, plus EOT carpet add-ons and commercial service rates |
+| Consumer | Responsibility |
+|----------|----------------|
+| `src/data/pricing.ts` | Typed public-app facade and display/calculation helpers |
+| `api/servicePrices.js` | Server-authoritative checkout calculation; converts catalogue pence to pounds internally |
+| `admin/api/_lib/catalogueSeed.js` | Builds the optional CRM catalogue seed rows directly from catalogue pence |
 
-**Drift protection:** `tests/api/pricingMirrors.test.js` exercises `computePrice` from `servicePrices.js` and checks `CATALOGUE_SEED_ITEMS` from `catalogueSeed.js` against the canonical pence constants. A failure here means a price was updated in `pricing.ts` but the JS mirror was not updated. Run the full test suite after every price change to catch drift immediately.
+`admin/shared/pricingCatalogue.d.ts` supplies TypeScript declarations only. It
+must describe the JavaScript exports, but it must never contain alternative
+price values.
 
 ---
 
 ## Price update process
 
-1. Edit the value in `src/data/pricing.ts`.
-2. Run `npm run typecheck && npx vitest run src/data/pricing.test.ts src/data/carpetPricing.test.ts tests/api/pricingMirrors.test.js`.
-3. Update `api/servicePrices.js` to match.
-4. Update `admin/api/_lib/catalogueSeed.js` to match.
-5. Run the full suite: `npx vitest run && npm run build`.
-6. Commit: `pricing: <what changed>`.
-7. Do **not** call the live catalogue seed endpoint — the CRM admin who manages the product catalogue decides when to re-import.
+1. Edit the approved value in `admin/shared/pricingCatalogue.js`.
+2. Update or add the relevant price expectation in `src/data/pricing.test.ts`
+   and the server/CRM integration expectations in
+   `tests/api/pricingMirrors.test.js`.
+3. Run the root typecheck, tests and build.
+4. Run the admin typecheck, tests and build.
+5. Commit: `pricing: <what changed>`.
+6. Do **not** call the live catalogue seed endpoint — the CRM admin who manages
+   the product catalogue decides when to re-import.
+
+Do not copy the new number into the public facade, checkout calculator or seed
+builder. Those files import it automatically.
 
 ---
 
@@ -174,7 +185,7 @@ The following charges require explicit manual agreement with the customer and mu
 - Heavy soiling / biohazard supplement (beyond the standard heavy-condition 20%)
 - Commercial site-visit surcharge
 - After-builders scope adjustment
-- Any charge not listed in `pricing.ts`
+- Any charge not listed in `admin/shared/pricingCatalogue.js`
 
 ---
 
@@ -196,5 +207,6 @@ The test files cover:
 - `SAME_DAY_POLICY_SHORT` policy wording (`pricing.test.ts`)
 - `stairsLinePricePence` non-linear formula (`pricing.test.ts`)
 - `penceToDisplay` formatting (`pricing.test.ts`)
-- Mirror consistency — `api/servicePrices.js` vs canonical (`pricingMirrors.test.js`)
-- Mirror consistency — `admin/api/_lib/catalogueSeed.js` vs canonical (`pricingMirrors.test.js`)
+- Server calculation from the shared catalogue (`pricingMirrors.test.js`)
+- CRM seed output from the shared catalogue (`pricingMirrors.test.js`)
+- Public TypeScript facade identity with the shared catalogue (`pricingMirrors.test.js`)
