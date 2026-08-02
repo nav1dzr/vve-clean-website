@@ -45,6 +45,27 @@ const VALID_QUOTE_CONFIG = {
   congestionZone: 'no',
 };
 
+/**
+ * A booking date that is always genuinely in the future.
+ *
+ * This fixture previously hard-coded '2026-08-01', which was future when
+ * written and silently became past — after which the handler correctly
+ * rejected every payload with "The preferred date has already passed", failing
+ * 15 tests that were not about dates at all. Deriving it from the current clock
+ * means it cannot rot again. Tests that deliberately exercise a *past* date
+ * still hard-code one ('2020-01-01'), and the terms/policy version strings
+ * below are version identifiers rather than booking dates, so they stay fixed.
+ */
+function futureDateISO(daysAhead = 30) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+const FUTURE_DATE = futureDateISO();
+const FUTURE_DATE_LATER = futureDateISO(75);
+
 function basePayload(overrides = {}) {
   return {
     service: 'Window Cleaning',
@@ -55,7 +76,7 @@ function basePayload(overrides = {}) {
     postcode: 'E8 1AA',
     phone: '07700900000',
     email: 'jane@example.com',
-    date: '2026-08-01',
+    date: FUTURE_DATE,
     time: 'Flexible',
     message: '',
     termsAccepted: true,
@@ -197,10 +218,10 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
 
   it('passes the preferred date and arrival window through to Stripe metadata', async () => {
     const res = makeRes();
-    await handler(makeReq(basePayload({ date: '2026-09-15', time: 'Morning (8am–12pm)' })), res);
+    await handler(makeReq(basePayload({ date: FUTURE_DATE_LATER, time: 'Morning (8am–12pm)' })), res);
 
     const call = sessionsCreateMock.mock.calls[0][0];
-    expect(call.metadata.date).toBe('2026-09-15');
+    expect(call.metadata.date).toBe(FUTURE_DATE_LATER);
     expect(call.metadata.time).toBe('Morning (8am–12pm)');
   });
 
@@ -279,13 +300,13 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
 
     const res = makeRes();
-    await handler(makeReq(basePayload({ date: '2026-09-15', time: 'Flexible' })), res);
+    await handler(makeReq(basePayload({ date: FUTURE_DATE_LATER, time: 'Flexible' })), res);
 
     expect(res.statusCode).toBe(200);
     expect(supabaseInsertMock).toHaveBeenCalledTimes(1);
     const [table, row] = supabaseInsertMock.mock.calls[0];
     expect(table).toBe('bookings');
-    expect(row.preferred_date).toBe('2026-09-15');
+    expect(row.preferred_date).toBe(FUTURE_DATE_LATER);
     expect(row.preferred_time).toBe('Flexible');
     expect(row.terms_accepted).toBe(true);
     expect(row.terms_accepted_at).toBe('2026-07-14T10:00:00.000Z');
