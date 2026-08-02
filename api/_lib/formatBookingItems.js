@@ -7,8 +7,8 @@
 // Google Sheets row. Plain JS (not TS) so api/ serverless functions can
 // import it without a build step — labels are mirrored from
 // src/data/carpetPricing.ts (CARPET_ITEM_DEFS) and the addOnDefs list in
-// src/components/QuoteCalculator.tsx, matching what the pricing engine in
-// servicePrices.js already mirrors for the same reason.
+// src/components/QuoteCalculator.tsx. Prices are not mirrored here; the
+// checkout engine imports admin/shared/pricingCatalogue.js directly.
 
 const CARPET_ITEM_LABELS = {
   bedroom:         'Bedroom',

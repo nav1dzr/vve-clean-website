@@ -1,18 +1,14 @@
 /**
- * Consistency tests for the two manually-maintained JS pricing mirrors.
+ * Integration tests for the consumers of the shared pricing catalogue.
  *
- * src/data/pricing.ts is the canonical source.  Two runtime files must stay
- * in sync but cannot import TypeScript directly:
- *
- *   api/servicePrices.js         – backend price-validation engine
- *   admin/api/_lib/catalogueSeed.js – CRM catalogue seed data
- *
- * These tests import from both mirrors and verify their key values against the
- * canonical constants exported by pricing.ts.  A failure here means a price
- * was updated in pricing.ts but the relevant JS file was not updated to match.
+ * admin/shared/pricingCatalogue.js is the only price source. The public
+ * TypeScript facade, checkout validator and CRM seed builder all import it.
+ * These tests protect both that wiring and each consumer's calculation rules.
  */
 
 import { describe, it, expect } from 'vitest';
+import * as canonicalPricing from '../../admin/shared/pricingCatalogue.js';
+import * as publicPricing from '../../src/data/pricing.ts';
 import { computePrice } from '../../api/servicePrices.js';
 import { CATALOGUE_SEED_ITEMS } from '../../admin/api/_lib/catalogueSeed.js';
 import {
@@ -33,6 +29,30 @@ import {
   PARKING_ESTIMATE_P,
   CONGESTION_CHARGE_P,
 } from '../../src/data/pricing.ts';
+
+describe('single shared pricing catalogue', () => {
+  it.each([
+    'CARPET_ITEM_PRICES_P',
+    'CARPET_BUNDLE_TIERS',
+    'EOT_BASE_PRICES_P',
+    'EOT_EXTRA_AREAS_P',
+    'EOT_SCOPE_CREDITS_P',
+    'EOT_CARPET_ADDON_PRICES_P',
+    'MOVEIN_BASE_PRICES_P',
+    'AFTER_BUILDERS_FROM_PRICES_P',
+    'ADDON_PRICES_P',
+    'EOT_CARPET_BUNDLE_P',
+  ])('public facade re-exports %s by identity', (key) => {
+    expect(publicPricing[key]).toBe(canonicalPricing[key]);
+  });
+
+  it('freezes catalogue records and discount tiers against runtime mutation', () => {
+    expect(Object.isFrozen(canonicalPricing.EOT_BASE_PRICES_P)).toBe(true);
+    expect(Object.isFrozen(canonicalPricing.CARPET_ITEM_PRICES_P)).toBe(true);
+    expect(Object.isFrozen(canonicalPricing.CARPET_BUNDLE_TIERS)).toBe(true);
+    expect(canonicalPricing.CARPET_BUNDLE_TIERS.every(Object.isFrozen)).toBe(true);
+  });
+});
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
