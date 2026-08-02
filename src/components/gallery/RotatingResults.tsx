@@ -144,8 +144,11 @@ export default function RotatingResults({
         Photo {current + 1} of {total}
       </p>
 
-      {/* Dot navigation */}
-      <div role="group" aria-label="Select photo" className="flex justify-center gap-2 mt-2 flex-wrap">
+      {/* Dot navigation.
+          The dot itself stays 10px, but the button around it is 24px square —
+          a 10px tap target is below the WCAG 2.5.8 minimum and was genuinely
+          fiddly on a phone. Only the padding changed; the dots look identical. */}
+      <div role="group" aria-label="Select photo" className="flex justify-center gap-0.5 mt-1 flex-wrap">
         {photos.map((photo, i) => (
           <button
             key={photo.id}
@@ -153,12 +156,17 @@ export default function RotatingResults({
             aria-current={i === current ? 'true' : undefined}
             aria-label={`Photo ${i + 1}`}
             onClick={() => goIdx(i)}
-            className={`rounded-full transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-royal-500 ${
-              i === current
-                ? 'w-6 h-2.5 bg-royal-500'
-                : 'w-2.5 h-2.5 bg-silver-300 hover:bg-silver-500'
-            }`}
-          />
+            className="flex h-6 min-h-[24px] w-6 min-w-[24px] items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-royal-500"
+          >
+            <span
+              aria-hidden="true"
+              className={`rounded-full transition-all duration-200 ${
+                i === current
+                  ? 'w-6 h-2.5 bg-royal-500'
+                  : 'w-2.5 h-2.5 bg-silver-300 hover:bg-silver-500'
+              }`}
+            />
+          </button>
         ))}
       </div>
 
