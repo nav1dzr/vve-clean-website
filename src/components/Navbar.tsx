@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Menu, X, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import BrandLogo from './BrandLogo';
 import { trackPhoneClick } from '../lib/analytics';
 
 // Max 5 links per the design spec — Reviews and Areas stay reachable by
@@ -44,22 +45,20 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-            <div className="flex flex-col leading-none gap-0.5">
-              {/* VVE — first+last chars charcoal, middle V gold */}
-              <div className="font-display font-bold text-4xl tracking-widest leading-none" style={{ color: '#1c1917' }}>
-                <span>V</span><span style={{ color: '#b8960c' }}>V</span><span>E</span>
-              </div>
-              {/* CLEAN with thin gold lines either side */}
-              <div className="flex items-center gap-1.5">
-                <span className="block h-px w-4" style={{ background: '#b8960c' }} />
-                <span className="text-[9px] tracking-[0.25em] font-semibold uppercase" style={{ color: '#1c1917' }}>CLEAN</span>
-                <span className="block h-px w-4" style={{ background: '#b8960c' }} />
-              </div>
-            </div>
-            <div className="w-px h-8 bg-slate-300 mx-1" />
-            <span className="text-[9px] tracking-[0.15em] font-light uppercase leading-tight max-w-[80px]" style={{ color: '#1e3a5f' }}>
-              Cleaning &<br />Property Services
+          <Link
+            to="/"
+            aria-label="VVE Clean home"
+            className="flex flex-shrink-0 items-center rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-royal-600"
+          >
+            <BrandLogo compact className="w-[82px] sm:w-[92px]" />
+
+            <span
+              aria-hidden="true"
+              className="mx-2 h-8 w-px bg-slate-300 sm:mx-3"
+            />
+
+            <span className="max-w-[62px] text-[7px] font-bold uppercase leading-[1.35] tracking-[0.08em] text-navy-700 sm:max-w-[86px] sm:text-[9px]">
+              Cleaning &amp; Property Services
             </span>
           </Link>
 
