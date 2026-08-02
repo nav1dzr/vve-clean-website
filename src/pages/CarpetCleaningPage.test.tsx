@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import CarpetCleaningPage from './CarpetCleaningPage';
 import { CookieConsentProvider } from '../context/CookieConsentContext';
+import { CARPET_FEATURED_BEFORE_AFTER } from '../data/galleryMedia';
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -38,17 +39,83 @@ describe('CarpetCleaningPage — quote placement and proof placeholders', () => 
     // "Bedroom" also appears in the fixed-price table further down the page,
     // so assert presence rather than uniqueness.
     expect(screen.getAllByText('Bedroom').length).toBeGreaterThan(0);
-    expect(screen.queryByText('2-seater sofa')).not.toBeInTheDocument();
+
+    // Upholstery is offered as an optional add-on inside the same quote, so a
+    // customer can book carpets and a sofa in one visit without switching
+    // calculators or leaving the page.
+    expect(screen.getByText('Would you also like upholstery cleaning?')).toBeInTheDocument();
+    expect(screen.getByText('2-seater sofa')).toBeInTheDocument();
 
     const heroCta = screen.getAllByRole('link', { name: 'Build my carpet quote' })[0];
     expect(heroCta).toHaveAttribute('href', '/carpet-cleaning-london#quote');
   });
 
-  it('renders exactly 6 proof placeholder slots (3 before/after + 3 video) with no pricing shown', () => {
+  it('shows exactly the three approved before/after cards, not placeholders', () => {
     renderPage();
 
-    expect(screen.getAllByText('Recent results coming soon')).toHaveLength(3);
-    expect(screen.getAllByText('Video results coming soon')).toHaveLength(3);
+    expect(screen.getByRole('heading', { name: /Recent carpet results/i })).toBeInTheDocument();
+    expect(screen.queryByText('Recent results coming soon')).not.toBeInTheDocument();
+    expect(screen.queryByText('Video results coming soon')).not.toBeInTheDocument();
+
+    // Scoped to the carpet results section: ServiceLandingLayout also renders
+    // the generic homepage-style Gallery block, which has its own Before/After
+    // labels for unrelated services.
+    const results = document.getElementById('results');
+    expect(results).not.toBeNull();
+    const r = within(results as HTMLElement);
+    expect(CARPET_FEATURED_BEFORE_AFTER).toHaveLength(3);
+    expect(r.getAllByText(/^Before$/i)).toHaveLength(3);
+    expect(r.getAllByText(/^After$/i)).toHaveLength(3);
+    expect(r.getByText('Office carpet')).toBeInTheDocument();
+    expect(r.getByText('Blue bedroom carpet')).toBeInTheDocument();
+    expect(r.getByText('Brown carpet')).toBeInTheDocument();
+  });
+
+  it('renders all four converted clips — one per card plus the wide process clip', () => {
+    renderPage();
+
+    const results = document.getElementById('results');
+    const process = document.getElementById('process');
+    expect(process).not.toBeNull();
+
+    const inResults = (results as HTMLElement).querySelectorAll('video');
+    const inProcess = (process as HTMLElement).querySelectorAll('video');
+    expect(inResults).toHaveLength(3);
+    expect(inProcess).toHaveLength(1);
+    expect(document.querySelectorAll('video')).toHaveLength(4);
+
+    expect(
+      screen.getByRole('heading', { name: /Watch the equipment work/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('ships no .heic or .mov source anywhere in the rendered page', () => {
+    renderPage();
+    const html = document.body.innerHTML;
+    expect(html).not.toMatch(/\.heic/i);
+    expect(html).not.toMatch(/\.mov(["'?\s]|$)/i);
+    expect(html).not.toContain('/gallery/carpet_cleaning_before_.jpg');
+  });
+
+  it('lazy-loads every clip rather than fetching it on page load', () => {
+    renderPage();
+
+    document.querySelectorAll('video').forEach((v) => {
+      // No <source> children until the IntersectionObserver fires, so nothing
+      // is fetched above or below the fold on first paint.
+      expect(v.querySelectorAll('source')).toHaveLength(0);
+      expect(v.getAttribute('preload')).toBe('none');
+      expect(v).toHaveAttribute('poster');
+      expect(v.muted).toBe(true);
+      expect(v.loop).toBe(true);
+      expect(v.playsInline).toBe(true);
+      expect(v.getAttribute('aria-label')?.length ?? 0).toBeGreaterThan(30);
+    });
+  });
+
+  it('states honestly that complete stain removal cannot be guaranteed', () => {
+    renderPage();
+    expect(screen.getByText(/complete removal cannot be guaranteed/i)).toBeInTheDocument();
   });
 
   it('links to the Gallery carpet category and an Instagram follow CTA', () => {

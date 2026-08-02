@@ -1,6 +1,7 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
 import QuoteCalculator from '../components/QuoteCalculator';
-import ServiceProofSection from '../components/gallery/ServiceProofSection';
+import CarpetResultsSection from '../components/carpet/CarpetResultsSection';
+import CarpetProcessSection from '../components/carpet/CarpetProcessSection';
 import { Droplets, Leaf, Clock, Tag } from 'lucide-react';
 import {
   CARPET_ITEM_PRICES_P,
@@ -101,8 +102,10 @@ const DATA: ServiceLandingData = {
     'Dry in 2–4 hours',
     'DBS-checked technicians',
   ],
+  // Single hero image for every breakpoint. A separate desktop crop was
+  // referenced here previously but the file was never added, which left the
+  // desktop hero with no background at all.
   heroBgImage: '/images/carpet-hero.jpg',
-  heroBgImageDesktop: '/images/carpet-hero-desktop.jpg',
   heroGoogleBadge: true,
   heroCompactMobile: true,
   heroTrustLine: 'Fully Insured · DBS-checked technicians',
@@ -144,9 +147,10 @@ const DATA: ServiceLandingData = {
 
   whyH2: 'What every carpet clean includes',
   whyPoints: [
-    'Pre-inspection of carpet type and stain condition',
+    'Pre-inspection of carpet type and stain condition, with an honest view on what will lift',
     'Pre-treatment spray on heavy soiling and stains',
     'Hot-water extraction with professional-grade equipment',
+    'Wool, synthetic, loop-pile and patterned carpets, cleaned to suit the fibre',
     'Post-clean grooming to restore carpet pile direction',
     'Furniture slides to protect floors while we work',
     'All equipment and cleaning products supplied',
@@ -168,18 +172,24 @@ const DATA: ServiceLandingData = {
     { label: 'Rug (standard)', price: pd(CARPET_ITEM_PRICES_P.rug) },
   ],
   pricingNote:
-    'Large, wool or specialist rugs need a photo quote first. Book multiple carpet or upholstery items together and save automatically — see our discount tiers on the pricing page.',
+    'Large, wool or specialist rugs need a photo quote first. Book multiple carpet or upholstery items together and save automatically — see our discount tiers on the pricing page. What a clean can lift depends on the stain, the fibre, how long it has been there and any product already used on it, so complete removal cannot be guaranteed — we tell you the likely outcome before we start, not after.',
   pricingCta: { href: '/pricing', label: 'See all prices' },
 
+  // Real proof: the three approved before/after pairs, each with its own clip,
+  // followed by the one landscape clip on a wide stage of its own.
   afterPricingSection: (
-    <ServiceProofSection
-      heading="Recent carpet cleaning results"
-      subheading="We're building our photo and video library for this service — check back soon."
-      galleryLabel="Carpet"
-      galleryCategory="carpet"
-      secondary={{ type: 'video' }}
-    />
+    <>
+      <CarpetResultsSection />
+      <CarpetProcessSection />
+    </>
   ),
+
+  // Same conversion journey as the End of Tenancy page: hero → carpet quote →
+  // real proof media → reviews → benefits → about → why choose us → pricing →
+  // FAQ → related → final CTA. The generic homepage-style Gallery block is
+  // deliberately omitted, exactly as on EOT: it repeats proof already shown
+  // above and mixes in unrelated services.
+  sectionOrder: ['media', 'reviews', 'benefits', 'intro', 'why', 'pricing', 'faq', 'related'],
 
   faqs: [
     {

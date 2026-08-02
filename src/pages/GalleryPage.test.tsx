@@ -32,16 +32,18 @@ function renderAt(initialEntry: string) {
   );
 }
 
-// End of Tenancy now ships with the owner-approved photo set (3 before/after
-// pairs + 13 supporting photos = 16 items). Carpet and Sofa & Upholstery
-// remain empty placeholders — the owner is still organising those folders,
-// so nothing unapproved should be referenced until a final set is supplied.
+// End of Tenancy ships the owner-approved photo set (3 before/after pairs + 13
+// supporting photos = 16 items). Carpet now ships its own approved before/after
+// pairs. Sofa & Upholstery remains an empty placeholder — the owner is still
+// organising that folder, so nothing unapproved is referenced until a final set
+// is supplied.
 describe('GalleryPage — categories, deep links, empty states, keyboard nav', () => {
-  it('ships End of Tenancy populated with the approved 16-item set, and Carpet/Sofa still empty', () => {
+  it('ships End of Tenancy and Carpet populated, with Sofa still empty', () => {
     expect(GALLERY_MEDIA['end-of-tenancy']).toHaveLength(16);
     expect(GALLERY_MEDIA['end-of-tenancy'].filter((i) => i.type === 'before-after')).toHaveLength(3);
     expect(GALLERY_MEDIA['end-of-tenancy'].filter((i) => i.type === 'photo')).toHaveLength(13);
-    expect(GALLERY_MEDIA.carpet).toEqual([]);
+    expect(GALLERY_MEDIA.carpet).toHaveLength(3);
+    expect(GALLERY_MEDIA.carpet.every((i) => i.type === 'before-after')).toBe(true);
     expect(GALLERY_MEDIA['sofa-upholstery']).toEqual([]);
   });
 
@@ -62,12 +64,25 @@ describe('GalleryPage — categories, deep links, empty states, keyboard nav', (
     ).not.toBeInTheDocument();
   });
 
-  it('deep-links directly into the Carpet category via a query param, with its own empty state', () => {
+  it('deep-links directly into the Carpet category and shows its real pairs', () => {
     renderAt('/gallery?category=carpet');
 
     expect(screen.getByRole('tab', { name: 'Carpet' })).toHaveAttribute('aria-selected', 'true');
     expect(
-      screen.getByText('Our Carpet results library is being organised and will be added here shortly.'),
+      screen.queryByText('Our Carpet results library is being organised and will be added here shortly.'),
+    ).not.toBeInTheDocument();
+    // The same three pairs the Carpet landing page features — one manifest,
+    // so the two can never drift apart.
+    expect(screen.getByText('Office carpet')).toBeInTheDocument();
+    expect(screen.getByText('Blue bedroom carpet')).toBeInTheDocument();
+    expect(screen.getByText('Brown carpet')).toBeInTheDocument();
+  });
+
+  it('still shows the honest empty state for Sofa & Upholstery', () => {
+    renderAt('/gallery?category=sofa-upholstery');
+
+    expect(
+      screen.getByText('Our Sofa & Upholstery results library is being organised and will be added here shortly.'),
     ).toBeInTheDocument();
   });
 

@@ -714,16 +714,34 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
                         )}
                       </div>
 
-                      {/* Item groups — a focused mode (carpet/upholstery) only
-                          shows its own group; the counts/pricing engine is
-                          identical either way, so no logic is duplicated. */}
-                      {CARPET_GROUPS.filter((grp) => !focusGroup || grp.group === focusGroup).map((grp) => (
+                      {/* Item groups. Upholstery mode stays strictly focused,
+                          but carpet mode also offers Sofas & Upholstery as an
+                          optional add-on so a customer can book carpets and a
+                          sofa in one visit without leaving the page. The
+                          counts/pricing engine is identical either way, so no
+                          pricing logic is duplicated. */}
+                      {CARPET_GROUPS.filter((grp) => (
+                        isCarpetFocused
+                          ? true
+                          : !focusGroup || grp.group === focusGroup
+                      )).map((grp) => (
                         <div key={grp.group}>
                           {/* Sub-heading */}
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-navy-700 font-bold text-xs uppercase tracking-widest whitespace-nowrap">{grp.group}</span>
-                            <div className="flex-1 h-px bg-silver-200" />
-                          </div>
+                          {isCarpetFocused && grp.group === 'Sofas & Upholstery' ? (
+                            <div className="mt-5 mb-2 pt-4 border-t border-silver-200">
+                              <p className="text-navy-900 font-bold text-sm">
+                                Would you also like upholstery cleaning?
+                              </p>
+                              <p className="text-silver-600 text-xs mt-0.5">
+                                Optional — add a sofa, armchair or mattress to the same visit.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-navy-700 font-bold text-xs uppercase tracking-widest whitespace-nowrap">{grp.group}</span>
+                              <div className="flex-1 h-px bg-silver-200" />
+                            </div>
+                          )}
                           <div className="space-y-1.5">
                             {grp.items.map((item) => {
                               const qty = carpetCounts[item.key] ?? 0;
@@ -754,6 +772,10 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
                                   <Counter
                                     value={qty}
                                     onChange={(v) => setCarpetCounts((p) => ({ ...p, [item.key]: v }))}
+                                    // Without this every row announced simply
+                                    // "Increase item quantity", leaving 13
+                                    // identically named controls on the page.
+                                    itemLabel={item.label}
                                   />
                                 </div>
                               );

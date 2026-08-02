@@ -4,10 +4,10 @@
 // on purpose — nothing here auto-scans public/ folders, so unfinished or
 // private files are never accidentally published.
 //
-// End of Tenancy is populated with the owner-approved photo set. Carpet and
-// Sofa & Upholstery remain empty placeholders: the owner is still organising
-// those folders, so nothing unapproved should be referenced here until a
-// final set is supplied.
+// End of Tenancy and Carpet are populated with the owner-approved photo sets.
+// Sofa & Upholstery remains an empty placeholder: the owner is still organising
+// that folder, so nothing unapproved should be referenced here until a final
+// set is supplied.
 
 export type GalleryCategory = 'end-of-tenancy' | 'carpet' | 'sofa-upholstery';
 
@@ -124,11 +124,61 @@ const EOT_COMBINED_COMPARISONS: GalleryPhotoItem[] = [
   },
 ];
 
+// The three owner-approved carpet before/after pairs.
+//
+// Pairings are the owner's explicit mapping, not an alphabetical guess — note
+// that the office "before" original is spelt `carper1_before.heic` while its
+// "after" is `carpet1_after.png`, so filename order would have mismatched them.
+//
+// Every path below points at a derivative under /carpet/before-after/web/.
+// Four of the six originals are .heic or .png, neither of which is safe to ship
+// (.heic does not decode in Chrome or Firefox at all), so each was converted
+// once, offline, to a ~1600px JPEG. The originals stay untouched outside the
+// repo. See docs/CARPET_MEDIA_STATUS.md for the exact commands.
+const CARPET_BEFORE_AFTER: GalleryBeforeAfterItem[] = [
+  {
+    type: 'before-after',
+    id: 'carpet-office',
+    label: 'Office carpet',
+    before: '/carpet/before-after/web/carpet-office-before.jpg',
+    after: '/carpet/before-after/web/carpet-office-after.jpg',
+    beforeAlt:
+      'Blue office carpet before cleaning, with dark traffic marks and spill stains spreading across the floor between the desks',
+    afterAlt:
+      'The same office carpet after hot-water extraction, the marks gone and the blue colour even across the whole floor',
+  },
+  {
+    type: 'before-after',
+    id: 'carpet-blue',
+    label: 'Blue bedroom carpet',
+    before: '/carpet/before-after/web/carpet-blue-before.jpg',
+    after: '/carpet/before-after/web/carpet-blue-after.jpg',
+    beforeAlt:
+      'Blue carpet before cleaning, dulled and patchy with scattered debris and dark soiling across the pile',
+    afterAlt:
+      'The same blue carpet after cleaning, the debris lifted and the colour restored to a deep even blue',
+  },
+  {
+    type: 'before-after',
+    id: 'carpet-brown',
+    label: 'Brown carpet',
+    before: '/carpet/before-after/web/carpet-brown-before.jpg',
+    after: '/carpet/before-after/web/carpet-brown-after.jpg',
+    beforeAlt:
+      'Brown carpet before cleaning, with heavy dark staining through the middle of the room and litter on the pile',
+    afterAlt:
+      'The same brown carpet after cleaning, the staining gone and the weave clean and uniform corner to corner',
+  },
+];
+
 export const GALLERY_MEDIA: Record<GalleryCategory, GalleryItem[]> = {
   'end-of-tenancy': [...EOT_BEFORE_AFTER, ...EOT_PHOTOS, ...EOT_COMBINED_COMPARISONS],
-  carpet: [],
+  carpet: [...CARPET_BEFORE_AFTER],
   'sofa-upholstery': [],
 };
+
+/** The Carpet page's featured Before/After cards. */
+export const CARPET_FEATURED_BEFORE_AFTER: GalleryBeforeAfterItem[] = CARPET_BEFORE_AFTER;
 
 // The End of Tenancy page's featured Before/After cards — exactly the 3
 // approved pairs, in this order.
