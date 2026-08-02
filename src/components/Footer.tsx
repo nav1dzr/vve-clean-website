@@ -1,5 +1,6 @@
 import { Phone, Mail, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import BrandLogo from './BrandLogo';
 import { useCookieConsent } from '../context/CookieConsentContext';
 
 const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
@@ -31,16 +32,13 @@ export default function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
           {/* Brand column */}
           <div>
-            <div className="flex flex-col leading-none gap-0.5 mb-4">
-              <div className="font-display font-bold text-4xl tracking-widest leading-none">
-                <span className="text-white">V</span><span style={{ color: '#b8960c' }}>V</span><span className="text-white">E</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="block h-px w-4" style={{ background: '#b8960c' }} />
-                <span className="text-[9px] tracking-[0.25em] font-semibold uppercase text-silver-400">CLEAN</span>
-                <span className="block h-px w-4" style={{ background: '#b8960c' }} />
-              </div>
-            </div>
+            <Link
+              to="/"
+              aria-label="VVE Clean home"
+              className="mb-5 inline-flex rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300"
+            >
+              <BrandLogo inverse className="w-[104px]" />
+            </Link>
             <p className="text-silver-400 text-sm leading-relaxed mb-2">
               London's premium cleaning and property services. Specialising in commercial sites, empty     properties, and exterior cleaning.
             </p>

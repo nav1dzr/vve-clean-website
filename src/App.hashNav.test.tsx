@@ -62,6 +62,9 @@ describe('hash navigation to #quote', () => {
     await waitFor(() => {
       expect(document.activeElement?.id).toBe('quote');
     });
+    // The homepage quote is present before any service is chosen — it opens on
+    // the introductory panel — so the link lands on something real.
+    expect(screen.getByRole('heading', { name: 'Get an instant quote' })).toBeInTheDocument();
   });
 });
 

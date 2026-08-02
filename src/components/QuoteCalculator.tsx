@@ -1,9 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trackBookingInitiated } from '../lib/analytics';
-import { Calculator, CheckCircle2, Plus, Minus, Info, AlertCircle } from 'lucide-react';
+import { Calculator, CheckCircle2, Plus, Minus, Info, AlertCircle, ChevronDown, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { useBookingCtx } from '../context/BookingContext';
 import { useReveal } from '../hooks/useReveal';
+import type { HomepageQuoteService } from './HomeServiceSelector';
 import {
   CARPET_GROUPS,
   CARPET_MIN_BOOKING,
@@ -192,6 +193,13 @@ interface Props {
   // deep-service branch (same pricing engine as 'all-services') and only
   // render the relevant CARPET_GROUPS item list — no separate calculator.
   mode?:       'all-services' | 'eot' | 'carpet' | 'upholstery';
+  // Homepage presentation only. The homepage leads with service cards
+  // (HomeServiceSelector), so the calculator stays hidden until one is picked
+  // and then renders on a light background instead of the dark gradient the
+  // service pages use. None of these change pricing or the booking payload.
+  homepageMode?:            boolean;
+  homepageService?:         HomepageQuoteService | null;
+  onHomepageServiceChange?: (service: HomepageQuoteService) => void;
 }
 
 // ─── Shared counter widget ────────────────────────────────────────────────────
@@ -243,7 +251,14 @@ function getRestoreConfig(): BookingSelection['quoteConfig'] | null {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function QuoteCalculator({ onBook, promoCode, mode = 'all-services' }: Props = {}) {
+export default function QuoteCalculator({
+  onBook,
+  promoCode,
+  mode = 'all-services',
+  homepageMode = false,
+  homepageService = null,
+  onHomepageServiceChange,
+}: Props = {}) {
   const { ref, visible } = useReveal();
   const navigate = useNavigate();
   const { setCtx }      = useBookingCtx();
@@ -274,7 +289,10 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
       ? 'end_of_tenancy'
       : (isCarpetFocused || isUpholsteryFocused)
         ? 'carpet_upholstery'
-        : ((_restore?.deepService as DeepServiceType | undefined) ?? 'carpet_upholstery'),
+        // A restored quote wins over the homepage card selection, so coming
+        // back from BookingPage via "Back to quote" reopens what the customer
+        // actually had rather than resetting them to the card they first hit.
+        : ((_restore?.deepService as DeepServiceType | undefined) ?? homepageService ?? 'carpet_upholstery'),
   );
   const [deepSize,      setDeepSize]      = useState<SizeKey>(
     () => (_restore?.deepSize as SizeKey | undefined) ?? 'bed2',
@@ -581,40 +599,148 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
     return () => document.removeEventListener('vve:validate-book', handler);
   }, [isReadyToBook, isManualQuote]);
 
+  // Homepage, nothing chosen yet: show the introductory quote panel rather than
+  // the full configurator. #quote always exists so "Get my price" and other
+  // /#quote links land somewhere real. A restored quote counts as a selection,
+  // which is what makes "Back to quote" reopen the detailed calculator directly
+  // without showing this step first.
+  if (homepageMode && !homepageService && !_restore) {
+    const homepageOptions: Array<{ value: HomepageQuoteService; label: string }> = [
+      { value: 'carpet_upholstery', label: 'Carpet or upholstery cleaning' },
+      { value: 'end_of_tenancy', label: 'End of tenancy cleaning' },
+      { value: 'move_in', label: 'Move-in deep cleaning' },
+      { value: 'after_builders', label: 'After-builders cleaning' },
+    ];
+
+    return (
+      <section id="quote" ref={ref} className="bg-surface pb-20 pt-24 scroll-mt-28 sm:pt-28">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className={`overflow-hidden rounded-3xl border border-line bg-white shadow-[0_22px_70px_rgba(16,36,62,0.10)] transition duration-700 ${visible ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0'}`}>
+            <div className="grid lg:grid-cols-[1.08fr_0.92fr]">
+              <div className="p-6 sm:p-9 lg:p-11">
+                <div className="mb-6 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-royal-700">Instant quote</p>
+                    <h2 className="font-display text-3xl font-bold text-navy-900 sm:text-4xl">Get an instant quote</h2>
+                    <p className="mt-2 text-sm text-muted">Start by choosing the service you need.</p>
+                  </div>
+                  <span className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-royal-50 text-royal-700 sm:flex">
+                    <Calculator size={24} />
+                  </span>
+                </div>
+
+                <div className="mb-7 flex items-center gap-2 text-xs font-semibold">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-royal-600 text-white">1</span>
+                  <span className="text-royal-700">Service</span>
+                  <span className="h-px flex-1 bg-line" />
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-surface text-muted">2</span>
+                  <span className="text-muted">Details</span>
+                  <span className="h-px flex-1 bg-line" />
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-surface text-muted">3</span>
+                  <span className="text-muted">Quote</span>
+                </div>
+
+                <label htmlFor="homepage-quote-service" className="mb-2 block text-sm font-bold text-navy-900">Select a service</label>
+                <div className="relative">
+                  <select
+                    id="homepage-quote-service"
+                    value=""
+                    onChange={(event) => {
+                      const selected = event.target.value as HomepageQuoteService;
+                      if (selected) onHomepageServiceChange?.(selected);
+                    }}
+                    className="min-h-[50px] w-full appearance-none rounded-xl border-2 border-line bg-white px-4 pr-11 text-sm font-semibold text-navy-900 outline-none transition focus:border-royal-600 focus:ring-4 focus:ring-royal-100"
+                  >
+                    <option value="" disabled>Choose what you would like cleaned</option>
+                    {homepageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                  <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
+                </div>
+                <p className="mt-4 flex items-center gap-2 text-xs text-muted">
+                  <LockKeyhole size={14} className="text-royal-700" />
+                  No hidden fees · Live price where available · £30 booking deposit
+                </p>
+              </div>
+
+              <aside className="bg-gradient-to-br from-royal-50 to-sky-100/60 p-6 sm:p-9 lg:p-11">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-royal-700 shadow-sm"><ShieldCheck size={21} /></span>
+                  <h3 className="font-display text-lg font-bold text-navy-900">Why book with VVE Clean?</h3>
+                </div>
+                <ul className="mt-6 space-y-4">
+                  {[
+                    'Transparent pricing with no hidden fees',
+                    '£30 deposit handled securely by Stripe',
+                    'Professional equipment and direct support',
+                    '£5m public liability insurance',
+                    'Rated 5.0 by genuine Google reviewers',
+                  ].map((benefit) => (
+                    <li key={benefit} className="flex items-start gap-3 text-sm leading-6 text-navy-800">
+                      <CheckCircle2 size={17} className="mt-1 flex-none text-royal-600" />
+                      {benefit}
+                    </li>
+                  ))}
+                </ul>
+              </aside>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <section id="quote" ref={ref} className="py-20 bg-gradient-to-br from-navy-950 via-navy-900 to-navy-800 scroll-mt-24">
+    <section
+      id="quote"
+      ref={ref}
+      className={`${
+        homepageMode
+          ? 'bg-surface pb-20 pt-24 sm:pt-28'
+          : 'py-20 bg-gradient-to-br from-navy-950 via-navy-900 to-navy-800'
+      } scroll-mt-24`}
+    >
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Header */}
         <div className={`text-center mb-10 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <div className="inline-flex items-center gap-2 border-2 border-white/40 rounded-full px-4 py-1.5 mb-4">
-            <Calculator size={14} className="text-white" />
-            <span className="text-white text-xs tracking-widest font-semibold uppercase">
-              {isEotFocused ? 'Complete EOT Pricing' : isCarpetFocused ? 'Instant Carpet Pricing' : isUpholsteryFocused ? 'Instant Upholstery Pricing' : 'Instant Pricing'}
-            </span>
-          </div>
-          <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-3">
-            {isEotFocused ? (
-              <>Build Your <span className="text-gradient-metallic">Complete Clean</span></>
-            ) : isCarpetFocused ? (
-              <>Build Your <span className="text-gradient-metallic">Carpet Quote</span></>
-            ) : isUpholsteryFocused ? (
-              <>Build Your <span className="text-gradient-metallic">Upholstery Quote</span></>
-            ) : (
-              <>Get Your <span className="text-gradient-metallic">Instant Quote</span></>
-            )}
-          </h2>
-          <p className="text-silver-400 text-lg">
-            {isEotFocused
-              ? 'One complete package. Essential inspection items included. Genuine upgrades shown separately.'
-              : isCarpetFocused
-                ? 'Pick your rooms and stairs — fixed prices, added up as you go.'
-                : isUpholsteryFocused
-                  ? 'Pick your sofas, chairs and mattresses — fixed prices, added up as you go.'
-                  : 'Transparent pricing. No hidden fees. Tailored to your needs.'}
-          </p>
+          {homepageMode ? (
+            <>
+              <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-royal-700">Instant quote</p>
+              <h2 className="mb-3 font-display text-4xl font-bold text-navy-900 md:text-5xl">Get an instant quote</h2>
+              <p className="text-lg text-muted">Start by choosing the service you need.</p>
+            </>
+          ) : (
+            <>
+              <div className="inline-flex items-center gap-2 border-2 border-white/40 rounded-full px-4 py-1.5 mb-4">
+                <Calculator size={14} className="text-white" />
+                <span className="text-white text-xs tracking-widest font-semibold uppercase">
+                  {isEotFocused ? 'Complete EOT Pricing' : isCarpetFocused ? 'Instant Carpet Pricing' : isUpholsteryFocused ? 'Instant Upholstery Pricing' : 'Instant Pricing'}
+                </span>
+              </div>
+              <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-3">
+                {isEotFocused ? (
+                  <>Build Your <span className="text-gradient-metallic">Complete Clean</span></>
+                ) : isCarpetFocused ? (
+                  <>Build Your <span className="text-gradient-metallic">Carpet Quote</span></>
+                ) : isUpholsteryFocused ? (
+                  <>Build Your <span className="text-gradient-metallic">Upholstery Quote</span></>
+                ) : (
+                  <>Get Your <span className="text-gradient-metallic">Instant Quote</span></>
+                )}
+              </h2>
+              <p className="text-silver-400 text-lg">
+                {isEotFocused
+                  ? 'One complete package. Essential inspection items included. Genuine upgrades shown separately.'
+                  : isCarpetFocused
+                    ? 'Pick your rooms and stairs — fixed prices, added up as you go.'
+                    : isUpholsteryFocused
+                      ? 'Pick your sofas, chairs and mattresses — fixed prices, added up as you go.'
+                      : 'Transparent pricing. No hidden fees. Tailored to your needs.'}
+              </p>
+            </>
+          )}
         </div>
 
         {/* Card grid */}
@@ -649,6 +775,11 @@ export default function QuoteCalculator({ onBook, promoCode, mode = 'all-service
                             setDeepService(k);
                             setAddOnCounts(Object.fromEntries(addOnDefs.map((a) => [a.key, 0])));
                             setEotTailoredQuote(false);
+                            // Keep the homepage's own selection in step, so
+                            // switching service here doesn't leave the page
+                            // state pointing at the card the visitor first
+                            // clicked.
+                            onHomepageServiceChange?.(k as HomepageQuoteService);
                           }}
                           className={`py-2.5 px-3 rounded-xl border-2 text-xs font-semibold text-left transition-all duration-200 ${
                             deepService === k
