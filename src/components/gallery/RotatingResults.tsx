@@ -6,7 +6,18 @@ import type { GalleryPhotoItem } from '../../data/galleryMedia';
 // between renders. Autoplay is gentle (a plain opacity crossfade, no video)
 // and stops the moment the visitor takes control, hovers, focuses, or has
 // prefers-reduced-motion set.
-export default function RotatingResults({ photos, label }: { photos: GalleryPhotoItem[]; label: string }) {
+export default function RotatingResults({
+  photos,
+  label,
+  onOpen,
+}: {
+  photos: GalleryPhotoItem[];
+  label: string;
+  // Optional: makes the visible photo openable at full size. Only the current
+  // slide is interactive — the hidden ones are aria-hidden and must not be
+  // reachable by keyboard.
+  onOpen?: (index: number, origin: HTMLElement) => void;
+}) {
   const [current, setCurrent] = useState(0);
   const [hoverPaused, setHoverPaused] = useState(false);
   const [focusPaused, setFocusPaused] = useState(false);
@@ -88,6 +99,17 @@ export default function RotatingResults({ photos, label }: { photos: GalleryPhot
             className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-500 ${i === current ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
           />
         ))}
+
+        {/* Transparent hit area over the current slide only. Sits under the
+            prev/next buttons (they carry z-10) so it never swallows them. */}
+        {onOpen && (
+          <button
+            type="button"
+            onClick={(e) => onOpen(current, e.currentTarget)}
+            aria-label={`View larger: ${photos[current].alt}`}
+            className="absolute inset-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white"
+          />
+        )}
 
         <button
           type="button"

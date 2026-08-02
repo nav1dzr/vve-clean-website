@@ -11,19 +11,27 @@ const IG_SVG = (
 export default function GalleryInstagramCta({
   galleryCategory,
   showGalleryLink = true,
+  onDark = false,
 }: {
   galleryCategory: GalleryCategory;
   // The Gallery page itself renders this CTA row too (for its Instagram
   // link) — on that page a "View full Gallery" link would point back at the
   // page the visitor is already on, so GalleryPage passes false here.
   showGalleryLink?: boolean;
+  // Light-on-dark treatment for the Sofa page's navy proof section. The
+  // default navy-800 text would be all but invisible there.
+  onDark?: boolean;
 }) {
   return (
     <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-10">
       {showGalleryLink && (
         <Link
           to={`/gallery?category=${galleryCategory}`}
-          className="inline-flex items-center justify-center gap-2 border-2 border-navy-200 hover:border-royal-400 text-navy-800 font-semibold text-sm px-5 py-2.5 min-h-[44px] rounded-full transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
+          className={`inline-flex items-center justify-center gap-2 border-2 font-semibold text-sm px-5 py-2.5 min-h-[44px] rounded-full transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+            onDark
+              ? 'border-white/30 hover:border-sky-300 text-white focus-visible:outline-sky-300'
+              : 'border-navy-200 hover:border-royal-400 text-navy-800 focus-visible:outline-royal-600'
+          }`}
         >
           View full Gallery
         </Link>

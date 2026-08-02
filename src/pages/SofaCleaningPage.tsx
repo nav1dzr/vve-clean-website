@@ -1,6 +1,7 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
 import QuoteCalculator from '../components/QuoteCalculator';
 import { SofaCareGuide, SofaHeroPanel } from '../components/sofa/SofaServicePreview';
+import SofaResultsSection from '../components/sofa/SofaResultsSection';
 import { PawPrint, Shield, Palette, RefreshCw } from 'lucide-react';
 import {
   CARPET_ITEM_PRICES_P,
@@ -163,7 +164,15 @@ const DATA: ServiceLandingData = {
     'Combine a sofa and carpet clean on the same visit to save automatically on bundle discount tiers — see all prices for details.',
   pricingCta: { href: '/pricing', label: 'See all prices' },
 
-  afterPricingSection: <SofaCareGuide />,
+  // Process explainer, then the reserved proof slots. The proof section is
+  // deliberately honest rather than empty: it names what is coming and never
+  // borrows another service's photographs (see SofaResultsSection).
+  afterPricingSection: (
+    <>
+      <SofaCareGuide />
+      <SofaResultsSection />
+    </>
+  ),
 
   faqs: [
     {

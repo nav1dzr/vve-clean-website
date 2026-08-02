@@ -7,12 +7,19 @@
 
 import BeforeAfterTile from '../gallery/BeforeAfterTile';
 import GalleryInstagramCta from '../gallery/GalleryInstagramCta';
+import PhotoLightbox from '../gallery/PhotoLightbox';
+import { toLightboxPhotos, useLightbox } from '../gallery/useLightbox';
 import LazyVideo from './LazyVideo';
 import { CARPET_FEATURED_BEFORE_AFTER } from '../../data/galleryMedia';
 import { CARPET_RESULT_VIDEOS } from '../../data/carpetMedia';
 
+// All six halves of the three approved pairs, in reading order, so Previous/
+// Next in the lightbox walks the section exactly as it appears on screen.
+const LIGHTBOX_PHOTOS = toLightboxPhotos(CARPET_FEATURED_BEFORE_AFTER);
+
 export default function CarpetResultsSection() {
   const pairs = CARPET_FEATURED_BEFORE_AFTER;
+  const lightbox = useLightbox();
   if (pairs.length === 0) return null;
 
   return (
@@ -32,11 +39,15 @@ export default function CarpetResultsSection() {
         </div>
 
         <div className="mb-10 grid gap-6 md:grid-cols-3">
-          {pairs.map((pair) => {
+          {pairs.map((pair, i) => {
             const clip = CARPET_RESULT_VIDEOS.find((v) => v.pairedWith === pair.id);
             return (
               <div key={pair.id} className="flex flex-col gap-3">
-                <BeforeAfterTile entry={pair} placeholderLabel={pair.label} />
+                <BeforeAfterTile
+                  entry={pair}
+                  placeholderLabel={pair.label}
+                  onOpen={(side, origin) => lightbox.open(i * 2 + (side === 'after' ? 1 : 0), origin)}
+                />
                 {/* Portrait phone footage, so the stage is portrait too — a
                     landscape stage would pillarbox it down to a sliver. */}
                 {clip && <LazyVideo video={clip} className="aspect-[3/4] w-full" />}
@@ -47,6 +58,14 @@ export default function CarpetResultsSection() {
 
         <GalleryInstagramCta galleryCategory="carpet" />
       </div>
+
+      <PhotoLightbox
+        photos={LIGHTBOX_PHOTOS}
+        index={lightbox.index}
+        onClose={lightbox.close}
+        onNavigate={lightbox.setIndex}
+        label="Carpet cleaning photos"
+      />
     </section>
   );
 }
