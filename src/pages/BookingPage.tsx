@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import QuoteCalculator, { type BookingSelection } from '../components/QuoteCalculator';
+import BrandLogo from '../components/BrandLogo';
 import { getAttribution } from '../lib/attribution';
 import { CARPET_MIN_BOOKING, DISCOUNT_MIN_NOTE } from '../data/carpetPricing';
 import { TERMS_VERSION, CANCELLATION_POLICY_VERSION } from '../lib/termsVersion';
@@ -67,15 +68,21 @@ function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
     <header className="sticky top-0 z-50 border-b border-black/[0.08]"
       style={{ background: 'rgba(249,249,245,0.96)', backdropFilter: 'blur(10px)' }}>
       <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-2">
-        {/* Logo */}
-        <a href="/" className="flex flex-col leading-none gap-0.5 flex-shrink-0">
-          <span className="font-display font-bold text-2xl tracking-widest" style={{ color: '#1c1917' }}>
-            V<span style={{ color: '#b8960c' }}>V</span>E
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="block h-px w-3" style={{ background: '#b8960c' }} />
-            <span className="text-[8px] tracking-[0.25em] font-semibold uppercase" style={{ color: '#1c1917' }}>CLEAN</span>
-            <span className="block h-px w-3" style={{ background: '#b8960c' }} />
+        {/* Keep checkout branding in sync with the shared site wordmark. */}
+        <a
+          href="/"
+          aria-label="VVE Clean home"
+          className="flex flex-shrink-0 items-center rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-royal-600"
+        >
+          <BrandLogo compact className="w-[72px] sm:w-[82px]" />
+
+          <span
+            aria-hidden="true"
+            className="mx-2 hidden h-8 w-px bg-slate-300 sm:block"
+          />
+
+          <span className="hidden max-w-[72px] text-[8px] font-bold uppercase leading-[1.35] tracking-[0.08em] text-navy-700 sm:block">
+            Cleaning &amp; Property Services
           </span>
         </a>
 
