@@ -63,6 +63,9 @@ export interface ServiceLandingData {
   // Renders the compact Google rating badge directly below the hero CTAs
   // (replaces the faint ★ text trust line as the primary trust signal).
   heroGoogleBadge?: boolean;
+  // Optional visual panel used by service pages that need a richer,
+  // homepage-style split hero without relying on stock photography.
+  heroAside?: ReactNode;
   // Tightens mobile-only vertical spacing in the hero so the CTAs, Google
   // badge and trust line all fit above the sticky footer on short screens
   // (e.g. 360×741). Desktop (≥640px) spacing is unchanged.
@@ -140,9 +143,9 @@ const CAL_SVG = (
   </svg>
 );
 
-function Eyebrow({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) {
+function Eyebrow({ children, dark = false, align = 'center' }: { children: React.ReactNode; dark?: boolean; align?: 'center' | 'start' }) {
   return (
-    <div className="flex items-center justify-center gap-2 mb-3">
+    <div className={`flex items-center gap-2 mb-3 ${align === 'start' ? 'justify-start' : 'justify-center'}`}>
       <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 flex-shrink-0" aria-hidden="true">
         <path
           d="M12 2C8.5 2 6 5 6 8c0 4 6 14 6 14s6-10 6-14c0-3-2.5-6-6-6zm0 9a3 3 0 110-6 3 3 0 010 6z"
@@ -482,41 +485,48 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
           )}
           <div
             ref={heroReveal.ref}
-            className={`relative z-10 max-w-4xl mx-auto text-center transition-all duration-700 ${heroReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+            className={`relative z-10 mx-auto transition-all duration-700 ${data.heroAside ? 'grid max-w-7xl items-center gap-10 text-left lg:grid-cols-[1.08fr_0.92fr]' : 'max-w-4xl text-center'} ${heroReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
           >
-            <Eyebrow dark>{data.eyebrow}</Eyebrow>
-            <h1 className={`font-display text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight ${data.heroSubtitle ? 'mb-3' : 'mb-5'}`}>
-              {data.h1}
-              {data.h1Highlight && (
-                <>
-                  <br className="hidden sm:block" />
-                  <span className="text-gradient-metallic">{data.h1Highlight}</span>
-                </>
+            <div>
+              <Eyebrow dark align={data.heroAside ? 'start' : 'center'}>{data.eyebrow}</Eyebrow>
+              <h1 className={`font-display text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight ${data.heroSubtitle ? 'mb-3' : 'mb-5'}`}>
+                {data.h1}
+                {data.h1Highlight && (
+                  <>
+                    <br className="hidden sm:block" />
+                    <span className="text-gradient-metallic">{data.h1Highlight}</span>
+                  </>
+                )}
+              </h1>
+              {data.heroSubtitle && (
+                <p className={`max-w-2xl text-silver-200 text-base sm:text-lg ${data.heroCompactMobile ? 'mb-4 sm:mb-6' : 'mb-6'}`}>{data.heroSubtitle}</p>
               )}
-            </h1>
-            {data.heroSubtitle && (
-              <p className={`text-silver-200 text-base sm:text-lg ${data.heroCompactMobile ? 'mb-4 sm:mb-6' : 'mb-6'}`}>{data.heroSubtitle}</p>
-            )}
 
-            <div className={`flex flex-wrap justify-center gap-x-6 gap-y-2 ${data.heroCompactMobile ? 'mb-5 sm:mb-8' : 'mb-8'} text-silver-400 text-sm`}>
-              {data.heroBadges.map((badge) => (
-                <span key={badge} className="flex items-center gap-1.5">
-                  <span className="text-sky-400 font-bold">✓</span> {badge}
-                </span>
-              ))}
-            </div>
-
-            <div className={`flex flex-col sm:flex-row items-center justify-center ${data.heroCompactMobile ? 'gap-3 sm:gap-4' : 'gap-4'}`}>
-              <CtaButton href={data.primaryHref} label={data.primaryLabel} isWa={data.primaryIsWa} variant="primary" />
-              <CtaButton href={data.secondaryHref} label={data.secondaryLabel} isWa={data.secondaryIsWa} variant="secondary" />
-            </div>
-            {data.heroGoogleBadge && (
-              <div className={`${data.heroCompactMobile ? 'mt-4 sm:mt-5' : 'mt-5'} flex justify-center`}>
-                <GoogleBadge />
+              <div className={`flex flex-wrap gap-x-6 gap-y-2 ${data.heroAside ? 'justify-start' : 'justify-center'} ${data.heroCompactMobile ? 'mb-5 sm:mb-8' : 'mb-8'} text-silver-400 text-sm`}>
+                {data.heroBadges.map((badge) => (
+                  <span key={badge} className="flex items-center gap-1.5">
+                    <span className="text-sky-400 font-bold">✓</span> {badge}
+                  </span>
+                ))}
               </div>
-            )}
-            {data.heroTrustLine && (
-              <p className={`${data.heroCompactMobile ? 'mt-3 sm:mt-4' : 'mt-4'} text-silver-200 text-xs tracking-wide`}>{data.heroTrustLine}</p>
+
+              <div className={`flex flex-col sm:flex-row items-center ${data.heroAside ? 'sm:justify-start' : 'justify-center'} ${data.heroCompactMobile ? 'gap-3 sm:gap-4' : 'gap-4'}`}>
+                <CtaButton href={data.primaryHref} label={data.primaryLabel} isWa={data.primaryIsWa} variant="primary" />
+                <CtaButton href={data.secondaryHref} label={data.secondaryLabel} isWa={data.secondaryIsWa} variant="secondary" />
+              </div>
+              {data.heroGoogleBadge && (
+                <div className={`${data.heroCompactMobile ? 'mt-4 sm:mt-5' : 'mt-5'} flex ${data.heroAside ? 'justify-start' : 'justify-center'}`}>
+                  <GoogleBadge />
+                </div>
+              )}
+              {data.heroTrustLine && (
+                <p className={`${data.heroCompactMobile ? 'mt-3 sm:mt-4' : 'mt-4'} text-silver-200 text-xs tracking-wide`}>{data.heroTrustLine}</p>
+              )}
+            </div>
+            {data.heroAside && (
+              <div className="hidden lg:block">
+                {data.heroAside}
+              </div>
             )}
           </div>
         </section>

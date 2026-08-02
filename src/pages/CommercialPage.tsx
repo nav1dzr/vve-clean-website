@@ -1,5 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
-import { Building2, Coffee, ShoppingBag, Key } from 'lucide-react';
+import {
+  ArrowRight,
+  Building2,
+  CheckCircle2,
+  ClipboardCheck,
+  Clock3,
+  Coffee,
+  FileCheck2,
+  KeyRound,
+  Mail,
+  MapPin,
+  ShieldCheck,
+  ShoppingBag,
+  Sparkles,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import MobileStickyFooter from '../components/MobileStickyFooter';
@@ -14,124 +28,61 @@ import {
   COMMERCIAL_AFTER_BUILDERS_FROM_P,
 } from '../data/pricing';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const WA_COMMERCIAL =
   'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20commercial%20site%20visit%20please.%20Address%3A%20';
 const EMAIL = 'mailto:contact@vveclean.co.uk';
+const price = (pence: number) => `£${pence / 100}`;
 
-const WA_SVG = (
-  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 flex-shrink-0">
-    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-  </svg>
-);
-
-// ─── Shared helpers ───────────────────────────────────────────────────────────
-
-function Eyebrow({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) {
-  return (
-    <div className="flex items-center justify-center gap-2 mb-3">
-      <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 flex-shrink-0" aria-hidden="true">
-        <path
-          d="M12 2C8.5 2 6 5 6 8c0 4 6 14 6 14s6-10 6-14c0-3-2.5-6-6-6zm0 9a3 3 0 110-6 3 3 0 010 6z"
-          fill={dark ? '#7dd3fc' : '#0ea5e9'}
-          opacity="0.4"
-        />
-        <circle cx="12" cy="8" r="2.5" fill={dark ? '#7dd3fc' : '#0ea5e9'} />
-      </svg>
-      <span className={`text-xs font-semibold tracking-[0.2em] uppercase ${dark ? 'text-sky-300' : 'text-sky-600'}`}>{children}</span>
-    </div>
-  );
-}
-
-function useRevealLocal() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    if (mediaQuery.matches) { setVisible(true); return; }
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
-      { threshold: 0.1 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-  return { ref, visible };
-}
-
-// ─── Section: Who we clean for ────────────────────────────────────────────────
-
-const WHO_CARDS = [
+const SECTORS = [
   {
-    icon: <Building2 size={28} />,
+    icon: Building2,
     title: 'Offices & studios',
-    body: 'Daily and weekly contracts, with out-of-hours visits so we never disturb your team. The same cleaner every time — they learn your site.',
+    body: 'Daily or weekly cleaning planned around your working hours, with the same team learning the site.',
+    detail: 'Desks · kitchens · washrooms · floors',
   },
   {
-    icon: <Coffee size={28} />,
+    icon: Coffee,
     title: 'Shops, cafés & restaurants',
-    body: 'Front-of-house presentation cleans before you open: floors, glass, washrooms. Priced per visit, invoiced monthly.',
+    body: 'Presentation-focused cleaning before opening, covering customer areas, glass, floors and washrooms.',
+    detail: 'Front of house · glass · touchpoints',
   },
   {
-    icon: <ShoppingBag size={28} />,
-    title: 'Communal areas — blocks & landlords',
-    body: 'Hallways, stairwells, lifts and bin stores on a weekly or fortnightly schedule. One invoice for the whole block.',
+    icon: KeyRound,
+    title: 'Communal areas',
+    body: 'Scheduled care for residential blocks, landlords and managing agents with one simple monthly invoice.',
+    detail: 'Hallways · stairs · lifts · bin stores',
   },
   {
-    icon: <Key size={28} />,
+    icon: ShoppingBag,
     title: 'End-of-lease commercial',
-    body: 'Full handover cleans for offices and retail units, including carpets, windows and deep sanitisation, ready to re-let.',
+    body: 'A complete handover clean for offices and retail units, coordinated as one accountable service.',
+    detail: 'Deep clean · carpets · windows',
   },
 ];
-
-// ─── Section: Included checklist ──────────────────────────────────────────────
 
 const INCLUDED = [
-  'Same cleaner(s) on every visit — they learn your site',
-  'Out-of-hours & keyholding available',
-  'All equipment and products supplied',
-  'RAMS, method statements & insurance certificates on request',
-  'Monthly invoicing, 14-day payment terms',
-  'No long lock-ins — 30 days\u2019 notice, that\u2019s it',
+  'Same cleaner or team on regular visits',
+  'Out-of-hours and keyholding available',
+  'All cleaning equipment and products supplied',
+  'RAMS, method statements and insurance documents on request',
+  'Monthly invoicing with 14-day payment terms',
+  'No long lock-ins — 30 days’ notice',
 ];
-
-// ─── Section: Rates ───────────────────────────────────────────────────────────
-
-const p = (pence: number) => `£${pence / 100}`;
 
 const RATES = [
-  { label: 'Regular contract cleaning',         price: `from ${p(COMMERCIAL_REGULAR_HOURLY_P)}/cleaner-hour · min ${p(COMMERCIAL_REGULAR_MIN_CHARGE_P)}/visit` },
-  { label: 'One-off commercial deep clean',      price: `from ${p(COMMERCIAL_ONCEOFF_HOURLY_P)}/cleaner-hour · min ${p(COMMERCIAL_ONCEOFF_MIN_CHARGE_P)}` },
-  { label: 'Shop or café presentation clean',    price: `from ${p(COMMERCIAL_SHOP_CAFE_FROM_P)}/visit` },
-  { label: 'Communal areas',                     price: `from ${p(COMMERCIAL_COMMUNAL_FROM_P)}/visit` },
-  { label: 'End-of-lease commercial clean',      price: `from ${p(COMMERCIAL_EOL_FROM_P)}` },
-  { label: 'Commercial after-builders clean',    price: `from ${p(COMMERCIAL_AFTER_BUILDERS_FROM_P)}` },
+  { label: 'Regular contract cleaning', price: `from ${price(COMMERCIAL_REGULAR_HOURLY_P)}/cleaner-hour`, note: `Minimum ${price(COMMERCIAL_REGULAR_MIN_CHARGE_P)} per visit` },
+  { label: 'One-off commercial deep clean', price: `from ${price(COMMERCIAL_ONCEOFF_HOURLY_P)}/cleaner-hour`, note: `Minimum ${price(COMMERCIAL_ONCEOFF_MIN_CHARGE_P)}` },
+  { label: 'Shop or café presentation clean', price: `from ${price(COMMERCIAL_SHOP_CAFE_FROM_P)}/visit` },
+  { label: 'Communal areas', price: `from ${price(COMMERCIAL_COMMUNAL_FROM_P)}/visit` },
+  { label: 'End-of-lease commercial clean', price: `from ${price(COMMERCIAL_EOL_FROM_P)}` },
+  { label: 'Commercial after-builders clean', price: `from ${price(COMMERCIAL_AFTER_BUILDERS_FROM_P)}` },
 ];
-
-// ─── Section: How it works ────────────────────────────────────────────────────
 
 const STEPS = [
-  {
-    num: '01',
-    title: 'Send the address',
-    body: 'WhatsApp or call us with the address. We visit within 48 hours at a time that suits you.',
-  },
-  {
-    num: '02',
-    title: 'Fixed written quote',
-    body: 'You receive an itemised, fixed quote the same day — no obligation, no surprises.',
-  },
-  {
-    num: '03',
-    title: 'We start',
-    body: 'Same team every visit, monthly invoice, 14-day payment terms. Simple as that.',
-  },
+  { icon: MapPin, step: '01', title: 'Send the address', body: 'Tell us about the property, access and the cleaning frequency you need.' },
+  { icon: ClipboardCheck, step: '02', title: 'Free site visit', body: 'We inspect the space and agree the exact cleaning specification with you.' },
+  { icon: FileCheck2, step: '03', title: 'Fixed written quote', body: 'You receive a clear price and schedule before any work is agreed.' },
 ];
-
-// ─── Section: FAQ ─────────────────────────────────────────────────────────────
 
 const FAQS = [
   {
@@ -140,19 +91,17 @@ const FAQS = [
   },
   {
     q: 'Can you clean outside opening hours?',
-    a: 'Yes. Early mornings, evenings and weekends are all available. Keyholding and alarm management can be arranged for regular clients.',
+    a: 'Yes. Early mornings, evenings and weekends are available. Keyholding and alarm management can be arranged for regular clients.',
   },
   {
     q: 'How does billing work?',
-    a: 'One monthly invoice, 14-day payment terms. No deposits are required for contract clients.',
+    a: 'One monthly invoice with 14-day payment terms. No deposits are required for contract clients.',
   },
   {
     q: 'Is there a minimum contract length?',
-    a: 'No lock-ins. You can cancel with 30 days\u2019 notice. We keep clients by doing a good job, not by trapping them in contracts.',
+    a: 'There are no long lock-ins. You can cancel with 30 days’ notice.',
   },
 ];
-
-// ─── JSON-LD schema ───────────────────────────────────────────────────────────
 
 const SCHEMA = JSON.stringify({
   '@context': 'https://schema.org',
@@ -160,303 +109,196 @@ const SCHEMA = JSON.stringify({
     {
       '@type': 'Service',
       name: 'Commercial cleaning',
-      description:
-        'Contract cleaning for offices, shops, cafés and retail units across East and North London.',
+      description: 'Contract cleaning for offices, shops, cafés and retail units across East and North London.',
       provider: { '@type': 'LocalBusiness', name: 'VVE Clean' },
-      areaServed: [
-        'E1','E2','E3','E4','E5','E6','E7','E8','E9','E10','E11','E12','E13','E14','E15','E16','E17',
-        'N1','N2','N3','N4','N5','N6','N7','N8','N9','N10','N11','N12','N13','N14','N15','N16',
-      ],
+      areaServed: 'East and North London',
     },
     {
       '@type': 'Service',
       name: 'Communal area cleaning',
-      description:
-        'Weekly and fortnightly cleaning of communal hallways, stairwells, lifts and bin stores for residential blocks and landlords in East and North London.',
+      description: 'Scheduled cleaning of communal hallways, stairwells, lifts and bin stores for residential blocks and landlords.',
       provider: { '@type': 'LocalBusiness', name: 'VVE Clean' },
-      areaServed: [
-        'E1','E2','E3','E4','E5','E6','E7','E8','E9','E10','E11','E12','E13','E14','E15','E16','E17',
-        'N1','N2','N3','N4','N5','N6','N7','N8','N9','N10','N11','N12','N13','N14','N15','N16',
-      ],
+      areaServed: 'East and North London',
     },
   ],
 });
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+function WhatsAppIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 flex-none" aria-hidden="true">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+    </svg>
+  );
+}
 
 export default function CommercialPage() {
-  const heroReveal = useRevealLocal();
-  const whoReveal = useRevealLocal();
-  const includedReveal = useRevealLocal();
-  const ratesReveal = useRevealLocal();
-  const stepsReveal = useRevealLocal();
-  const landlordReveal = useRevealLocal();
-  const faqReveal = useRevealLocal();
-  const finalReveal = useRevealLocal();
-
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: SCHEMA }} />
-
       <div className="min-h-screen bg-[#fafbfd] pb-[56px] lg:pb-0">
         <Navbar />
         <main id="main-content">
-
-        {/* ── 1. HERO ── */}
-        <section className="navy-gradient pt-28 pb-20 px-4">
-          <div
-            ref={heroReveal.ref}
-            className={`max-w-4xl mx-auto text-center transition-all duration-700 ${heroReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            <Eyebrow dark>Commercial &amp; Communal Cleaning</Eyebrow>
-            <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-5">
-              Commercial cleaning that<br className="hidden sm:block" />
-              <span className="text-gradient-metallic"> shows up. Every time.</span>
-            </h1>
-            <p className="text-silver-300 text-base sm:text-lg max-w-2xl mx-auto mb-5 sm:mb-8 leading-relaxed">
-              Offices, shops, cafés and the communal areas of residential blocks across East &amp; North London.
-              Free site visit within 48 hours, fixed written quote the same day, invoiced monthly.
-            </p>
-
-            {/* Trust row */}
-            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-6 sm:mb-10 text-silver-400 text-[13px] sm:text-sm">
-              <span className="flex items-center gap-1.5">
-                <span className="text-sky-400 font-bold">✓</span> £5m public liability insured
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="text-sky-400 font-bold">✓</span> DBS-checked staff
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="text-sky-400 font-bold">✓</span> RAMS &amp; method statements available
-              </span>
-            </div>
-
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <a
-                href={WA_COMMERCIAL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-whatsapp inline-flex items-center gap-2.5 font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-              >
-                {WA_SVG}
-                Book a free site visit
-              </a>
-              <a
-                href={EMAIL}
-                className="inline-flex items-center gap-2 border-2 border-white/40 hover:border-white text-white font-semibold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:bg-white/10 text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                Email your requirements
-              </a>
-            </div>
-          </div>
-        </section>
-
-        {/* ── 2. WHO WE CLEAN FOR ── */}
-        <section className="max-w-6xl mx-auto px-4 py-20">
-          <div
-            ref={whoReveal.ref}
-            className={`transition-all duration-700 ${whoReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            <div className="text-center mb-12">
-              <Eyebrow>Who we clean for</Eyebrow>
-              <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 leading-tight">
-                One team for every commercial space
-              </h2>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {WHO_CARDS.map((card, i) => (
-                <div
-                  key={card.title}
-                  className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300"
-                  style={{ transitionDelay: `${i * 80}ms` }}
-                >
-                  <div className="mb-4 text-royal-500" aria-hidden="true">{card.icon}</div>
-                  <h3 className="font-display font-bold text-navy-900 text-lg leading-snug mb-2">{card.title}</h3>
-                  <p className="text-slate-500 text-sm leading-relaxed">{card.body}</p>
+          <section className="relative overflow-hidden bg-navy-950 px-4 pb-20 pt-28">
+            <div aria-hidden="true" className="absolute -right-40 -top-40 h-[520px] w-[520px] rounded-full bg-sky-500/10 blur-3xl" />
+            <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1.06fr_0.94fr]">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-sky-300">Commercial & communal cleaning</p>
+                <h1 className="mt-4 max-w-3xl font-display text-4xl font-bold leading-[1.05] text-white sm:text-5xl lg:text-6xl">
+                  A cleaning plan built around <span className="text-sky-300">your site.</span>
+                </h1>
+                <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
+                  Offices, shops, cafés and residential blocks across East & North London. Start with a free site visit, then receive a fixed written quote and clear cleaning specification.
+                </p>
+                <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-300">
+                  <span className="inline-flex items-center gap-2"><ShieldCheck size={18} className="text-sky-300" /> £5m public liability</span>
+                  <span className="inline-flex items-center gap-2"><Clock3 size={18} className="text-sky-300" /> Out-of-hours available</span>
+                  <span className="inline-flex items-center gap-2"><FileCheck2 size={18} className="text-sky-300" /> RAMS available</span>
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── 3. NAVY BAND — WHAT'S INCLUDED ── */}
-        <section className="bg-navy-900 py-16 px-4">
-          <div
-            ref={includedReveal.ref}
-            className={`max-w-4xl mx-auto transition-all duration-700 ${includedReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            <div className="text-center mb-10">
-              <Eyebrow>Every contract</Eyebrow>
-              <h2 className="font-display text-3xl md:text-4xl font-bold text-white leading-tight">
-                What's included in every contract
-              </h2>
-            </div>
-            <ul className="grid sm:grid-cols-2 gap-x-12 gap-y-4">
-              {INCLUDED.map((item) => (
-                <li key={item} className="flex items-start gap-3 text-silver-200 text-sm leading-relaxed">
-                  <span className="text-[#F6B62B] font-bold text-base mt-0.5 flex-shrink-0">✓</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        {/* ── 4. GUIDE RATES (ticket-styled) ── */}
-        <section className="max-w-3xl mx-auto px-4 py-20">
-          <div
-            ref={ratesReveal.ref}
-            className={`transition-all duration-700 ${ratesReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            <div className="text-center mb-10">
-              <Eyebrow>Pricing</Eyebrow>
-              <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 leading-tight">
-                Guide rates — your fixed quote follows the free site visit
-              </h2>
-            </div>
-
-            {/* Price ticket */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-md overflow-hidden">
-              {/* Header strip */}
-              <div className="bg-navy-900 px-6 py-4 flex items-center justify-between gap-3">
-                <p className="font-mono text-silver-400 text-xs tracking-widest uppercase">VVE Clean · Commercial Services</p>
-                <div
-                  aria-hidden="true"
-                  className="flex-shrink-0 bg-navy-800 text-white font-mono text-[9px] font-bold tracking-[0.18em] uppercase px-3 py-1.5 rounded border-2 border-navy-700 rotate-[-6deg] select-none opacity-80"
-                >
-                  FIXED QUOTE · NO SURPRISES
+                <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+                  <a href={WA_COMMERCIAL} target="_blank" rel="noopener noreferrer" className="btn-whatsapp inline-flex min-h-[48px] items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                    <WhatsAppIcon /> Book a free site visit
+                  </a>
+                  <a href={EMAIL} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-white/30 px-6 py-3.5 font-bold text-white transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                    <Mail size={19} /> Email your requirements
+                  </a>
                 </div>
               </div>
 
-              {/* Rows */}
-              <div className="divide-y divide-dashed divide-slate-200">
+              <div className="rounded-[1.75rem] border border-white/15 bg-white/[0.07] p-5 shadow-2xl shadow-black/20 backdrop-blur-sm sm:p-7">
+                <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-5">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300">Your cleaning brief</p>
+                    <h2 className="mt-1 font-display text-2xl font-bold text-white">Clear before we start</h2>
+                  </div>
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-400 text-navy-950"><ClipboardCheck size={25} /></span>
+                </div>
+                <div className="mt-5 space-y-3">
+                  {['Areas and tasks agreed', 'Visit frequency confirmed', 'Access arrangements recorded', 'Fixed price supplied in writing'].map((item) => (
+                    <div key={item} className="flex items-center gap-3 rounded-xl bg-navy-950/45 px-4 py-3 text-sm font-semibold text-white">
+                      <CheckCircle2 size={18} className="flex-none text-sky-300" /> {item}
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-5 text-xs leading-relaxed text-slate-400">One agreed specification gives your team and ours the same standard to work from.</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="border-b border-slate-200 bg-white px-4 py-6">
+            <div className="mx-auto grid max-w-6xl grid-cols-2 divide-x divide-slate-200 text-center sm:grid-cols-4">
+              {['Free site visit', 'Fixed written quote', 'Monthly invoicing', 'East & North London'].map((item) => (
+                <p key={item} className="px-3 py-2 text-xs font-bold uppercase tracking-[0.08em] text-navy-800 sm:text-sm">{item}</p>
+              ))}
+            </div>
+          </section>
+
+          <section className="mx-auto max-w-7xl px-4 py-20">
+            <div className="max-w-2xl">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-600">Who we clean for</p>
+              <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-navy-900 md:text-4xl">The right plan for the way your building is used.</h2>
+              <p className="mt-4 text-slate-600">Choose the closest starting point. The final specification is tailored during the site visit.</p>
+            </div>
+            <div className="mt-10 grid gap-5 md:grid-cols-2">
+              {SECTORS.map(({ icon: Icon, title, body, detail }, index) => (
+                <article key={title} className={`group rounded-[1.5rem] border p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${index === 0 ? 'border-navy-800 bg-navy-950 text-white md:row-span-2 md:flex md:flex-col md:justify-between' : 'border-slate-200 bg-white'}`}>
+                  <div className="flex items-start justify-between gap-6">
+                    <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${index === 0 ? 'bg-sky-400 text-navy-950' : 'bg-sky-50 text-sky-600'}`}><Icon size={24} /></span>
+                    <ArrowRight size={20} className={index === 0 ? 'text-sky-300' : 'text-slate-300'} />
+                  </div>
+                  <div className={index === 0 ? 'mt-16' : 'mt-6'}>
+                    <h3 className={`font-display text-xl font-bold ${index === 0 ? 'text-white md:text-3xl' : 'text-navy-900'}`}>{title}</h3>
+                    <p className={`mt-3 leading-relaxed ${index === 0 ? 'text-slate-300' : 'text-slate-600'}`}>{body}</p>
+                    <p className={`mt-5 text-xs font-bold uppercase tracking-[0.12em] ${index === 0 ? 'text-sky-300' : 'text-sky-600'}`}>{detail}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="bg-surface px-4 py-20">
+            <div className="mx-auto grid max-w-6xl overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-xl shadow-navy-950/5 lg:grid-cols-[0.9fr_1.1fr]">
+              <div className="bg-navy-950 p-8 sm:p-10">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-300">Every regular contract</p>
+                <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-white">A documented service, not a vague promise.</h2>
+                <p className="mt-4 text-sm leading-relaxed text-slate-300">The schedule, tasks, access and price are agreed before the first clean so there is a clear standard to review.</p>
+                <Link to="/commercial-carpet-cleaning-london" className="mt-7 inline-flex min-h-[44px] items-center gap-2 font-bold text-sky-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                  Commercial carpet cleaning <ArrowRight size={18} />
+                </Link>
+              </div>
+              <ul className="grid gap-x-8 gap-y-5 p-8 sm:grid-cols-2 sm:p-10">
+                {INCLUDED.map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-sm leading-relaxed text-slate-700">
+                    <CheckCircle2 size={20} className="mt-0.5 flex-none text-sky-600" /> {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+
+          <section className="mx-auto max-w-6xl px-4 py-20">
+            <div className="grid items-start gap-10 lg:grid-cols-[0.72fr_1.28fr]">
+              <div className="lg:sticky lg:top-28">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-600">Guide pricing</p>
+                <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-navy-900 md:text-4xl">A useful starting point. Your site receives a fixed quote.</h2>
+                <p className="mt-4 text-sm leading-relaxed text-slate-600">Rates depend on size, frequency, access and the agreed task list. We confirm the complete price in writing before work starts.</p>
+              </div>
+              <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-lg shadow-navy-950/5">
                 {RATES.map((row) => (
-                  <div key={row.label} className="flex items-center justify-between px-6 py-4 gap-4">
-                    <span className="text-slate-700 text-sm">{row.label}</span>
-                    <span className="font-mono text-navy-900 font-bold text-sm whitespace-nowrap tabular-nums">
-                      {row.price}
-                    </span>
+                  <div key={row.label} className="flex flex-col gap-2 border-b border-slate-100 px-6 py-5 last:border-0 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-semibold text-navy-900">{row.label}</p>
+                      {row.note && <p className="mt-1 text-xs text-slate-500">{row.note}</p>}
+                    </div>
+                    <p className="font-mono text-sm font-bold tabular-nums text-sky-700">{row.price}</p>
                   </div>
                 ))}
               </div>
+            </div>
+          </section>
 
-              {/* Footnote */}
-              <div className="border-t border-dashed border-slate-200 px-6 py-4 bg-slate-50">
-                <p className="text-slate-500 text-xs leading-relaxed">
-                  Rates depend on size, frequency and access. Every quote is fixed in writing before we start — no hourly surprises.
-                </p>
+          <section className="border-y border-slate-200 bg-white px-4 py-20">
+            <div className="mx-auto max-w-6xl">
+              <div className="text-center">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-600">How it works</p>
+                <h2 className="mt-3 font-display text-3xl font-bold text-navy-900 md:text-4xl">From enquiry to an agreed cleaning plan.</h2>
               </div>
+              <ol className="mt-10 grid gap-5 md:grid-cols-3">
+                {STEPS.map(({ icon: Icon, step, title, body }) => (
+                  <li key={step} className="rounded-2xl border border-slate-200 bg-surface p-6">
+                    <div className="flex items-center justify-between"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-navy-950 text-sky-300"><Icon size={21} /></span><span className="font-mono text-sm font-bold text-sky-600">{step}</span></div>
+                    <h3 className="mt-5 font-display text-xl font-bold text-navy-900">{title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-600">{body}</p>
+                  </li>
+                ))}
+              </ol>
             </div>
-          </div>
-        </section>
+          </section>
 
-        {/* ── 5. HOW IT WORKS ── */}
-        <section className="bg-[#f0f7ff] py-20 px-4">
-          <div
-            ref={stepsReveal.ref}
-            className={`max-w-4xl mx-auto transition-all duration-700 ${stepsReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            <div className="text-center mb-12">
-              <Eyebrow>How it works</Eyebrow>
-              <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 leading-tight">
-                Three steps to a spotless site
-              </h2>
+          <section className="mx-auto max-w-4xl px-4 py-20">
+            <div className="text-center">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-600">Questions</p>
+              <h2 className="mt-3 font-display text-3xl font-bold text-navy-900">Commercial cleaning FAQs</h2>
             </div>
-            <div className="grid sm:grid-cols-3 gap-8">
-              {STEPS.map((step, i) => (
-                <div
-                  key={step.num}
-                  className="bg-white border border-slate-200/80 rounded-2xl p-7 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300 text-center"
-                  style={{ transitionDelay: `${i * 100}ms` }}
-                >
-                  <div className="font-mono text-sky-500 text-3xl font-bold mb-3">{step.num}</div>
-                  <h3 className="font-display font-bold text-navy-900 text-lg mb-2">{step.title}</h3>
-                  <p className="text-slate-500 text-sm leading-relaxed">{step.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── 6. WHY LANDLORDS & AGENTS USE US ── */}
-        <section className="max-w-4xl mx-auto px-4 py-20">
-          <div
-            ref={landlordReveal.ref}
-            className={`bg-white border border-slate-200/80 rounded-2xl p-8 md:p-10 shadow-sm transition-all duration-700 ${landlordReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            <Eyebrow>For landlords &amp; agents</Eyebrow>
-            <h2 className="font-display text-2xl md:text-3xl font-bold text-navy-900 mb-4 leading-tight">
-              Why landlords &amp; agents use us
-            </h2>
-            <p className="text-slate-600 text-base leading-relaxed">
-              We already clean end-of-tenancy properties to a 67-point agency checklist across E1–E17 and N1–N16. Agents who use us for communal areas get{' '}
-              <strong className="text-navy-900">priority booking for their void-property cleans</strong> — one supplier, one invoice, one phone number that answers.
-            </p>
-          </div>
-        </section>
-
-        {/* ── 7. FAQ ── */}
-        <section className="max-w-3xl mx-auto px-4 pb-20">
-          <div
-            ref={faqReveal.ref}
-            className={`transition-all duration-700 ${faqReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            <div className="text-center mb-10">
-              <Eyebrow>FAQs</Eyebrow>
-              <h2 className="font-display text-3xl font-bold text-navy-900">Common questions</h2>
-            </div>
-            <ul className="faq-list">
+            <ul className="faq-list mt-10">
               {FAQS.map((faq) => (
                 <li key={faq.q} className="faq-item">
-                  <details>
-                    <summary className="faq-summary">
-                      <span className="faq-question">{faq.q}</span>
-                      <span className="faq-icon" aria-hidden="true">+</span>
-                    </summary>
-                    <div className="faq-answer"><p>{faq.a}</p></div>
-                  </details>
+                  <details><summary className="faq-summary"><span className="faq-question">{faq.q}</span><span className="faq-icon" aria-hidden="true">+</span></summary><div className="faq-answer"><p>{faq.a}</p></div></details>
                 </li>
               ))}
             </ul>
-          </div>
-        </section>
+          </section>
 
-        {/* ── 8. FINAL CTA BAND ── */}
-        <section
-          ref={finalReveal.ref}
-          className={`navy-gradient py-20 px-4 transition-all duration-700 ${finalReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-        >
-          <div className="max-w-2xl mx-auto text-center">
-            <Eyebrow dark>Get started</Eyebrow>
-            <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-4 leading-tight">
-              Get your fixed quote this week.
-            </h2>
-            <p className="text-silver-300 text-base mb-10 leading-relaxed">
-              We visit within 48 hours and deliver a written quote the same day. No obligation.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <a
-                href={WA_COMMERCIAL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-whatsapp inline-flex items-center gap-2.5 font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-              >
-                {WA_SVG}
-                WhatsApp us your address
-              </a>
-              <a
-                href={EMAIL}
-                className="inline-flex items-center gap-2 border-2 border-white/40 hover:border-white text-white font-semibold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:bg-white/10 text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                Email your requirements
-              </a>
+          <section className="navy-gradient px-4 py-20">
+            <div className="mx-auto max-w-3xl text-center">
+              <Sparkles size={28} className="mx-auto text-sky-300" />
+              <h2 className="mt-4 font-display text-3xl font-bold text-white md:text-4xl">Start with a free site visit.</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-slate-300">Send the address and a short description of the space. We will arrange the next suitable time to assess it.</p>
+              <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+                <a href={WA_COMMERCIAL} target="_blank" rel="noopener noreferrer" className="btn-whatsapp inline-flex min-h-[48px] items-center justify-center gap-2.5 rounded-xl px-7 py-3.5 font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><WhatsAppIcon /> WhatsApp your address</a>
+                <a href={EMAIL} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-white/30 px-7 py-3.5 font-bold text-white hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><Mail size={19} /> Email your requirements</a>
+              </div>
             </div>
-          </div>
-        </section>
-
+          </section>
         </main>
         <Footer />
       </div>
