@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useId, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trackBookingInitiated } from '../lib/analytics';
 import { Calculator, CheckCircle2, Plus, Minus, Info, AlertCircle, ChevronDown, LockKeyhole, ShieldCheck } from 'lucide-react';
@@ -13,6 +13,7 @@ import {
   itemLinePrice,
   type CarpetCondition,
   type CarpetCounts,
+  type CarpetItem,
 } from '../data/carpetPricing';
 import {
   EOT_BASE_PRICES_P,
@@ -234,6 +235,62 @@ function Counter({
   );
 }
 
+// One item row per carpet/upholstery product. Extracted so the always-visible
+// group and the progressively-revealed cross-sell group render from identical
+// markup — the revealed panel is the same control set, not a second copy of it.
+// Prices come from the CarpetItem definitions and itemLinePrice, exactly as
+// before; nothing here computes or stores a price.
+function CarpetItemRows({
+  items,
+  counts,
+  onChange,
+}: {
+  items: CarpetItem[];
+  counts: CarpetCounts;
+  onChange: React.Dispatch<React.SetStateAction<CarpetCounts>>;
+}) {
+  return (
+    <div className="space-y-1.5">
+      {items.map((item) => {
+        const qty = counts[item.key] ?? 0;
+        const lp  = itemLinePrice(item, qty);
+        return (
+          <div key={item.key}
+            className={`flex items-start justify-between rounded-xl px-3 py-2.5 border transition-all duration-200 ${
+              qty > 0 ? 'bg-royal-50 border-royal-300' : 'bg-silver-50 border-silver-200'
+            }`}>
+            <div className="min-w-0 flex-1 mr-3">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-navy-800 text-xs font-medium">{item.label}</span>
+                {qty > 0 && (
+                  <span className="text-green-700 font-bold text-[10px] bg-green-100 border border-green-300 rounded-full px-1.5 py-0.5 leading-none">
+                    £{lp}
+                  </span>
+                )}
+              </div>
+              <div className="text-royal-600 text-[10px] font-bold mt-0.5">
+                {item.key === 'stairs'
+                  ? `£${item.stairsFirst} first flight · £${item.stairsExtra} each extra`
+                  : `£${item.unitPrice} per item`}
+              </div>
+              {item.helper && (
+                <p className="text-silver-600 text-[10px] mt-0.5 leading-snug">{item.helper}</p>
+              )}
+            </div>
+            <Counter
+              value={qty}
+              onChange={(v) => onChange((p) => ({ ...p, [item.key]: v }))}
+              // Without this every row announced simply "Increase item
+              // quantity", leaving 13 identically named controls on the page.
+              itemLabel={item.label}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Session-restore helper ───────────────────────────────────────────────────
 // Reads vve_booking.quoteConfig from sessionStorage only when the temporary
 // vve_restore_quote flag is present (set by "Back to quote" in BookingPage).
@@ -329,6 +386,45 @@ export default function QuoteCalculator({
   const [carpetCondition, setCarpetCondition] = useState<CarpetCondition>(
     () => (_restore?.carpetCondition as CarpetCondition | undefined) ?? 'normal',
   );
+
+  // ── Cross-sell disclosure (service pages only) ──
+  // The Carpet page leads with carpets and offers upholstery as an optional
+  // extra; the Sofa page does the exact reverse. Both use the same counts and
+  // the same computeCarpetPrice call as before — this is presentation and
+  // state only, so no pricing rule is duplicated or re-implemented here.
+  //
+  // 'all-services' (homepage and /leaflet) is deliberately excluded: it keeps
+  // showing both groups outright, exactly as it does today.
+  const crossSellGroup: 'Carpets' | 'Sofas & Upholstery' | null =
+    isCarpetFocused ? 'Sofas & Upholstery' : isUpholsteryFocused ? 'Carpets' : null;
+
+  const crossSellItemKeys = useMemo(
+    () => (crossSellGroup
+      ? (CARPET_GROUPS.find((g) => g.group === crossSellGroup)?.items ?? []).map((i) => i.key)
+      : []),
+    [crossSellGroup],
+  );
+
+  // Opens closed by default. The one exception is a restored quote that already
+  // contains cross-sell items: hiding those would leave the customer paying for
+  // lines they cannot see, so the panel reopens to match what is in the price.
+  const [crossSellOpen, setCrossSellOpen] = useState(
+    () => crossSellItemKeys.some((k) => (_restore?.carpetCounts?.[k] ?? 0) > 0),
+  );
+
+  const crossSellPanelId = useId();
+  const crossSellLabelId = useId();
+
+  const closeCrossSell = () => {
+    setCrossSellOpen(false);
+    // Zero the hidden group so nothing the customer can no longer see is left
+    // contributing to the total, the bundle discount or the booking payload.
+    setCarpetCounts((prev) => {
+      const next = { ...prev };
+      for (const key of crossSellItemKeys) next[key] = 0;
+      return next;
+    });
+  };
 
   const [windowSize,   setWindowSize]   = useState(() => _restore?.windowSize   ?? 'small');
   const [gutterType,   setGutterType]   = useState(() => _restore?.gutterType   ?? 'terraced');
@@ -845,75 +941,101 @@ export default function QuoteCalculator({
                         )}
                       </div>
 
-                      {/* Item groups. Upholstery mode stays strictly focused,
-                          but carpet mode also offers Sofas & Upholstery as an
-                          optional add-on so a customer can book carpets and a
-                          sofa in one visit without leaving the page. The
-                          counts/pricing engine is identical either way, so no
-                          pricing logic is duplicated. */}
-                      {CARPET_GROUPS.filter((grp) => (
-                        isCarpetFocused
-                          ? true
-                          : !focusGroup || grp.group === focusGroup
-                      )).map((grp) => (
-                        <div key={grp.group}>
-                          {/* Sub-heading */}
-                          {isCarpetFocused && grp.group === 'Sofas & Upholstery' ? (
-                            <div className="mt-5 mb-2 pt-4 border-t border-silver-200">
-                              <p className="text-navy-900 font-bold text-sm">
-                                Would you also like upholstery cleaning?
-                              </p>
-                              <p className="text-silver-600 text-xs mt-0.5">
-                                Optional — add a sofa, armchair or mattress to the same visit.
-                              </p>
-                            </div>
-                          ) : (
+                      {/* Item groups.
+                          - 'all-services' (homepage, /leaflet): both groups
+                            shown outright, exactly as before.
+                          - Carpet page: carpets shown, upholstery offered
+                            behind the Yes/No disclosure below.
+                          - Sofa page: the exact reverse.
+                          Every branch renders the same rows from the same
+                          CARPET_GROUPS definition and feeds the same
+                          carpetCounts, so no pricing logic is duplicated. */}
+                      {CARPET_GROUPS
+                        .filter((grp) => (crossSellGroup
+                          ? grp.group !== crossSellGroup
+                          : !focusGroup || grp.group === focusGroup))
+                        .map((grp) => (
+                          <div key={grp.group}>
                             <div className="flex items-center gap-2 mb-2">
                               <span className="text-navy-700 font-bold text-xs uppercase tracking-widest whitespace-nowrap">{grp.group}</span>
                               <div className="flex-1 h-px bg-silver-200" />
                             </div>
-                          )}
-                          <div className="space-y-1.5">
-                            {grp.items.map((item) => {
-                              const qty = carpetCounts[item.key] ?? 0;
-                              const lp  = itemLinePrice(item, qty);
-                              return (
-                                <div key={item.key}
-                                  className={`flex items-start justify-between rounded-xl px-3 py-2.5 border transition-all duration-200 ${
-                                    qty > 0 ? 'bg-royal-50 border-royal-300' : 'bg-silver-50 border-silver-200'
-                                  }`}>
-                                  <div className="min-w-0 flex-1 mr-3">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="text-navy-800 text-xs font-medium">{item.label}</span>
-                                      {qty > 0 && (
-                                        <span className="text-green-700 font-bold text-[10px] bg-green-100 border border-green-300 rounded-full px-1.5 py-0.5 leading-none">
-                                          £{lp}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="text-royal-600 text-[10px] font-bold mt-0.5">
-                                      {item.key === 'stairs'
-                                        ? `£${item.stairsFirst} first flight · £${item.stairsExtra} each extra`
-                                        : `£${item.unitPrice} per item`}
-                                    </div>
-                                    {item.helper && (
-                                      <p className="text-silver-600 text-[10px] mt-0.5 leading-snug">{item.helper}</p>
-                                    )}
-                                  </div>
-                                  <Counter
-                                    value={qty}
-                                    onChange={(v) => setCarpetCounts((p) => ({ ...p, [item.key]: v }))}
-                                    // Without this every row announced simply
-                                    // "Increase item quantity", leaving 13
-                                    // identically named controls on the page.
-                                    itemLabel={item.label}
-                                  />
-                                </div>
-                              );
-                            })}
+                            <CarpetItemRows
+                              items={grp.items}
+                              counts={carpetCounts}
+                              onChange={setCarpetCounts}
+                            />
                           </div>
+                        ))}
+
+                      {/* Progressive cross-sell. Collapsed by default so the
+                          calculator stays short; the customer opts in rather
+                          than scrolling past a second service they did not
+                          come for. Choosing "No" zeroes the hidden group so a
+                          product they can no longer see can never sit in the
+                          price (see closeCrossSell). */}
+                      {crossSellGroup && (
+                        <div className="mt-5 pt-4 border-t border-silver-200">
+                          <p id={crossSellLabelId} className="text-navy-900 font-bold text-sm">
+                            {crossSellGroup === 'Sofas & Upholstery'
+                              ? 'Would you also like upholstery cleaning?'
+                              : 'Would you also like carpet cleaning?'}
+                          </p>
+                          <p className="text-silver-600 text-xs mt-0.5">
+                            {crossSellGroup === 'Sofas & Upholstery'
+                              ? 'Optional — add a sofa, armchair or mattress to the same visit.'
+                              : 'Optional — add rooms, stairs or rugs to the same visit.'}
+                          </p>
+
+                          <div className="mt-3 flex gap-2" role="group" aria-labelledby={crossSellLabelId}>
+                            <button
+                              type="button"
+                              onClick={() => setCrossSellOpen(true)}
+                              aria-pressed={crossSellOpen}
+                              aria-expanded={crossSellOpen}
+                              aria-controls={crossSellPanelId}
+                              className={`min-h-[44px] flex-1 rounded-xl border-2 px-4 py-2 text-sm font-bold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 ${
+                                crossSellOpen
+                                  ? 'border-royal-500 bg-royal-50 text-royal-700'
+                                  : 'border-silver-200 text-navy-700 hover:border-royal-300'
+                              }`}
+                            >
+                              Yes
+                            </button>
+                            <button
+                              type="button"
+                              onClick={closeCrossSell}
+                              aria-pressed={!crossSellOpen}
+                              className={`min-h-[44px] flex-1 rounded-xl border-2 px-4 py-2 text-sm font-bold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 ${
+                                !crossSellOpen
+                                  ? 'border-royal-500 bg-royal-50 text-royal-700'
+                                  : 'border-silver-200 text-navy-700 hover:border-royal-300'
+                              }`}
+                            >
+                              No
+                            </button>
+                          </div>
+
+                          {/* Mounted only while open, so the hidden controls
+                              are genuinely absent — not merely invisible — and
+                              can never be tabbed to or read by a screen reader.
+                              motion-safe keeps the reveal still for anyone with
+                              prefers-reduced-motion set. */}
+                          {crossSellOpen && (
+                            <div
+                              id={crossSellPanelId}
+                              aria-labelledby={crossSellLabelId}
+                              className="mt-3 motion-safe:animate-fade-in-up"
+                            >
+                              <CarpetItemRows
+                                items={CARPET_GROUPS.find((g) => g.group === crossSellGroup)?.items ?? []}
+                                counts={carpetCounts}
+                                onChange={setCarpetCounts}
+                              />
+                            </div>
+                          )}
                         </div>
-                      ))}
+                      )}
 
                       {/* Bundle savings info — hidden when a promo code already gives a better saving */}
                       {!promoCode && (

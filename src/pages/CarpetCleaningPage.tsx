@@ -97,10 +97,15 @@ const DATA: ServiceLandingData = {
   h1: 'Carpet Cleaning London',
   h1Highlight: '',
   heroSubtitle: 'Deep steam cleaning and stain removal',
+  // DBS deliberately appears once on this page — in heroTrustLine below, where
+  // it sits alongside insurance as a credential. It used to be repeated here
+  // too, which spent a hero bullet on a claim the visitor had already read.
+  // This slot now carries a different, existing benefit (see the "Fixed prices,
+  // no surprises" benefit card and the fixed price table further down).
   heroBadges: [
     'Hot-water extraction',
     'Dry in 2–4 hours',
-    'DBS-checked technicians',
+    'Fixed prices, no surprises',
   ],
   // Single hero image for every breakpoint. A separate desktop crop was
   // referenced here previously but the file was never added, which left the
@@ -108,7 +113,7 @@ const DATA: ServiceLandingData = {
   heroBgImage: '/images/carpet-hero.jpg',
   heroGoogleBadge: true,
   heroCompactMobile: true,
-  heroTrustLine: 'Fully Insured · DBS-checked technicians',
+  heroTrustLine: 'Fully insured · DBS-checked technicians',
   primaryHref: '/carpet-cleaning-london#quote',
   primaryLabel: 'Build my carpet quote',
   secondaryHref: WA,

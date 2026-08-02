@@ -143,6 +143,13 @@ const CAL_SVG = (
   </svg>
 );
 
+const SHIELD_SVG = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0 text-sky-300" aria-hidden="true">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    <polyline points="9 12 11 14 15 10" />
+  </svg>
+);
+
 function Eyebrow({ children, dark = false, align = 'center' }: { children: React.ReactNode; dark?: boolean; align?: 'center' | 'start' }) {
   return (
     <div className={`flex items-center gap-2 mb-3 ${align === 'start' ? 'justify-start' : 'justify-center'}`}>
@@ -519,8 +526,17 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
                   <GoogleBadge />
                 </div>
               )}
+              {/* Credentials line. Previously plain silver-200 text at text-xs,
+                  which all but disappeared against the photographic hero. It is
+                  now a bordered chip in solid white so it reads as a credential
+                  rather than fine print, and stays legible over any hero image. */}
               {data.heroTrustLine && (
-                <p className={`${data.heroCompactMobile ? 'mt-3 sm:mt-4' : 'mt-4'} text-silver-200 text-xs tracking-wide`}>{data.heroTrustLine}</p>
+                <div className={`${data.heroCompactMobile ? 'mt-3 sm:mt-4' : 'mt-4'} flex ${data.heroAside ? 'justify-start' : 'justify-center'}`}>
+                  <p className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-navy-950/50 px-3.5 py-1.5 text-sm font-semibold text-white">
+                    {SHIELD_SVG}
+                    {data.heroTrustLine}
+                  </p>
+                </div>
               )}
             </div>
             {data.heroAside && (
