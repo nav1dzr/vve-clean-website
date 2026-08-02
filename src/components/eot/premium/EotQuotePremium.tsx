@@ -24,7 +24,7 @@ import {
   EOT_CARPET_UPGRADES, EOT_EXTRAS, EOT_SCOPE_OPTIONS, EOT_SIZES, displayPence,
 } from '../../../lib/eotPricing';
 import { useEotQuote, type EotQuoteState } from '../useEotQuote';
-import VveWordmark from '../../brand/VveWordmark';
+import BrandLogo from '../../BrandLogo';
 import {
   PrimaryButton, SecondaryButton, SelectionCardGroup, StepperControl,
   TrustBadge, QuoteDisclosure, UpgradeRow,
@@ -172,7 +172,7 @@ export default function EotQuotePremium({
             <div className="overflow-hidden rounded-2xl border border-silver-200 bg-white shadow-[0_1px_3px_rgba(16,24,40,0.06),0_8px_24px_-8px_rgba(16,24,40,0.10)]">
               {/* Header: official wordmark + trust badge */}
               <div className="flex items-center justify-between gap-3 border-b border-silver-100 px-5 py-3.5">
-                <VveWordmark size="sm" />
+                <BrandLogo compact className="w-[66px]" />
                 <TrustBadge icon="secure" tone="navy">Secure quote</TrustBadge>
               </div>
 
