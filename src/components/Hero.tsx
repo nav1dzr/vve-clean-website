@@ -12,7 +12,7 @@ export default function Hero() {
             below-fold images and doesn't cause layout shift. */}
         <img
           src="/photo_2026-06-02_16-48-38.jpg"
-          alt="Professional end-of-tenancy cleaning result — spotless kitchen"
+          alt="Professionally cleaned kitchen by VVE Clean"
           width={1536}
           height={1024}
           // @ts-expect-error — fetchpriority is a valid HTML attribute; this
@@ -46,44 +46,46 @@ export default function Hero() {
             </span>
           </div>
 
-          {/* H1 — Bricolage Grotesque 800; slightly smaller on mobile so the
-              promise wraps into clean, scannable lines. */}
+          {/* H1 — Bricolage Grotesque 800. Two deliberate lines, so the break
+              is forced rather than left to the container width. Scaled up from
+              the previous headline: that one was a long sentence that had to
+              wrap into several lines, this one is two short ones and can carry
+              more weight in the same space. */}
           <h1
-            className="font-hero font-extrabold text-[1.6rem] sm:text-4xl lg:text-[2.6rem] xl:text-5xl text-white leading-[1.14] sm:leading-[1.08] mb-3 sm:mb-6 animate-fade-in-up text-shadow-hero"
+            className="font-hero font-extrabold text-[2rem] sm:text-5xl lg:text-[3.1rem] xl:text-6xl text-white leading-[1.12] sm:leading-[1.06] mb-3 sm:mb-6 animate-fade-in-up text-shadow-hero"
             style={{ animationDelay: '0.2s', opacity: 0 }}
           >
-            Get your full deposit back — or we{' '}
-            <span className="text-sky-300">re-clean</span>
-            {' '}free within{' '}
-            <span className="text-royal-300">48 hours.</span>
+            Professional cleaning,
+            <br />
+            <span className="text-sky-300">properly done.</span>
           </h1>
 
-          {/* Supporting text — concise mobile version; the longer
-              reassurance returns from sm up. */}
+          {/* Supporting text — one version at every breakpoint now: the copy
+              names the full service range, which does not shorten usefully. */}
           <p
             className="text-silver-100 text-sm sm:text-lg leading-relaxed mb-4 sm:mb-5 max-w-lg animate-fade-in-up text-shadow-hero"
             style={{ animationDelay: '0.45s', opacity: 0 }}
           >
-            <span className="sm:hidden">End of tenancy and deep cleaning across East &amp; North London. See your fixed price and book online in minutes.</span>
-            <span className="hidden sm:inline">End of tenancy and deep cleaning across East &amp; North London by DBS-checked, fully insured cleaners. See your exact price in 3 taps — no forms, no waiting for a callback.</span>
+            Carpets, upholstery, deep cleaning, end of tenancy and after-builders cleaning across
+            East &amp; North London—with clear pricing, professional equipment and results you can
+            rely on.
           </p>
 
-          {/* Benefit checklist — one-line facts on mobile, full
-              explanations from sm up. */}
+          {/* Benefit checklist — company-wide credentials rather than
+              service-specific detail, so each reads the same at every width. */}
           <ul
             className="space-y-1.5 sm:space-y-2 mb-4 sm:mb-7 animate-fade-in-up"
             style={{ animationDelay: '0.52s', opacity: 0 }}
           >
             {[
-              { short: '67-point end of tenancy checklist', long: "Our 67-point checklist mirrors the one your letting agent's clerk uses" },
-              { short: 'Essential appliances included', long: 'Oven, hob, extractor, emptied fridge and defrosted freezer are included with every Complete End of Tenancy Clean' },
-              { short: 'Fixed prices · £30 deposit', long: "Fixed prices. £30 reserves your requested appointment and comes off the final balance — we confirm availability separately" },
+              '£5m public liability insurance',
+              'DBS-checked, vetted cleaners',
+              '48-hour re-clean guarantee',
             ].map((item) => (
-              <li key={item.short} className="flex items-start gap-2.5">
+              <li key={item} className="flex items-start gap-2.5">
                 <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0 mt-0.5" />
                 <span className="text-white text-[13px] sm:text-sm font-medium leading-snug">
-                  <span className="sm:hidden">{item.short}</span>
-                  <span className="hidden sm:inline">{item.long}</span>
+                  {item}
                 </span>
               </li>
             ))}
