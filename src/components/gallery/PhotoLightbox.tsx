@@ -94,7 +94,9 @@ export default function PhotoLightbox({
       // Backdrop. Clicking it closes, but only when the click landed on the
       // backdrop itself — never when it bubbled up from the image or controls.
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      className="fixed inset-0 z-[100] flex flex-col bg-black/90 motion-safe:animate-fade-in sm:items-center sm:justify-center sm:p-6"
+      // Near-opaque rather than /90: at 90% the bright navbar behind showed
+      // through under the position text on mobile, which read as clutter.
+      className="fixed inset-0 z-[100] flex flex-col bg-black/[0.97] motion-safe:animate-fade-in sm:items-center sm:justify-center sm:p-6"
     >
       <div
         ref={dialogRef}
