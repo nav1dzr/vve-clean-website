@@ -317,6 +317,19 @@ describe('HomePage — returning from booking', () => {
     expect(document.querySelectorAll('#quote')).toHaveLength(1);
   });
 
+  it('lets an explicit service-card choice replace a restored EOT quote', async () => {
+    seedRestore();
+    const user = userEvent.setup();
+    renderHome();
+    await waitFor(() => expect(premiumIsOpen()).toBe(true));
+
+    await chooseCard(user, 'Carpet Cleaning');
+
+    await waitFor(() => expect(q().queryByText('Service Type')).toBeInTheDocument());
+    expect(premiumIsOpen()).toBe(false);
+    expect(document.querySelectorAll('#quote')).toHaveLength(1);
+  });
+
   it('restores the previous property type and size', async () => {
     seedRestore();
     renderHome();

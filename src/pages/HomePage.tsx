@@ -41,7 +41,11 @@ export default function HomePage() {
   // cannot drift apart in either pricing or presentation. It brings its own
   // id="quote" and its own mobile action bar, and suppresses the site-wide
   // sticky footer while mounted, so there is still exactly one of each.
-  const showPremiumEot = selectedQuoteService === 'end_of_tenancy' || Boolean(eotRestore);
+  // A restored EOT quote owns the initial empty selection, but an explicit
+  // service choice must always win. Otherwise choosing Carpet (or any other
+  // card) after returning from an EOT booking would remain stuck on EOT.
+  const showPremiumEot = selectedQuoteService === 'end_of_tenancy'
+    || (selectedQuoteService === null && Boolean(eotRestore));
 
   // No hash handling here: #quote always exists — the calculator shows its
   // introductory panel until a service is chosen — so ScrollToTop, mounted once
