@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">VVE Clean</title>
+  <defs>
+    <linearGradient id="vve-blue" x1="64" y1="48" x2="448" y2="464" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1b93f3"/>
+      <stop offset="0.52" stop-color="#1268d9"/>
+      <stop offset="1" stop-color="#082f78"/>
+    </linearGradient>
+    <linearGradient id="edge-light" x1="88" y1="68" x2="420" y2="436" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff" stop-opacity="0.24"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#020b24" stop-opacity="0.18"/>
+    </linearGradient>
+    <mask id="first-v-cuts" maskUnits="userSpaceOnUse">
+      <rect width="512" height="512" fill="white"/>
+      <path d="M94 266l17-7 6 17-18 7zM123 298l19-8-7 21-18 7z" fill="black"/>
+    </mask>
+  </defs>
+
+  <rect x="12" y="12" width="488" height="488" rx="116" fill="url(#vve-blue)"/>
+  <rect x="20" y="20" width="472" height="472" rx="108" fill="none" stroke="url(#edge-light)" stroke-width="8"/>
+
+  <!-- A compact, path-only version of the approved italic vve wordmark.
+       Paths keep the favicon consistent in browsers that cannot load web fonts. -->
+  <g fill="#fff">
+    <path mask="url(#first-v-cuts)" d="M45 180h38l30 106 38-106h40l-59 165H93z"/>
+    <path d="M185 180h38l30 106 38-106h40l-59 165h-39z"/>
+    <path fill-rule="evenodd" d="M316 260c0-55 38-90 94-90 51 0 80 32 80 83v25H362c7 24 25 36 52 36 27 0 48-9 69-28v43c-20 16-44 24-74 24-58 0-93-37-93-93zm47-23h82c-4-21-17-31-38-31-21 0-37 11-44 31z"/>
+  </g>
+</svg>
