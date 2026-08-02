@@ -5,13 +5,20 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const src   = resolve(__dir, '../public/favicon.png');
+const src   = resolve(__dir, '../public/favicon.svg');
 const out   = resolve(__dir, '../public');
 
 const PNG_SIZES = [16, 32, 48, 180, 192, 512];
 const ICO_SIZES = [16, 32, 48];
 
 async function main() {
+  // Keep a large PNG source for services that do not accept SVG favicons.
+  await sharp(src)
+    .resize(1024, 1024, { fit: 'cover', position: 'centre' })
+    .png()
+    .toFile(`${out}/favicon.png`);
+  console.log('✓ favicon.png');
+
   // Generate all PNGs
   for (const size of PNG_SIZES) {
     const name =

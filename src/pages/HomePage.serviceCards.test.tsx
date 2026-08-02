@@ -63,7 +63,6 @@ async function chooseCard(user: ReturnType<typeof userEvent.setup>, title: strin
 /** Copy unique to each branch of the detailed calculator. */
 const DETAIL_MARKER: Record<string, RegExp> = {
   carpet_upholstery: /Bedroom/i,
-  end_of_tenancy: /Property Size/i,
   move_in: /Property Size/i,
   after_builders: /Property Size/i,
 };
@@ -134,7 +133,8 @@ describe('HomePage — fresh visit', () => {
 describe('HomePage — choosing from the dropdown', () => {
   const cases: Array<{ label: string; service: string }> = [
     { label: 'Carpet or upholstery cleaning', service: 'carpet_upholstery' },
-    { label: 'End of tenancy cleaning', service: 'end_of_tenancy' },
+    // 'End of tenancy cleaning' is deliberately absent: it now opens the shared
+    // premium quote instead of this calculator. See HomePage.premiumEot.test.tsx.
     { label: 'Move-in deep cleaning', service: 'move_in' },
     { label: 'After-builders cleaning', service: 'after_builders' },
   ];
@@ -161,7 +161,7 @@ describe('HomePage — choosing from a service card', () => {
   const cases: Array<{ card: string; service: string }> = [
     { card: 'Carpet Cleaning', service: 'carpet_upholstery' },
     { card: 'Sofa & Upholstery', service: 'carpet_upholstery' },
-    { card: 'End of Tenancy', service: 'end_of_tenancy' },
+    // 'End of Tenancy' is deliberately absent — see the note above.
     { card: 'Deep Cleaning', service: 'move_in' },
     { card: 'After Builders', service: 'after_builders' },
   ];
@@ -182,7 +182,7 @@ describe('HomePage — choosing from a service card', () => {
   it('scrolls to the quote section when the choice came from a card', async () => {
     const user = userEvent.setup();
     renderHome();
-    await chooseCard(user, 'End of Tenancy');
+    await chooseCard(user, 'Deep Cleaning');
 
     await waitFor(() => {
       expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
@@ -209,9 +209,9 @@ describe('HomePage — returning from the booking page', () => {
     sessionStorage.setItem(
       'vve_booking',
       JSON.stringify({
-        serviceName: 'End of Tenancy Cleaning',
+        serviceName: 'Carpet Cleaning',
         price: 299,
-        quoteConfig: { service: 'deep', deepService: 'end_of_tenancy', deepSize: 'bed2', deepBaths: 1, addOnCounts: {} },
+        quoteConfig: { service: 'deep', deepService: 'carpet_upholstery', carpetCounts: { bedroom: 1 } },
       }),
     );
 
@@ -222,7 +222,7 @@ describe('HomePage — returning from the booking page', () => {
       expect(within(quoteSection()).queryByText('Service Type')).toBeInTheDocument();
     });
     expect(within(quoteSection()).queryByLabelText('Select a service')).not.toBeInTheDocument();
-    expect(within(quoteSection()).getAllByText(/Property Size/i).length).toBeGreaterThan(0);
+    expect(within(quoteSection()).getAllByText(/Bedroom/i).length).toBeGreaterThan(0);
   });
 });
 
