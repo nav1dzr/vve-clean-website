@@ -56,6 +56,13 @@ describe('generateInvoicePdfBuffer', () => {
     expect(extractPdfText(buffer)).toContain('INV-2026-000001');
   });
 
+  it('draws the current lowercase VVE Clean wordmark', async () => {
+    const buffer = await generateInvoicePdfBuffer(invoice(), items(), settings, { isDraft: false });
+    const text = extractPdfText(buffer);
+    expect(text).toContain('vve');
+    expect(text).toContain('CLEAN');
+  });
+
   it('includes a DRAFT watermark and status badge for a draft preview, and omits the formal number', async () => {
     const buffer = await generateInvoicePdfBuffer(invoice({ invoice_number: null }), items(), settings, { isDraft: true });
     expect(extractPdfText(buffer)).toContain('DRAFT');

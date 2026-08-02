@@ -4,6 +4,7 @@
 
 import nodemailer from 'nodemailer';
 import https from 'node:https';
+import { emailWordmarkHtml } from './_lib/emailBrand.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -214,8 +215,7 @@ function customerEmailHtml(data) {
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 16px">
 <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
   <tr><td style="background:#020b24;padding:28px 32px;border-radius:12px 12px 0 0">
-    <span style="font-size:24px;letter-spacing:0.18em;font-weight:700;color:#fff;font-family:Georgia,serif">V<span style="color:#b8960c">V</span>E</span>
-    <span style="font-size:10px;letter-spacing:0.22em;color:rgba(255,255,255,0.55);font-weight:600;font-family:Arial,sans-serif;margin-left:8px">CLEAN</span>
+    ${emailWordmarkHtml({ inverse: true })}
   </td></tr>
   <tr><td style="background:#fff;padding:32px;border:1px solid #E3E7EE;border-top:none;border-radius:0 0 12px 12px">
     <h1 style="font-size:22px;color:#020b24;margin:0 0 16px;font-family:Georgia,serif">We received your message</h1>
