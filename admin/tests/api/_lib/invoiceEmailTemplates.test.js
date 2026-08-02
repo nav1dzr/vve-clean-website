@@ -31,6 +31,15 @@ function receipt(overrides = {}) {
 }
 
 describe('invoiceEmail', () => {
+  it('uses the current blue VVE Clean wordmark without changing the email body layout', () => {
+    const { html } = invoiceEmail(invoice(), settings);
+    expect(html).toContain('aria-label="VVE Clean"');
+    expect(html).toContain('>vve</td>');
+    expect(html).toContain('>CLEAN</td>');
+    expect(html).toContain('#1268D9');
+    expect(html).not.toContain('#b8960c');
+  });
+
   it('includes the invoice number, total, amount due, and due date in both html and text', () => {
     const { subject, html, text } = invoiceEmail(invoice(), settings);
     expect(subject).toContain('INV-2026-000001');

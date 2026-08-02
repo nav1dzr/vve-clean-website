@@ -1,6 +1,6 @@
 // Invoice/receipt email templates. Visually mirrors api/stripe-webhook.js's
-// customerEmailHtml()/businessEmailHtml() brand style (navy #020b24, gold
-// #b8960c wordmark, inline-styled table layout) so a customer receiving
+// customerEmailHtml()/businessEmailHtml() brand style (navy #020b24,
+// current blue wordmark, inline-styled table layout) so a customer receiving
 // both a booking confirmation and later an invoice/receipt sees a
 // consistent look — but this is a separate, admin-project-local template,
 // not a shared import (the two Vercel projects don't share code; see
@@ -15,11 +15,7 @@ import { escHtml } from './escHtml.js';
 import { buildPaymentInstructionsSnapshot } from './paymentOptions.js';
 import { hasBankDetails } from './businessSettings.js';
 import { smartTitleCase } from './textFormat.js';
-
-function wordmarkHtml() {
-  return '<span style="font-weight:700;font-size:20px;color:#020b24;">V<span style="color:#b8960c;">V</span>E</span>'
-    + '<div style="font-size:10px;letter-spacing:2px;color:#666;margin-top:-2px;">CLEAN</div>';
-}
+import { emailWordmarkHtml } from './brandWordmark.js';
 
 function money(settings, amount) {
   return `${settings.currencySymbol || '£'}${Number(amount || 0).toFixed(2)}`;
@@ -32,7 +28,7 @@ function wrapHtml(bodyHtml, settings) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:24px 0;">
       <tr><td align="center">
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
-          <tr><td style="padding:24px 32px 0 32px;">${wordmarkHtml()}</td></tr>
+          <tr><td style="padding:24px 32px 0 32px;">${emailWordmarkHtml()}</td></tr>
           <tr><td style="padding:16px 32px 32px 32px;color:#222;font-size:14px;line-height:1.5;">
             ${bodyHtml}
           </td></tr>

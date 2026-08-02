@@ -26,6 +26,7 @@ import { smartTitleCase, formatPostcodeDisplay, formatEmailDisplay } from './tex
 const PAGE_MARGIN = 50;
 const NAVY = '#020b24';
 const GOLD = '#b8960c';
+const BRAND_BLUE = '#1268D9';
 const GOLD_TINT = '#fbf6e8';
 const NAVY_TINT = '#eef1f6';
 const GREY = '#666666';
@@ -43,7 +44,12 @@ const SAFE_BOTTOM = 841.89 - PAGE_MARGIN - FOOTER_RESERVE;
 // the seam it was when Space Grotesk was embedded here, in case that's
 // revisited later.
 function loadFonts() {
-  return { regular: 'Helvetica', medium: 'Helvetica-Bold', bold: 'Helvetica-Bold' };
+  return {
+    regular: 'Helvetica',
+    medium: 'Helvetica-Bold',
+    bold: 'Helvetica-Bold',
+    logo: 'Helvetica-BoldOblique',
+  };
 }
 
 function streamToBuffer(doc) {
@@ -120,31 +126,29 @@ function drawWordmark(doc, fonts, x, y) {
   const ruleGap = 6;
   const totalWidth = ruleWidth + ruleGap + cleanWidth + ruleGap + ruleWidth;
 
-  // Size "VVE" so its rendered width lands exactly on the -CLEAN- row's
+  // Size "vve" so its rendered width lands exactly on the -CLEAN- row's
   // width below it (rather than centering CLEAN under a fixed-size VVE),
   // so the two rows share the same left/right edges.
   const baseFontSize = 22;
-  doc.font(fonts.bold).fontSize(baseFontSize);
-  const naturalWidth = doc.widthOfString('VVE');
+  doc.font(fonts.logo).fontSize(baseFontSize);
+  const naturalWidth = doc.widthOfString('vve');
   const wordmarkFontSize = baseFontSize * (totalWidth / naturalWidth);
   const scale = wordmarkFontSize / baseFontSize;
 
-  doc.fontSize(wordmarkFontSize);
-  doc.fillColor(NAVY).text('V', x, y, { continued: true, lineBreak: false });
-  doc.fillColor(GOLD).text('V', { continued: true, lineBreak: false });
-  doc.fillColor(NAVY).text('E', { continued: false, lineBreak: false });
-  const wordmarkWidth = doc.widthOfString('VVE');
+  doc.font(fonts.logo).fontSize(wordmarkFontSize);
+  doc.fillColor(BRAND_BLUE).text('vve', x, y, { lineBreak: false });
+  const wordmarkWidth = doc.widthOfString('vve');
 
   let cx = x;
   const cleanY = y + 28 * scale;
   const ruleY = cleanY + 4.5;
 
   doc.font(fonts.medium).fontSize(8.5);
-  doc.strokeColor(GOLD).lineWidth(1).moveTo(cx, ruleY).lineTo(cx + ruleWidth, ruleY).stroke();
+  doc.strokeColor(BRAND_BLUE).lineWidth(1).moveTo(cx, ruleY).lineTo(cx + ruleWidth, ruleY).stroke();
   cx += ruleWidth + ruleGap;
-  doc.fillColor(NAVY).text(cleanText, cx, cleanY, { characterSpacing: cleanSpacing, lineBreak: false });
+  doc.fillColor(BRAND_BLUE).text(cleanText, cx, cleanY, { characterSpacing: cleanSpacing, lineBreak: false });
   cx += cleanWidth + ruleGap;
-  doc.strokeColor(GOLD).lineWidth(1).moveTo(cx, ruleY).lineTo(cx + ruleWidth, ruleY).stroke();
+  doc.strokeColor(BRAND_BLUE).lineWidth(1).moveTo(cx, ruleY).lineTo(cx + ruleWidth, ruleY).stroke();
 
   return Math.max(wordmarkWidth, totalWidth);
 }
