@@ -64,6 +64,66 @@ describe('SofaResultsSection', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  // Regression: the three video slots resolved to 396px inside a 375px
+  // viewport and pushed the page 37px sideways (22px at 390px).
+  //
+  // Cause: a grid item's automatic minimum size is its min-content width, so
+  // the column could not shrink below the caption's longest run; aspect-video
+  // then derived the width from the height, because the width was auto.
+  //
+  // jsdom performs no layout, so this cannot be asserted in pixels here — the
+  // real measurement is the browser pass in the handover notes. What is pinned
+  // instead is the constraint that prevents it: every slot is width-bound to
+  // its column and allowed to shrink, and its grid lets the track shrink too.
+  describe('no horizontal overflow on a narrow phone', () => {
+    it('binds every reserved slot to its column width and lets it shrink', () => {
+      renderSection();
+
+      const slots = screen.getAllByRole('img', { name: /Genuine sofa results/ });
+      expect(slots).toHaveLength(7);
+
+      for (const slot of slots) {
+        const cls = slot.className;
+        // Width comes from the column, never from the intrinsic content.
+        expect(cls).toContain('w-full');
+        // Defeats the grid item's automatic min-content minimum.
+        expect(cls).toContain('min-w-0');
+        // No fixed width could survive a 375px column.
+        expect(cls).not.toMatch(/\bw-\[\d/);
+        expect(cls).not.toMatch(/\bmin-w-\[\d/);
+        expect(slot.getAttribute('style') ?? '').not.toMatch(/width/);
+      }
+    });
+
+    it('lets the grid tracks themselves shrink below min-content', () => {
+      const { container } = renderSection();
+
+      const grids = [...container.querySelectorAll('div')]
+        .filter((d) => d.className.includes('grid-cols-3'));
+      expect(grids).toHaveLength(2);
+      grids.forEach((g) => expect(g.className).toContain('[&>*]:min-w-0'));
+    });
+
+    it('sets no fixed pixel width anywhere in the section', () => {
+      const { container } = renderSection();
+
+      const fixed = [...container.querySelectorAll('*')].filter((el) => {
+        const style = el.getAttribute('style') ?? '';
+        return /(^|[^-])width:\s*\d+px/.test(style);
+      });
+      expect(fixed).toEqual([]);
+    });
+  });
+
+  // Wired to the shared lightbox ahead of the photos themselves. While the
+  // slots are reserved there is nothing to enlarge, so nothing is clickable —
+  // the "once photos arrive" half lives in SofaResultsSection.lightbox.test.
+  it('opens no lightbox while the slots are reserved', () => {
+    renderSection();
+    expect(screen.queryByRole('button', { name: /^View larger:/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('keeps a route through to the Gallery and Instagram', () => {
     renderSection();
 

@@ -20,12 +20,12 @@ const routes = [
   },
   {
     path: '/pricing',
-    title: 'Cleaning Prices East & North London | End of Tenancy, Carpet & Upholstery | VVE Clean',
+    title: 'Cleaning Prices London | End of Tenancy & Carpet | VVE Clean',
     description:
-      'Fixed cleaning prices for East & North London. End of tenancy from £199, carpet from £90, sofa cleaning from £75, move-in deep clean from £179, after builders from £249. No hidden fees — the price you see is the price you pay.',
+      'Fixed cleaning prices across East & North London. End of tenancy from £229, carpet rooms from £50, sofas from £75, move-in from £179, after builders from £249.',
     ogTitle: 'Cleaning Prices London | VVE Clean',
     ogDescription:
-      'Fixed cleaning prices for East & North London. End of tenancy from £199, carpet from £90, sofa from £75. No hidden fees.',
+      'Fixed cleaning prices for East & North London. End of tenancy from £229, carpet rooms from £50, sofas from £75. No hidden fees.',
   },
   {
     path: '/booking',
@@ -38,9 +38,9 @@ const routes = [
   },
   {
     path: '/commercial',
-    title: 'Commercial & Communal Cleaning East London | Offices, Shops & Blocks | VVE Clean',
+    title: 'Commercial & Communal Cleaning London | VVE Clean',
     description:
-      'Contract cleaning for offices, shops, cafés and communal areas for landlords and managing agents across East & North London (E1–E17, N1–N16). Free site visit within 48 hours, fixed written quote the same day, monthly invoicing.',
+      'Contract cleaning for offices, shops, cafés and communal areas across East & North London. Free site visit within 48 hours, fixed written quote, monthly invoicing.',
     ogTitle: 'Commercial Cleaning London | VVE Clean',
     ogDescription:
       'Contract cleaning for offices, shops, cafés and communal areas across East & North London. Free site visit, fixed quote, monthly invoicing.',
@@ -49,7 +49,7 @@ const routes = [
     path: '/privacy-policy',
     title: 'Privacy Policy | VVE Clean London',
     description:
-      'How VVE LIMITED (trading as VVE Clean) collects, uses, and protects your personal data. Covers bookings, payments, cookies, your rights under UK GDPR, and how to contact us.',
+      'How VVE LIMITED (trading as VVE Clean) collects, uses and protects your personal data. Covers bookings, payments, cookies and your rights under UK GDPR.',
     ogTitle: 'Privacy Policy | VVE Clean',
     ogDescription: 'How VVE Clean collects, uses, and protects your personal data.',
   },
@@ -75,7 +75,7 @@ const routes = [
     path: '/carpet-cleaning-london',
     title: 'Carpet Cleaning London | Steam-Clean & Stain Removal | VVE Clean',
     description:
-      'Professional carpet cleaning in London from £50 per room. Hot-water extraction removes stains, allergens and pet odours. Fast drying — typically 2–4 hours. Book online or WhatsApp for an instant quote.',
+      'Professional carpet cleaning in London from £50 per room. Hot-water extraction lifts stains, allergens and pet odours, and carpets dry in 2–4 hours.',
     ogTitle: 'Carpet Cleaning London | VVE Clean',
     ogDescription:
       'Professional carpet cleaning from £50 per room. Hot-water extraction removes stains, allergens and pet odours across East and North London.',
@@ -84,7 +84,7 @@ const routes = [
     path: '/sofa-cleaning-london',
     title: 'Sofa & Upholstery Cleaning London | VVE Clean',
     description:
-      'Professional sofa and upholstery cleaning in London from £75. Hot-water extraction removes stains, pet hair, odours and allergens from sofas, armchairs and mattresses across East and North London.',
+      'Professional sofa and upholstery cleaning in London from £75. Hot-water extraction lifts stains, pet hair, odours and allergens from sofas, armchairs and mattresses.',
     ogTitle: 'Sofa & Upholstery Cleaning London | VVE Clean',
     ogDescription:
       'Professional sofa cleaning from £75. Hot-water extraction removes stains, pet hair and odours across East and North London.',
@@ -93,7 +93,7 @@ const routes = [
     path: '/commercial-carpet-cleaning-london',
     title: 'Commercial Carpet Cleaning London | Offices & Retail | VVE Clean',
     description:
-      'Professional commercial carpet cleaning for offices, hotels and retail units across London. Out-of-hours visits, RAMS available, fast drying times. Free site visit and fixed written quote.',
+      'Commercial carpet cleaning for offices, hotels and retail units across London. Out-of-hours visits, RAMS available, free site visit and a fixed written quote.',
     ogTitle: 'Commercial Carpet Cleaning London | VVE Clean',
     ogDescription:
       'Commercial carpet cleaning for offices, hotels and retail units across London. Out-of-hours visits, RAMS available, free site visit.',
@@ -111,7 +111,7 @@ const routes = [
     path: '/after-builders-cleaning-london',
     title: 'After Builders Cleaning London | From £249 | VVE Clean',
     description:
-      'Post-construction cleaning in London from £249. We remove fine dust, paint splashes, sticker residue and construction debris — leaving your space spotless and move-in ready. Quote by photo within the hour.',
+      'Post-construction cleaning in London from £249. Fine dust, paint splashes, sticker residue and debris removed, leaving the space move-in ready.',
     ogTitle: 'After Builders Cleaning London | VVE Clean',
     ogDescription:
       'Post-construction cleaning from £249. Fine dust, paint splashes and debris removed. Quote by photo within the hour across East and North London.',

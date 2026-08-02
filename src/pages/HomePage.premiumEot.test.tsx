@@ -146,9 +146,26 @@ async function priceScenario(user: ReturnType<typeof userEvent.setup>, s: Scenar
 
   // Step 4 — Review carries the full breakdown.
   await waitFor(() => expect(q().getByRole('heading', { name: STEP_HEADING[3] })).toBeInTheDocument());
-  const money = q().getAllByText(/£[\d,]+/).map((n) => n.textContent?.trim());
-  expect(money.length).toBeGreaterThan(0);
-  return money.join('|');
+
+  // The heading commits before the breakdown rows have all rendered, so reading
+  // immediately after it caught a half-populated list whenever the suite ran
+  // under load — producing two strings that looked identical in the diff but
+  // differed past the truncation. Read only once the figures have settled.
+  const readMoney = () => q().getAllByText(/£[\d,]+/)
+    .map((n) => n.textContent?.trim())
+    .join('|');
+
+  let previous: string | null = null;
+  await waitFor(() => {
+    const current = readMoney();
+    expect(current.length).toBeGreaterThan(0);
+    // Two consecutive identical reads mean React has stopped committing.
+    const settled = current === previous;
+    previous = current;
+    expect(settled).toBe(true);
+  }, { timeout: 4000, interval: 50 });
+
+  return readMoney();
 }
 
 describe('HomePage — fresh visit still shows the introductory panel', () => {
@@ -264,7 +281,12 @@ describe('Homepage and End of Tenancy page price identically', () => {
 
       expect(homeTotal).toBe(pageTotal);
       expect(homeTotal).toMatch(/£\d/);
-    });
+    },
+    // Each scenario renders two whole pages and drives both through the full
+    // five-step wizard, which genuinely takes 3–6s here. The 5s default made
+    // the slower scenarios fail intermittently once the suite grew, always as a
+    // timeout and never as a price mismatch.
+    20_000);
   }
 });
 

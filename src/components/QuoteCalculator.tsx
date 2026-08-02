@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { trackBookingInitiated } from '../lib/analytics';
 import { Calculator, CheckCircle2, Plus, Minus, Info, AlertCircle, ChevronDown, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { useBookingCtx } from '../context/BookingContext';
+import { rememberQuoteOrigin } from '../lib/quoteOrigin';
 import { useReveal } from '../hooks/useReveal';
 import type { HomepageQuoteService } from './HomeServiceSelector';
 import {
@@ -290,6 +291,22 @@ function CarpetItemRows({
     </div>
   );
 }
+
+// Trust strip beside the price. The DBS line is singled out because the Carpet
+// landing page already states the same credential in its hero, directly under
+// the Google rating ("Fully insured · DBS-checked technicians"). Repeating it a
+// few hundred pixels below reads as padding rather than reassurance, so carpet
+// mode drops this one line — and only this one line, on only that mode. The
+// homepage, /leaflet and every other service page still show all five.
+const DBS_TRUST_ITEM = 'DBS-checked, vetted cleaners';
+
+const TRUST_ITEMS = [
+  '£5m public liability insurance',
+  DBS_TRUST_ITEM,
+  '48hr re-clean guarantee',
+  'No hidden fees — fixed prices',
+  'Secure Stripe checkout',
+];
 
 // ─── Session-restore helper ───────────────────────────────────────────────────
 // Reads vve_booking.quoteConfig from sessionStorage only when the temporary
@@ -644,6 +661,12 @@ export default function QuoteCalculator({
       },
     };
     trackBookingInitiated(bookingServiceName);
+    // Navigation state only, never part of the payload: lets "Back to quote"
+    // return to the page the quote was built on rather than the homepage.
+    // Recorded before the branch, because /leaflet supplies its own onBook and
+    // navigates itself — inside the else, leaflet customers were still sent
+    // back to /#quote.
+    rememberQuoteOrigin();
     if (onBook) {
       onBook(sel);
     } else {
@@ -1705,7 +1728,7 @@ export default function QuoteCalculator({
               )}
 
               <div className="space-y-3 mb-4">
-                {['£5m public liability insurance', 'DBS-checked, vetted cleaners', '48hr re-clean guarantee', 'No hidden fees — fixed prices', 'Secure Stripe checkout'].map((item) => (
+                {TRUST_ITEMS.filter((item) => !(isCarpetFocused && item === DBS_TRUST_ITEM)).map((item) => (
                   <div key={item} className="flex items-center gap-2 text-silver-300 text-sm">
                     <CheckCircle2 size={13} className="text-royal-400 flex-shrink-0" />
                     {item}

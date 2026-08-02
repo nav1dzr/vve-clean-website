@@ -4,6 +4,7 @@ import { CheckCircle2 } from 'lucide-react';
 import QuoteCalculator, { type BookingSelection } from '../components/QuoteCalculator';
 import BrandLogo from '../components/BrandLogo';
 import { getAttribution } from '../lib/attribution';
+import { getQuoteOriginHref } from '../lib/quoteOrigin';
 import { CARPET_MIN_BOOKING, DISCOUNT_MIN_NOTE } from '../data/carpetPricing';
 import { TERMS_VERSION, CANCELLATION_POLICY_VERSION } from '../lib/termsVersion';
 import { PARKING_ESTIMATE_P, CONGESTION_CHARGE_P, PARKING_CHARGED_AT_ACTUAL_COST_NOTE } from '../data/pricing';
@@ -63,7 +64,10 @@ function validPostcode(v: string) { return /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/
 const BOOKING_WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20help%20with%20my%20booking.';
 
 function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
-  const backHref = isLeaflet ? '/leaflet#quote' : '/#quote';
+  // Where the quote was actually built — the Carpet page, the Sofa page, the
+  // homepage, /leaflet, or a service page. Falls back to the previous
+  // hard-coded destination when nothing was recorded.
+  const backHref = getQuoteOriginHref(isLeaflet);
   return (
     <header className="sticky top-0 z-50 border-b border-black/[0.08]"
       style={{ background: 'rgba(249,249,245,0.96)', backdropFilter: 'blur(10px)' }}>
@@ -88,11 +92,18 @@ function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
 
         {/* Right controls */}
         <div className="flex items-center gap-1.5">
-          {/* Back to quote — destination depends on whether this is a leaflet booking */}
+          {/* Back to quote.
+              Previously `hidden sm:flex`, which left phone users with no way
+              back: browser-back does not set the restore flag, so it returned
+              them to an empty calculator. Now shown at every width, with the
+              label shortened below sm so the header row still fits. */}
           <Link to={backHref}
             onClick={() => sessionStorage.setItem('vve_restore_quote', '1')}
-            className="hidden sm:flex items-center gap-1 text-sm font-semibold px-3 py-2 rounded-full border border-[#E3E7EE] text-navy-800 hover:border-navy-300 transition-colors min-h-[36px]">
-            ← Back to quote
+            aria-label="Back to quote"
+            className="flex items-center gap-1 text-xs sm:text-sm font-semibold px-2.5 sm:px-3 py-2 rounded-full border border-[#E3E7EE] text-navy-800 hover:border-navy-300 transition-colors min-h-[36px] whitespace-nowrap">
+            <span aria-hidden="true">←</span>
+            <span className="hidden sm:inline">Back to quote</span>
+            <span className="sm:hidden">Quote</span>
           </Link>
 
           {/* Need help */}

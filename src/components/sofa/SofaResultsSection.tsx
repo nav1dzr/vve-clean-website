@@ -3,6 +3,8 @@ import BeforeAfterTile from '../gallery/BeforeAfterTile';
 import VideoTile from '../gallery/VideoTile';
 import RotatingResults from '../gallery/RotatingResults';
 import GalleryInstagramCta from '../gallery/GalleryInstagramCta';
+import PhotoLightbox from '../gallery/PhotoLightbox';
+import { toLightboxPhotos, useLightbox } from '../gallery/useLightbox';
 import {
   GALLERY_MEDIA,
   type GalleryBeforeAfterItem,
@@ -45,9 +47,16 @@ function PremiumSlot({
       // assistive tech instead of a stray unlabelled box.
       role="img"
       aria-label={`${kicker} — ${caption}`}
-      className={`flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-sky-400/30 bg-navy-950/60 px-6 text-center ${className}`}
+      // w-full + min-w-0 are load-bearing, not decoration. A grid item's
+      // automatic minimum size is its min-content width, so without min-w-0 the
+      // caption's longest unbreakable run set a floor the column could not
+      // shrink below; combined with aspect-video (which derives width from
+      // height when width is auto) each video slot resolved to 396px and pushed
+      // the page 37px sideways at 375px. Pinning the width to the column makes
+      // the ratio grow the box downwards instead. See SofaResultsSection.test.
+      className={`flex w-full min-w-0 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-sky-400/30 bg-navy-950/60 px-4 text-center sm:px-6 ${className}`}
     >
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-400/10 text-sky-300" aria-hidden="true">
+      <span className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl bg-sky-400/10 text-sky-300" aria-hidden="true">
         {icon}
       </span>
       <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300">{kicker}</span>
@@ -63,6 +72,18 @@ export default function SofaResultsSection() {
   );
   const videos = items.filter((i): i is GalleryVideoItem => i.type === 'video');
   const photos = items.filter((i): i is GalleryPhotoItem => i.type === 'photo');
+
+  // Wired ahead of the photos themselves, so an approved set drops straight in.
+  // The list is built from the same manifest in the same reading order as the
+  // Carpet and End of Tenancy sections: both halves of each before/after pair
+  // first, then the rotating photos.
+  //
+  // Reserved slots pass no handler at all, so a placeholder can never open an
+  // empty overlay — the whole list is empty today and PhotoLightbox renders
+  // nothing when there is nothing to show.
+  const lightboxPhotos = toLightboxPhotos([...beforeAfter, ...photos]);
+  const rotatingOffset = beforeAfter.length * 2;
+  const lightbox = useLightbox();
 
   return (
     <section
@@ -86,11 +107,16 @@ export default function SofaResultsSection() {
         </div>
 
         {/* ── Row 1 — three before/after slots ── */}
-        <div className="mb-6 grid gap-6 md:grid-cols-3">
+        <div className="mb-6 grid gap-6 md:grid-cols-3 [&>*]:min-w-0">
           {[0, 1, 2].map((i) => {
             const entry = beforeAfter[i];
             return entry ? (
-              <BeforeAfterTile key={entry.id} entry={entry} placeholderLabel={entry.label} />
+              <BeforeAfterTile
+                key={entry.id}
+                entry={entry}
+                placeholderLabel={entry.label}
+                onOpen={(side, origin) => lightbox.open(i * 2 + (side === 'after' ? 1 : 0), origin)}
+              />
             ) : (
               <PremiumSlot
                 key={`ba-${i}`}
@@ -104,7 +130,7 @@ export default function SofaResultsSection() {
         </div>
 
         {/* ── Row 2 — three video slots ── */}
-        <div className="mb-8 grid gap-6 md:grid-cols-3">
+        <div className="mb-8 grid gap-6 md:grid-cols-3 [&>*]:min-w-0">
           {[0, 1, 2].map((i) => {
             const entry = videos[i];
             return entry ? (
@@ -123,7 +149,11 @@ export default function SofaResultsSection() {
 
         {/* ── Row 3 — one larger rotating-results slot ── */}
         {photos.length > 0 ? (
-          <RotatingResults photos={photos} label="Recent sofa and upholstery cleaning work" />
+          <RotatingResults
+            photos={photos}
+            label="Recent sofa and upholstery cleaning work"
+            onOpen={(i, origin) => lightbox.open(rotatingOffset + i, origin)}
+          />
         ) : (
           <PremiumSlot
             icon={<Images size={30} />}
@@ -135,6 +165,14 @@ export default function SofaResultsSection() {
 
         <GalleryInstagramCta galleryCategory="sofa-upholstery" onDark />
       </div>
+
+      <PhotoLightbox
+        photos={lightboxPhotos}
+        index={lightbox.index}
+        onClose={lightbox.close}
+        onNavigate={lightbox.setIndex}
+        label="Sofa and upholstery photos"
+      />
     </section>
   );
 }
