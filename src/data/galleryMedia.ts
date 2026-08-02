@@ -1,8 +1,11 @@
-// Central, explicit media manifest for the routed Gallery page (and the
+import eotGalleryImages from 'virtual:eot-gallery';
+
+// Central media manifest for the routed Gallery page (and the
 // source of truth the End of Tenancy landing page draws its real before/
-// after cards and rotating results photos from). Entries are listed by hand
-// on purpose — nothing here auto-scans public/ folders, so unfinished or
-// private files are never accidentally published.
+// after cards and rotating results photos from). Approved before/after pairs
+// remain explicit. The dedicated EOT gallery folder is discovered at build
+// time so the owner can replace its contents without editing this file; only
+// the first 15 supported image files are published.
 //
 // End of Tenancy and Carpet are populated with the owner-approved photo sets.
 // Sofa & Upholstery remains an empty placeholder: the owner is still organising
@@ -80,49 +83,35 @@ const EOT_BEFORE_AFTER: GalleryBeforeAfterItem[] = [
   },
 ];
 
-// Photos 1–10: real recent-clean photos used for the EOT page's rotating
-// results area (in this fixed, numeric order — never shuffled) and shown
-// again on the full Gallery page.
-const EOT_PHOTOS: GalleryPhotoItem[] = [
-  { type: 'photo', id: '1',  label: 'Kitchen sink',            src: '/end_of_tenancy/gallery/1.jpg',  alt: 'Black kitchen sink and drainer during an end of tenancy clean' },
-  { type: 'photo', id: '2',  label: 'Hob burner caps',         src: '/end_of_tenancy/gallery/2.jpg',  alt: 'Gas hob burner caps removed during deep cleaning' },
-  { type: 'photo', id: '3',  label: 'Hob burner caps',         src: '/end_of_tenancy/gallery/3.jpg',  alt: 'Gas hob burner caps after cleaning' },
-  { type: 'photo', id: '4',  label: 'Mirrored cabinet',        src: '/end_of_tenancy/gallery/4.jpg',  alt: 'Mirrored cabinet photographed after cleaning' },
-  { type: 'photo', id: '5',  label: 'Fridge interior',         src: '/end_of_tenancy/gallery/5.jpg',  alt: 'Empty fridge interior photographed after cleaning' },
-  { type: 'photo', id: '6',  label: 'Oven door glass',         src: '/end_of_tenancy/gallery/6.jpg',  alt: 'Open oven door and inner glass photographed after cleaning' },
-  { type: 'photo', id: '7',  label: 'Shower and bath corner',  src: '/end_of_tenancy/gallery/7.jpg',  alt: 'Bath corner and shower screen frame photographed after cleaning' },
-  { type: 'photo', id: '8',  label: 'Kitchen floor',           src: '/end_of_tenancy/gallery/8.jpg',  alt: 'Tiled kitchen floor photographed after cleaning' },
-  { type: 'photo', id: '9',  label: 'Shower and bath area',    src: '/end_of_tenancy/gallery/9.jpg',  alt: 'Bath and shower screen area photographed after cleaning' },
-  { type: 'photo', id: '10', label: 'Shower screen',           src: '/end_of_tenancy/gallery/10.jpg', alt: 'Shower screen and fittings photographed after cleaning' },
-];
+// Known files keep tailored labels and alt text. New filenames are still
+// published safely with a neutral, numbered description until copy is added.
+const EOT_GALLERY_DETAILS: Record<string, { label: string; alt: string }> = {
+  '1.jpg': { label: 'Kitchen sink', alt: 'Black kitchen sink and drainer during an end of tenancy clean' },
+  '2.jpg': { label: 'Hob burner caps', alt: 'Gas hob burner caps removed during deep cleaning' },
+  '3.jpg': { label: 'Hob burner caps', alt: 'Gas hob burner caps after cleaning' },
+  '4.jpg': { label: 'Mirrored cabinet', alt: 'Mirrored cabinet photographed after cleaning' },
+  '5.jpg': { label: 'Fridge interior', alt: 'Empty fridge interior photographed after cleaning' },
+  '6.jpg': { label: 'Oven door glass', alt: 'Open oven door and inner glass photographed after cleaning' },
+  '7.jpg': { label: 'Shower and bath corner', alt: 'Bath corner and shower screen frame photographed after cleaning' },
+  '8.jpg': { label: 'Kitchen floor', alt: 'Tiled kitchen floor photographed after cleaning' },
+  '9.jpg': { label: 'Shower and bath area', alt: 'Bath and shower screen area photographed after cleaning' },
+  '10.jpg': { label: 'Shower screen', alt: 'Shower screen and fittings photographed after cleaning' },
+  '11.jpg': { label: 'Kitchen cabinet', alt: 'Before and after comparison of a kitchen cabinet under the sink — before on the left and after on the right' },
+  '12.jpg': { label: 'Kitchen sink', alt: 'Comparison of a kitchen sink — after on the left and before on the right' },
+  '13.jpg': { label: 'Fridge interior', alt: 'Before and after comparison of a fridge interior — before on the left and after on the right' },
+};
 
-// Photos 11–13 are already-combined before/after comparison images (both
-// halves baked into one file), shown only on the full Gallery page — not in
-// the single-photo rotating area. 12.jpg is the odd one out: After is on the
-// left and Before is on the right.
-const EOT_COMBINED_COMPARISONS: GalleryPhotoItem[] = [
-  {
+const EOT_PHOTOS: GalleryPhotoItem[] = eotGalleryImages.map((src, index) => {
+  const filename = decodeURIComponent(src.split('/').pop() ?? `photo-${index + 1}`);
+  const details = EOT_GALLERY_DETAILS[filename];
+  return {
     type: 'photo',
-    id: '11',
-    label: 'Kitchen cabinet',
-    src: '/end_of_tenancy/gallery/11.jpg',
-    alt: 'Before and after comparison of a kitchen cabinet under the sink — before on the left and after on the right',
-  },
-  {
-    type: 'photo',
-    id: '12',
-    label: 'Kitchen sink',
-    src: '/end_of_tenancy/gallery/12.jpg',
-    alt: 'Comparison of a kitchen sink — after on the left and before on the right',
-  },
-  {
-    type: 'photo',
-    id: '13',
-    label: 'Fridge interior',
-    src: '/end_of_tenancy/gallery/13.jpg',
-    alt: 'Before and after comparison of a fridge interior — before on the left and after on the right',
-  },
-];
+    id: filename.replace(/\.[^.]+$/, ''),
+    label: details?.label ?? `Cleaning result ${index + 1}`,
+    src,
+    alt: details?.alt ?? `End of tenancy cleaning result ${index + 1}`,
+  };
+});
 
 // The three owner-approved carpet before/after pairs.
 //
@@ -172,7 +161,7 @@ const CARPET_BEFORE_AFTER: GalleryBeforeAfterItem[] = [
 ];
 
 export const GALLERY_MEDIA: Record<GalleryCategory, GalleryItem[]> = {
-  'end-of-tenancy': [...EOT_BEFORE_AFTER, ...EOT_PHOTOS, ...EOT_COMBINED_COMPARISONS],
+  'end-of-tenancy': [...EOT_BEFORE_AFTER, ...EOT_PHOTOS],
   carpet: [...CARPET_BEFORE_AFTER],
   'sofa-upholstery': [],
 };
@@ -184,6 +173,6 @@ export const CARPET_FEATURED_BEFORE_AFTER: GalleryBeforeAfterItem[] = CARPET_BEF
 // approved pairs, in this order.
 export const EOT_FEATURED_BEFORE_AFTER: GalleryBeforeAfterItem[] = EOT_BEFORE_AFTER;
 
-// The End of Tenancy page's rotating results photos — exactly 1–10, in this
-// fixed numeric order.
+// The End of Tenancy page's rotating results photos — up to 15 files from
+// the dedicated folder, in stable natural filename order (never shuffled).
 export const EOT_ROTATING_PHOTOS: GalleryPhotoItem[] = EOT_PHOTOS;

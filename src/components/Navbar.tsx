@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Menu, X, Phone } from 'lucide-react';
+import { ChevronDown, Menu, X, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import BrandLogo from './BrandLogo';
 import { trackPhoneClick } from '../lib/analytics';
@@ -7,11 +7,18 @@ import { trackPhoneClick } from '../lib/analytics';
 // Max 5 links per the design spec — Reviews and Areas stay reachable by
 // scrolling the homepage (not removed), just not repeated in the nav.
 const navLinks = [
-  { label: 'Services',   href: '/#services' },
   { label: 'Gallery',    href: '/gallery', route: true },
   { label: 'Pricing',    href: '/pricing', route: true },
   { label: 'Commercial', href: '/commercial', route: true },
   { label: 'Contact',    href: '/#contact' },
+];
+
+const serviceLinks = [
+  { label: 'End of Tenancy', description: 'Complete move-out cleaning', href: '/end-of-tenancy-cleaning-london' },
+  { label: 'Carpet Cleaning', description: 'Professional extraction cleaning', href: '/carpet-cleaning-london' },
+  { label: 'Sofa & Upholstery', description: 'Fabric-safe upholstery care', href: '/sofa-cleaning-london' },
+  { label: 'After Builders', description: 'Fine dust and post-work cleaning', href: '/after-builders-cleaning-london' },
+  { label: 'Commercial Cleaning', description: 'Offices, retail and communal areas', href: '/commercial' },
 ];
 
 const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 rounded';
@@ -20,13 +27,22 @@ const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20l
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [servicesOpen, setServicesOpen] = useState(false);
+  const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMenuOpen(false);
+        setServicesOpen(false);
+      }
+    };
     const onClickOutside = (e: MouseEvent) => {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+        setServicesOpen(false);
+      }
     };
     document.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onClickOutside);
@@ -34,7 +50,7 @@ export default function Navbar() {
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('mousedown', onClickOutside);
     };
-  }, [menuOpen]);
+  }, []);
 
   return (
     <header
@@ -64,6 +80,53 @@ export default function Navbar() {
 
           {/* Nav */}
           <nav className="hidden lg:flex items-center gap-7">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setServicesOpen((open) => !open)}
+                aria-expanded={servicesOpen}
+                aria-controls="desktop-services-menu"
+                className={`nav-link inline-flex min-h-[44px] items-center gap-1 text-sm font-medium tracking-wide text-slate-700 transition-colors duration-200 hover:text-sky-600 ${FOCUS_RING}`}
+              >
+                Services
+                <ChevronDown
+                  size={15}
+                  aria-hidden="true"
+                  className={`transition-transform duration-200 ${servicesOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {servicesOpen && (
+                <div
+                  id="desktop-services-menu"
+                  className="absolute left-1/2 top-full mt-2 w-[340px] -translate-x-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl shadow-navy-950/15"
+                >
+                  <p className="px-3 pb-2 pt-2 text-[10px] font-bold uppercase tracking-[0.18em] text-sky-600">
+                    Choose a service
+                  </p>
+                  {serviceLinks.map((service) => (
+                    <Link
+                      key={service.href}
+                      to={service.href}
+                      onClick={() => setServicesOpen(false)}
+                      className="group flex min-h-[58px] items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-sky-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-royal-600"
+                    >
+                      <span>
+                        <span className="block text-sm font-bold text-navy-900 group-hover:text-royal-700">{service.label}</span>
+                        <span className="mt-0.5 block text-xs text-slate-500">{service.description}</span>
+                      </span>
+                      <span aria-hidden="true" className="ml-4 text-sky-500 transition-transform group-hover:translate-x-1">→</span>
+                    </Link>
+                  ))}
+                  <a
+                    href="/#services"
+                    onClick={() => setServicesOpen(false)}
+                    className="mt-1 flex min-h-[44px] items-center justify-center rounded-xl bg-navy-950 px-4 text-sm font-bold text-white transition-colors hover:bg-navy-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-500"
+                  >
+                    See every service
+                  </a>
+                </div>
+              )}
+            </div>
             {navLinks.map((link) =>
               link.route ? (
                 <Link key={link.href} to={link.href}
@@ -129,6 +192,40 @@ export default function Navbar() {
       <div id="mobile-nav-menu" className={`lg:hidden transition-all duration-300 overflow-hidden ${menuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'}`}
         style={{ background: 'rgba(249,249,245,0.96)', backdropFilter: 'blur(10px)', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
         <div className="px-4 py-6 space-y-4">
+          <div className="border-b border-slate-100 pb-2">
+            <button
+              type="button"
+              onClick={() => setMobileServicesOpen((open) => !open)}
+              aria-expanded={mobileServicesOpen}
+              aria-controls="mobile-services-list"
+              className={`flex min-h-[44px] w-full items-center justify-between py-2.5 text-left font-medium text-slate-700 transition-colors hover:text-sky-600 ${FOCUS_RING}`}
+            >
+              Services
+              <ChevronDown
+                size={18}
+                aria-hidden="true"
+                className={`transition-transform duration-200 ${mobileServicesOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {mobileServicesOpen && (
+              <div id="mobile-services-list" className="mb-2 space-y-1 rounded-xl bg-sky-50 p-2">
+                {serviceLinks.map((service) => (
+                  <Link
+                    key={service.href}
+                    to={service.href}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setMobileServicesOpen(false);
+                    }}
+                    className="flex min-h-[48px] items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold text-navy-900 transition-colors hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-royal-600"
+                  >
+                    {service.label}
+                    <span aria-hidden="true" className="text-sky-500">→</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
           {navLinks.map((link) =>
             link.route ? (
               <Link key={link.href} to={link.href} onClick={() => setMenuOpen(false)}

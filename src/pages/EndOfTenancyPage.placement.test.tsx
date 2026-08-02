@@ -113,7 +113,7 @@ describe('EndOfTenancyPage — approved section order and real media', () => {
 
     expect(screen.getByRole('button', { name: 'Previous photo' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Next photo' })).toBeInTheDocument();
-    expect(screen.getByText('Photo 1 of 10')).toBeInTheDocument();
+    expect(screen.getByText('Photo 1 of 13')).toBeInTheDocument();
   });
 
   it('links to the Gallery end-of-tenancy category and an Instagram CTA', () => {

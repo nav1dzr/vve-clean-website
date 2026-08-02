@@ -1,10 +1,39 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const EOT_GALLERY_ID = 'virtual:eot-gallery';
+const EOT_GALLERY_RESOLVED_ID = `\0${EOT_GALLERY_ID}`;
+const EOT_GALLERY_DIR = fileURLToPath(new URL('./public/end_of_tenancy/gallery/', import.meta.url));
+const PUBLIC_IMAGE_EXTENSION = /\.(avif|jpe?g|png|webp)$/i;
+
+function eotGalleryManifest() {
+  return {
+    name: 'vve-eot-gallery-manifest',
+    resolveId(id: string) {
+      return id === EOT_GALLERY_ID ? EOT_GALLERY_RESOLVED_ID : undefined;
+    },
+    load(id: string) {
+      if (id !== EOT_GALLERY_RESOLVED_ID) return undefined;
+
+      const collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+      const images = readdirSync(EOT_GALLERY_DIR, { withFileTypes: true })
+        .filter((entry) => entry.isFile() && PUBLIC_IMAGE_EXTENSION.test(entry.name))
+        .map((entry) => entry.name)
+        .sort(collator.compare)
+        .slice(0, 15)
+        .map((filename) => `/end_of_tenancy/gallery/${encodeURIComponent(filename)}`);
+
+      return `export default ${JSON.stringify(images)};`;
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), eotGalleryManifest()],
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
