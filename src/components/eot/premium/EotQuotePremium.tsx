@@ -23,7 +23,7 @@ import { useBookingCtx } from '../../../context/BookingContext';
 import {
   EOT_CARPET_UPGRADES, EOT_EXTRAS, EOT_SCOPE_OPTIONS, EOT_SIZES, displayPence,
 } from '../../../lib/eotPricing';
-import { useEotQuote } from '../useEotQuote';
+import { useEotQuote, type EotQuoteState } from '../useEotQuote';
 import VveWordmark from '../../brand/VveWordmark';
 import {
   PrimaryButton, SecondaryButton, SelectionCardGroup, StepperControl,
@@ -55,8 +55,15 @@ const upgradeMeta = (key: string) => {
   return { label: key, pence: 0, hint: '' };
 };
 
-export default function EotQuotePremium() {
-  const q = useEotQuote();
+/**
+ * @param initialState Optional starting selections, forwarded to useEotQuote.
+ * The homepage passes this when reopening a quote after "Back to quote"; the
+ * End of Tenancy page passes nothing and is unaffected.
+ */
+export default function EotQuotePremium({
+  initialState,
+}: { initialState?: Partial<EotQuoteState> } = {}) {
+  const q = useEotQuote(initialState);
   const { setCtx } = useBookingCtx();
   const [step, setStep] = useState(0);
   const headingRef = useRef<HTMLHeadingElement>(null);

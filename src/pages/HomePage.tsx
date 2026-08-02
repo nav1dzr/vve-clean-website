@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BookingProvider } from '../context/BookingContext';
+import EotQuotePremium from '../components/eot/premium/EotQuotePremium';
+import { eotStateFromConfig, peekEotRestore } from '../components/eot/restoreEotQuote';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import AreaMarquee from '../components/AreaMarquee';
@@ -19,6 +21,27 @@ import MobileStickyFooter from '../components/MobileStickyFooter';
 
 export default function HomePage() {
   const [selectedQuoteService, setSelectedQuoteService] = useState<HomepageQuoteService | null>(null);
+
+  // Read once, on mount, before anything renders. Only a pending "Back to
+  // quote" carrying an End of Tenancy booking returns a value; every other
+  // service's restore is still handled inside QuoteCalculator exactly as
+  // before. Peeking rather than consuming matters: clearing the flag here
+  // would break those other restores.
+  const [eotRestore] = useState(peekEotRestore);
+
+  // The premium quote is what reopens for a restored EOT booking, and it does
+  // not read the flag itself, so clear it here. Without this a later homepage
+  // visit in the same tab would silently rehydrate an old quote.
+  useEffect(() => {
+    if (eotRestore) sessionStorage.removeItem('vve_restore_quote');
+  }, [eotRestore]);
+
+  // End of Tenancy gets the same five-step premium journey as the service
+  // page — the real EotQuotePremium, not a homepage copy of it — so the two
+  // cannot drift apart in either pricing or presentation. It brings its own
+  // id="quote" and its own mobile action bar, and suppresses the site-wide
+  // sticky footer while mounted, so there is still exactly one of each.
+  const showPremiumEot = selectedQuoteService === 'end_of_tenancy' || Boolean(eotRestore);
 
   // No hash handling here: #quote always exists — the calculator shows its
   // introductory panel until a service is chosen — so ScrollToTop, mounted once
@@ -46,14 +69,20 @@ export default function HomePage() {
       <AreaMarquee />
       <TrustBadges />
       <HomeServiceSelector onChoose={chooseService} />
-      {/* Remounts on service change so every branch of the calculator starts
-          from clean state rather than carrying the previous service's counts. */}
-      <QuoteCalculator
-        key={selectedQuoteService ?? 'homepage-empty'}
-        homepageMode
-        homepageService={selectedQuoteService}
-        onHomepageServiceChange={setSelectedQuoteService}
-      />
+      {showPremiumEot ? (
+        <EotQuotePremium
+          initialState={eotRestore ? eotStateFromConfig(eotRestore) : undefined}
+        />
+      ) : (
+        /* Remounts on service change so every branch of the calculator starts
+           from clean state rather than carrying the previous service's counts. */
+        <QuoteCalculator
+          key={selectedQuoteService ?? 'homepage-empty'}
+          homepageMode
+          homepageService={selectedQuoteService}
+          onHomepageServiceChange={setSelectedQuoteService}
+        />
+      )}
       <Reviews />
       <Gallery />
       <Guarantee />

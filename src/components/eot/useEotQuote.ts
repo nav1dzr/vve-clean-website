@@ -41,9 +41,18 @@ const INITIAL: EotQuoteState = {
   scopeExclusions: [],
 };
 
-export function useEotQuote() {
+/**
+ * @param initial Optional starting selections, merged over the defaults. Used
+ * when reopening a quote the customer already built — "Back to quote" from
+ * BookingPage. Omitted everywhere else, so the End of Tenancy page's behaviour
+ * is unchanged. Only ever seeds the first render; nothing here re-prices,
+ * because computeEotQuote remains the single source of every figure.
+ */
+export function useEotQuote(initial?: Partial<EotQuoteState>) {
   const navigate = useNavigate();
-  const [state, setState] = useState<EotQuoteState>(INITIAL);
+  const [state, setState] = useState<EotQuoteState>(() =>
+    initial ? { ...INITIAL, ...initial } : INITIAL,
+  );
 
   const setField = useCallback(
     <K extends keyof EotQuoteState>(key: K, value: EotQuoteState[K]) =>
