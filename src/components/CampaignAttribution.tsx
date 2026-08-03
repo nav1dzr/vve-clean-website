@@ -12,22 +12,32 @@ import { rememberEntry, setAdvertisingConsent } from '../lib/attribution';
  *     be three pages deep and the ad's query string is long gone. Nothing is
  *     written to storage here and nothing is sent anywhere.
  *
- *  2. Whenever the consent state settles or changes, tell the attribution
- *     module. Granting advertising writes what was remembered at step 1, so a
- *     late "Accept" still credits the original click. Withdrawing it erases
- *     every advertising key.
+ *  2. As soon as the consent state is known, and on every later change, tell
+ *     the attribution module. Granting advertising writes what was remembered
+ *     at step 1, so a late "Accept" still credits the original click. Anything
+ *     that is not a grant erases every advertising key.
  *
- * The `decided` check on the rejection path is deliberate. An unanswered banner
- * is not a rejection — it just means nothing may be written yet, which is
- * already true because consent is false. Treating it as a rejection would wipe
- * the attribution of a returning visitor who consented previously, purely
- * because the consent version had been bumped and they had not yet re-answered.
- * Storage is only cleared when the visitor has actually said no.
+ * `categories.advertising === false` is treated as "no current permission"
+ * whatever the reason — explicitly rejected, never answered, no stored record
+ * at all, a corrupt record, or one written against a superseded consent
+ * version. CookieConsentProvider already collapses all of those to false, and
+ * none of them is an affirmative yes.
+ *
+ * An earlier version of this component only cleared on an explicit rejection,
+ * reasoning that an unanswered banner was not a "no". That was wrong in the one
+ * case that matters: visitors carrying advertising keys written by the
+ * pre-consent implementation. For them, staying quiet meant the old data was
+ * kept and still read at booking. There is no lawful basis for holding it, so
+ * it goes, and it goes before the visitor has a chance to submit anything.
+ *
+ * What this deliberately does NOT clear is the in-memory entry snapshot from
+ * step 1 — that is this visit's own URL, held in memory, and it is what gets
+ * written if they go on to accept.
  *
  * Must be rendered inside CookieConsentProvider.
  */
 export default function CampaignAttribution() {
-  const { ready, decided, categories } = useCookieConsent();
+  const { ready, categories } = useCookieConsent();
 
   useEffect(() => {
     rememberEntry();
@@ -35,11 +45,11 @@ export default function CampaignAttribution() {
 
   useEffect(() => {
     // `ready` is false until the stored choice has been read back. Acting
-    // before then would treat every returning visitor as undecided for a tick.
+    // before then would clear a returning visitor's consented attribution for
+    // a tick, and re-writing it costs a needless storage round-trip.
     if (!ready) return;
-    if (categories.advertising) setAdvertisingConsent(true);
-    else if (decided) setAdvertisingConsent(false);
-  }, [ready, decided, categories.advertising]);
+    setAdvertisingConsent(categories.advertising);
+  }, [ready, categories.advertising]);
 
   return null;
 }

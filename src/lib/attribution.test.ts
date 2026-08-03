@@ -14,17 +14,21 @@ import {
   ADVERTISING_KEYS,
   getAttribution,
   resetAttributionMemory,
+  setAdvertisingConsent,
   setLeafletOffer,
   writeAdvertisingAttribution,
   writeLeafletAttribution,
 } from './attribution';
 
 // These tests exercise the STORAGE RULES in isolation, so they call the writer
-// directly. Whether the writer is allowed to run at all is the consent gate, a
-// separate concern covered end-to-end in attribution.integration.test.tsx.
+// directly and grant consent up front. Whether the writer is allowed to run at
+// all is the consent gate, a separate concern covered end-to-end in
+// attribution.integration.test.tsx — except for the read-side gate, which is
+// pinned directly in the last describe block below.
 beforeEach(() => {
   localStorage.clear();
   resetAttributionMemory();
+  setAdvertisingConsent(true);
   vi.restoreAllMocks();
 });
 
@@ -207,6 +211,62 @@ describe('it never breaks the page', () => {
     const a = getAttribution();
     expect(a.utm_source).toBeNull();
     expect(a.gclid).toBeNull();
+  });
+});
+
+describe('reading is gated as well as writing', () => {
+  it('returns no advertising fields when consent is not held, even if storage has them', () => {
+    // The case this exists for: a visitor carrying keys written by the
+    // pre-consent implementation. Clearing them is the first line of defence,
+    // but clearing can fail — storage throwing, a stale key from an older
+    // cached build, another tab racing us. getAttribution is the last thing
+    // between storage and the network, so it must not read them either.
+    writeAdvertisingAttribution('?utm_source=google&utm_campaign=aug&gclid=leftover', '/');
+    setLeafletOffer();
+    expect(localStorage.getItem('vve_gclid')).toBe('leftover'); // still on disk
+
+    resetAttributionMemory(); // consent flag back to false
+
+    const a = getAttribution();
+    expect(a).toMatchObject({
+      first_source: null, last_source: null, landing_page: null,
+      utm_source: null, utm_medium: null, utm_campaign: null,
+      utm_content: null, gclid: null,
+    });
+    // …but the discount the visitor asked for still comes through.
+    expect(a.offer_code).toBe('LEAFLET20');
+    expect(a.discount_percent).toBe(20);
+  });
+
+  it('fails closed: the flag starts false, so a caller that runs too early sends nothing', () => {
+    // resetAttributionMemory() reproduces module load. Nothing has told us the
+    // visitor's choice yet, so the honest answer is "no permission".
+    writeAdvertisingAttribution('?gclid=early', '/');
+    resetAttributionMemory();
+    expect(getAttribution().gclid).toBeNull();
+  });
+
+  it('returns them again once consent is granted', () => {
+    writeAdvertisingAttribution('?utm_source=google&gclid=kept', '/');
+    resetAttributionMemory();
+    expect(getAttribution().gclid).toBeNull();
+
+    setAdvertisingConsent(true);
+    expect(getAttribution().gclid).toBe('kept');
+    expect(getAttribution().utm_source).toBe('google');
+  });
+
+  it('deletes every advertising key when consent is refused, keeping the offer', () => {
+    writeAdvertisingAttribution('?utm_source=google&gclid=gone', '/');
+    setLeafletOffer();
+
+    setAdvertisingConsent(false);
+
+    for (const key of ADVERTISING_KEYS) {
+      expect(localStorage.getItem(key), `${key} must be deleted`).toBeNull();
+    }
+    expect(localStorage.getItem('vve_offer_code')).toBe('LEAFLET20');
+    expect(localStorage.getItem('vve_discount_percent')).toBe('20');
   });
 });
 

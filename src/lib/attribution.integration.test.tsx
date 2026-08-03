@@ -30,7 +30,12 @@ import {
   getAttribution,
   resetAttributionMemory,
 } from './attribution';
-import { ACCEPT_ALL_CATEGORIES, REJECT_OPTIONAL_CATEGORIES, saveConsent } from './consent';
+import {
+  ACCEPT_ALL_CATEGORIES,
+  CONSENT_STORAGE_KEY,
+  REJECT_OPTIONAL_CATEGORIES,
+  saveConsent,
+} from './consent';
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -61,6 +66,30 @@ function enterAt(url: string) {
   window.history.pushState({}, '', url);
   return render(<App />);
 }
+
+/**
+ * Reproduces a visitor carrying attribution written by the implementation that
+ * ran BEFORE consent was required — the exact population this whole gate
+ * exists to protect. Every advertising key is present and none of it was
+ * agreed to.
+ */
+function seedPreConsentAttribution() {
+  localStorage.setItem('vve_first_source',  'google');
+  localStorage.setItem('vve_last_source',   'google');
+  localStorage.setItem('vve_landing_page',  '/carpet-cleaning-london');
+  localStorage.setItem('vve_utm_source',    'google');
+  localStorage.setItem('vve_utm_medium',    'cpc');
+  localStorage.setItem('vve_utm_campaign',  'OLD_CAMPAIGN');
+  localStorage.setItem('vve_utm_content',   'old_ad');
+  localStorage.setItem('vve_gclid',         'OLD_CLICK_ID');
+}
+
+/** Every advertising field, blanked — the shape BookingPage must receive. */
+const NO_CAMPAIGN = {
+  first_source: null, last_source: null, landing_page: null,
+  utm_source: null, utm_medium: null, utm_campaign: null,
+  utm_content: null, gclid: null,
+};
 
 /** Waits for the consent banner, proving the app has finished settling. */
 async function waitForBanner() {
@@ -118,6 +147,103 @@ describe('before the visitor has answered the cookie banner', () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Attribution already on disk, with no consent to hold it
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('attribution left behind by the pre-consent implementation', () => {
+  it('is deleted as soon as the app knows there is no stored choice', async () => {
+    // The defect this covers: gating only the WRITE left these keys in place
+    // for anyone who had used the site before the gate existed — readable, and
+    // still sent at booking. The people whose data was taken without asking
+    // would have been the very people it kept being transmitted for.
+    seedPreConsentAttribution();
+    enterAt('/');
+    await waitForBanner();
+
+    await waitFor(() => expect(storedAdvertisingKeys()).toEqual([]));
+    expect(getAttribution()).toMatchObject(NO_CAMPAIGN);
+  });
+
+  it('is deleted when the stored consent record is from a superseded version', async () => {
+    // A policy change bumps CONSENT_VERSION, which invalidates the old record
+    // and re-prompts. Until they answer again there is no current permission,
+    // so the old attribution cannot be kept on the strength of the old answer.
+    seedPreConsentAttribution();
+    localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify({
+      analytics: true, advertising: true, choice: 'accepted_all',
+      version: '2000-01-01', timestamp: new Date().toISOString(),
+    }));
+
+    enterAt('/');
+    await waitForBanner();
+
+    await waitFor(() => expect(storedAdvertisingKeys()).toEqual([]));
+    expect(getAttribution()).toMatchObject(NO_CAMPAIGN);
+  });
+
+  it('is deleted when the stored consent record is corrupt', async () => {
+    seedPreConsentAttribution();
+    localStorage.setItem(CONSENT_STORAGE_KEY, '{not valid json');
+
+    enterAt('/');
+    await waitForBanner();
+
+    await waitFor(() => expect(storedAdvertisingKeys()).toEqual([]));
+    expect(getAttribution().gclid).toBeNull();
+  });
+
+  it('leaves the leaflet discount alone while clearing the measurement', async () => {
+    // The visitor is still owed the 20% they scanned a QR code for.
+    seedPreConsentAttribution();
+    localStorage.setItem('vve_offer_code', 'LEAFLET20');
+    localStorage.setItem('vve_discount_percent', '20');
+
+    enterAt('/');
+    await waitForBanner();
+
+    await waitFor(() => expect(storedAdvertisingKeys()).toEqual([]));
+    const a = getAttribution();
+    expect(a.offer_code).toBe('LEAFLET20');
+    expect(a.discount_percent).toBe(20);
+  });
+
+  it('is kept and updated normally when consent WAS validly given', async () => {
+    // The mirror image: a valid, current acceptance must not be treated as
+    // suspect. First-touch survives, the newer campaign updates.
+    seedPreConsentAttribution();
+    saveConsent(ACCEPT_ALL_CATEGORIES, 'accepted_all');
+
+    enterAt('/?utm_source=bing&utm_campaign=NEW_CAMPAIGN');
+
+    await waitFor(() => expect(getAttribution().utm_campaign).toBe('NEW_CAMPAIGN'));
+    expect(getAttribution().first_source).toBe('google');   // write-once, kept
+    expect(getAttribution().gclid).toBe('OLD_CLICK_ID');    // write-once, kept
+    expect(getAttribution().last_source).toBe('bing');      // updated
+  });
+
+  it('writes the CURRENT entry, not the cleared one, if they accept afterwards', async () => {
+    // Cleanup must not cost the visit its own attribution: the entry snapshot
+    // is in memory and survives the storage wipe.
+    seedPreConsentAttribution();
+    const user = userEvent.setup();
+    enterAt('/sofa-cleaning-london?utm_source=google&utm_campaign=THIS_VISIT&gclid=THIS_CLICK');
+    await waitForBanner();
+
+    await waitFor(() => expect(storedAdvertisingKeys()).toEqual([]));
+    await user.click(screen.getByRole('button', { name: 'Accept all' }));
+
+    await waitFor(() => expect(getAttribution().gclid).toBe('THIS_CLICK'));
+    expect(getAttribution()).toMatchObject({
+      first_source: 'google',
+      utm_campaign: 'THIS_VISIT',
+      landing_page: '/sofa-cleaning-london',
+    });
+    // The stale campaign is gone for good, not merely hidden.
+    expect(getAttribution().utm_content).toBeNull();
   });
 });
 

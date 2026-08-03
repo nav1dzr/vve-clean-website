@@ -35,6 +35,25 @@
 // nothing: the discount still applies, the quote still calculates, the booking
 // still submits.
 //
+// ── No consent means no access, not just no writing ──────────────────────────
+// Gating the WRITE was not enough on its own. A visitor who used the site
+// before this change already has utm_* and gclid in their localStorage, written
+// by the implementation that ran before the banner was answered. If the gate
+// only stopped new writes, those old keys would sit there and still be read at
+// booking — so the very people whose data was collected without permission
+// would be the ones it was transmitted for.
+//
+// So consent is enforced at three points, and the ones after the first are
+// there because the first can fail (storage throwing, an older cached build,
+// another tab racing us):
+//   1. nothing is written without consent;
+//   2. every advertising key is DELETED the moment the app knows there is no
+//      current consent — undecided, missing, corrupt and superseded-version all
+//      count as no consent, because none of them is an affirmative yes;
+//   3. getAttribution() does not read the advertising keys at all without
+//      consent, and the flag it checks starts false, so the failure mode is
+//      transmitting nothing rather than transmitting without permission.
+//
 // ── Boundaries that have not changed ─────────────────────────────────────────
 //   • Nothing is transmitted here. Values sit in localStorage and are read only
 //     by BookingPage when the customer submits a booking they chose to make.
@@ -165,9 +184,19 @@ export function setLeafletOffer(): void {
  * `true`  — write the attribution remembered since entry, even if the banner
  *           was answered several pages later. This is what makes late consent
  *           still credit the original ad click.
- * `false` — remove every advertising key. Only call this on an explicit
- *           rejection, not while the banner is merely unanswered; see
- *           components/CampaignAttribution.tsx.
+ * `false` — no current permission. Remove every advertising key and stop
+ *           reading them (see getAttribution). Call this for an explicit
+ *           rejection AND for every state that is not an affirmative yes:
+ *           undecided, missing, corrupt, or carrying a superseded consent
+ *           version. An earlier version of this file cleared only on an
+ *           explicit rejection, which left keys written by the pre-consent
+ *           implementation sitting in storage — readable, and transmittable at
+ *           booking — for any visitor who had not answered the banner. Absence
+ *           of consent is not permission.
+ *
+ * The in-memory entry snapshot is deliberately NOT discarded here: it is the
+ * current visit's own URL, held in memory, and it is what gets written if the
+ * visitor goes on to accept.
  */
 export function setAdvertisingConsent(granted: boolean): void {
   advertisingConsent = granted;
@@ -288,15 +317,45 @@ export function resetAttributionMemory(): void {
   advertisingConsent = false;
 }
 
+/** The advertising half of the payload, blanked. */
+const NO_ADVERTISING_ATTRIBUTION = {
+  first_source: null, last_source: null, landing_page: null,
+  utm_source: null, utm_medium: null, utm_campaign: null,
+  utm_content: null, gclid: null,
+} as const;
+
+/**
+ * The shape BookingPage sends to the API.
+ *
+ * Consent-safe by construction: without current advertising consent the
+ * advertising keys are not even read, and every campaign field comes back null.
+ * Clearing storage (setAdvertisingConsent(false)) and refusing to read it are
+ * belt and braces on purpose — clearing can fail if localStorage throws, a
+ * stale key can be written by an older build still cached in a visitor's
+ * browser, or another tab can race us. This function is the last thing standing
+ * between storage and the network, so it fails closed: the module-level flag
+ * starts `false`, which means a caller who somehow runs before the consent
+ * state is known transmits nothing rather than transmitting without permission.
+ *
+ * offer_code and discount_percent are always returned. They are essential
+ * storage — the discount the visitor asked us to apply — and BookingPage needs
+ * them to honour it.
+ */
 export function getAttribution(): AttributionData {
   try {
     const pct = localStorage.getItem(KEYS.discount_percent);
+    const essential = {
+      offer_code:       localStorage.getItem(KEYS.offer_code),
+      discount_percent: pct !== null ? Number(pct) : null,
+    };
+
+    if (!advertisingConsent) return { ...NO_ADVERTISING_ATTRIBUTION, ...essential };
+
     return {
+      ...essential,
       first_source:     localStorage.getItem(KEYS.first_source),
       last_source:      localStorage.getItem(KEYS.last_source),
       landing_page:     localStorage.getItem(KEYS.landing_page),
-      offer_code:       localStorage.getItem(KEYS.offer_code),
-      discount_percent: pct !== null ? Number(pct) : null,
       utm_source:       localStorage.getItem(KEYS.utm_source),
       utm_medium:       localStorage.getItem(KEYS.utm_medium),
       utm_campaign:     localStorage.getItem(KEYS.utm_campaign),
@@ -304,11 +363,6 @@ export function getAttribution(): AttributionData {
       gclid:            localStorage.getItem(KEYS.gclid),
     };
   } catch {
-    return {
-      first_source: null, last_source: null, landing_page: null,
-      offer_code: null, discount_percent: null,
-      utm_source: null, utm_medium: null, utm_campaign: null,
-      utm_content: null, gclid: null,
-    };
+    return { ...NO_ADVERTISING_ATTRIBUTION, offer_code: null, discount_percent: null };
   }
 }
