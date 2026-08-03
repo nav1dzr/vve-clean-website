@@ -20,9 +20,14 @@ export interface LightboxPhoto {
 export function toLightboxPhotos(items: GalleryItem[]): LightboxPhoto[] {
   return items.flatMap((item) => {
     if (item.type === 'before-after') {
+      // Captions follow the tile's own side labels, so a pair shot mid-job
+      // reads "— during extraction" in the overlay too rather than silently
+      // reverting to "after" once enlarged.
+      const before = (item.beforeLabel ?? 'Before').toLowerCase();
+      const after = (item.afterLabel ?? 'After').toLowerCase();
       return [
-        { src: item.before, alt: item.beforeAlt, caption: `${item.label} — before` },
-        { src: item.after, alt: item.afterAlt, caption: `${item.label} — after` },
+        { src: item.before, alt: item.beforeAlt, caption: `${item.label} — ${before}` },
+        { src: item.after, alt: item.afterAlt, caption: `${item.label} — ${after}` },
       ];
     }
     if (item.type === 'photo') {

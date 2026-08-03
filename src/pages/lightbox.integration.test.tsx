@@ -118,13 +118,29 @@ describe('Gallery page — the count spans the whole category', () => {
     expect(within(dialog()).getByAltText(firstPhoto.alt)).toBeInTheDocument();
   });
 
-  it('offers nothing to enlarge in a category with no approved photos', async () => {
+  it('numbers the Sofa category across its pairs and photos, skipping the clips', async () => {
+    // This replaces an assertion that Sofa & Upholstery had nothing to enlarge.
+    // That was true while the category was an intentional empty placeholder;
+    // the owner's set has since been approved, so the meaningful check is that
+    // the count spans photos only — the four clips must not be numbered as
+    // lightbox entries, or Next would step onto a blank frame.
     const user = userEvent.setup();
     renderPage(<GalleryPage />, '/gallery?category=sofa-upholstery');
 
     await user.click(screen.getByRole('tab', { name: 'Sofa & Upholstery' }));
 
-    expect(screen.queryByRole('button', { name: /^View larger:/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    const items = GALLERY_MEDIA['sofa-upholstery'];
+    const total = items.reduce(
+      (n, i) => n + (i.type === 'before-after' ? 2 : i.type === 'photo' ? 1 : 0),
+      0,
+    );
+    // 4 pairs (8 halves) + 10 photos, and none of the 4 videos.
+    expect(total).toBe(18);
+
+    const openers = screen.getAllByRole('button', { name: /^View larger:/ });
+    expect(openers).toHaveLength(total);
+
+    await user.click(openers[0]);
+    expect(within(dialog()).getByText(`Photo 1 of ${total}`)).toBeInTheDocument();
   });
 });

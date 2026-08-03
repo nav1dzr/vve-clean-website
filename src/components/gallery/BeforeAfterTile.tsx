@@ -14,10 +14,19 @@ export default function BeforeAfterTile({
   entry,
   placeholderLabel,
   onOpen,
+  // The stage a photo is letterboxed onto. 4:3 suits the Carpet and End of
+  // Tenancy sets, which are shot landscape. The Sofa set is mostly portrait
+  // (5 of its 8 halves), and on a 4:3 stage those lost 44% of the card to navy
+  // bars — so that section passes aspect-square, which wastes at most 25%
+  // whichever way round the photo is. Kept a prop rather than a per-photo
+  // measurement so both halves of a pair always share one stage: a card whose
+  // two sides were different heights would not read as a comparison.
+  stageAspect = 'aspect-[4/3]',
 }: {
   entry?: GalleryBeforeAfterItem;
   placeholderLabel: string;
   onOpen?: (side: 'before' | 'after', origin: HTMLElement) => void;
+  stageAspect?: string;
 }) {
   if (!entry) {
     return (
@@ -26,10 +35,10 @@ export default function BeforeAfterTile({
         aria-label={`${placeholderLabel} — recent results coming soon`}
       >
         <div className="grid grid-cols-2">
-          <div className="aspect-[4/3] flex items-center justify-center bg-silver-100 border-r border-silver-200">
+          <div className={`${stageAspect} flex items-center justify-center bg-silver-100 border-r border-silver-200`}>
             <span className="text-silver-400 text-[11px] font-semibold tracking-widest uppercase">Before</span>
           </div>
-          <div className="aspect-[4/3] flex items-center justify-center bg-silver-100">
+          <div className={`${stageAspect} flex items-center justify-center bg-silver-100`}>
             <span className="text-silver-400 text-[11px] font-semibold tracking-widest uppercase">After</span>
           </div>
         </div>
@@ -49,6 +58,11 @@ export default function BeforeAfterTile({
   const half = (side: 'before' | 'after') => {
     const src = side === 'before' ? entry.before : entry.after;
     const alt = side === 'before' ? entry.beforeAlt : entry.afterAlt;
+    // Defaults to Before/After; a pair may override either side when the
+    // photograph does not show a finished result (see GalleryBeforeAfterItem).
+    const sideLabel = side === 'before'
+      ? entry.beforeLabel ?? 'Before'
+      : entry.afterLabel ?? 'After';
     const badge = side === 'before'
       ? 'bg-black/55 text-white'
       : 'bg-emerald-600/85 text-white';
@@ -65,7 +79,7 @@ export default function BeforeAfterTile({
           className="absolute inset-0 w-full h-full object-contain"
         />
         <div className={`absolute bottom-0 left-0 right-0 py-1.5 text-center text-xs font-semibold tracking-wide ${badge}`}>
-          {side === 'before' ? 'Before' : 'After'}
+          {sideLabel}
         </div>
       </>
     );
@@ -76,7 +90,7 @@ export default function BeforeAfterTile({
         type="button"
         onClick={(e) => onOpen(side, e.currentTarget)}
         aria-label={`View larger: ${alt}`}
-        className="group relative aspect-[4/3] bg-navy-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-royal-500"
+        className={`group relative ${stageAspect} bg-navy-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-royal-500`}
       >
         {media}
         <span
@@ -87,7 +101,7 @@ export default function BeforeAfterTile({
         </span>
       </button>
     ) : (
-      <div className="relative aspect-[4/3] bg-navy-950">{media}</div>
+      <div className={`relative ${stageAspect} bg-navy-950`}>{media}</div>
     );
   };
 

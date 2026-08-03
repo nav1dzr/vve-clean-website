@@ -1,4 +1,7 @@
 import eotGalleryImages from 'virtual:eot-gallery';
+// sofaMedia imports only *types* back from this file, and `import type` is
+// erased before bundling, so this pair never forms a runtime cycle.
+import { SOFA_MEDIA } from './sofaMedia';
 
 // Central media manifest for the routed Gallery page (and the
 // source of truth the End of Tenancy landing page draws its real before/
@@ -7,10 +10,10 @@ import eotGalleryImages from 'virtual:eot-gallery';
 // time so the owner can replace its contents without editing this file; only
 // the first 15 supported image files are published.
 //
-// End of Tenancy and Carpet are populated with the owner-approved photo sets.
-// Sofa & Upholstery remains an empty placeholder: the owner is still organising
-// that folder, so nothing unapproved should be referenced here until a final
-// set is supplied.
+// All three categories are now populated with owner-approved sets. The Sofa &
+// Upholstery definitions live in ./sofaMedia and are imported below rather than
+// inlined: that set alone is 4 before/after pairs, 11 photos and 4 clips, which
+// would otherwise bury the other two categories in this file.
 
 export type GalleryCategory = 'end-of-tenancy' | 'carpet' | 'sofa-upholstery';
 
@@ -33,6 +36,17 @@ export interface GalleryBeforeAfterItem {
   after: string;
   beforeAlt: string;
   afterAlt: string;
+  /**
+   * Overrides for the two side badges and their lightbox captions. Both default
+   * to 'Before' / 'After' — every Carpet and End of Tenancy pair, and three of
+   * the four Sofa pairs, leave them unset and are unaffected.
+   *
+   * They exist for a pair whose second photograph is not a finished result: one
+   * Sofa card was shot mid-extraction, and calling that "After" would claim a
+   * dried, completed clean the photograph does not show.
+   */
+  beforeLabel?: string;
+  afterLabel?: string;
 }
 
 export interface GalleryPhotoItem {
@@ -49,6 +63,8 @@ export interface GalleryVideoItem {
   label: string;
   src: string;
   poster: string;
+  /** Describes the clip for people who cannot see it. Falls back to `label`. */
+  description?: string;
 }
 
 export type GalleryItem = GalleryBeforeAfterItem | GalleryPhotoItem | GalleryVideoItem;
@@ -163,7 +179,7 @@ const CARPET_BEFORE_AFTER: GalleryBeforeAfterItem[] = [
 export const GALLERY_MEDIA: Record<GalleryCategory, GalleryItem[]> = {
   'end-of-tenancy': [...EOT_BEFORE_AFTER, ...EOT_PHOTOS],
   carpet: [...CARPET_BEFORE_AFTER],
-  'sofa-upholstery': [],
+  'sofa-upholstery': SOFA_MEDIA,
 };
 
 /** The Carpet page's featured Before/After cards. */

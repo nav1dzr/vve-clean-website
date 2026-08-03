@@ -1,22 +1,12 @@
 import {
-  Armchair,
-  BedDouble,
   CheckCircle2,
   Clock3,
   Droplets,
   Search,
   ShieldCheck,
-  Sofa,
   Sparkles,
   Wind,
 } from 'lucide-react';
-
-const CLEANABLE_ITEMS = [
-  { icon: Sofa, label: 'Fabric sofas' },
-  { icon: Armchair, label: 'Armchairs' },
-  { icon: BedDouble, label: 'Mattresses' },
-  { icon: Sparkles, label: 'Dining chairs' },
-];
 
 const PROCESS = [
   {
@@ -47,37 +37,42 @@ const PROCESS = [
 
 export function SofaHeroPanel() {
   return (
-    <div className="relative mx-auto max-w-lg" aria-label="Sofa and upholstery cleaning overview">
-      <div aria-hidden="true" className="absolute -inset-5 rounded-[2rem] bg-sky-400/10 blur-2xl" />
-      <div className="relative overflow-hidden rounded-[1.75rem] border border-white/15 bg-white/[0.08] p-6 shadow-2xl shadow-black/20 backdrop-blur-sm">
-        <div className="flex items-start justify-between gap-5">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-300">One visit, more than sofas</p>
-            <h2 className="mt-2 font-display text-2xl font-bold text-white">Upholstery care around your home</h2>
-          </div>
-          <span className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl bg-sky-400 text-navy-950 shadow-lg shadow-sky-500/20">
-            <Sofa size={25} aria-hidden="true" />
-          </span>
+    <figure className="relative mx-auto w-full min-w-0 max-w-xl">
+      {/* Decorative glow. The horizontal spread is clamped to 12px on phones
+          because the hero's own padding is only px-4 (16px): at the authored
+          -inset-5 (20px) the glow reached 4px past each edge of the viewport and
+          made /sofa-cleaning-london the one route with horizontal overflow.
+          It only bit below 608px — above that max-w-xl stops the figure filling
+          the column, leaving slack — so the full spread is restored from sm up
+          and the design is unchanged at every width where it fits. Vertical
+          spread is untouched; nothing constrains it. */}
+      <div aria-hidden="true" className="absolute -inset-y-5 -inset-x-3 sm:-inset-x-5 rounded-[2rem] bg-gradient-to-br from-sky-400/20 to-fuchsia-400/10 blur-2xl" />
+      <div className="relative aspect-[16/10] overflow-hidden rounded-[1.75rem] border border-white/20 bg-navy-950 shadow-2xl shadow-black/30 sm:aspect-[3/2] lg:aspect-[4/3]">
+        <img
+          src="/images/sofa-cleaning-hero.webp"
+          alt="Professional upholstery cleaning on a purple armchair beside a teal sofa"
+          width={1536}
+          height={1025}
+        loading="eager"
+        decoding="async"
+        className="h-full w-full object-cover object-center"
+        />
+        <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-navy-950 via-navy-950/10 to-transparent" />
+
+        <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-navy-950/75 px-3 py-1.5 text-xs font-bold text-sky-200 shadow-lg backdrop-blur-sm sm:left-5 sm:top-5">
+          <ShieldCheck size={15} aria-hidden="true" />
+          Sofa &amp; upholstery cleaning
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          {CLEANABLE_ITEMS.map(({ icon: Icon, label }) => (
-            <div key={label} className="flex min-h-[76px] items-center gap-3 rounded-2xl border border-white/10 bg-navy-950/35 px-4 py-3">
-              <Icon size={21} className="flex-none text-sky-300" aria-hidden="true" />
-              <span className="text-sm font-semibold text-white">{label}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-5 flex items-center gap-3 rounded-2xl bg-white px-4 py-3 text-navy-950">
-          <ShieldCheck size={22} className="flex-none text-royal-600" aria-hidden="true" />
-          <div>
-            <p className="text-sm font-bold">Fabric checked before cleaning</p>
-            <p className="text-xs text-slate-500">We tell you first if extraction is not suitable.</p>
-          </div>
-        </div>
+        <figcaption className="absolute inset-x-0 bottom-0 p-5 text-left sm:p-6">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">Fabric-first care</p>
+          <p className="mt-1 font-display text-xl font-bold text-white sm:text-2xl">Fabric checked before cleaning</p>
+          <p className="mt-1 max-w-md text-sm leading-relaxed text-slate-200">
+            Professional hot-water extraction, matched to the upholstery in front of us.
+          </p>
+        </figcaption>
       </div>
-    </div>
+    </figure>
   );
 }
 

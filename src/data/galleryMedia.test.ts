@@ -59,17 +59,26 @@ describe('galleryMedia manifest — End of Tenancy', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('publishes exactly the three approved Carpet pairs and keeps Sofa & Upholstery empty', () => {
+  it('publishes exactly the three approved Carpet pairs', () => {
     // Carpet ships the owner's three approved before/after pairs — no more, no
-    // fewer. Sofa & Upholstery still has no approved media, so it must stay
-    // empty rather than show placeholders.
+    // fewer.
     expect(GALLERY_MEDIA.carpet).toHaveLength(3);
     expect(GALLERY_MEDIA.carpet.map((i) => i.id)).toEqual([
       'carpet-office',
       'carpet-blue',
       'carpet-brown',
     ]);
-    expect(GALLERY_MEDIA['sofa-upholstery']).toEqual([]);
+  });
+
+  it('publishes the approved Sofa & Upholstery set from the same manifest', () => {
+    // This category was an intentional empty placeholder until the owner's set
+    // was supplied. Counts are pinned so a future edit cannot silently drop or
+    // duplicate an approved item — sofaMedia.test.ts covers the detail.
+    const sofa = GALLERY_MEDIA['sofa-upholstery'];
+    expect(sofa).toHaveLength(18);
+    expect(sofa.filter((i) => i.type === 'before-after')).toHaveLength(4);
+    expect(sofa.filter((i) => i.type === 'photo')).toHaveLength(10);
+    expect(sofa.filter((i) => i.type === 'video')).toHaveLength(4);
   });
 
   it('uses the owner-specified source mapping for every carpet pair', () => {

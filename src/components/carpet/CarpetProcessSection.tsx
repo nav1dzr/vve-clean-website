@@ -10,7 +10,7 @@
 // shortly after. Adding a third would put two competing primary actions on
 // screen at once on mobile.
 
-import LazyVideo from './LazyVideo';
+import LazyVideo from '../media/LazyVideo';
 import { CARPET_PROCESS_VIDEO } from '../../data/carpetMedia';
 
 export default function CarpetProcessSection() {

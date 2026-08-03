@@ -9,7 +9,7 @@ import BeforeAfterTile from '../gallery/BeforeAfterTile';
 import GalleryInstagramCta from '../gallery/GalleryInstagramCta';
 import PhotoLightbox from '../gallery/PhotoLightbox';
 import { toLightboxPhotos, useLightbox } from '../gallery/useLightbox';
-import LazyVideo from './LazyVideo';
+import LazyVideo from '../media/LazyVideo';
 import { CARPET_FEATURED_BEFORE_AFTER } from '../../data/galleryMedia';
 import { CARPET_RESULT_VIDEOS } from '../../data/carpetMedia';
 

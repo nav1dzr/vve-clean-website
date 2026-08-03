@@ -31,6 +31,18 @@ function renderPage() {
 }
 
 describe('SofaCleaningPage — quote placement and premium service guidance', () => {
+  it('uses the supplied sofa-cleaning photograph as a responsive hero visual', () => {
+    renderPage();
+
+    const heroImage = screen.getByRole('img', {
+      name: 'Professional upholstery cleaning on a purple armchair beside a teal sofa',
+    });
+
+    expect(heroImage).toHaveAttribute('src', '/images/sofa-cleaning-hero.webp');
+    expect(screen.getByText('Fabric checked before cleaning')).toBeInTheDocument();
+    expect(screen.getByText(/cleaned with care, not guesswork/i)).toHaveClass('text-gradient-sofa');
+  });
+
   it('surfaces an upholstery-focused instant quote calculator directly after the hero, and the hero CTA reaches it', () => {
     renderPage();
 

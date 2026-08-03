@@ -40,7 +40,13 @@ export default function MobileStickyFooter() {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 lg:hidden transition-[bottom] duration-200"
+      // No transition on `bottom`. The cookie banner mounts a few hundred ms
+      // after this bar, and animating from bottom:0 up to the banner's height
+      // slid the whole bar *through* the banner for ~200ms on every fresh
+      // mobile visit — measured at 52px of overlap, i.e. fully covered. The bar
+      // now steps straight to its final position. Dismissal is unaffected: the
+      // banner unmounts first, so nothing is there to overlap on the way down.
+      className="fixed bottom-0 left-0 right-0 z-50 lg:hidden"
       style={{ bottom: 'var(--vve-cookie-banner-h, 0px)' }}
     >
       <div

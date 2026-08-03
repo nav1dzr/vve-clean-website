@@ -1,7 +1,8 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
 import QuoteCalculator from '../components/QuoteCalculator';
 import { SofaCareGuide, SofaHeroPanel } from '../components/sofa/SofaServicePreview';
-import SofaResultsSection from '../components/sofa/SofaResultsSection';
+import SofaProofSection from '../components/sofa/SofaProofSection';
+import SofaGallerySection from '../components/sofa/SofaGallerySection';
 import { PawPrint, Shield, Palette, RefreshCw } from 'lucide-react';
 import {
   CARPET_ITEM_PRICES_P,
@@ -94,8 +95,10 @@ const DATA: ServiceLandingData = {
   eyebrow: 'Professional Upholstery Cleaning',
   h1: 'Sofa & Upholstery Cleaning London',
   h1Highlight: ' — cleaned with care, not guesswork.',
+  heroHighlightClassName: 'text-gradient-sofa',
   heroSubtitle: 'A fabric-first clean for sofas, armchairs, mattresses and dining chairs across East & North London.',
   heroAside: <SofaHeroPanel />,
+  heroAsideOnMobile: true,
   heroBadges: [
     'Hot-water extraction',
     'Colour-safe on most fabrics',
@@ -164,15 +167,15 @@ const DATA: ServiceLandingData = {
     'Combine a sofa and carpet clean on the same visit to save automatically on bundle discount tiers — see all prices for details.',
   pricingCta: { href: '/pricing', label: 'See all prices' },
 
-  // Process explainer, then the reserved proof slots. The proof section is
-  // deliberately honest rather than empty: it names what is coming and never
-  // borrows another service's photographs (see SofaResultsSection).
-  afterPricingSection: (
-    <>
-      <SofaCareGuide />
-      <SofaResultsSection />
-    </>
-  ),
+  // Three media slots now that the owner's set is approved, ordered by
+  // conversion value rather than by convenience:
+  //   proof   — four before/after pairs + the featured extraction clip, directly
+  //             under the quote, where the decision is actually made.
+  //   process — the fabric-first explainer, once the visitor is interested.
+  //   media   — breadth: the 11 supporting photos and the other three clips.
+  proofSection: <SofaProofSection />,
+  processSection: <SofaCareGuide />,
+  afterPricingSection: <SofaGallerySection />,
 
   faqs: [
     {
@@ -206,7 +209,14 @@ const DATA: ServiceLandingData = {
     { href: '/booking', label: 'Book Online' },
   ],
 
-  sectionOrder: ['intro', 'benefits', 'why', 'pricing', 'media', 'reviews', 'faq', 'related'],
+  // Conversion order: quote (afterHeroSection, always directly under the hero)
+  // → hard proof → reviews → benefits → process → supporting gallery → the
+  // longer-form explanation, pricing and FAQs for anyone still reading.
+  // Media used to sit below pricing, five screens down, which buried it.
+  sectionOrder: [
+    'proof', 'reviews', 'benefits', 'process', 'media',
+    'intro', 'why', 'pricing', 'faq', 'related',
+  ],
 
   ctaH2: 'Ready to book your sofa clean?',
   ctaBody:

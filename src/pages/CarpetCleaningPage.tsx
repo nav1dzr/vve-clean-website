@@ -89,14 +89,46 @@ const SCHEMA = JSON.stringify({
   ],
 });
 
+function CarpetHeroPanel() {
+  return (
+    <figure className="relative isolate overflow-hidden rounded-[2rem] border border-white/15 bg-navy-950 shadow-2xl shadow-black/35 aspect-[16/10] sm:aspect-[3/2] lg:aspect-[4/3]">
+      <img
+        src="/images/carpet-cleaning-hero.webp"
+        alt="Professional hot-water extraction cleaning on a deep blue carpet"
+        width={1672}
+        height={941}
+        loading="eager"
+        decoding="async"
+        className="h-full w-full object-cover object-center"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-navy-950 via-navy-950/5 to-transparent" aria-hidden="true" />
+      <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-sky-400/20 blur-3xl" aria-hidden="true" />
+
+      <figcaption className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-navy-950/75 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-sky-200 backdrop-blur-md">
+          <Droplets size={15} aria-hidden="true" />
+          Professional extraction
+        </div>
+        <p className="font-display text-2xl font-bold text-white sm:text-3xl">Deep clean, visible results</p>
+        <p className="mt-1 max-w-md text-sm leading-relaxed text-silver-200 sm:text-base">
+          Hot-water extraction lifts embedded dirt, stains and odours from deep in the carpet pile.
+        </p>
+      </figcaption>
+    </figure>
+  );
+}
+
 const DATA: ServiceLandingData = {
   schema: SCHEMA,
   breadcrumb: 'Carpet Cleaning London',
 
   eyebrow: 'Professional Carpet Cleaning',
   h1: 'Carpet Cleaning London',
-  h1Highlight: '',
+  h1Highlight: ' — deeper than the surface.',
+  heroHighlightClassName: 'text-gradient-carpet',
   heroSubtitle: 'Deep steam cleaning and stain removal',
+  heroAside: <CarpetHeroPanel />,
+  heroAsideOnMobile: true,
   // DBS deliberately appears once on this page — in heroTrustLine below, where
   // it sits alongside insurance as a credential. It used to be repeated here
   // too, which spent a hero bullet on a claim the visitor had already read.
@@ -107,10 +139,6 @@ const DATA: ServiceLandingData = {
     'Dry in 2–4 hours',
     'Fixed prices, no surprises',
   ],
-  // Single hero image for every breakpoint. A separate desktop crop was
-  // referenced here previously but the file was never added, which left the
-  // desktop hero with no background at all.
-  heroBgImage: '/images/carpet-hero.jpg',
   heroGoogleBadge: true,
   heroCompactMobile: true,
   heroTrustLine: 'Fully insured · DBS-checked technicians',
@@ -180,21 +208,24 @@ const DATA: ServiceLandingData = {
     'Large, wool or specialist rugs need a photo quote first. Book multiple carpet or upholstery items together and save automatically — see our discount tiers on the pricing page. What a clean can lift depends on the stain, the fibre, how long it has been there and any product already used on it, so complete removal cannot be guaranteed — we tell you the likely outcome before we start, not after.',
   pricingCta: { href: '/pricing', label: 'See all prices' },
 
-  // Real proof: the three approved before/after pairs, each with its own clip,
-  // followed by the one landscape clip on a wide stage of its own.
-  afterPricingSection: (
-    <>
-      <CarpetResultsSection />
-      <CarpetProcessSection />
-    </>
-  ),
+  // Real proof: the three approved before/after pairs, each with its own clip.
+  afterPricingSection: <CarpetResultsSection />,
+
+  // The one landscape clip, on a wide stage of its own. It was previously
+  // bundled with the results above; separating it lets the reassurance sections
+  // land between the evidence and the "here's how it works" explainer, matching
+  // the Sofa page's ordering.
+  processSection: <CarpetProcessSection />,
 
   // Same conversion journey as the End of Tenancy page: hero → carpet quote →
-  // real proof media → reviews → benefits → about → why choose us → pricing →
-  // FAQ → related → final CTA. The generic homepage-style Gallery block is
-  // deliberately omitted, exactly as on EOT: it repeats proof already shown
-  // above and mixes in unrelated services.
-  sectionOrder: ['media', 'reviews', 'benefits', 'intro', 'why', 'pricing', 'faq', 'related'],
+  // real proof media → reviews → benefits → process footage → about → why
+  // choose us → pricing → FAQ → related → final CTA. The generic homepage-style
+  // Gallery block is deliberately omitted, exactly as on EOT: it repeats proof
+  // already shown above and mixes in unrelated services.
+  sectionOrder: [
+    'media', 'reviews', 'benefits', 'process',
+    'intro', 'why', 'pricing', 'faq', 'related',
+  ],
 
   faqs: [
     {

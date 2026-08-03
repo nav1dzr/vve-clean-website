@@ -35,6 +35,8 @@ export type ServiceSectionKey =
   | 'reviews'
   | 'why'
   | 'pricing'
+  | 'proof'
+  | 'process'
   | 'media'
   | 'faq'
   | 'related';
@@ -66,6 +68,12 @@ export interface ServiceLandingData {
   // Optional visual panel used by service pages that need a richer,
   // homepage-style split hero without relying on stock photography.
   heroAside?: ReactNode;
+  // Pages with a useful responsive photograph can opt in to showing the
+  // visual below the copy on mobile instead of keeping it desktop-only.
+  heroAsideOnMobile?: boolean;
+  // Lets one service match its headline accent to its hero artwork while the
+  // shared metallic default remains unchanged everywhere else.
+  heroHighlightClassName?: string;
   // Tightens mobile-only vertical spacing in the hero so the CTAs, Google
   // badge and trust line all fit above the sticky footer on short screens
   // (e.g. 360×741). Desktop (≥640px) spacing is unchanged.
@@ -106,6 +114,17 @@ export interface ServiceLandingData {
   // Pricing and FAQ by default, but a page can reorder it (e.g. directly
   // under its quote) via sectionOrder without renaming this field.
   afterPricingSection?: React.ReactNode;
+
+  // Two further optional content slots, for pages with enough real media to
+  // need more than one. A page with a single media block keeps using
+  // afterPricingSection and is entirely unaffected by these.
+  //
+  //   'proof'   — the strongest evidence, meant to sit directly under the quote
+  //               (before/after results, a featured clip).
+  //   'process' — the "how we do it" explainer, which belongs after the
+  //               reassurance sections rather than bundled into the proof.
+  proofSection?: React.ReactNode;
+  processSection?: React.ReactNode;
 
   // FAQ
   faqs: ServiceFaq[];
@@ -383,6 +402,10 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
       </section>
     ),
 
+    proof: data.proofSection,
+
+    process: data.processSection,
+
     media: data.afterPricingSection,
 
     faq: (
@@ -501,7 +524,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
                 {data.h1Highlight && (
                   <>
                     <br className="hidden sm:block" />
-                    <span className="text-gradient-metallic">{data.h1Highlight}</span>
+                    <span className={data.heroHighlightClassName ?? 'text-gradient-metallic'}>{data.h1Highlight}</span>
                   </>
                 )}
               </h1>
@@ -540,7 +563,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
               )}
             </div>
             {data.heroAside && (
-              <div className="hidden lg:block">
+              <div className={data.heroAsideOnMobile ? 'block min-w-0' : 'hidden lg:block'}>
                 {data.heroAside}
               </div>
             )}

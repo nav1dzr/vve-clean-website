@@ -426,8 +426,11 @@ export default function PricingPage() {
       </main>
       <Footer />
 
-      {/* ── 8. MOBILE STICKY BOTTOM BAR ── */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-silver-200 shadow-xl transition-[bottom] duration-200"
+      {/* ── 8. MOBILE STICKY BOTTOM BAR ──
+          No `bottom` transition: animating up to the cookie banner's height
+          slid this bar through the banner on a fresh visit. See
+          MobileStickyFooter for the full note. */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-silver-200 shadow-xl"
         style={{ bottom: 'var(--vve-cookie-banner-h, 0px)' }}>
         <div className="grid grid-cols-2 divide-x divide-silver-200">
           <a href="tel:02080502233"
