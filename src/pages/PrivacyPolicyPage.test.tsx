@@ -26,7 +26,39 @@ describe('PrivacyPolicyPage — cookies and Google Consent Mode', () => {
     const text = renderPage();
     expect(text).toMatch(/Essential storage \(always on\)/);
     expect(text).toMatch(/remembering your quote and booking selections/i);
-    expect(text).toMatch(/leaflet or advert brought you to the site/i);
+    // The discount code stays essential: the visitor scanned a leaflet asking
+    // us to apply it, so storing it is delivering what they requested.
+    expect(text).toMatch(/remembering a discount code you have asked us to apply/i);
+  });
+
+  it('does not classify campaign measurement as essential storage', () => {
+    // It previously said essential storage covered "remembering which leaflet
+    // or advert brought you to the site". Recording which advert brought
+    // someone is measurement done for us, not a service asked for by them —
+    // calling it always-on essential storage misdescribed what the site does.
+    const text = renderPage();
+    const essential = text.split(/Essential storage \(always on\)/)[1]
+      ?.split(/Analytics storage \(optional\)/)[0] ?? '';
+
+    expect(essential).toBeTruthy();
+    expect(essential).not.toMatch(/advert brought you|advertising campaign|which advert/i);
+    expect(essential).not.toMatch(/utm|gclid/i);
+    expect(essential).toMatch(/None of this is used for advertising or measurement/i);
+  });
+
+  it('describes campaign attribution under advertising, and says what refusing costs', () => {
+    const text = renderPage();
+    const advertising = text.split(/Advertising storage \(optional\)/)[1]
+      ?.split(/Google Consent Mode/)[0] ?? '';
+
+    expect(advertising).toMatch(/how you reached our site/i);
+    expect(advertising).toMatch(/switched off until you agree to it/i);
+    // Withdrawal has to be described honestly: we delete, and nothing they
+    // care about stops working.
+    expect(advertising).toMatch(/delete anything already stored/i);
+    expect(advertising).toMatch(/discount you were promised carry on working/i);
+    // And it must be clear nothing is transmitted while merely browsing.
+    expect(advertising).toMatch(/only at the point you submit it/i);
   });
 
   it('explains analytics storage is optional and off by default', () => {
