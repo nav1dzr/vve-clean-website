@@ -54,8 +54,28 @@ describe('public site vercel.json — response headers (F3)', () => {
     expect(headerValue(block, 'Cache-Control')).toBeUndefined();
   });
 
-  it('still rewrites every route to index.html (SPA routing unchanged)', () => {
-    expect(config.rewrites).toEqual([{ source: '/(.*)', destination: '/index.html' }]);
+  it('does NOT rewrite unmatched paths to index.html', () => {
+    // This used to assert the opposite: rewrites: [{ source: '/(.*)',
+    // destination: '/index.html' }]. That rule was written for SPA routing, but
+    // the site is fully prerendered — every route in AppRoutes has its own
+    // dist/<route>/index.html, and Vercel resolves the filesystem before
+    // rewrites, so it never applied to a real page.
+    //
+    // Where it DID apply was every path matching nothing, and there it returned
+    // HTTP 200 with the homepage: soft 404s that let Google index unlimited
+    // duplicate URLs, hid stale links from visitors, and made a missing asset
+    // come back as HTML with a success status instead of an error.
+    //
+    // Removing it lets Vercel serve dist/404.html with a genuine 404 status.
+    expect(config.rewrites ?? []).toEqual([]);
+    expect(JSON.stringify(config)).not.toContain('/index.html');
+  });
+
+  it('pins clean-URL and trailing-slash behaviour rather than relying on defaults', () => {
+    // cleanUrls: true would let Vercel resolve /booking to the legacy
+    // public/booking.html redirect shim, which redirects to /booking — a loop.
+    expect(config.cleanUrls).toBe(false);
+    expect(config.trailingSlash).toBe(false);
   });
 
   it('does not add a Content-Security-Policy header (deferred — see CSP_IMPLEMENTATION_NOTES.md)', () => {

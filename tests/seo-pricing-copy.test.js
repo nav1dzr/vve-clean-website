@@ -81,14 +81,31 @@ describe('prerendered metadata quotes the catalogue', () => {
 });
 
 describe('titles and descriptions stay inside what search results render', () => {
-  const routes = [...prerender.matchAll(/path: '([^']+)'/g)].map((m) => m[1]);
-  const titles = [...prerender.matchAll(/^\s{4}title:\s*'((?:[^'\\]|\\.)*)'/gm)].map((m) => m[1]);
-  const descriptions = [...prerender.matchAll(/^\s{4}description:\s*\n?\s*'((?:[^'\\]|\\.)*)'/gm)].map((m) => m[1]);
+  // Scope the scan to the `routes` array. prerender.mjs also defines a separate
+  // `notFoundRoute` object (dist/404.html) whose properties are indented two
+  // spaces rather than four; counting it here previously skewed routes (14)
+  // against titles (13) and looked like a missing title.
+  const routesBlock = prerender.slice(
+    prerender.indexOf('const routes = ['),
+    prerender.indexOf('const notFoundRoute'),
+  );
 
-  it('found a title and description for all 13 routes', () => {
-    expect(routes).toHaveLength(13);
-    expect(titles).toHaveLength(13);
-    expect(descriptions).toHaveLength(13);
+  const routes = [...routesBlock.matchAll(/path: '([^']+)'/g)].map((m) => m[1]);
+  const titles = [...routesBlock.matchAll(/^\s{4}title:\s*'((?:[^'\\]|\\.)*)'/gm)].map((m) => m[1]);
+  const descriptions = [...routesBlock.matchAll(/^\s{4}description:\s*\n?\s*'((?:[^'\\]|\\.)*)'/gm)].map((m) => m[1]);
+
+  it('found a title and description for every prerendered route', () => {
+    // Asserted as parity rather than a fixed count, so adding a route cannot
+    // pass by updating one number — a route missing a title still fails.
+    expect(routes.length).toBeGreaterThanOrEqual(13);
+    expect(titles).toHaveLength(routes.length);
+    expect(descriptions).toHaveLength(routes.length);
+  });
+
+  it('gives the 404 page its own title and description', () => {
+    const notFound = prerender.slice(prerender.indexOf('const notFoundRoute'));
+    expect(notFound).toMatch(/title:\s*'[^']+'/);
+    expect(notFound).toMatch(/description:\s*\n?\s*'[^']+'/);
   });
 
   it('keeps every title at or under 65 characters', () => {

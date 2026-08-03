@@ -1,0 +1,63 @@
+// The single source of truth for what the site may claim about Google reviews.
+//
+// ── Why this file exists ─────────────────────────────────────────────────────
+// A hardcoded "5.0" was rendered in three separate places (the hero badge, the
+// Reviews section header, and a QuoteCalculator bullet reading "Rated 5.0 by
+// genuine Google reviewers"), plus an accessibility label announcing "rated 5.0
+// out of 5 on Google". Nothing in the project stored a verified rating or a
+// review count, and the component carrying it admitted as much in a comment.
+//
+// An unsubstantiated rating is the most trust-damaging thing a service site can
+// display: it is exactly the claim a customer checks first, and under the UK
+// CAP Code an objective claim like this has to be substantiated.
+//
+// ── Verification attempt (2026-08-03) ────────────────────────────────────────
+// GOOGLE_PROFILE_LINK (share.google/tZEyXUs0J0SxXZlDi) was followed
+// programmatically. It 302s to a google.com search URL, which in turn 302s to
+// consent.google.com — a cookie-consent interstitial. No rating or review count
+// is reachable without accepting that interstitial, and a web search returned
+// no rating for VVE Clean either. So the real values COULD NOT be verified.
+//
+// The honest response to "we cannot verify it" is to stop asserting it, not to
+// keep the number and hope. No rating or count is invented here.
+//
+// ── How to publish a real rating later ───────────────────────────────────────
+// Open the Google Business Profile, read the actual rating and review count,
+// and replace `null` below with e.g. `{ value: 4.9, count: 27 }`. Every surface
+// picks it up automatically and the tests in googleRating.test.ts start
+// enforcing that the same numbers appear everywhere.
+
+export interface VerifiedGoogleRating {
+  /** The star rating shown on the live Google Business Profile. */
+  value: number;
+  /** The number of reviews behind that rating. */
+  count: number;
+  /** ISO date the two numbers above were last checked against the profile. */
+  verifiedOn: string;
+}
+
+/**
+ * `null` means: not verified, so make no numeric claim anywhere.
+ *
+ * This must only ever be set from the live Google Business Profile. Do not
+ * estimate it, do not carry a number over from marketing material, and do not
+ * restore the old hardcoded 5.0.
+ */
+export const VERIFIED_GOOGLE_RATING: VerifiedGoogleRating | null = null;
+
+/** True when the site is allowed to display a numeric rating. */
+export const HAS_VERIFIED_RATING = VERIFIED_GOOGLE_RATING !== null;
+
+/**
+ * Short label for the badge. Falls back to wording that claims nothing beyond
+ * the fact that a Google profile exists — which is verifiable by clicking it.
+ */
+export const GOOGLE_RATING_LABEL = VERIFIED_GOOGLE_RATING
+  ? `${VERIFIED_GOOGLE_RATING.value} on Google`
+  : 'Rated on Google';
+
+/** Accessible name for the badge link. Never states a rating we cannot support. */
+export const GOOGLE_RATING_ARIA_LABEL = VERIFIED_GOOGLE_RATING
+  ? `VVE Clean is rated ${VERIFIED_GOOGLE_RATING.value} out of 5 from `
+    + `${VERIFIED_GOOGLE_RATING.count} Google reviews — read our Google reviews (opens in a new tab)`
+  : 'Read our reviews on Google (opens in a new tab)';

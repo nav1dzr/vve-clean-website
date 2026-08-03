@@ -1,5 +1,6 @@
 import { Star } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
+import { VERIFIED_GOOGLE_RATING } from '../data/googleRating';
 
 const GOOGLE_REVIEW_LINK  = 'https://g.page/r/CYDRQCaICK7vEAE/review';
 // Single source of truth for the Google profile URL — also used by the
@@ -88,23 +89,34 @@ export default function Reviews() {
             visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}
         >
-          {/* Google aggregate badge */}
+          {/* Google badge. The numeric rating comes from src/data/googleRating.ts
+              and is omitted while unverified — this used to hardcode "5.0" with
+              nothing in the project substantiating it. The stars are decorative
+              (aria-hidden) and sit beside wording that claims no figure. */}
           <div className="inline-flex items-center gap-3 bg-white border border-silver-200 rounded-2xl px-5 py-3 shadow-sm mb-6">
             <GoogleIcon size={22} />
             <div className="flex items-center gap-2">
-              <span className="font-bold text-navy-900 text-base leading-none">5.0</span>
-              <div className="flex gap-0.5">
+              {VERIFIED_GOOGLE_RATING && (
+                <span className="font-bold text-navy-900 text-base leading-none">
+                  {VERIFIED_GOOGLE_RATING.value}
+                </span>
+              )}
+              <div className="flex gap-0.5" aria-hidden="true">
                 {[1,2,3,4,5].map(k => (
                   <Star key={k} size={13} className="text-yellow-400 fill-yellow-400" />
                 ))}
               </div>
             </div>
             <div className="w-px h-5 bg-silver-200" />
-            <span className="text-silver-600 text-sm font-medium">Google Reviews</span>
+            <span className="text-silver-600 text-sm font-medium">
+              {VERIFIED_GOOGLE_RATING
+                ? `Google Reviews (${VERIFIED_GOOGLE_RATING.count})`
+                : 'Google Reviews'}
+            </span>
           </div>
 
           <p className="text-xs font-semibold tracking-[0.18em] uppercase mb-3 text-success">
-            Verified on Google
+            Read our reviews on Google
           </p>
 
           <h2
