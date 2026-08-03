@@ -11,7 +11,7 @@
 //   2. if it is ever set, every surface must show the SAME numbers — the old
 //      failure mode was three copies drifting apart.
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -38,12 +38,27 @@ const readCode = (p: string) => read(p)
   .replace(/\/\*[\s\S]*?\*\//g, '')   // block and {/* JSX */} comments
   .replace(/(^|[^:])\/\/.*$/gm, '$1'); // line comments, sparing "https://"
 
-/** Every file that renders customer-facing trust copy about Google. */
-const SURFACES = [
-  'components/GoogleBadge.tsx',
-  'components/Reviews.tsx',
-  'components/QuoteCalculator.tsx',
-];
+/**
+ * Every non-test source file, scanned for a stray rating claim.
+ *
+ * This was originally a hand-written list of three components — and it missed a
+ * fourth copy in TrustBadges.tsx ("5.0 average rating"), which only surfaced in
+ * a browser check. A hardcoded list guards the files someone remembered; this
+ * guards the codebase.
+ */
+function sourceFiles(dir = src, acc: string[] = []): string[] {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = resolve(dir, entry.name);
+    if (entry.isDirectory()) sourceFiles(full, acc);
+    else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) acc.push(full);
+  }
+  return acc;
+}
+
+const SURFACES = sourceFiles()
+  .map((f) => f.slice(src.length + 1).replace(/\\/g, '/'))
+  // googleRating.ts itself documents the removed claim and holds the example.
+  .filter((f) => f !== 'data/googleRating.ts');
 
 describe('the rating is centralised', () => {
   it('exposes a single verified-or-null source', () => {
