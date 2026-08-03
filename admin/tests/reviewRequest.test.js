@@ -152,7 +152,19 @@ describe('the email itself', () => {
   it('assumes nothing about how the clean went, and offers a route to complain', () => {
     expect(email.text).toContain('We hope you were happy');
     expect(email.text).toMatch(/wasn't right/i);
-    expect(email.text).toMatch(/48-hour re-clean/i);
+    expect(email.text).toMatch(/reply to this email/i);
+    expect(email.html).toMatch(/reply to this email/i);
+  });
+
+  it('promises no remedy that can expire before the email is sent', () => {
+    // The operator chooses when to send this. Any time-bound promise ("our
+    // 48-hour re-clean guarantee still applies") becomes false the moment it
+    // is sent late — a worse outcome than making no promise at all.
+    const body = `${email.html} ${email.text}`.toLowerCase();
+    expect(body).not.toContain('48-hour');
+    expect(body).not.toContain('48 hour');
+    expect(body).not.toContain('guarantee');
+    expect(body).not.toMatch(/\d+\s*(hour|day)s?\b/);
   });
 
   it('always ships a plain-text alternative', () => {

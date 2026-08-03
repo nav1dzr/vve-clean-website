@@ -94,6 +94,12 @@ const esc = (s) => String(s ?? '')
  * the rest of the system, and makes no claim about the customer's experience —
  * it asks, it does not assume. No incentive is offered: incentivised reviews
  * breach Google's policies and would put the whole profile at risk.
+ *
+ * The complaint route is deliberately open-ended. An earlier draft said "our
+ * 48-hour re-clean guarantee still applies", which the operator sends at a time
+ * of their choosing — days after the job, that sentence is simply false, and it
+ * is worse to promise a remedy that has expired than to promise nothing. The
+ * wording below cannot go stale whenever the email is sent.
  */
 export function buildReviewRequestEmail({ fullName, bookingRef, service }) {
   const firstName = String(fullName ?? '').trim().split(/\s+/)[0] || 'there';
@@ -113,8 +119,7 @@ export function buildReviewRequestEmail({ fullName, bookingRef, service }) {
       <a href="${GOOGLE_REVIEW_URL}" style="display:inline-block;background:${BRAND_BLUE};color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:14px 28px;border-radius:8px">Leave a review on Google</a>
     </td></tr>
     <tr><td style="padding:0 0 8px;font-size:13px;line-height:21px;color:#64748b">
-      If something wasn&rsquo;t right, please reply to this email instead and we&rsquo;ll put it right —
-      our 48-hour re-clean guarantee still applies.
+      If something wasn&rsquo;t right, please reply to this email and our team will look into it.
     </td></tr>
     <tr><td style="padding:16px 0 0;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8">
       Booking reference ${esc(bookingRef)} &middot; VVE Clean &middot; 020 8050 2233
@@ -130,8 +135,8 @@ export function buildReviewRequestEmail({ fullName, bookingRef, service }) {
     '',
     `Leave a review: ${GOOGLE_REVIEW_URL}`,
     '',
-    "If something wasn't right, please reply to this email instead and we'll put it",
-    'right — our 48-hour re-clean guarantee still applies.',
+    "If something wasn't right, please reply to this email and our team will look",
+    'into it.',
     '',
     `Booking reference ${bookingRef} · VVE Clean · 020 8050 2233`,
   ].join('\n');

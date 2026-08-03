@@ -77,8 +77,11 @@ Deliberate choices, each covered by a test:
 - **Assumes nothing about the experience.** "We hope you were happy with your
   clean", not "thanks for the 5 stars".
 - **Offers a route to complain instead.** Unhappy customers are directed to
-  reply and are reminded of the 48-hour re-clean guarantee — better than
-  discovering it in a public review.
+  reply — better than discovering it in a public review. The wording is
+  deliberately open-ended ("our team will look into it"). An earlier draft said
+  "our 48-hour re-clean guarantee still applies"; because the operator chooses
+  when to send this email, that sentence becomes false whenever it is sent more
+  than 48 hours after the job. A test now blocks any time-bound promise here.
 - **First name only**, with a `there` fallback.
 - **HTML is escaped**; a plain-text alternative always ships.
 
