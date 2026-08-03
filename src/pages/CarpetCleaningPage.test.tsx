@@ -32,6 +32,17 @@ function renderPage() {
 }
 
 describe('CarpetCleaningPage — quote placement and proof placeholders', () => {
+  it('uses the supplied carpet-cleaning photograph in a responsive hero card', () => {
+    renderPage();
+
+    const heroImage = screen.getByRole('img', {
+      name: 'Professional hot-water extraction cleaning on a deep blue carpet',
+    });
+    expect(heroImage).toHaveAttribute('src', '/images/carpet-cleaning-hero.webp');
+    expect(screen.getByText('Deep clean, visible results')).toBeInTheDocument();
+    expect(screen.getByText(/deeper than the surface/i)).toHaveClass('text-gradient-carpet');
+  });
+
   it('surfaces a carpet-focused instant quote calculator directly after the hero, and the hero CTA reaches it', () => {
     renderPage();
 
@@ -42,9 +53,11 @@ describe('CarpetCleaningPage — quote placement and proof placeholders', () => 
 
     // Upholstery is offered as an optional add-on inside the same quote, so a
     // customer can book carpets and a sofa in one visit without switching
-    // calculators or leaving the page.
+    // calculators or leaving the page. The offer shows immediately; its
+    // controls stay collapsed until accepted, so the page does not open with a
+    // second service's worth of counters the visitor never asked for.
     expect(screen.getByText('Would you also like upholstery cleaning?')).toBeInTheDocument();
-    expect(screen.getByText('2-seater sofa')).toBeInTheDocument();
+    expect(screen.queryByText('2-seater sofa')).not.toBeInTheDocument();
 
     const heroCta = screen.getAllByRole('link', { name: 'Build my carpet quote' })[0];
     expect(heroCta).toHaveAttribute('href', '/carpet-cleaning-london#quote');

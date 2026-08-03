@@ -30,7 +30,19 @@ function renderPage() {
   );
 }
 
-describe('SofaCleaningPage — quote placement and proof placeholders', () => {
+describe('SofaCleaningPage — quote placement and premium service guidance', () => {
+  it('uses the supplied sofa-cleaning photograph as a responsive hero visual', () => {
+    renderPage();
+
+    const heroImage = screen.getByRole('img', {
+      name: 'Professional upholstery cleaning on a purple armchair beside a teal sofa',
+    });
+
+    expect(heroImage).toHaveAttribute('src', '/images/sofa-cleaning-hero.webp');
+    expect(screen.getByText('Fabric checked before cleaning')).toBeInTheDocument();
+    expect(screen.getByText(/cleaned with care, not guesswork/i)).toHaveClass('text-gradient-sofa');
+  });
+
   it('surfaces an upholstery-focused instant quote calculator directly after the hero, and the hero CTA reaches it', () => {
     renderPage();
 
@@ -44,17 +56,19 @@ describe('SofaCleaningPage — quote placement and proof placeholders', () => {
     expect(heroCta).toHaveAttribute('href', '/sofa-cleaning-london#quote');
   });
 
-  it('renders exactly 6 proof placeholder slots (3 before/after + 3 video)', () => {
+  it('replaces empty proof placeholders with an honest fabric-care process', () => {
     renderPage();
 
-    expect(screen.getAllByText('Recent results coming soon')).toHaveLength(3);
-    expect(screen.getAllByText('Video results coming soon')).toHaveLength(3);
+    expect(screen.getByRole('heading', { name: /Built around the fabric/i })).toBeInTheDocument();
+    expect(screen.getByText('Inspect and test')).toBeInTheDocument();
+    expect(screen.queryByText('Recent results coming soon')).not.toBeInTheDocument();
+    expect(screen.queryByText('Video results coming soon')).not.toBeInTheDocument();
   });
 
-  it('links to the Gallery sofa-upholstery category', () => {
+  it('keeps direct links to the other services and booking', () => {
     renderPage();
 
-    const galleryLinks = screen.getAllByRole('link', { name: 'View full Gallery' });
-    expect(galleryLinks.some((l) => l.getAttribute('href') === '/gallery?category=sofa-upholstery')).toBe(true);
+    expect(screen.getByRole('link', { name: 'Carpet Cleaning' })).toHaveAttribute('href', '/carpet-cleaning-london');
+    expect(screen.getAllByRole('link', { name: 'Book online now' }).length).toBeGreaterThan(0);
   });
 });

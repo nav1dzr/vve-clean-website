@@ -1,6 +1,8 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
 import QuoteCalculator from '../components/QuoteCalculator';
-import ServiceProofSection from '../components/gallery/ServiceProofSection';
+import { SofaCareGuide, SofaHeroPanel } from '../components/sofa/SofaServicePreview';
+import SofaProofSection from '../components/sofa/SofaProofSection';
+import SofaGallerySection from '../components/sofa/SofaGallerySection';
 import { PawPrint, Shield, Palette, RefreshCw } from 'lucide-react';
 import {
   CARPET_ITEM_PRICES_P,
@@ -92,7 +94,11 @@ const DATA: ServiceLandingData = {
 
   eyebrow: 'Professional Upholstery Cleaning',
   h1: 'Sofa & Upholstery Cleaning London',
-  h1Highlight: '— Fresh, Stain-Free & Dry in Hours',
+  h1Highlight: ' — cleaned with care, not guesswork.',
+  heroHighlightClassName: 'text-gradient-sofa',
+  heroSubtitle: 'A fabric-first clean for sofas, armchairs, mattresses and dining chairs across East & North London.',
+  heroAside: <SofaHeroPanel />,
+  heroAsideOnMobile: true,
   heroBadges: [
     'Hot-water extraction',
     'Colour-safe on most fabrics',
@@ -161,15 +167,15 @@ const DATA: ServiceLandingData = {
     'Combine a sofa and carpet clean on the same visit to save automatically on bundle discount tiers — see all prices for details.',
   pricingCta: { href: '/pricing', label: 'See all prices' },
 
-  afterPricingSection: (
-    <ServiceProofSection
-      heading="Recent sofa & upholstery results"
-      subheading="We're building our photo and video library for this service — check back soon."
-      galleryLabel="Sofa & Upholstery"
-      galleryCategory="sofa-upholstery"
-      secondary={{ type: 'video' }}
-    />
-  ),
+  // Three media slots now that the owner's set is approved, ordered by
+  // conversion value rather than by convenience:
+  //   proof   — four before/after pairs + the featured extraction clip, directly
+  //             under the quote, where the decision is actually made.
+  //   process — the fabric-first explainer, once the visitor is interested.
+  //   media   — breadth: the 11 supporting photos and the other three clips.
+  proofSection: <SofaProofSection />,
+  processSection: <SofaCareGuide />,
+  afterPricingSection: <SofaGallerySection />,
 
   faqs: [
     {
@@ -201,6 +207,15 @@ const DATA: ServiceLandingData = {
     { href: '/commercial-carpet-cleaning-london', label: 'Commercial Cleaning' },
     { href: '/pricing', label: 'All Prices' },
     { href: '/booking', label: 'Book Online' },
+  ],
+
+  // Conversion order: quote (afterHeroSection, always directly under the hero)
+  // → hard proof → reviews → benefits → process → supporting gallery → the
+  // longer-form explanation, pricing and FAQs for anyone still reading.
+  // Media used to sit below pricing, five screens down, which buried it.
+  sectionOrder: [
+    'proof', 'reviews', 'benefits', 'process', 'media',
+    'intro', 'why', 'pricing', 'faq', 'related',
   ],
 
   ctaH2: 'Ready to book your sofa clean?',

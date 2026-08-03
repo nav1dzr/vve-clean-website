@@ -1,7 +1,8 @@
 // Mixed carpet + upholstery quoting from the Carpet page.
 //
-// The carpet page now offers Sofas & Upholstery as an optional add-on inside
-// the same quote. Nothing about the pricing engine changed — both groups were
+// The carpet page offers Sofas & Upholstery as an optional add-on inside the
+// same quote, now behind a Yes/No disclosure so the calculator does not open
+// at full length. Nothing about the pricing engine changed — both groups were
 // always priced by computeCarpetPrice from CARPET_ITEM_PRICES_P — so these
 // tests pin that the combined journey totals correctly and that the booking
 // hand-off carries both halves.
@@ -37,6 +38,15 @@ function renderCarpet(onBook?: (sel: unknown) => void) {
 
 const gbp = (pence: number) => `£${pence / 100}`;
 
+/**
+ * Reveals the optional upholstery controls. Every mixed-basket test below goes
+ * through this, exactly as a customer would — the items are not in the DOM
+ * until the offer is accepted.
+ */
+async function openUpholstery(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Yes' }));
+}
+
 /** Clicks the + control for a named line item. */
 async function add(user: ReturnType<typeof userEvent.setup>, label: string, times = 1) {
   for (let i = 0; i < times; i += 1) {
@@ -68,6 +78,7 @@ describe('Carpet page quote — carpet plus upholstery', () => {
     const user = userEvent.setup();
     renderCarpet();
     await add(user, 'Living / dining room');   // £70
+    await openUpholstery(user);
     await add(user, '3-seater sofa');          // £95
     expect(screen.getAllByText('£165').length).toBeGreaterThan(0);
   });
@@ -76,6 +87,7 @@ describe('Carpet page quote — carpet plus upholstery', () => {
     const user = userEvent.setup();
     renderCarpet();
     await add(user, 'Bedroom');                // £50
+    await openUpholstery(user);
     await add(user, 'Armchair');               // £50
     await add(user, 'Mattress (double/king)'); // £65
     // 50 + 50 + 65 = £165
@@ -86,6 +98,7 @@ describe('Carpet page quote — carpet plus upholstery', () => {
     const user = userEvent.setup();
     renderCarpet();
     await add(user, 'Living / dining room');   // £70
+    await openUpholstery(user);
     await add(user, '2-seater sofa', 2);       // £75 × 2 = £150
     expect(screen.getAllByText('£220').length).toBeGreaterThan(0);
   });
@@ -95,6 +108,7 @@ describe('Carpet page quote — carpet plus upholstery', () => {
     renderCarpet();
     await add(user, 'Bedroom');                // £50
     await add(user, 'Living / dining room');   // £70  → £120
+    await openUpholstery(user);
     await add(user, '3-seater sofa');          // £95  → £215
     expect(screen.getAllByText('£215').length).toBeGreaterThan(0);
 
@@ -109,6 +123,7 @@ describe('Carpet page quote — summary and booking hand-off', () => {
     const user = userEvent.setup();
     renderCarpet();
     await add(user, 'Living / dining room');
+    await openUpholstery(user);
     await add(user, '3-seater sofa');
 
     // Both groups are represented, each with its own line.
@@ -122,6 +137,7 @@ describe('Carpet page quote — summary and booking hand-off', () => {
     renderCarpet(onBook);
 
     await add(user, 'Living / dining room');  // £70
+    await openUpholstery(user);
     await add(user, '3-seater sofa');         // £95
     await user.click(screen.getAllByRole('button', { name: /Book online/i })[0]);
 

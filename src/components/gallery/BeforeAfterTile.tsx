@@ -1,15 +1,32 @@
+import { Maximize2 } from 'lucide-react';
 import type { GalleryBeforeAfterItem } from '../../data/galleryMedia';
 
 // Reusable before/after tile. Pass a manifest `entry` to render real photos
 // (used by the Gallery page); omit it to render the "coming soon" placeholder
 // (used on service pages that don't have real media yet). Both states keep
 // the same aspect ratio and figure/figcaption semantics.
+//
+// `onOpen` makes each half independently viewable at full size. It is optional
+// on purpose: the placeholder state never receives one, so a reserved slot can
+// never open an empty lightbox. Both halves stay side by side and keep their
+// Before/After labels either way, so enlarging one never breaks the comparison.
 export default function BeforeAfterTile({
   entry,
   placeholderLabel,
+  onOpen,
+  // The stage a photo is letterboxed onto. 4:3 suits the Carpet and End of
+  // Tenancy sets, which are shot landscape. The Sofa set is mostly portrait
+  // (5 of its 8 halves), and on a 4:3 stage those lost 44% of the card to navy
+  // bars — so that section passes aspect-square, which wastes at most 25%
+  // whichever way round the photo is. Kept a prop rather than a per-photo
+  // measurement so both halves of a pair always share one stage: a card whose
+  // two sides were different heights would not read as a comparison.
+  stageAspect = 'aspect-[4/3]',
 }: {
   entry?: GalleryBeforeAfterItem;
   placeholderLabel: string;
+  onOpen?: (side: 'before' | 'after', origin: HTMLElement) => void;
+  stageAspect?: string;
 }) {
   if (!entry) {
     return (
@@ -18,10 +35,10 @@ export default function BeforeAfterTile({
         aria-label={`${placeholderLabel} — recent results coming soon`}
       >
         <div className="grid grid-cols-2">
-          <div className="aspect-[4/3] flex items-center justify-center bg-silver-100 border-r border-silver-200">
+          <div className={`${stageAspect} flex items-center justify-center bg-silver-100 border-r border-silver-200`}>
             <span className="text-silver-400 text-[11px] font-semibold tracking-widest uppercase">Before</span>
           </div>
-          <div className="aspect-[4/3] flex items-center justify-center bg-silver-100">
+          <div className={`${stageAspect} flex items-center justify-center bg-silver-100`}>
             <span className="text-silver-400 text-[11px] font-semibold tracking-widest uppercase">After</span>
           </div>
         </div>
@@ -38,37 +55,61 @@ export default function BeforeAfterTile({
   // fixed 4:3 stage with object-contain instead: the full, uncropped photo is
   // always shown, letterboxed on a neutral background when its orientation
   // differs from the stage.
+  const half = (side: 'before' | 'after') => {
+    const src = side === 'before' ? entry.before : entry.after;
+    const alt = side === 'before' ? entry.beforeAlt : entry.afterAlt;
+    // Defaults to Before/After; a pair may override either side when the
+    // photograph does not show a finished result (see GalleryBeforeAfterItem).
+    const sideLabel = side === 'before'
+      ? entry.beforeLabel ?? 'Before'
+      : entry.afterLabel ?? 'After';
+    const badge = side === 'before'
+      ? 'bg-black/55 text-white'
+      : 'bg-emerald-600/85 text-white';
+
+    const media = (
+      <>
+        <img
+          src={src}
+          alt={alt}
+          width={400}
+          height={300}
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 w-full h-full object-contain"
+        />
+        <div className={`absolute bottom-0 left-0 right-0 py-1.5 text-center text-xs font-semibold tracking-wide ${badge}`}>
+          {sideLabel}
+        </div>
+      </>
+    );
+
+    // A real <button> gives click, Enter and Space activation for free.
+    return onOpen ? (
+      <button
+        type="button"
+        onClick={(e) => onOpen(side, e.currentTarget)}
+        aria-label={`View larger: ${alt}`}
+        className={`group relative ${stageAspect} bg-navy-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-royal-500`}
+      >
+        {media}
+        <span
+          aria-hidden="true"
+          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+        >
+          <Maximize2 size={14} />
+        </span>
+      </button>
+    ) : (
+      <div className={`relative ${stageAspect} bg-navy-950`}>{media}</div>
+    );
+  };
+
   return (
     <figure className="rounded-2xl overflow-hidden border border-silver-200 shadow-sm bg-silver-50">
       <div className="grid grid-cols-2">
-        <div className="relative aspect-[4/3] bg-navy-950">
-          <img
-            src={entry.before}
-            alt={entry.beforeAlt}
-            width={400}
-            height={300}
-            loading="lazy"
-            decoding="async"
-            className="absolute inset-0 w-full h-full object-contain"
-          />
-          <div className="absolute bottom-0 left-0 right-0 py-1.5 text-center text-xs font-semibold tracking-wide bg-black/55 text-white">
-            Before
-          </div>
-        </div>
-        <div className="relative aspect-[4/3] bg-navy-950">
-          <img
-            src={entry.after}
-            alt={entry.afterAlt}
-            width={400}
-            height={300}
-            loading="lazy"
-            decoding="async"
-            className="absolute inset-0 w-full h-full object-contain"
-          />
-          <div className="absolute bottom-0 left-0 right-0 py-1.5 text-center text-xs font-semibold tracking-wide bg-emerald-600/85 text-white">
-            After
-          </div>
-        </div>
+        {half('before')}
+        {half('after')}
       </div>
       <figcaption className="text-center text-sm font-semibold text-navy-800 py-3 px-4">
         {entry.label}

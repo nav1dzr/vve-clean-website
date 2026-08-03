@@ -40,18 +40,23 @@ describe('QuoteCalculator focused modes — reuse, no duplicated pricing logic',
 
     // Upholstery is offered inside the same quote rather than sending the
     // customer to a different calculator — framed as optional, not as a
-    // second service the customer has to switch to.
+    // second service the customer has to switch to. The offer is visible from
+    // the start; its item controls stay collapsed until the customer says yes,
+    // so the calculator does not open at full length.
     expect(screen.getByText('Would you also like upholstery cleaning?')).toBeInTheDocument();
-    expect(screen.getByText('2-seater sofa')).toBeInTheDocument();
-    expect(screen.getByText('Mattress (double/king)')).toBeInTheDocument();
+    expect(screen.queryByText('2-seater sofa')).not.toBeInTheDocument();
+    expect(screen.queryByText('Mattress (double/king)')).not.toBeInTheDocument();
   });
 
-  it('upholstery mode shows only sofa/upholstery items and hides the Service Type switcher', () => {
+  it('upholstery mode leads with sofas, offers carpets, and hides the Service Type switcher', () => {
     renderCalc('upholstery');
 
     expect(screen.queryByText('Service Type')).not.toBeInTheDocument();
     expect(screen.getByText('2-seater sofa')).toBeInTheDocument();
     expect(screen.getByText('Armchair')).toBeInTheDocument();
+
+    // Reciprocal offer — same pattern, opposite direction.
+    expect(screen.getByText('Would you also like carpet cleaning?')).toBeInTheDocument();
     expect(screen.queryByText('Bedroom')).not.toBeInTheDocument();
     expect(screen.queryByText('Hallway')).not.toBeInTheDocument();
   });

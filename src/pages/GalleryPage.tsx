@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
+import { Maximize2 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import BeforeAfterTile from '../components/gallery/BeforeAfterTile';
 import VideoTile from '../components/gallery/VideoTile';
 import GalleryInstagramCta from '../components/gallery/GalleryInstagramCta';
+import PhotoLightbox from '../components/gallery/PhotoLightbox';
+import { toLightboxPhotos, useLightbox } from '../components/gallery/useLightbox';
 import {
   GALLERY_CATEGORIES,
   GALLERY_MEDIA,
@@ -58,6 +61,24 @@ export default function GalleryPage() {
 
   const items = GALLERY_MEDIA[active];
   const activeMeta = GALLERY_CATEGORIES.find((c) => c.key === active)!;
+
+  // One flat photo list per category, so "Photo 4 of 13" counts across the
+  // whole panel and Previous/Next walks it in the order shown on screen.
+  // Videos are excluded — they keep their own inline controls.
+  const lightboxPhotos = useMemo(() => toLightboxPhotos(items), [items]);
+  const { index, open, close, setIndex } = useLightbox();
+
+  // Maps a tile back to its position in that flat list. Before/after pairs
+  // occupy two consecutive slots, so the tile passes which half was clicked.
+  const photoIndex = (id: string, side?: 'before' | 'after') => {
+    let i = 0;
+    for (const item of items) {
+      if (item.type === 'video') continue;
+      if (item.id === id) return i + (side === 'after' ? 1 : 0);
+      i += item.type === 'before-after' ? 2 : 1;
+    }
+    return 0;
+  };
 
   return (
     <div className="min-h-screen bg-[#fafbfd] pb-[56px] lg:pb-0">
@@ -124,14 +145,26 @@ export default function GalleryPage() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {items.map((item) => {
                 if (item.type === 'before-after') {
-                  return <BeforeAfterTile key={item.id} entry={item} placeholderLabel={item.label} />;
+                  return (
+                    <BeforeAfterTile
+                      key={item.id}
+                      entry={item}
+                      placeholderLabel={item.label}
+                      onOpen={(side, origin) => open(photoIndex(item.id, side), origin)}
+                    />
+                  );
                 }
                 if (item.type === 'video') {
                   return <VideoTile key={item.id} entry={item} placeholderLabel={item.label} />;
                 }
                 return (
                   <figure key={item.id} className="rounded-2xl overflow-hidden border border-silver-200 shadow-sm bg-silver-50">
-                    <div className="aspect-[4/3] bg-navy-950">
+                    <button
+                      type="button"
+                      onClick={(e) => open(photoIndex(item.id), e.currentTarget)}
+                      aria-label={`View larger: ${item.alt}`}
+                      className="group relative block w-full aspect-[4/3] bg-navy-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-royal-500"
+                    >
                       <img
                         src={item.src}
                         alt={item.alt}
@@ -141,7 +174,13 @@ export default function GalleryPage() {
                         decoding="async"
                         className="w-full h-full object-contain block"
                       />
-                    </div>
+                      <span
+                        aria-hidden="true"
+                        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+                      >
+                        <Maximize2 size={14} />
+                      </span>
+                    </button>
                     <figcaption className="text-center text-sm font-semibold text-navy-800 py-3 px-4">
                       {item.label}
                     </figcaption>
@@ -159,6 +198,14 @@ export default function GalleryPage() {
 
       </main>
       <Footer />
+
+      <PhotoLightbox
+        photos={lightboxPhotos}
+        index={index}
+        onClose={close}
+        onNavigate={setIndex}
+        label={`${activeMeta.label} photos`}
+      />
     </div>
   );
 }

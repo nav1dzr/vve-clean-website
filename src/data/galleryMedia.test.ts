@@ -18,10 +18,10 @@ describe('galleryMedia manifest — End of Tenancy', () => {
     }
   });
 
-  it('has exactly 10 rotating photos, in fixed numeric order (never shuffled)', () => {
-    expect(EOT_ROTATING_PHOTOS).toHaveLength(10);
+  it('loads up to 15 rotating photos in fixed natural filename order (never shuffled)', () => {
+    expect(EOT_ROTATING_PHOTOS).toHaveLength(13);
     expect(EOT_ROTATING_PHOTOS.map((p) => p.id)).toEqual(
-      ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+      ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13'],
     );
     for (const photo of EOT_ROTATING_PHOTOS) {
       expect(photo.src).toMatch(/^\/end_of_tenancy\/gallery\/\d+\.jpg$/);
@@ -36,13 +36,13 @@ describe('galleryMedia manifest — End of Tenancy', () => {
     expect(eot.filter((i) => i.type === 'photo')).toHaveLength(13);
   });
 
-  it('includes the combined comparison photos 11-13 only on the full Gallery page, not in the rotating set', () => {
+  it('includes the combined comparison photos 11-13 in both gallery experiences', () => {
     const combinedIds = ['11', '12', '13'];
     const eotIds = GALLERY_MEDIA['end-of-tenancy'].map((i) => i.id);
     for (const id of combinedIds) expect(eotIds).toContain(id);
 
     const rotatingIds = EOT_ROTATING_PHOTOS.map((p) => p.id);
-    for (const id of combinedIds) expect(rotatingIds).not.toContain(id);
+    for (const id of combinedIds) expect(rotatingIds).toContain(id);
   });
 
   it('describes photo 12 correctly — After on the left, Before on the right', () => {
@@ -59,17 +59,26 @@ describe('galleryMedia manifest — End of Tenancy', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('publishes exactly the three approved Carpet pairs and keeps Sofa & Upholstery empty', () => {
+  it('publishes exactly the three approved Carpet pairs', () => {
     // Carpet ships the owner's three approved before/after pairs — no more, no
-    // fewer. Sofa & Upholstery still has no approved media, so it must stay
-    // empty rather than show placeholders.
+    // fewer.
     expect(GALLERY_MEDIA.carpet).toHaveLength(3);
     expect(GALLERY_MEDIA.carpet.map((i) => i.id)).toEqual([
       'carpet-office',
       'carpet-blue',
       'carpet-brown',
     ]);
-    expect(GALLERY_MEDIA['sofa-upholstery']).toEqual([]);
+  });
+
+  it('publishes the approved Sofa & Upholstery set from the same manifest', () => {
+    // This category was an intentional empty placeholder until the owner's set
+    // was supplied. Counts are pinned so a future edit cannot silently drop or
+    // duplicate an approved item — sofaMedia.test.ts covers the detail.
+    const sofa = GALLERY_MEDIA['sofa-upholstery'];
+    expect(sofa).toHaveLength(18);
+    expect(sofa.filter((i) => i.type === 'before-after')).toHaveLength(4);
+    expect(sofa.filter((i) => i.type === 'photo')).toHaveLength(10);
+    expect(sofa.filter((i) => i.type === 'video')).toHaveLength(4);
   });
 
   it('uses the owner-specified source mapping for every carpet pair', () => {

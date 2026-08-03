@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useCookieConsent } from '../context/CookieConsentContext';
 
@@ -10,13 +10,18 @@ const ACTION_BUTTON_BASE =
 // While the banner is visible it publishes its rendered height on this CSS
 // variable so fixed bottom bars (MobileStickyFooter, pricing/legal sticky
 // bars) can sit directly above it instead of being covered by it.
+//
+// Published from useLayoutEffect, not useEffect, and that matters: useEffect
+// runs *after* paint, so the frame that first showed the banner also showed
+// every bar still sitting at bottom:0 underneath it. Measuring and publishing
+// before paint means no bar is ever painted inside the banner's area.
 export const COOKIE_BANNER_HEIGHT_VAR = '--vve-cookie-banner-h';
 
 export default function CookieConsentBanner() {
   const { acceptAll, rejectOptional, openSettings } = useCookieConsent();
   const rootRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = rootRef.current;
     const root = document.documentElement;
     if (!el) return undefined;

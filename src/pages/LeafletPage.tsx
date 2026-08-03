@@ -199,8 +199,13 @@ export default function LeafletPage() {
         </div>
       </section>
 
-      {/* ── Quote calculator (reused, promoCode="LEAFLET20") ─────────── */}
-      <div id="quote" className="scroll-mt-24">
+      {/* ── Quote calculator (reused, promoCode="LEAFLET20") ───────────
+          No id="quote" on this wrapper: QuoteCalculator's own <section> already
+          carries it, so the page rendered two elements with the same id. That
+          is invalid HTML, and it made /leaflet#quote — the destination "Back to
+          quote" now returns a leaflet customer to — ambiguous. The wrapper
+          keeps its scroll offset; the anchor lives on the calculator. */}
+      <div className="scroll-mt-24">
         <QuoteCalculator onBook={handleBook} promoCode="LEAFLET20" />
       </div>
       </main>

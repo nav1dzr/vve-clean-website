@@ -14,6 +14,7 @@ import {
   type EotSizeKey,
 } from '../../lib/eotPricing';
 import { trackBookingInitiated } from '../../lib/analytics';
+import { rememberQuoteOrigin } from '../../lib/quoteOrigin';
 // Type-only import: erased at compile time, so this adds no runtime dependency
 // on the legacy calculator. It keeps the hand-off shape provably in sync with
 // what BookingPage already consumes.
@@ -138,6 +139,8 @@ export function useEotQuote(initial?: Partial<EotQuoteState>) {
 
     trackBookingInitiated(BOOKING_SERVICE_NAME);
     sessionStorage.setItem('vve_booking', JSON.stringify(selection));
+    // Navigation state only, never part of the payload — see quoteOrigin.ts.
+    rememberQuoteOrigin();
     navigate('/booking');
   }, [result, isTailored, state, navigate]);
 

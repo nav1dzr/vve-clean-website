@@ -38,13 +38,19 @@ function renderAt(initialEntry: string) {
 // organising that folder, so nothing unapproved is referenced until a final set
 // is supplied.
 describe('GalleryPage — categories, deep links, empty states, keyboard nav', () => {
-  it('ships End of Tenancy and Carpet populated, with Sofa still empty', () => {
+  it('ships all three categories populated from the approved sets', () => {
     expect(GALLERY_MEDIA['end-of-tenancy']).toHaveLength(16);
     expect(GALLERY_MEDIA['end-of-tenancy'].filter((i) => i.type === 'before-after')).toHaveLength(3);
     expect(GALLERY_MEDIA['end-of-tenancy'].filter((i) => i.type === 'photo')).toHaveLength(13);
     expect(GALLERY_MEDIA.carpet).toHaveLength(3);
     expect(GALLERY_MEDIA.carpet.every((i) => i.type === 'before-after')).toBe(true);
-    expect(GALLERY_MEDIA['sofa-upholstery']).toEqual([]);
+
+    // Sofa was the last empty placeholder. The owner's set landed as 4 approved
+    // before/after pairs, 11 supporting photos and 4 clips.
+    const sofa = GALLERY_MEDIA['sofa-upholstery'];
+    expect(sofa.filter((i) => i.type === 'before-after')).toHaveLength(4);
+    expect(sofa.filter((i) => i.type === 'photo')).toHaveLength(10);
+    expect(sofa.filter((i) => i.type === 'video')).toHaveLength(4);
   });
 
   it('has no duplicate ids between the before/after source pairs and the combined comparison photos', () => {
@@ -78,21 +84,25 @@ describe('GalleryPage — categories, deep links, empty states, keyboard nav', (
     expect(screen.getByText('Brown carpet')).toBeInTheDocument();
   });
 
-  it('still shows the honest empty state for Sofa & Upholstery', () => {
+  it('shows the real Sofa & Upholstery set instead of the old empty state', () => {
     renderAt('/gallery?category=sofa-upholstery');
 
     expect(
-      screen.getByText('Our Sofa & Upholstery results library is being organised and will be added here shortly.'),
-    ).toBeInTheDocument();
+      screen.queryByText('Our Sofa & Upholstery results library is being organised and will be added here shortly.'),
+    ).not.toBeInTheDocument();
+    // The same four pairs the Sofa landing page features — one manifest, so the
+    // two can never drift apart.
+    expect(screen.getByText('Fabric sofa seat')).toBeInTheDocument();
+    expect(screen.getByText('Grey corner sofa')).toBeInTheDocument();
+    expect(screen.getByText('Dining chair seat pad')).toBeInTheDocument();
+    expect(screen.getByText('Dining chair cleaning in progress')).toBeInTheDocument();
   });
 
-  it('deep-links into Sofa & Upholstery via a query param, with its own empty state', () => {
+  it('deep-links into Sofa & Upholstery via a query param', () => {
     renderAt('/gallery?category=sofa-upholstery');
 
     expect(screen.getByRole('tab', { name: 'Sofa & Upholstery' })).toHaveAttribute('aria-selected', 'true');
-    expect(
-      screen.getByText('Our Sofa & Upholstery results library is being organised and will be added here shortly.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Cleaning a velvet sofa')).toBeInTheDocument();
   });
 
   it('shows the real Instagram link but never a self-referential "View full Gallery" link', () => {

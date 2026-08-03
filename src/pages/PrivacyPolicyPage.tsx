@@ -381,8 +381,8 @@ export default function PrivacyPolicyPage() {
       </main>
       <Footer />
 
-      {/* Mobile sticky bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-silver-200 shadow-xl transition-[bottom] duration-200"
+      {/* Mobile sticky bar. No `bottom` transition — see MobileStickyFooter. */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-silver-200 shadow-xl"
         style={{ bottom: 'var(--vve-cookie-banner-h, 0px)' }}>
         <div className="grid grid-cols-2 divide-x divide-silver-200">
           <a href="tel:02080502233"
