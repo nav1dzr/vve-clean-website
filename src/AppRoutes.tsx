@@ -12,6 +12,7 @@ import CommercialCarpetPage from './pages/CommercialCarpetPage';
 import EndOfTenancyPage from './pages/EndOfTenancyPage';
 import AfterBuildersPage from './pages/AfterBuildersPage';
 import GalleryPage from './pages/GalleryPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 export default function AppRoutes() {
   return (
@@ -29,6 +30,11 @@ export default function AppRoutes() {
       <Route path="/end-of-tenancy-cleaning-london" element={<EndOfTenancyPage />} />
       <Route path="/after-builders-cleaning-london" element={<AfterBuildersPage />} />
       <Route path="/gallery" element={<GalleryPage />} />
+      {/* Client-side catch-all. This only covers in-app navigation to a bad
+          link — the HTTP status for a cold request is decided by the server,
+          via dist/404.html (prerender.mjs) and the absence of a catch-all
+          rewrite in vercel.json. Both halves are needed. */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }
