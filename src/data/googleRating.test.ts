@@ -6,9 +6,12 @@
 // project held a verified rating or review count, and the live profile could
 // not be read programmatically (the share link 302s to a Google consent wall).
 //
-// These tests enforce two rules:
+// These tests enforce three rules:
 //   1. no numeric rating may be displayed while VERIFIED_GOOGLE_RATING is null;
-//   2. if it is ever set, every surface must show the SAME numbers — the old
+//   2. nor any aggregate star row, which is the same claim drawn instead of
+//      written — a text scan cannot see it, so it is checked here by flag and
+//      in components/ratingDisplay.test.tsx by rendering;
+//   3. if it is ever set, every surface must show the SAME numbers — the old
 //      failure mode was three copies drifting apart.
 
 import { readFileSync, readdirSync } from 'node:fs';
@@ -19,6 +22,7 @@ import {
   GOOGLE_RATING_ARIA_LABEL,
   GOOGLE_RATING_LABEL,
   HAS_VERIFIED_RATING,
+  SHOW_AGGREGATE_STARS,
   VERIFIED_GOOGLE_RATING,
 } from './googleRating';
 
@@ -79,8 +83,26 @@ describe('while the rating is unverified, nothing claims a number', () => {
   const unverified = VERIFIED_GOOGLE_RATING === null;
 
   it.runIf(unverified)('falls back to wording that asserts no figure', () => {
-    expect(GOOGLE_RATING_LABEL).toBe('Rated on Google');
+    expect(GOOGLE_RATING_LABEL).toBe('Google Reviews');
     expect(GOOGLE_RATING_LABEL).not.toMatch(/\d/);
+  });
+
+  it.runIf(unverified)('draws no aggregate stars either', () => {
+    // Removing the digits alone left five filled gold stars beside the Google
+    // logo, which states the same figure without writing it down. The two are
+    // now gated on one flag. See components/ratingDisplay.test.tsx, which
+    // renders the components and asserts on the pixels rather than the source.
+    expect(SHOW_AGGREGATE_STARS).toBe(false);
+  });
+
+  it.runIf(unverified).each(SURFACES)('%s draws no unguarded five-star row', (file) => {
+    const code = readCode(file);
+    const fiveStars = /\[\s*1\s*,\s*2\s*,\s*3\s*,\s*4\s*,\s*5\s*\]|length:\s*5\s*\}/.test(code);
+    if (!fiveStars) return;
+    // A run of five star icons is a rating widget. It may only be rendered
+    // behind the central flag, or from a per-item verified `rating` field.
+    expect(code, `${file} maps five stars without gating them`)
+      .toMatch(/SHOW_AGGREGATE_STARS|\brating\b/);
   });
 
   it.runIf(unverified)('keeps the accessible name free of a rating claim', () => {

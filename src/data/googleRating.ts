@@ -21,6 +21,16 @@
 // The honest response to "we cannot verify it" is to stop asserting it, not to
 // keep the number and hope. No rating or count is invented here.
 //
+// ── Stars are a claim too ────────────────────────────────────────────────────
+// Removing the digits was not enough. A row of five filled gold stars beside a
+// Google logo states "5.0" to any reader — more forcefully than the number did,
+// because it is read at a glance and is not qualified by any wording. Marking
+// it aria-hidden hides it from screen readers; it does not stop it being a
+// claim to everyone else. So while VERIFIED_GOOGLE_RATING is null NO aggregate
+// star row is rendered anywhere, and the badges fall back to the Google logo
+// plus neutral wording. Stars return automatically the moment a real rating is
+// entered below. SHOW_AGGREGATE_STARS is the single flag that governs this.
+//
 // ── How to publish a real rating later ───────────────────────────────────────
 // Open the Google Business Profile, read the actual rating and review count,
 // and replace `null` below with e.g. `{ value: 4.9, count: 27 }`. Every surface
@@ -61,12 +71,22 @@ export const VERIFIED_GOOGLE_RATING: VerifiedGoogleRating | null = readVerifiedR
 export const HAS_VERIFIED_RATING = VERIFIED_GOOGLE_RATING !== null;
 
 /**
+ * Whether an aggregate star row may be drawn.
+ *
+ * Deliberately the same condition as the number. Five filled stars are a
+ * rating claim in pictorial form; they may only appear once the rating behind
+ * them is real. Individual review cards are governed separately — see the
+ * per-review `rating` field in components/Reviews.tsx.
+ */
+export const SHOW_AGGREGATE_STARS = HAS_VERIFIED_RATING;
+
+/**
  * Short label for the badge. Falls back to wording that claims nothing beyond
  * the fact that a Google profile exists — which is verifiable by clicking it.
  */
 export const GOOGLE_RATING_LABEL = VERIFIED_GOOGLE_RATING
   ? `${VERIFIED_GOOGLE_RATING.value} on Google`
-  : 'Rated on Google';
+  : 'Google Reviews';
 
 /** Accessible name for the badge link. Never states a rating we cannot support. */
 export const GOOGLE_RATING_ARIA_LABEL = VERIFIED_GOOGLE_RATING
