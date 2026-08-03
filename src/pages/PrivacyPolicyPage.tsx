@@ -70,6 +70,10 @@ const sections: Section[] = [
             'Messages and notes you send us when requesting a quote or support',
             'Photos you share to help us assess a job or provide a quote',
             'Website usage data where analytics or advertising tracking is in use (see Section 7)',
+            // Attribution capture moved from /leaflet only to every public
+            // route, so the policy now describes it explicitly rather than
+            // leaving it to the general "website usage data" line above.
+            'How you reached our website — for example the advertising campaign, search click or link you arrived from. This is stored on your device and is only sent to us, attached to your booking, if you go on to make one',
           ].map((item) => (
             <li key={item} className="flex items-start gap-2.5 text-silver-700">
               <span className="w-1.5 h-1.5 rounded-full bg-royal-500 flex-shrink-0 mt-2" />

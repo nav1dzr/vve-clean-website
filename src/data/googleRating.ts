@@ -37,13 +37,25 @@ export interface VerifiedGoogleRating {
 }
 
 /**
- * `null` means: not verified, so make no numeric claim anywhere.
+ * The only place a rating may be entered.
  *
+ * Returns `null` while unverified, which means: make no numeric claim anywhere.
  * This must only ever be set from the live Google Business Profile. Do not
  * estimate it, do not carry a number over from marketing material, and do not
  * restore the old hardcoded 5.0.
+ *
+ * Written as a function rather than a bare `const rating = null` so TypeScript
+ * keeps the declared union type. A const initialised to a literal `null` gets
+ * narrowed to `null`, which makes every "if verified" branch below unreachable
+ * (`Property 'value' does not exist on type 'never'`) and would silently delete
+ * the code that restores the number once it is verified.
  */
-export const VERIFIED_GOOGLE_RATING: VerifiedGoogleRating | null = null;
+function readVerifiedRating(): VerifiedGoogleRating | null {
+  // Example once verified: { value: 4.9, count: 27, verifiedOn: '2026-08-03' }
+  return null;
+}
+
+export const VERIFIED_GOOGLE_RATING: VerifiedGoogleRating | null = readVerifiedRating();
 
 /** True when the site is allowed to display a numeric rating. */
 export const HAS_VERIFIED_RATING = VERIFIED_GOOGLE_RATING !== null;
