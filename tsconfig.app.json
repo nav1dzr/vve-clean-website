@@ -14,6 +14,12 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* Needed to resolve types (via JSDoc) from shared/pricingCatalogue.js —
+       the single canonical runtime pricing source, shared with api/ and
+       admin/. checkJs is deliberately left off: only type *resolution* for
+       consumers is required, not full type-checking of the JS file itself. */
+    "allowJs": true,
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
