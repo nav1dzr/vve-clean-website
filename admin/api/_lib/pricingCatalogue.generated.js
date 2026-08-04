@@ -276,20 +276,12 @@ export const EOT_EXTRA_WC_P = 2000;  // £20
 // House or maisonette adjustment (applies to both packages).
 export const EOT_HOUSE_ADJUSTMENT_P = 3000;  // £30
 
-// ── BUSINESS DECISION — REQUIRES OWNER APPROVAL BEFORE DEPLOYMENT ──────────
 // Re-clean guarantee window, in hours. Shared by both packages — only the
 // SCOPE differs (Complete = full checklist; Tailored = selected tasks only).
-//
-// This raises the guarantee from the previously-live 48-hour window to 72
-// hours, per the pricing audit's recommendation (VVE had the shortest
-// guarantee window of any competitor sampled). No repository or documented
-// policy blocks this change, but it is a real customer-facing commitment
-// with claim-rate and cost implications that the repository cannot verify
-// was operationally approved. `EOT_GUARANTEE_APPROVED` is deliberately kept
-// as an explicit, separately-checkable flag so this is never silently
-// assumed to be signed off — see PRICING_SYSTEM.md §Business decisions.
+// 72 hours (raised from the previously-live 48-hour window) and the
+// Complete/Tailored scope split are both owner-approved.
 export const EOT_GUARANTEE_HOURS = 72;
-export const EOT_GUARANTEE_APPROVED = false; // set true once the business owner confirms
+export const EOT_GUARANTEE_APPROVED = true;
 
 // Tailored internal add-ons — priced individually so the customer can build
 // back only what they need. Never added silently; always shown before
