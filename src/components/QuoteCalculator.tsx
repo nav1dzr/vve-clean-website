@@ -6,6 +6,7 @@ import { useBookingCtx } from '../context/BookingContext';
 import { rememberQuoteOrigin } from '../lib/quoteOrigin';
 import { useReveal } from '../hooks/useReveal';
 import type { HomepageQuoteService } from './HomeServiceSelector';
+import EotQuoteWizard, { type EotBookingResult } from './EotQuoteWizard';
 import {
   CARPET_GROUPS,
   CARPET_MIN_BOOKING,
@@ -22,9 +23,7 @@ import {
   EOT_EXTRA_WC_P,
   EOT_EXTRA_AREAS_P,
   EOT_CARPET_BUNDLE_P,
-  EOT_SCOPE_CREDITS_P,
   EOT_HOUSE_ADJUSTMENT_P,
-  eotScopeCreditPence,
   MOVEIN_BASE_PRICES_P,
   MOVEIN_EXTRA_BATH_P,
   AFTER_BUILDERS_FROM_PRICES_P,
@@ -141,12 +140,12 @@ const EOT_INCLUDED_ITEMS = [
   'Vacuuming, mopping, products and equipment',
 ] as const;
 
-const EOT_SCOPE_OPTIONS = [
-  { key: 'oven', label: 'Oven is already inspection-ready', credit: EOT_SCOPE_CREDITS_P.oven / 100 },
-  { key: 'fridge_freezer', label: 'Fridge/freezer is empty and inspection-ready', credit: EOT_SCOPE_CREDITS_P.fridge_freezer / 100 },
-  { key: 'cupboards', label: 'Empty cupboards are already inspection-ready', credit: EOT_SCOPE_CREDITS_P.cupboards / 100 },
-  { key: 'internal_windows', label: 'Internal windows are already inspection-ready', credit: EOT_SCOPE_CREDITS_P.internal_windows / 100 },
-] as const;
+// The exclusion-credit "custom EOT" system has been retired in favour of the
+// Complete/Tailored packages offered by EotQuoteWizard below — this list is
+// kept empty (rather than deleted) so the handful of downstream references
+// that map over it during the render path this component no longer reaches
+// for EOT (see the `if (isEot)` early return) continue to type-check.
+const EOT_SCOPE_OPTIONS: { key: string; label: string; credit: number }[] = [];
 
 const EOT_CARPET_BUNDLE_SCOPE: Record<SizeKey, string> = {
   studio: 'Main sleeping area carpet + hallway',
@@ -185,6 +184,17 @@ export interface BookingSelection {
     // carpet-specific (optional, present only when deepService === 'carpet_upholstery')
     carpetCounts?:    CarpetCounts;
     carpetCondition?: CarpetCondition;
+    // end-of-tenancy specific (optional, present only when deepService === 'end_of_tenancy') —
+    // shape matches EotBookingResult['quoteConfig'] in EotQuoteWizard.tsx.
+    deepWcs?:         number;
+    isHouse?:         boolean;
+    eotPackage?:      'complete' | 'tailored';
+    tailoredAddOns?:  Record<string, boolean | number>;
+    rooms?:           { id: string; addonKey: string; floor: string }[];
+    carpetRoomIds?:   string[];
+    condition?:       'normal' | 'heavy' | 'clutter' | 'biohazard';
+    parking?:         'yes' | 'no' | 'unsure';
+    congestionZone?:  boolean;
   };
 }
 
@@ -462,12 +472,13 @@ export default function QuoteCalculator({
     return addOnDefs.find((a) => a.key === key)?.price ?? 0;
   };
 
-  const eotScopeCredit = isEot
-    ? eotScopeCreditPence(
-        EOT_BASE_PRICES_P[deepSize],
-        eotScopeExclusions,
-      ) / 100
-    : 0;
+  // Retired: the exclusion-credit "custom EOT" system is replaced by the
+  // Complete/Tailored packages in EotQuoteWizard (see the `if (isEot)` early
+  // return below, which this component hands off to for the whole EOT flow).
+  // Kept as a zeroed constant, rather than removing every downstream
+  // reference, since all of them are on the render path this component no
+  // longer reaches once isEot is true.
+  const eotScopeCredit = 0;
 
   const houseAdjustment = isEot && propertyType === 'house' ? EOT_HOUSE_ADJUSTMENT_P / 100 : 0;
 
@@ -688,13 +699,18 @@ export default function QuoteCalculator({
   const stableBook = useCallback(() => _bookRef.current(), []);
 
   useEffect(() => {
+    // The EOT wizard manages its own multi-step state and book action — the
+    // generic price/isReadyToBook computed above no longer reflects it once
+    // isEot is true (deepBaths/isHouse/etc. here are frozen at their
+    // pre-wizard defaults), so the sticky footer just scrolls to the wizard
+    // instead of showing a stale price or calling a stale book handler.
     setCtx({
-      state:  isManualQuote ? 'manual' : isReadyToBook ? 'bookable' : 'none',
+      state:  isEot ? 'none' : isManualQuote ? 'manual' : isReadyToBook ? 'bookable' : 'none',
       price:  Math.round(price),
       waLink,
       onBook: stableBook,
     });
-  }, [isManualQuote, isReadyToBook, price, waLink, stableBook, setCtx]);
+  }, [isEot, isManualQuote, isReadyToBook, price, waLink, stableBook, setCtx]);
 
   const handleBookWithValidation = () => {
     setBookError('Please choose at least one service first.');
@@ -806,6 +822,90 @@ export default function QuoteCalculator({
                 </ul>
               </aside>
             </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // ─── End of tenancy: dedicated multi-step wizard ──────────────────────────
+  // Replaces the generic single-panel configurator (and the retired
+  // exclusion-credit system above) entirely for this service — Complete/
+  // Tailored package comparison, floor-care per room and condition/access all
+  // need more room than the shared grid layout allows. Placed after every
+  // hook above has already run on every render (rules-of-hooks safe — this
+  // only changes what JSX is returned, never which hooks fire).
+  if (isEot) {
+    const eotRestoreConfig: EotBookingResult['quoteConfig'] | null = _restore && _restore.deepService === 'end_of_tenancy'
+      ? {
+          service: 'deep',
+          deepService: 'end_of_tenancy',
+          deepSize: _restore.deepSize,
+          deepBaths: _restore.deepBaths,
+          deepWcs: _restore.deepWcs ?? 0,
+          isHouse: _restore.isHouse ?? (_restore.propertyType === 'house'),
+          eotPackage: _restore.eotPackage ?? 'complete',
+          tailoredAddOns: {
+            fridgeFreezerInside: Boolean(_restore.tailoredAddOns?.fridgeFreezerInside),
+            extraFridgeFreezers: Number(_restore.tailoredAddOns?.extraFridgeFreezers) || 0,
+            dishwasherInside: Boolean(_restore.tailoredAddOns?.dishwasherInside),
+            washingMachineInside: Boolean(_restore.tailoredAddOns?.washingMachineInside),
+            cupboards: Boolean(_restore.tailoredAddOns?.cupboards),
+          },
+          addOnCounts: _restore.addOnCounts,
+          rooms: _restore.rooms ?? [],
+          carpetRoomIds: _restore.carpetRoomIds ?? [],
+          windowSize: _restore.windowSize ?? 'small',
+          gutterType: _restore.gutterType ?? 'terraced',
+          officeHours: _restore.officeHours ?? MIN_OFFICE_HOURS,
+          condition: _restore.condition ?? 'normal',
+          parking: _restore.parking ?? 'unsure',
+          congestionZone: _restore.congestionZone ?? false,
+        }
+      : null;
+
+    const handleWizardBook = (result: EotBookingResult) => {
+      trackBookingInitiated(result.serviceName);
+      if (onBook) {
+        onBook({ serviceName: result.serviceName, price: result.price, quoteConfig: result.quoteConfig });
+      } else {
+        sessionStorage.setItem('vve_booking', JSON.stringify({ serviceName: result.serviceName, price: result.price, quoteConfig: result.quoteConfig }));
+        navigate('/booking');
+      }
+    };
+
+    return (
+      <section id="quote" ref={ref} className={`${homepageMode ? 'bg-surface pb-20 pt-24 sm:pt-28' : 'bg-gradient-to-br from-navy-950 via-navy-900 to-navy-800 py-20'} scroll-mt-24`}>
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className={`text-center mb-8 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            {homepageMode ? (
+              <>
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-royal-700">Instant quote</p>
+                <h2 className="mb-3 font-display text-4xl font-bold text-navy-900 md:text-5xl">Get an instant quote</h2>
+              </>
+            ) : (
+              <>
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full border-2 border-white/40 px-4 py-1.5 text-white">
+                  <Calculator size={14} />
+                  <span className="text-xs font-semibold uppercase tracking-widest">Instant Pricing</span>
+                </div>
+                <h2 className="mb-3 font-display text-4xl font-bold text-white md:text-5xl">
+                  Get Your <span className="text-gradient-metallic">Instant Quote</span>
+                </h2>
+              </>
+            )}
+          </div>
+
+          <div className={`transition-all duration-700 delay-200 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            <EotQuoteWizard
+              onBook={handleWizardBook}
+              onChangeService={() => {
+                setDeepService('carpet_upholstery');
+                setAddOnCounts(Object.fromEntries(addOnDefs.map((a) => [a.key, 0])));
+                onHomepageServiceChange?.('carpet_upholstery');
+              }}
+              restoreConfig={eotRestoreConfig}
+            />
           </div>
         </div>
       </section>
