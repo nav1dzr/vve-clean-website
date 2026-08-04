@@ -9,7 +9,8 @@ import {
   MOVEIN_BASE_PRICES_P,
   MOVEIN_EXTRA_BATH_P,
   MOVEIN_EXTRA_WC_P,
-  EOT_CARPET_ADDON_PRICES_P,
+  EOT_CARPET_PACKAGE_DISCOUNT_PCT,
+  EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS,
   AFTER_BUILDERS_START_FROM_P,
   CARPET_ITEM_PRICES_P,
   STAIRS_FIRST_P,
@@ -244,30 +245,22 @@ export default function PricingPage() {
                 ))}
               </div>
 
-              {/* EOT carpet add-ons */}
+              {/* EOT carpet package */}
               <div className="mt-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-navy-700 font-bold text-xs uppercase tracking-widest">EOT carpet add-ons</span>
+                  <span className="text-navy-700 font-bold text-xs uppercase tracking-widest">EOT carpet package</span>
                   <div className="flex-1 h-px bg-silver-200" />
                 </div>
-                <p className="text-silver-600 text-xs mb-2 leading-relaxed">
-                  Reduced rates when carpet cleaning is added to an end-of-tenancy booking (travel &amp; setup already covered).
-                </p>
-                <div className="space-y-2">
-                  {([
-                    ['Bedroom carpet',         EOT_CARPET_ADDON_PRICES_P.bedroom     / 100],
-                    ['Living / dining room',   EOT_CARPET_ADDON_PRICES_P.living_room / 100],
-                    ['Large room / lounge',    EOT_CARPET_ADDON_PRICES_P.large_lounge/ 100],
-                    ['Hallway',                EOT_CARPET_ADDON_PRICES_P.hallway     / 100],
-                    ['Landing',                EOT_CARPET_ADDON_PRICES_P.landing     / 100],
-                    ['Stairs — first flight',  EOT_CARPET_ADDON_PRICES_P.stairs_first/ 100],
-                    ['Stairs — each extra',    EOT_CARPET_ADDON_PRICES_P.stairs_extra/ 100],
-                  ] as [string, number][]).map(([label, price]) => (
-                    <div key={label} className="flex items-center justify-between bg-silver-50 rounded-xl px-4 py-2.5 border border-silver-200">
-                      <div className="text-navy-800 text-sm">{label}</div>
-                      <div className="font-bold text-navy-900 ml-4">£{price}</div>
-                    </div>
-                  ))}
+                <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3">
+                  <p className="text-green-800 text-sm font-semibold leading-relaxed">
+                    Save up to {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% on professional carpet cleaning when added to your End of Tenancy clean.
+                  </p>
+                  <p className="text-green-700 text-xs mt-1.5 leading-relaxed">
+                    Applies once {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS}+ bedrooms, reception rooms, hallways, landings or
+                    flights of stairs are added — calculated from the standard carpet prices shown above, off the carpet
+                    portion only, never the End of Tenancy price itself. Rugs, delicate fibres and anything needing a photo
+                    assessment stay quote-required. Confirmed room by room in the quote.
+                  </p>
                 </div>
               </div>
             </div>

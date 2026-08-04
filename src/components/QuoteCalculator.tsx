@@ -55,19 +55,22 @@ const DEEP_SERVICE_LABELS: Record<DeepServiceType, string> = {
 // Prices in £ derived from the canonical pence values in pricing.ts.
 const BASE_PRICES: Record<DeepServiceType, Record<SizeKey, number>> = {
   carpet_upholstery: { studio:  90, bed1: 150, bed2: 210, bed3: 270, bed4: 330 }, // unused — carpet uses computeCarpetPrice
+  // unused — end_of_tenancy is priced entirely by EotQuoteWizard's
+  // Complete/Tailored packages (see the `if (isEot)` early return above);
+  // kept only so BASE_PRICES stays a total map over DeepServiceType.
   end_of_tenancy:    {
-    studio: EOT_BASE_PRICES_P.studio / 100,  // 229
-    bed1:   EOT_BASE_PRICES_P.bed1   / 100,  // 299
-    bed2:   EOT_BASE_PRICES_P.bed2   / 100,  // 369
-    bed3:   EOT_BASE_PRICES_P.bed3   / 100,  // 449
-    bed4:   EOT_BASE_PRICES_P.bed4   / 100,  // 549
+    studio: EOT_BASE_PRICES_P.studio / 100,  // 199
+    bed1:   EOT_BASE_PRICES_P.bed1   / 100,  // 249
+    bed2:   EOT_BASE_PRICES_P.bed2   / 100,  // 319
+    bed3:   EOT_BASE_PRICES_P.bed3   / 100,  // 379
+    bed4:   EOT_BASE_PRICES_P.bed4   / 100,  // 499
   },
   move_in: {
-    studio: MOVEIN_BASE_PRICES_P.studio / 100,  // 179
-    bed1:   MOVEIN_BASE_PRICES_P.bed1   / 100,  // 219
-    bed2:   MOVEIN_BASE_PRICES_P.bed2   / 100,  // 269
-    bed3:   MOVEIN_BASE_PRICES_P.bed3   / 100,  // 329
-    bed4:   MOVEIN_BASE_PRICES_P.bed4   / 100,  // 429
+    studio: MOVEIN_BASE_PRICES_P.studio / 100,  // 159
+    bed1:   MOVEIN_BASE_PRICES_P.bed1   / 100,  // 199
+    bed2:   MOVEIN_BASE_PRICES_P.bed2   / 100,  // 249
+    bed3:   MOVEIN_BASE_PRICES_P.bed3   / 100,  // 309
+    bed4:   MOVEIN_BASE_PRICES_P.bed4   / 100,  // 389
   },
   // after_builders uses "from" prices — BASE_PRICES is not used for quoting
   after_builders: {
@@ -182,7 +185,7 @@ export interface BookingSelection {
     isHouse?:         boolean;
     eotPackage?:      'complete' | 'tailored';
     tailoredAddOns?:  Record<string, boolean | number>;
-    rooms?:           { id: string; addonKey: string; floor: string }[];
+    rooms?:           { id: string; addonKey: string; floor: string; stairFlights?: number }[];
     carpetRoomIds?:   string[];
     condition?:       'normal' | 'heavy' | 'clutter' | 'biohazard';
     parking?:         'yes' | 'no' | 'unsure';

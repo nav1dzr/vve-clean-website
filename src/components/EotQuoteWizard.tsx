@@ -9,11 +9,13 @@ import {
   EOT_GUARANTEE_HOURS,
   EOT_TAILORED_ADDON_PRICES_P,
   EOT_TAILORED_CUPBOARDS_PRICES_P,
+  EOT_CARPET_PACKAGE_DISCOUNT_PCT,
+  EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS,
   ADDON_PRICES_P,
   calculateEotQuote,
   calculateDepositAndBalance,
   generateDefaultRooms,
-  eotCarpetAddonPriceP,
+  eotCarpetAreaStandalonePriceP,
   penceToDisplay,
   type SizeKey,
 } from '../data/pricing';
@@ -32,6 +34,10 @@ export interface RoomState {
   floor: FloorState;
   steamClean: boolean;
   removable: boolean;
+  // Only meaningful when addonKey === 'stairs'. Defaults to 1 (first flight)
+  // — never assumed higher just because the property is large; the customer
+  // must explicitly add additional flights.
+  stairFlights?: number;
 }
 
 export interface TailoredAddOns {
@@ -84,7 +90,7 @@ export interface EotBookingResult {
       cupboards: boolean;
     };
     addOnCounts: Record<string, number>;
-    rooms: { id: string; addonKey: string; floor: string }[];
+    rooms: { id: string; addonKey: string; floor: string; stairFlights?: number }[];
     carpetRoomIds: string[];
     windowSize: string;
     gutterType: string;
@@ -119,14 +125,29 @@ function defaultExtras(): ExtrasState {
   return { upholstery: 0, ext_windows: 0, balcony: 0, wall_marks: 0, key_collect: 0, rubbish: 0 };
 }
 
+// Suggested rooms only — a room existing here is never a charge on its own,
+// only once the customer explicitly confirms it (steamClean: true). Stairs
+// always start at 1 flight; the customer adds more explicitly, never
+// assumed from property size.
+function defaultRooms(size: SizeKey, propertyType: PropertyType): RoomState[] {
+  return generateDefaultRooms(size, propertyType).map((r) => ({
+    ...r,
+    steamClean: false,
+    stairFlights: r.addonKey === 'stairs' ? 1 : undefined,
+  }));
+}
+
 function makeInitialState(restore?: EotBookingResult['quoteConfig'] | null): EotWizardState {
   const size: SizeKey = (restore?.deepSize as SizeKey) ?? 'bed2';
   const propertyType: PropertyType = restore?.isHouse ? 'house' : 'flat';
-  const rooms = generateDefaultRooms(size, propertyType).map((r) => ({ ...r, steamClean: false }));
+  const rooms = defaultRooms(size, propertyType);
   if (restore?.rooms && restore.carpetRoomIds) {
     for (const r of rooms) {
       const match = restore.rooms.find((rr) => rr.id === r.id);
-      if (match) r.floor = match.floor as FloorState;
+      if (match) {
+        r.floor = match.floor as FloorState;
+        if (r.addonKey === 'stairs') r.stairFlights = Number(match.stairFlights) || 1;
+      }
       r.steamClean = restore.carpetRoomIds.includes(r.id);
     }
   }
@@ -245,7 +266,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   const { depositP, balanceP } = calculateDepositAndBalance(totalP);
 
   const carpetRoomsSelected = state.rooms.filter((r) => r.steamClean);
-  const carpetAddonTotalDisplayP = carpetRoomsSelected.reduce((s, r) => s + eotCarpetAddonPriceP(r.addonKey), 0);
+  const carpetPackage = quote.carpetPackage;
 
   function setRoomFloor(id: string, floor: FloorState) {
     setState((p) => ({
@@ -255,6 +276,9 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   }
   function toggleSteamClean(id: string) {
     setState((p) => ({ ...p, rooms: p.rooms.map((r) => (r.id === id ? { ...r, steamClean: !r.steamClean } : r)) }));
+  }
+  function setStairFlights(id: string, flights: number) {
+    setState((p) => ({ ...p, rooms: p.rooms.map((r) => (r.id === id ? { ...r, stairFlights: Math.max(1, flights) } : r)) }));
   }
   function addRoom(kind: 'reception' | 'hallway' | 'landing') {
     const labels = { reception: 'Additional reception room', hallway: 'Hallway', landing: 'Landing' };
@@ -268,16 +292,10 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
     setState((p) => ({ ...p, rooms: p.rooms.filter((r) => r.id !== id) }));
   }
   function changeSize(size: SizeKey) {
-    setState((p) => {
-      const rooms = generateDefaultRooms(size, p.propertyType).map((r) => ({ ...r, steamClean: false }));
-      return { ...p, size, rooms };
-    });
+    setState((p) => ({ ...p, size, rooms: defaultRooms(size, p.propertyType) }));
   }
   function changePropertyType(propertyType: PropertyType) {
-    setState((p) => {
-      const rooms = generateDefaultRooms(p.size, propertyType).map((r) => ({ ...r, steamClean: false }));
-      return { ...p, propertyType, rooms };
-    });
+    setState((p) => ({ ...p, propertyType, rooms: defaultRooms(p.size, propertyType) }));
   }
 
   const totalSteps = state.pkg === 'tailored' ? 7 : 6; // Complete skips step 4 (tailored add-ons)
@@ -312,7 +330,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         eotPackage: state.pkg,
         tailoredAddOns: state.tailoredAddOns,
         addOnCounts: state.extras as unknown as Record<string, number>,
-        rooms: state.rooms.map((r) => ({ id: r.id, addonKey: r.addonKey, floor: r.floor })),
+        rooms: state.rooms.map((r) => ({ id: r.id, addonKey: r.addonKey, floor: r.floor, stairFlights: r.stairFlights })),
         carpetRoomIds: carpetRoomsSelected.map((r) => r.id),
         windowSize: 'small',
         gutterType: 'terraced',
@@ -566,40 +584,57 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
           <div className="space-y-4">
             <h3 className="text-navy-900 font-bold text-base">Floor care</h3>
             <div className="rounded-xl bg-sky-50 border border-sky-200 px-4 py-3 text-xs text-navy-700 leading-relaxed">
-              Standard vacuuming of carpet and mopping of hard floors is <strong>included at no extra charge</strong>. Professional carpet steam
-              cleaning is optional and charged separately at the discounted property-clean rate. {state.pkg === 'complete' && 'The Complete package does not automatically include carpet steam cleaning.'}
+              Standard vacuuming of carpet and standard mopping of hard floors is <strong>already included</strong> in every EOT clean, at no
+              extra charge. Professional carpet steam cleaning is optional. These are only suggested areas based on your property
+              size — confirm what's actually carpeted below; nothing here is charged until you add it.
+            </div>
+            <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-xs font-semibold text-green-800 leading-relaxed">
+              Save up to {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% on professional carpet cleaning when added to your End of Tenancy clean
+              — once {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS}+ areas are selected.
             </div>
 
             <div className="space-y-2">
-              {state.rooms.map((room) => (
-                <div key={room.id} className="rounded-xl border border-silver-200 px-4 py-3">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="text-navy-800 text-sm font-semibold">{room.label}</span>
-                    {room.removable && (
-                      <button type="button" onClick={() => removeRoom(room.id)} className="text-silver-400 hover:text-red-500 text-xs font-medium">Remove</button>
+              {state.rooms.map((room) => {
+                const standaloneP = eotCarpetAreaStandalonePriceP(room.addonKey, room.stairFlights ?? 1);
+                return (
+                  <div key={room.id} className="rounded-xl border border-silver-200 px-4 py-3">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-navy-800 text-sm font-semibold">{room.label}</span>
+                      {room.removable && (
+                        <button type="button" onClick={() => removeRoom(room.id)} className="text-silver-400 hover:text-red-500 text-xs font-medium">Remove</button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(['carpet', 'hard', 'na'] as FloorState[]).map((f) => (
+                        <button key={f} type="button" onClick={() => setRoomFloor(room.id, f)}
+                          className={`py-2 rounded-lg border text-[11px] font-semibold capitalize transition-all duration-200 min-h-[38px] ${
+                            room.floor === f ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-navy-600 hover:border-royal-300'
+                          }`}>
+                          {f === 'na' ? 'N/A' : f === 'hard' ? 'Hard floor' : 'Carpet'}
+                        </button>
+                      ))}
+                    </div>
+                    {room.floor === 'carpet' && (
+                      <>
+                        <label className="flex items-center justify-between gap-2 mt-2 bg-silver-50 rounded-lg px-3 py-2 cursor-pointer">
+                          <span className="text-navy-700 text-xs">
+                            Add professional carpet steam cleaning — standard value <strong>{penceToDisplay(standaloneP)}</strong>
+                          </span>
+                          <input type="checkbox" checked={room.steamClean} onChange={() => toggleSteamClean(room.id)}
+                            className="w-5 h-5 rounded border-2 border-silver-300 text-royal-600 focus:ring-royal-500" />
+                        </label>
+                        {room.addonKey === 'stairs' && room.steamClean && (
+                          <div className="flex items-center justify-between gap-2 mt-2 px-1">
+                            <span className="text-navy-700 text-xs">Flights of stairs (first flight included)</span>
+                            <Counter value={room.stairFlights ?? 1} min={1} max={6} label="flights of stairs"
+                              onChange={(v) => setStairFlights(room.id, v)} />
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {(['carpet', 'hard', 'na'] as FloorState[]).map((f) => (
-                      <button key={f} type="button" onClick={() => setRoomFloor(room.id, f)}
-                        className={`py-2 rounded-lg border text-[11px] font-semibold capitalize transition-all duration-200 min-h-[38px] ${
-                          room.floor === f ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-navy-600 hover:border-royal-300'
-                        }`}>
-                        {f === 'na' ? 'N/A' : f === 'hard' ? 'Hard floor' : 'Carpet'}
-                      </button>
-                    ))}
-                  </div>
-                  {room.floor === 'carpet' && (
-                    <label className="flex items-center justify-between gap-2 mt-2 bg-silver-50 rounded-lg px-3 py-2 cursor-pointer">
-                      <span className="text-navy-700 text-xs">
-                        Add professional carpet steam cleaning for <strong>+{penceToDisplay(eotCarpetAddonPriceP(room.addonKey))}</strong>
-                      </span>
-                      <input type="checkbox" checked={room.steamClean} onChange={() => toggleSteamClean(room.id)}
-                        className="w-5 h-5 rounded border-2 border-silver-300 text-royal-600 focus:ring-royal-500" />
-                    </label>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -608,10 +643,34 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
               <button type="button" onClick={() => addRoom('landing')} className="text-xs font-semibold text-royal-600 hover:text-royal-700 border border-royal-200 rounded-full px-3 py-1.5">+ Landing</button>
             </div>
 
-            {carpetRoomsSelected.length > 0 && (
-              <div className="rounded-xl bg-royal-50 border border-royal-200 px-4 py-3 flex items-center justify-between">
-                <span className="text-royal-700 text-sm font-semibold">{carpetRoomsSelected.length} room{carpetRoomsSelected.length > 1 ? 's' : ''} with carpet steam cleaning</span>
-                <span className="text-royal-700 font-display font-bold text-lg">+{penceToDisplay(carpetAddonTotalDisplayP)}</span>
+            {carpetPackage.itemCount > 0 && (
+              <div className="rounded-xl bg-royal-50 border border-royal-200 px-4 py-3 space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-royal-700">Standard carpet-cleaning value</span>
+                  <span className="text-navy-900 font-semibold">{penceToDisplay(carpetPackage.standaloneSubtotalP)}</span>
+                </div>
+                {carpetPackage.eligible ? (
+                  <>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-royal-700">EOT carpet-package saving</span>
+                      <span className="text-green-700 font-semibold">−{penceToDisplay(carpetPackage.savingP)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-base border-t border-royal-200 pt-1.5 mt-1">
+                      <span className="text-royal-700 font-semibold">Professional carpet cleaning today</span>
+                      <span className="text-royal-700 font-display font-bold text-lg">{penceToDisplay(carpetPackage.chargedP)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between text-base border-t border-royal-200 pt-1.5 mt-1">
+                      <span className="text-royal-700 font-semibold">Professional carpet cleaning today</span>
+                      <span className="text-royal-700 font-display font-bold text-lg">{penceToDisplay(carpetPackage.chargedP)}</span>
+                    </div>
+                    <p className="text-royal-600 text-xs">
+                      Add {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS - carpetPackage.itemCount} more qualifying area{EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS - carpetPackage.itemCount !== 1 ? 's' : ''} to unlock {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% off.
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -736,10 +795,38 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
               )}
               {carpetRoomsSelected.length > 0 && (
                 <div className="px-4 py-3 text-sm">
-                  <span className="text-silver-600 block mb-1">Carpet steam cleaning</span>
-                  <ul className="text-navy-900 text-xs space-y-0.5">
-                    {carpetRoomsSelected.map((r) => <li key={r.id}>• {r.label} — +{penceToDisplay(eotCarpetAddonPriceP(r.addonKey))}</li>)}
+                  <span className="text-silver-600 block mb-1">Professional carpet steam cleaning</span>
+                  <ul className="text-navy-900 text-xs space-y-0.5 mb-2">
+                    {carpetRoomsSelected.map((r) => (
+                      <li key={r.id}>
+                        • {r.label}{r.addonKey === 'stairs' && (r.stairFlights ?? 1) > 1 ? ` (${r.stairFlights} flights)` : ''}
+                        {' — '}{penceToDisplay(eotCarpetAreaStandalonePriceP(r.addonKey, r.stairFlights ?? 1))} standard value
+                      </li>
+                    ))}
                   </ul>
+                  <div className="text-xs space-y-0.5 border-t border-silver-100 pt-1.5">
+                    <div className="flex justify-between text-navy-700">
+                      <span>Standard carpet-cleaning value</span>
+                      <span>{penceToDisplay(carpetPackage.standaloneSubtotalP)}</span>
+                    </div>
+                    {carpetPackage.eligible ? (
+                      <>
+                        <div className="flex justify-between text-green-700 font-semibold">
+                          <span>EOT carpet-package saving</span>
+                          <span>−{penceToDisplay(carpetPackage.savingP)}</span>
+                        </div>
+                        <div className="flex justify-between text-navy-900 font-semibold">
+                          <span>Professional carpet cleaning today</span>
+                          <span>{penceToDisplay(carpetPackage.chargedP)}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex justify-between text-navy-900 font-semibold">
+                        <span>Professional carpet cleaning today (below the {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS}-area offer)</span>
+                        <span>{penceToDisplay(carpetPackage.chargedP)}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
               {Object.entries(state.extras).some(([k, v]) => k !== 'upholstery' && v > 0) && (

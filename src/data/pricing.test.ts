@@ -11,6 +11,13 @@ import {
   EOT_CARPET_ADDON_PRICES_P,
   EOT_TAILORED_ADDON_PRICES_P,
   EOT_TAILORED_CUPBOARDS_PRICES_P,
+  EOT_CARPET_PACKAGE_DISCOUNT_PCT,
+  EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS,
+  EOT_CARPET_QUALIFYING_KEYS,
+  CARPET_ITEM_PRICES_P,
+  calculateEotCarpetPackage,
+  eotCarpetAreaStandalonePriceP,
+  generateDefaultRooms,
   MOVEIN_BASE_PRICES_P,
   MOVEIN_EXTRA_BATH_P,
   MOVEIN_EXTRA_WC_P,
@@ -346,6 +353,231 @@ describe('calculateEotQuote — adding scope never reduces the total (monotonic)
       expect(total).toBeGreaterThanOrEqual(prev);
       prev = total;
     }
+  });
+});
+
+// ─── EOT carpet package — 50% off standalone value, 3+ qualifying areas ──────
+
+function roomsFor(keys: string[]): { id: string; addonKey: string; floor: string }[] {
+  return keys.map((addonKey, i) => ({ id: `r${i}`, addonKey, floor: 'carpet' }));
+}
+
+describe('calculateEotCarpetPackage — standalone values are untouched', () => {
+  it('reads the exact same per-item prices as the standalone carpet & upholstery service', () => {
+    expect(CARPET_ITEM_PRICES_P.bedroom).toBe(5000);
+    expect(CARPET_ITEM_PRICES_P.living_room).toBe(6000);
+    expect(CARPET_ITEM_PRICES_P.large_lounge).toBe(8000);
+    expect(CARPET_ITEM_PRICES_P.hallway).toBe(2500);
+    expect(CARPET_ITEM_PRICES_P.landing).toBe(2000);
+  });
+
+  it('eotCarpetAreaStandalonePriceP reads straight from CARPET_ITEM_PRICES_P — no second table', () => {
+    for (const key of ['bedroom', 'living_room', 'large_lounge', 'hallway', 'landing']) {
+      expect(eotCarpetAreaStandalonePriceP(key)).toBe(CARPET_ITEM_PRICES_P[key]);
+    }
+  });
+
+  it('stairs use the same non-linear stairsLinePricePence formula as standalone stairs', () => {
+    expect(eotCarpetAreaStandalonePriceP('stairs', 1)).toBe(stairsLinePricePence(1));
+    expect(eotCarpetAreaStandalonePriceP('stairs', 3)).toBe(stairsLinePricePence(3));
+  });
+});
+
+describe('calculateEotCarpetPackage — nothing is charged until confirmed', () => {
+  it('a suggested room that is not in carpetRoomIds is never priced', () => {
+    const rooms = generateDefaultRooms('bed2', 'flat');
+    const r = calculateEotCarpetPackage(rooms, []);
+    expect(r.chargedP).toBe(0);
+    expect(r.itemCount).toBe(0);
+  });
+
+  it('generateDefaultRooms suggests exactly one stairs area for every size — never multiple flights pre-assumed', () => {
+    const sizes: ('studio' | 'bed1' | 'bed2' | 'bed3' | 'bed4')[] = ['studio', 'bed1', 'bed2', 'bed3', 'bed4'];
+    for (const size of sizes) {
+      const rooms = generateDefaultRooms(size, 'house');
+      const stairsRooms = rooms.filter((r: { addonKey: string }) => r.addonKey === 'stairs');
+      expect(stairsRooms.length).toBe(1); // one suggested "Stairs" area, regardless of a 4-bed house
+    }
+  });
+
+  it('an unspecified stairFlights is priced as exactly 1 flight — never assumed higher for a large property', () => {
+    const rooms = [{ id: 'st', addonKey: 'stairs' }]; // no stairFlights field at all
+    expect(eotCarpetAreaStandalonePriceP('stairs', undefined)).toBe(stairsLinePricePence(1));
+    const r = calculateEotCarpetPackage(rooms, ['st']);
+    expect(r.standaloneSubtotalP).toBe(stairsLinePricePence(1));
+  });
+
+  it('a 5-bedroom-style layout is still calculated from the ACTUAL confirmed areas, not from bedroom count', () => {
+    // 5 bedrooms suggested, but the customer only confirms 2 of them.
+    const rooms = [
+      ...Array.from({ length: 5 }, (_, i) => ({ id: `b${i}`, addonKey: 'bedroom' })),
+      { id: 'hall', addonKey: 'hallway' },
+    ];
+    const r = calculateEotCarpetPackage(rooms, ['b0', 'b1']);
+    expect(r.itemCount).toBe(2); // not 5
+    expect(r.standaloneSubtotalP).toBe(CARPET_ITEM_PRICES_P.bedroom * 2);
+    expect(r.eligible).toBe(false);
+  });
+});
+
+describe('calculateEotCarpetPackage — eligibility requires 3+ qualifying areas', () => {
+  it('fewer than 3 confirmed areas are charged at full standalone value — no discount', () => {
+    const rooms = roomsFor(['bedroom', 'bedroom']);
+    const r = calculateEotCarpetPackage(rooms, ['r0', 'r1']);
+    expect(r.eligible).toBe(false);
+    expect(r.standaloneSubtotalP).toBe(CARPET_ITEM_PRICES_P.bedroom * 2);
+    expect(r.chargedP).toBe(CARPET_ITEM_PRICES_P.bedroom * 2); // no saving
+    expect(r.savingP).toBe(0);
+  });
+
+  it(`exactly ${EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS} evenly-priced areas receive exactly ${EOT_CARPET_PACKAGE_DISCOUNT_PCT}% off once the marginal-value floor is not binding`, () => {
+    // 4 equal-priced bedrooms is the smallest evenly-priced selection where
+    // the top-2-areas monotonicity floor lands exactly on 50% (see the
+    // "never reduces the payable total" describe block below for why 3
+    // items can never reach a clean 50% — the floor always binds tighter).
+    const rooms = roomsFor(['bedroom', 'bedroom', 'bedroom', 'bedroom']);
+    const r = calculateEotCarpetPackage(rooms, ['r0', 'r1', 'r2', 'r3']);
+    expect(r.itemCount).toBe(4);
+    expect(r.eligible).toBe(true);
+    expect(r.standaloneSubtotalP).toBe(CARPET_ITEM_PRICES_P.bedroom * 4); // £200
+    expect(r.chargedP).toBe(CARPET_ITEM_PRICES_P.bedroom * 4 * (1 - EOT_CARPET_PACKAGE_DISCOUNT_PCT / 100)); // £100
+    expect(r.savingP).toBe(r.standaloneSubtotalP - r.chargedP);
+    expect(r.savingP).toBe(r.standaloneSubtotalP / 2); // exactly 50%
+  });
+});
+
+describe('calculateEotCarpetPackage — £85 minimum applies correctly', () => {
+  it('a single cheap area is floored at £85, not its own standalone value', () => {
+    const rooms = roomsFor(['landing']); // £20 standalone
+    const r = calculateEotCarpetPackage(rooms, ['r0']);
+    expect(r.standaloneSubtotalP).toBe(CARPET_ITEM_PRICES_P.landing);
+    expect(r.chargedP).toBe(CARPET_MIN_BOOKING_P); // £85 floor
+  });
+
+  it('an eligible, discounted package below £85 is raised to the £85 floor', () => {
+    // 3 landings: £60 standalone, 50% off would be £30 — well under £85.
+    const rooms = roomsFor(['landing', 'landing', 'landing']);
+    const r = calculateEotCarpetPackage(rooms, ['r0', 'r1', 'r2']);
+    expect(r.eligible).toBe(true);
+    expect(r.chargedP).toBe(CARPET_MIN_BOOKING_P);
+  });
+
+  it('a selection already worth more than £85 is never reduced down to it', () => {
+    const rooms = roomsFor(['bedroom', 'bedroom']); // £100, ineligible
+    const r = calculateEotCarpetPackage(rooms, ['r0', 'r1']);
+    expect(r.chargedP).toBe(10000);
+  });
+});
+
+describe('calculateEotCarpetPackage — rugs and specialist materials are excluded', () => {
+  it('EOT_CARPET_QUALIFYING_KEYS never includes rugs or anything requiring photo review', () => {
+    expect(EOT_CARPET_QUALIFYING_KEYS).not.toContain('rug');
+    expect(EOT_CARPET_QUALIFYING_KEYS).not.toContain('sofa_2');
+    expect(EOT_CARPET_QUALIFYING_KEYS).not.toContain('mattress_double');
+    expect(EOT_CARPET_QUALIFYING_KEYS.sort()).toEqual(
+      ['bedroom', 'hallway', 'landing', 'large_lounge', 'living_room', 'stairs'].sort(),
+    );
+  });
+
+  it('a rug included in carpetRoomIds is silently priced at £0 and excluded from eligibility', () => {
+    const rooms = [
+      { id: 'r0', addonKey: 'bedroom' }, { id: 'r1', addonKey: 'bedroom' },
+      { id: 'r2', addonKey: 'rug' },
+    ];
+    const withRug = calculateEotCarpetPackage(rooms, ['r0', 'r1', 'r2']);
+    const withoutRug = calculateEotCarpetPackage(rooms, ['r0', 'r1']);
+    expect(withRug.itemCount).toBe(2); // rug not counted
+    expect(withRug).toEqual(withoutRug); // identical result — rug contributed nothing
+    expect(withRug.eligible).toBe(false); // still only 2 real qualifying areas
+  });
+});
+
+describe('calculateEotCarpetPackage — no double discount', () => {
+  it('never applies the item-count CARPET_BUNDLE_BANDS discount on top of the EOT package discount', () => {
+    // 7+ items would trigger a £35 CARPET_BUNDLE_BANDS discount on the
+    // standalone carpet page — calculateEotCarpetPackage must never call
+    // that logic, so a large EOT selection is discounted by exactly 50%,
+    // never 50% plus a further bundle-band reduction.
+    const rooms = roomsFor(['bedroom', 'bedroom', 'bedroom', 'bedroom', 'living_room', 'hallway', 'landing']);
+    const ids = rooms.map((r) => r.id);
+    const r = calculateEotCarpetPackage(rooms, ids);
+    const naive50 = Math.round(r.standaloneSubtotalP * 0.5);
+    // chargedP is either the monotonic floor or exactly naive50 — never less
+    // than naive50 (which stacking a further discount on top would produce).
+    expect(r.chargedP).toBeGreaterThanOrEqual(naive50);
+  });
+
+  it('does not reuse the already-discounted EOT_CARPET_ADDON_PRICES_P table (that would double-discount)', () => {
+    const rooms = roomsFor(['bedroom', 'bedroom', 'bedroom']);
+    const r = calculateEotCarpetPackage(rooms, ['r0', 'r1', 'r2']);
+    // If the (already-discounted) EOT_CARPET_ADDON_PRICES_P table had been
+    // used as the base instead of the standalone CARPET_ITEM_PRICES_P table,
+    // the standalone subtotal would be 3 * 4000 = 12000, not 3 * 5000.
+    expect(r.standaloneSubtotalP).toBe(CARPET_ITEM_PRICES_P.bedroom * 3);
+    expect(r.standaloneSubtotalP).not.toBe(EOT_CARPET_ADDON_PRICES_P.bedroom * 3);
+  });
+});
+
+describe('calculateEotCarpetPackage — adding another area never reduces the payable total', () => {
+  it('3 items can never receive a clean 50% off — the monotonicity floor always binds first', () => {
+    // Mathematical property of this design: for exactly 3 positive-priced
+    // items, the 2-most-expensive-items floor is always >= 2/3 of the
+    // subtotal, which always exceeds 50% — proving 3-item selections are
+    // always floored above naive 50%, by construction, for any real prices.
+    const rooms = roomsFor(['bedroom', 'bedroom', 'living_room']);
+    const r = calculateEotCarpetPackage(rooms, ['r0', 'r1', 'r2']);
+    const naive50 = Math.round(r.standaloneSubtotalP * 0.5);
+    expect(r.chargedP).toBeGreaterThan(naive50);
+  });
+
+  it('adding a 3rd area never charges less than 2 areas alone already cost, even in an adversarial combination', () => {
+    const rooms = roomsFor(['large_lounge', 'bedroom', 'landing']); // £80, £50, £20
+    const twoItems = calculateEotCarpetPackage(rooms, ['r0', 'r1']); // £130, ineligible
+    const threeItems = calculateEotCarpetPackage(rooms, ['r0', 'r1', 'r2']); // eligible, naive 50% of £150 = £75
+    expect(twoItems.chargedP).toBe(13000);
+    expect(threeItems.chargedP).toBeGreaterThanOrEqual(twoItems.chargedP);
+  });
+
+  it('a long incremental sequence in an adversarial order is monotonic throughout', () => {
+    const rooms = roomsFor(['large_lounge', 'bedroom', 'hallway', 'landing', 'bedroom', 'stairs', 'bedroom']);
+    const ids = rooms.map((r) => r.id);
+    let prevCharge = 0;
+    for (let i = 1; i <= ids.length; i++) {
+      const r = calculateEotCarpetPackage(rooms, ids.slice(0, i));
+      expect(r.chargedP).toBeGreaterThanOrEqual(prevCharge);
+      prevCharge = r.chargedP;
+    }
+  });
+
+  it('removing then re-adding an area returns to the same price as before (no state-order dependence)', () => {
+    const rooms = roomsFor(['bedroom', 'bedroom', 'hallway']);
+    const before = calculateEotCarpetPackage(rooms, ['r0', 'r1', 'r2']);
+    const after = calculateEotCarpetPackage(rooms, ['r0', 'r1']); // remove hallway
+    const readded = calculateEotCarpetPackage(rooms, ['r0', 'r1', 'r2']); // re-add
+    expect(after.chargedP).toBeLessThanOrEqual(before.chargedP);
+    expect(readded).toEqual(before);
+  });
+});
+
+describe('calculateEotQuote — carpet package is included in Complete and Tailored totals identically', () => {
+  it('Complete and Tailored add the same carpet package charge on top of their own base price', () => {
+    const rooms = roomsFor(['bedroom', 'bedroom', 'hallway']);
+    const carpetRoomIds = ['r0', 'r1', 'r2'];
+    const complete = calculateEotQuote({ size: 'bed2', package: 'complete', isHouse: false, extraBathrooms: 0, extraWcs: 0, rooms, carpetRoomIds });
+    const tailored = calculateEotQuote({ size: 'bed2', package: 'tailored', isHouse: false, extraBathrooms: 0, extraWcs: 0, rooms, carpetRoomIds });
+    expect(complete.carpetAddonP).toBe(tailored.carpetAddonP);
+    expect(complete.carpetAddonP).toBe(complete.carpetPackage.chargedP);
+    expect(complete.totalP).toBe(EOT_COMPLETE_PRICES_P.bed2 + complete.carpetAddonP);
+    expect(tailored.totalP).toBe(EOT_TAILORED_START_PRICES_P.bed2 + tailored.carpetAddonP);
+  });
+
+  it('the carpet package never changes the EOT base price itself — only adds to it', () => {
+    const rooms = roomsFor(['bedroom', 'bedroom', 'hallway']);
+    const withoutCarpet = calculateEotQuote({ size: 'bed2', package: 'complete', isHouse: false, extraBathrooms: 0, extraWcs: 0 });
+    const withCarpet = calculateEotQuote({ size: 'bed2', package: 'complete', isHouse: false, extraBathrooms: 0, extraWcs: 0, rooms, carpetRoomIds: ['r0', 'r1', 'r2'] });
+    expect(withCarpet.basePriceP).toBe(withoutCarpet.basePriceP);
+    expect(withCarpet.completeEquivalentP).toBe(withoutCarpet.completeEquivalentP);
+    expect(withCarpet.totalP).toBe(withoutCarpet.totalP + withCarpet.carpetAddonP);
   });
 });
 

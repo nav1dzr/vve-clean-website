@@ -2,7 +2,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import EotQuoteWizard, { type EotBookingResult } from './EotQuoteWizard';
-import { EOT_COMPLETE_PRICES_P, EOT_TAILORED_START_PRICES_P, EOT_HOUSE_ADJUSTMENT_P, EOT_EXTRA_BATH_P } from '../data/pricing';
+import {
+  EOT_COMPLETE_PRICES_P, EOT_TAILORED_START_PRICES_P, EOT_HOUSE_ADJUSTMENT_P, EOT_EXTRA_BATH_P,
+  CARPET_ITEM_PRICES_P,
+} from '../data/pricing';
 
 function renderWizard(onBook = vi.fn()) {
   const utils = render(<EotQuoteWizard onBook={onBook} />);
@@ -17,6 +20,10 @@ async function goToStep(user: ReturnType<typeof userEvent.setup>, n: number) {
 
 function footerTotal() {
   return screen.getByTestId('footer-total');
+}
+
+function readFooterTotal() {
+  return Number(footerTotal().textContent!.replace('£', ''));
 }
 
 describe('EotQuoteWizard — Step 1: Property', () => {
@@ -172,15 +179,80 @@ describe('EotQuoteWizard — Step 5: Floor care', () => {
     expect(within(bedroomRow).getByText(/Add professional carpet steam cleaning/)).toBeInTheDocument();
   });
 
-  it('adding carpet steam cleaning to a room increases the footer total by the discounted add-on rate', async () => {
+  it('marking a room as carpet does not itself charge anything — only confirming it does', async () => {
     const user = userEvent.setup();
     await toFloorCare(user);
+    const bedroomRow = screen.getByText('Bedroom 1').closest('.rounded-xl')! as HTMLElement;
+    await user.click(within(bedroomRow).getByRole('button', { name: 'Carpet' }));
+    // Suggested-as-carpet is not the same as confirmed for steam cleaning —
+    // the footer must not move until the checkbox is actually ticked.
     expect(footerTotal()).toHaveTextContent(`£${EOT_COMPLETE_PRICES_P.bed2 / 100}`);
+  });
+
+  it('a single confirmed area is below the 3-area offer — full standalone value, floored at the £85 minimum', async () => {
+    const user = userEvent.setup();
+    await toFloorCare(user);
     const bedroomRow = screen.getByText('Bedroom 1').closest('.rounded-xl')! as HTMLElement;
     await user.click(within(bedroomRow).getByRole('button', { name: 'Carpet' }));
     await user.click(within(bedroomRow).getByRole('checkbox'));
-    // £40 EOT carpet add-on for a bedroom
-    expect(footerTotal()).toHaveTextContent(`£${EOT_COMPLETE_PRICES_P.bed2 / 100 + 40}`);
+    // £50 standalone bedroom value is below the £85 carpet minimum, and one
+    // area never qualifies for the package discount.
+    expect(footerTotal()).toHaveTextContent(`£${EOT_COMPLETE_PRICES_P.bed2 / 100 + 85}`);
+    expect(screen.getByText(/Add 2 more qualifying areas to unlock/)).toBeInTheDocument();
+  });
+
+  it('reaching 3 confirmed areas never charges less than 2 areas already cost — even though 50% of the new subtotal alone would be less', async () => {
+    const user = userEvent.setup();
+    await toFloorCare(user);
+
+    const bedroom1Row = screen.getByText('Bedroom 1').closest('.rounded-xl')! as HTMLElement;
+    await user.click(within(bedroom1Row).getByRole('button', { name: 'Carpet' }));
+    await user.click(within(bedroom1Row).getByRole('checkbox'));
+    const bedroom2Row = screen.getByText('Bedroom 2').closest('.rounded-xl')! as HTMLElement;
+    await user.click(within(bedroom2Row).getByRole('button', { name: 'Carpet' }));
+    await user.click(within(bedroom2Row).getByRole('checkbox'));
+    // 2 bedrooms = £100 standalone, ineligible for the package, charged in full.
+    const twoAreaTotal = EOT_COMPLETE_PRICES_P.bed2 / 100 + CARPET_ITEM_PRICES_P.bedroom * 2 / 100;
+    expect(footerTotal()).toHaveTextContent(`£${twoAreaTotal}`);
+
+    const receptionRow = screen.getByText('Living / reception room').closest('.rounded-xl')! as HTMLElement;
+    await user.click(within(receptionRow).getByRole('button', { name: 'Carpet' }));
+    await user.click(within(receptionRow).getByRole('checkbox'));
+    // Now eligible (3 areas): naive 50% of the £160 standalone subtotal
+    // would be £80 — LESS than the £100 already charged for 2 areas. The
+    // total must never drop, so it holds at (at least) the 2-area price.
+    expect(readFooterTotal()).toBeGreaterThanOrEqual(twoAreaTotal);
+  });
+
+  it('4 evenly-priced confirmed areas receive exactly 50% off the standalone subtotal', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await user.click(screen.getByRole('button', { name: /^4 bed/ })); // step 1: 4-bed property
+    await goToStep(user, 3);
+    await user.click(screen.getByRole('button', { name: /^Next$/ })); // Complete → floor care
+
+    for (const label of ['Bedroom 1', 'Bedroom 2', 'Bedroom 3', 'Bedroom 4']) {
+      const row = screen.getByText(label).closest('.rounded-xl')! as HTMLElement;
+      await user.click(within(row).getByRole('button', { name: 'Carpet' }));
+      await user.click(within(row).getByRole('checkbox'));
+    }
+
+    const standaloneP = CARPET_ITEM_PRICES_P.bedroom * 4;
+    expect(screen.getByText(`£${standaloneP / 100}`)).toBeInTheDocument(); // standard value shown
+    expect(screen.getByText(`−£${standaloneP / 200}`)).toBeInTheDocument(); // exactly 50% saving
+    expect(readFooterTotal()).toBe(EOT_COMPLETE_PRICES_P.bed4 / 100 + standaloneP / 200);
+  });
+
+  it('stairs default to 1 flight — never assumed higher — and an added flight raises the price', async () => {
+    const user = userEvent.setup();
+    await toFloorCare(user);
+    const stairsRow = screen.getByText('Stairs').closest('.rounded-xl')! as HTMLElement;
+    await user.click(within(stairsRow).getByRole('button', { name: 'Carpet' }));
+    expect(within(stairsRow).queryByRole('button', { name: /Increase flights/ })).not.toBeInTheDocument();
+    await user.click(within(stairsRow).getByRole('checkbox'));
+    const oneFlightTotal = readFooterTotal();
+    await user.click(within(stairsRow).getByRole('button', { name: /Increase flights/ }));
+    expect(readFooterTotal()).toBeGreaterThan(oneFlightTotal);
   });
 
   it('marking a room "N/A" hides the steam-cleaning option and does not charge for it', async () => {
@@ -192,15 +264,20 @@ describe('EotQuoteWizard — Step 5: Floor care', () => {
     expect(footerTotal()).toHaveTextContent(`£${EOT_COMPLETE_PRICES_P.bed2 / 100}`);
   });
 
-  it('additional reception rooms can be added and removed', async () => {
+  it('additional reception rooms, hallways and landings can be added and removed', async () => {
     const user = userEvent.setup();
     await toFloorCare(user);
-    await user.click(screen.getByRole('button', { name: '+ Reception room' }));
-    const newRooms = screen.getAllByText('Additional reception room');
-    expect(newRooms.length).toBe(1);
-    const row = newRooms[0].closest('.rounded-xl')! as HTMLElement;
+    for (const buttonName of ['+ Reception room', '+ Hallway', '+ Landing'] as const) {
+      await user.click(screen.getByRole('button', { name: buttonName }));
+    }
+    const newReception = screen.getAllByText('Additional reception room');
+    expect(newReception.length).toBe(1);
+    const row = newReception[0].closest('.rounded-xl')! as HTMLElement;
     await user.click(within(row).getByRole('button', { name: 'Remove' }));
     expect(screen.queryByText('Additional reception room')).not.toBeInTheDocument();
+    // The original suggested hallway/landing plus the newly-added ones exist.
+    expect(screen.getAllByText('Hallway').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('Landing').length).toBeGreaterThanOrEqual(2);
   });
 });
 

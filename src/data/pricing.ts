@@ -45,8 +45,16 @@ export interface EotQuoteInput {
     washingMachineInside?: boolean;
     cupboards?:            boolean;
   };
-  rooms?:          { id: string; addonKey: string; floor: string }[];
+  rooms?:          { id: string; addonKey: string; floor: string; stairFlights?: number }[];
   carpetRoomIds?:  string[];
+}
+
+export interface EotCarpetPackageResult {
+  standaloneSubtotalP: number;
+  itemCount:           number;
+  eligible:            boolean;
+  chargedP:            number;
+  savingP:             number;
 }
 
 export interface EotQuoteResult {
@@ -56,6 +64,7 @@ export interface EotQuoteResult {
   wcsAddP:              number;
   tailoredAddOnsP:      number;
   carpetAddonP:         number;
+  carpetPackage:        EotCarpetPackageResult;
   totalP:               number;
   guaranteeHours:       number;
   guaranteeScope:       'complete' | 'selected-tasks';

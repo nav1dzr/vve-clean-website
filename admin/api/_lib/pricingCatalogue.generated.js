@@ -337,9 +337,13 @@ export const EOT_EXTRA_AREAS_P = {
   utility:      2500,  // £25
 };
 
-// EOT/move-in carpet add-on prices — discounted vs. standalone carpet
-// cleaning because travel/setup is already covered by the property clean.
-// These do NOT receive the CARPET_BUNDLE_BANDS discount a second time.
+// Flat rate table backing ONLY the move-in/after-builders "whole home"
+// carpet bundle shortcut below (EOT_CARPET_BUNDLE_P) — a single flat add-on
+// toggle, unrelated to the EOT wizard's own floor-care pricing. The EOT
+// wizard's per-area carpet steam-cleaning (Step 5 — see
+// calculateEotCarpetPackage further down) is priced from the STANDALONE
+// CARPET_ITEM_PRICES_P values with a 50% package discount instead — never
+// from this table, so the two features can never double-discount each other.
 /** @type {Record<string, number>} */
 export const EOT_CARPET_ADDON_PRICES_P = {
   bedroom:      4000,  // £40
@@ -351,11 +355,12 @@ export const EOT_CARPET_ADDON_PRICES_P = {
   stairs_extra: 3500,  // £35 each additional flight
 };
 
-// Whole-home carpet bundle add-on to EOT/move-in, at EOT reduced rates —
-// derived from EOT_CARPET_ADDON_PRICES_P for typical room counts. Exact
-// itemised per-room pricing is what Step 5 of the EOT wizard actually
-// charges; this whole-home shortcut is used by the flat "add carpets"
-// toggle. Does not receive CARPET_BUNDLE_BANDS on top (see comment above).
+// Whole-home carpet bundle add-on to move-in/after-builders property cleans,
+// at reduced rates — derived from EOT_CARPET_ADDON_PRICES_P for typical room
+// counts. This is the flat "Carpets — whole home" toggle in the generic
+// quote calculator; it does NOT receive CARPET_BUNDLE_BANDS on top, and it
+// is not used by the EOT wizard (which prices carpet per selected area —
+// see calculateEotCarpetPackage).
 /** @type {Record<string, number>} */
 export const EOT_CARPET_BUNDLE_P = {
   studio: EOT_CARPET_ADDON_PRICES_P.hallway + EOT_CARPET_ADDON_PRICES_P.bedroom,                                                    // £60
@@ -397,18 +402,92 @@ export function generateDefaultRooms(size, propertyType) {
   return rooms;
 }
 
+// ─── EOT carpet package — 50% off the STANDALONE value, never a second table ──
+//
+// Owner-approved offer: adding professional carpet steam cleaning to an End
+// of Tenancy booking gets 50% off the normal STANDALONE carpet-cleaning
+// value (CARPET_ITEM_PRICES_P / stairsLinePricePence — the exact same prices
+// a customer would pay on the standalone carpet & upholstery page), once at
+// least 3 qualifying areas are selected. This is calculated, never a second
+// hand-maintained price table, and it is never stacked with
+// CARPET_BUNDLE_BANDS (the ordinary item-count carpet discount) — the EOT
+// wizard's rooms/carpetRoomIds never feed calculateBundleDiscount.
+
+export const EOT_CARPET_PACKAGE_DISCOUNT_PCT = 50;
+export const EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS = 3;
+
+// Areas eligible for the EOT carpet-package rate. Anything else — rugs,
+// wool/silk/delicate fibres, severe pet or biohazard contamination,
+// exceptional staining, specialist restoration — is never auto-priced here;
+// calculateEotCarpetPackage silently excludes any room whose addonKey isn't
+// in this list, and those items stay photo-review / quote-required, exactly
+// as they already are on the standalone carpet & upholstery page.
+export const EOT_CARPET_QUALIFYING_KEYS = ['bedroom', 'living_room', 'large_lounge', 'hallway', 'landing', 'stairs'];
+
 /**
- * Price of adding professional carpet steam cleaning to one room in the EOT
- * floor-care step, at the discounted property-clean add-on rate.
+ * Standalone (non-EOT) value of one qualifying floor-care area, read from
+ * the SAME canonical per-item prices used by the standalone carpet &
+ * upholstery service — the EOT package discount is always calculated FROM
+ * this real value, never from a separately-maintained "EOT rate".
  * @param {string} addonKey
  * @param {number} [stairFlights]
  */
-export function eotCarpetAddonPriceP(addonKey, stairFlights = 1) {
-  if (addonKey === 'stairs') {
-    if (stairFlights <= 0) return 0;
-    return EOT_CARPET_ADDON_PRICES_P.stairs_first + (stairFlights - 1) * EOT_CARPET_ADDON_PRICES_P.stairs_extra;
+export function eotCarpetAreaStandalonePriceP(addonKey, stairFlights = 1) {
+  if (!EOT_CARPET_QUALIFYING_KEYS.includes(addonKey)) return 0;
+  if (addonKey === 'stairs') return stairsLinePricePence(Math.max(1, stairFlights));
+  return CARPET_ITEM_PRICES_P[addonKey] ?? 0;
+}
+
+/**
+ * Prices the EOT floor-care carpet package: every qualifying area the
+ * customer has marked for professional steam cleaning, at 50% off its
+ * standalone value once 3+ qualifying areas are selected (never before —
+ * fewer areas are charged at full standalone value, never discounted and
+ * never forced above the £85 floor beyond what the £85 minimum requires).
+ * Non-qualifying rooms (rugs, delicate materials, anything not in
+ * EOT_CARPET_QUALIFYING_KEYS) are silently excluded, never priced here.
+ *
+ * Monotonic by construction — adding another area can never reduce the
+ * total. The charge is floored not only at the £85 carpet minimum but at
+ * the highest 2-area undiscounted subtotal achievable from the current
+ * selection (the most a customer could ever be charged while still under
+ * the 3-area eligibility threshold), so crossing that threshold can only
+ * ever raise or hold the price, never drop it below what 2 areas alone
+ * would already have cost.
+ *
+ * @param {{id: string, addonKey: string, stairFlights?: number}[]|undefined} rooms
+ * @param {string[]|undefined} carpetRoomIds - ids of rooms the customer has actually confirmed for professional steam cleaning; suggested/unconfirmed rooms are never priced
+ */
+export function calculateEotCarpetPackage(rooms, carpetRoomIds) {
+  const empty = { standaloneSubtotalP: 0, itemCount: 0, eligible: false, chargedP: 0, savingP: 0 };
+  if (!rooms || !carpetRoomIds || carpetRoomIds.length === 0) return empty;
+
+  const prices = [];
+  for (const roomId of carpetRoomIds) {
+    const room = rooms.find((r) => r.id === roomId);
+    if (!room || !EOT_CARPET_QUALIFYING_KEYS.includes(room.addonKey)) continue; // rugs/delicate/etc. never auto-priced
+    const flights = room.addonKey === 'stairs' ? Math.max(1, Number(room.stairFlights) || 1) : 1;
+    prices.push(eotCarpetAreaStandalonePriceP(room.addonKey, flights));
   }
-  return EOT_CARPET_ADDON_PRICES_P[addonKey] ?? 0;
+
+  const itemCount = prices.length;
+  if (itemCount === 0) return empty;
+
+  const standaloneSubtotalP = prices.reduce((s, p) => s + p, 0);
+  const eligible = itemCount >= EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS;
+
+  // The most a customer could ever be charged for any 2 (still-ineligible)
+  // areas from this exact selection — see the monotonicity note above.
+  const top2SumP = [...prices].sort((a, b) => b - a).slice(0, 2).reduce((s, p) => s + p, 0);
+
+  const packagePriceP = eligible
+    ? Math.round(standaloneSubtotalP * (1 - EOT_CARPET_PACKAGE_DISCOUNT_PCT / 100))
+    : standaloneSubtotalP;
+
+  const chargedP = Math.max(CARPET_MIN_BOOKING_P, top2SumP, packagePriceP);
+  const savingP = Math.max(0, standaloneSubtotalP - chargedP);
+
+  return { standaloneSubtotalP, itemCount, eligible, chargedP, savingP };
 }
 
 // ─── EOT quote calculation ────────────────────────────────────────────────────
@@ -421,9 +500,8 @@ export function eotCarpetAddonPriceP(addonKey, stairFlights = 1) {
  * @property {number} extraBathrooms
  * @property {number} extraWcs
  * @property {{fridgeFreezerInside?: boolean, extraFridgeFreezers?: number, dishwasherInside?: boolean, washingMachineInside?: boolean, cupboards?: boolean}} [tailoredAddOns]
- * @property {Record<string, number>} [carpetRoomsAddonKeys] - room id → stair flight count (only meaningful for stairs); other rooms just need to be present in carpetRoomIds
- * @property {string[]} [carpetRoomIds] - ids of rooms (from generateDefaultRooms) with carpet steam cleaning added
- * @property {{id: string, addonKey: string, floor: string}[]} [rooms] - full room list, used to look up addonKey/stairFlights for carpetRoomIds
+ * @property {string[]} [carpetRoomIds] - ids of rooms (from generateDefaultRooms) the customer has confirmed for professional carpet steam cleaning
+ * @property {{id: string, addonKey: string, floor: string, stairFlights?: number}[]} [rooms] - full suggested/confirmed room list, used to look up addonKey/stairFlights for carpetRoomIds — a room existing here is only a SUGGESTION, never a charge, until its id also appears in carpetRoomIds
  */
 
 /** @param {EotQuoteInput} input */
@@ -435,9 +513,11 @@ export function calculateEotQuote(input) {
 
   const completeEquivalentP = EOT_COMPLETE_PRICES_P[size] + houseAdjP + bathroomsAddP + wcsAddP;
 
-  // Floor-care carpet add-ons apply identically to either package — Complete
-  // never automatically includes carpet steam cleaning.
-  const carpetAddonP = calculateEotCarpetAddonsTotalP(input.rooms, input.carpetRoomIds);
+  // Floor-care carpet package applies identically to either package —
+  // Complete never automatically includes professional carpet steam
+  // cleaning, only the standard vacuuming/mopping already in both packages.
+  const carpetPackage = calculateEotCarpetPackage(input.rooms, input.carpetRoomIds);
+  const carpetAddonP = carpetPackage.chargedP;
 
   if (input.package === 'complete') {
     return {
@@ -445,6 +525,7 @@ export function calculateEotQuote(input) {
       houseAdjP, bathroomsAddP, wcsAddP,
       tailoredAddOnsP: 0,
       carpetAddonP,
+      carpetPackage,
       totalP: completeEquivalentP + carpetAddonP,
       guaranteeHours: EOT_GUARANTEE_HOURS,
       guaranteeScope: 'complete',
@@ -466,29 +547,13 @@ export function calculateEotQuote(input) {
 
   return {
     basePriceP, houseAdjP, bathroomsAddP, wcsAddP, tailoredAddOnsP, carpetAddonP,
+    carpetPackage,
     totalP,
     guaranteeHours: EOT_GUARANTEE_HOURS,
     guaranteeScope: 'selected-tasks',
     shouldOfferComplete: (basePriceP + houseAdjP + bathroomsAddP + wcsAddP + tailoredAddOnsP) >= completeEquivalentP,
     completeEquivalentP,
   };
-}
-
-/**
- * @param {{id: string, addonKey: string}[]|undefined} rooms
- * @param {string[]|undefined} carpetRoomIds
- * @param {Record<string, number>} [stairFlightsByRoomId]
- */
-export function calculateEotCarpetAddonsTotalP(rooms, carpetRoomIds, stairFlightsByRoomId = {}) {
-  if (!rooms || !carpetRoomIds || carpetRoomIds.length === 0) return 0;
-  let total = 0;
-  for (const roomId of carpetRoomIds) {
-    const room = rooms.find((r) => r.id === roomId);
-    if (!room) continue;
-    const flights = stairFlightsByRoomId[roomId] ?? 1;
-    total += eotCarpetAddonPriceP(room.addonKey, flights);
-  }
-  return total;
 }
 
 // ─── Move-in deep clean ──────────────────────────────────────────────────────
