@@ -18,6 +18,7 @@ import {
   AFTER_BUILDERS_START_FROM_P,
   COMMERCIAL_REGULAR_HOURLY_P,
   COMMERCIAL_REGULAR_MIN_CHARGE_P,
+  COMMERCIAL_CARPET_RATE_APPROVED,
   SAME_DAY_POLICY_SHORT,
   DEPOSIT_P,
   WINDOW_CLEANING_FROM_P,
@@ -406,6 +407,12 @@ describe('getServiceStartingPrice', () => {
     const r = getServiceStartingPrice('commercial');
     expect(r.pricingMode).toBe('quote_required');
     expect(r.fromP).toBeNull();
+  });
+  it('commercial_carpet stays quote-required — the £4.50/sqm rate has no owner approval', () => {
+    const r = getServiceStartingPrice('commercial_carpet');
+    expect(r.pricingMode).toBe('quote_required');
+    expect(r.fromP).toBeNull();
+    expect(COMMERCIAL_CARPET_RATE_APPROVED).toBe(false);
   });
   it('window is a genuine "from" price matching the true floor', () => {
     const r = getServiceStartingPrice('window');

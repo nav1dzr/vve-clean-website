@@ -691,7 +691,11 @@ export function getServiceStartingPrice(key) {
     case 'garden':            return { pricingMode: 'from',  fromP: GARDEN_SERVICES_FROM_P,              label: `From ${penceToDisplay(GARDEN_SERVICES_FROM_P)}` };
     case 'pressure_washing':  return { pricingMode: 'from',  fromP: PRESSURE_WASHING_FROM_P,             label: `From ${penceToDisplay(PRESSURE_WASHING_FROM_P)}` };
     case 'commercial':        return { pricingMode: 'quote_required', fromP: null,                        label: 'Quote required' };
-    case 'commercial_carpet': return { pricingMode: 'from',  fromP: COMMERCIAL_CARPET_MIN_P,             label: `From ${penceToDisplay(COMMERCIAL_CARPET_MIN_P)}` };
+    // Kept quote-required regardless of COMMERCIAL_CARPET_RATE_APPROVED: the
+    // £4.50/sqm rate has no documented operational sign-off (see that flag's
+    // comment above), so no instant "from" price is shown for this service
+    // even though the constant exists for internal/admin reference.
+    case 'commercial_carpet': return { pricingMode: 'quote_required', fromP: null,                        label: 'Quote required' };
     default:
       throw new Error(`Unknown starting-price key: ${key}`);
   }
