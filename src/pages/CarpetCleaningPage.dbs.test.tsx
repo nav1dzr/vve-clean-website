@@ -85,7 +85,11 @@ describe('Carpet page — DBS stated once', () => {
 });
 
 describe('every other surface is unchanged', () => {
-  it.each(['all-services', 'upholstery', 'eot'] as const)(
+  // 'eot' is intentionally excluded: that mode now hands off entirely to
+  // EotQuoteWizard (see QuoteCalculator's `if (isEot)` early return), a
+  // separate component with its own design that never renders the shared
+  // trust strip this suite is pinning here.
+  it.each(['all-services', 'upholstery'] as const)(
     '%s mode still shows the DBS trust item',
     (mode) => {
       renderCalc(mode);

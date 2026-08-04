@@ -43,7 +43,7 @@ describe('hash navigation to #quote', () => {
     const user = userEvent.setup();
     renderAt('/end-of-tenancy-cleaning-london');
 
-    const heroCta = screen.getAllByRole('link', { name: 'Build my complete quote' })[0];
+    const heroCta = screen.getAllByRole('link', { name: 'Build my quote' })[0];
     await user.click(heroCta);
 
     await waitFor(() => {

@@ -8,7 +8,7 @@
 // "Back to quote" restore (the mechanism shared by every other service) also
 // reopens an in-progress End of Tenancy quote.
 
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -27,6 +27,8 @@ beforeAll(() => {
     })),
   });
 });
+
+beforeEach(() => sessionStorage.clear());
 
 function renderPage() {
   return render(
@@ -87,10 +89,10 @@ describe('EndOfTenancyPage — mounts the Complete/Tailored wizard directly, not
   it('reopens a pending End of Tenancy "Back to quote" restore instead of starting from step 1 defaults', () => {
     sessionStorage.setItem('vve_restore_quote', '1');
     sessionStorage.setItem('vve_booking', JSON.stringify({
-      serviceName: 'End of tenancy (Complete Agency-Ready Clean) — 3 Bed, 2 bathrooms',
+      serviceName: 'End of tenancy (Complete Agency-Ready Clean) — 3 Bed, 1 bathroom',
       price: EOT_COMPLETE_PRICES_P.bed3 / 100,
       quoteConfig: {
-        service: 'deep', deepService: 'end_of_tenancy', deepSize: 'bed3', deepBaths: 2,
+        service: 'deep', deepService: 'end_of_tenancy', deepSize: 'bed3', deepBaths: 1,
         eotPackage: 'complete', addOnCounts: {},
       },
     }));

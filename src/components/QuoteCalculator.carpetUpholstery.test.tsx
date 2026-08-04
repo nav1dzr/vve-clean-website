@@ -64,12 +64,13 @@ describe('Carpet page quote — carpet only', () => {
     const user = userEvent.setup();
     renderCarpet();
     await add(user, 'Living / dining room');
-    // £70 is below the £85 minimum booking, so the floor applies.
+    // £60 is below the £85 minimum booking, so the floor applies.
     expect(screen.getAllByText(gbp(CARPET_MIN_BOOKING_P)).length).toBeGreaterThan(0);
 
     await add(user, 'Bedroom');
-    // £70 + £50 = £120, comfortably above the minimum.
-    expect(screen.getAllByText('£120').length).toBeGreaterThan(0);
+    // £60 + £50 = £110, comfortably above the minimum. Only 2 items — below
+    // the 3-item discount band, so no saving applies yet.
+    expect(screen.getAllByText('£110').length).toBeGreaterThan(0);
   });
 });
 
@@ -77,10 +78,11 @@ describe('Carpet page quote — carpet plus upholstery', () => {
   it('adds a single sofa to the live total', async () => {
     const user = userEvent.setup();
     renderCarpet();
-    await add(user, 'Living / dining room');   // £70
+    await add(user, 'Living / dining room');   // £60
     await openUpholstery(user);
     await add(user, '3-seater sofa');          // £95
-    expect(screen.getAllByText('£165').length).toBeGreaterThan(0);
+    // 2 items, below the 3-item discount band.
+    expect(screen.getAllByText('£155').length).toBeGreaterThan(0);
   });
 
   it('adds several upholstery items together', async () => {
@@ -88,33 +90,35 @@ describe('Carpet page quote — carpet plus upholstery', () => {
     renderCarpet();
     await add(user, 'Bedroom');                // £50
     await openUpholstery(user);
-    await add(user, 'Armchair');               // £50
-    await add(user, 'Mattress (double/king)'); // £65
-    // 50 + 50 + 65 = £165
-    expect(screen.getAllByText('£165').length).toBeGreaterThan(0);
+    await add(user, 'Armchair');               // £45
+    await add(user, 'Mattress (double)');      // £55
+    // 50 + 45 + 55 = £150, minus the £10 3-item band saving = £140.
+    expect(screen.getAllByText('£140').length).toBeGreaterThan(0);
   });
 
   it('handles quantity changes on an upholstery item', async () => {
     const user = userEvent.setup();
     renderCarpet();
-    await add(user, 'Living / dining room');   // £70
+    await add(user, 'Living / dining room');   // £60
     await openUpholstery(user);
-    await add(user, '2-seater sofa', 2);       // £75 × 2 = £150
-    expect(screen.getAllByText('£220').length).toBeGreaterThan(0);
+    await add(user, '2-seater sofa', 2);       // £70 × 2 = £140
+    // 3 items total (1 room + 2 sofas) — £60 + £140 = £200, minus the £10
+    // 3-item band saving = £190.
+    expect(screen.getAllByText('£190').length).toBeGreaterThan(0);
   });
 
   it('removes an upholstery item again and returns to the carpet-only total', async () => {
     const user = userEvent.setup();
     renderCarpet();
     await add(user, 'Bedroom');                // £50
-    await add(user, 'Living / dining room');   // £70  → £120
+    await add(user, 'Living / dining room');   // £60  → £110 (2 items)
     await openUpholstery(user);
-    await add(user, '3-seater sofa');          // £95  → £215
-    expect(screen.getAllByText('£215').length).toBeGreaterThan(0);
+    await add(user, '3-seater sofa');          // £95  → £205 - £10 (3 items) = £195
+    expect(screen.getAllByText('£195').length).toBeGreaterThan(0);
 
     await remove(user, '3-seater sofa');
-    expect(screen.getAllByText('£120').length).toBeGreaterThan(0);
-    expect(screen.queryByText('£215')).not.toBeInTheDocument();
+    expect(screen.getAllByText('£110').length).toBeGreaterThan(0);
+    expect(screen.queryByText('£195')).not.toBeInTheDocument();
   });
 });
 
@@ -136,7 +140,7 @@ describe('Carpet page quote — summary and booking hand-off', () => {
     const user = userEvent.setup();
     renderCarpet(onBook);
 
-    await add(user, 'Living / dining room');  // £70
+    await add(user, 'Living / dining room');  // £60
     await openUpholstery(user);
     await add(user, '3-seater sofa');         // £95
     await user.click(screen.getAllByRole('button', { name: /Book online/i })[0]);
@@ -148,7 +152,7 @@ describe('Carpet page quote — summary and booking hand-off', () => {
       quoteConfig?: { deepService?: string; carpetCounts?: Record<string, number> };
     };
 
-    expect(sel.price).toBe(165);
+    expect(sel.price).toBe(155);
     // Both halves survive into the payload the server revalidates against.
     expect(sel.quoteConfig?.carpetCounts?.living_room).toBe(1);
     expect(sel.quoteConfig?.carpetCounts?.sofa_3).toBe(1);
@@ -157,11 +161,11 @@ describe('Carpet page quote — summary and booking hand-off', () => {
 
   it('prices every upholstery option from the central pricing source', () => {
     // Guards against a component ever hard-coding a sofa price.
-    expect(CARPET_ITEM_PRICES_P.armchair).toBe(5000);
-    expect(CARPET_ITEM_PRICES_P.sofa_2).toBe(7500);
+    expect(CARPET_ITEM_PRICES_P.armchair).toBe(4500);
+    expect(CARPET_ITEM_PRICES_P.sofa_2).toBe(7000);
     expect(CARPET_ITEM_PRICES_P.sofa_3).toBe(9500);
     expect(CARPET_ITEM_PRICES_P.sofa_corner).toBe(13000);
     expect(CARPET_ITEM_PRICES_P.mattress_single).toBe(4500);
-    expect(CARPET_ITEM_PRICES_P.mattress_double).toBe(6500);
+    expect(CARPET_ITEM_PRICES_P.mattress_double).toBe(5500);
   });
 });

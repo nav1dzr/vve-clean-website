@@ -152,7 +152,7 @@ describe('the returned-to quote is rehydrated, not reset', () => {
     renderPage(<CarpetCleaningPage />, '/carpet-cleaning-london');
 
     // Quantities are back.
-    expect(screen.getAllByText('£215').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('£195').length).toBeGreaterThan(0);
 
     // The cross-sell group reopens, because the restored quote contains a
     // sofa — leaving it collapsed would price something the customer cannot see.
@@ -166,7 +166,7 @@ describe('the returned-to quote is rehydrated, not reset', () => {
 
     renderPage(<CarpetCleaningPage />, '/carpet-cleaning-london');
 
-    expect(screen.getAllByText('£120').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('£110').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByText('3-seater sofa')).not.toBeInTheDocument();
   });

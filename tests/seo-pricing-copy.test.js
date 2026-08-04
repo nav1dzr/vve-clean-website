@@ -2,14 +2,11 @@
 // catalogue.
 //
 // Neither the no-JavaScript fallback in index.html nor the prerendered meta
-// descriptions import pricing.ts, so nothing stopped them drifting. They had:
-//   - "End of tenancy cleaning — from £199", while EOT_BASE_PRICES_P.studio
-//     is £229 and the /pricing table itself renders £229;
-//   - "Carpet & upholstery — from £90", a legacy per-property figure the
-//     itemised carpet engine no longer uses.
-//
-// This reads the real files and compares against the real constants, so the
-// next edit that invents a price fails here rather than reaching a customer.
+// descriptions import pricing.ts, so nothing stops them drifting on their
+// own. This reads the real files and compares against the real constants
+// (EOT_BASE_PRICES_P.studio is the approved £199 Complete starting price),
+// so the next edit that invents a price fails here rather than reaching a
+// customer.
 
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -58,7 +55,7 @@ describe('no-JavaScript fallback quotes the catalogue', () => {
   });
 
   it('no longer carries the superseded figures', () => {
-    expect(noscript).not.toContain('£199');
+    expect(noscript).not.toContain('£229');
     expect(noscript).not.toMatch(/upholstery — from £90/);
   });
 });
@@ -66,7 +63,7 @@ describe('no-JavaScript fallback quotes the catalogue', () => {
 describe('prerendered metadata quotes the catalogue', () => {
   it('uses the correct end-of-tenancy entry price', () => {
     expect(prerender).toContain(`End of tenancy from ${FROM.eot}`);
-    expect(prerender).not.toContain('£199');
+    expect(prerender).not.toContain('£229');
   });
 
   it('uses per-item carpet pricing rather than a legacy per-property figure', () => {
