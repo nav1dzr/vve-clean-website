@@ -63,6 +63,11 @@ async function fillContactDetails(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/phone number/i), '07700900000');
 }
 
+// A fixed date fixture becomes "the past" as real time moves on and silently
+// trips BookingPage's own "date must not be in the past" client-side gate —
+// derive it from "today" instead so this helper never goes stale.
+const FUTURE_DATE = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
 async function fillAllRequiredFields(user: ReturnType<typeof userEvent.setup>) {
   await fillContactDetails(user);
   await user.type(screen.getByLabelText(/preferred date/i), FUTURE_DATE);

@@ -117,6 +117,30 @@ function deepCleanLines(deepService, deepSize, deepBaths, addOnCounts, extra = {
   return lines;
 }
 
+// Access charges (parking / Congestion Charge) — BookingPage's two required
+// questions, applying once per booking regardless of service. Parking is an
+// actual-cost estimate; the Congestion Charge is a pass-through, never a
+// cleaning-service fee — see accessSurchargeP in shared/pricingCatalogue.js,
+// which prices the same two answers.
+function accessChargeLines(parkingAvailable, congestionZone) {
+  const lines = [];
+  if (parkingAvailable === 'yes') {
+    lines.push('Parking: free parking available — £0');
+  } else if (parkingAvailable === 'no') {
+    lines.push('Parking: not available on-site — +£15 estimated parking allowance (charged at actual cost)');
+  } else if (parkingAvailable === 'not_sure') {
+    lines.push('Parking: not sure — +£15 estimated parking allowance (charged at actual cost)');
+  }
+  if (congestionZone === 'no') {
+    lines.push('Congestion Charge zone: no — £0');
+  } else if (congestionZone === 'yes') {
+    lines.push('Congestion Charge zone — +£18 pass-through Congestion Charge');
+  } else if (congestionZone === 'not_sure') {
+    lines.push('Congestion Charge zone: not sure — £18 estimated pending address confirmation (pass-through Congestion Charge)');
+  }
+  return lines;
+}
+
 /**
  * Returns an array of readable item lines for a validated quoteConfig, e.g.
  * ["1 × Double mattress", "1 × 3-seater sofa"]. Returns [] when quoteConfig
@@ -129,31 +153,36 @@ export function formatBookingItemLines(quoteConfig) {
 
   const {
     service, deepService, deepSize, deepBaths, addOnCounts, windowSize, gutterType, officeHours, carpetCounts,
-    deepWcs, isHouse, eotPackage, tailoredAddOns,
+    deepWcs, isHouse, eotPackage, tailoredAddOns, parkingAvailable, congestionZone,
   } = quoteConfig;
 
-  if (service === 'deep' && deepService === 'carpet_upholstery') {
-    return carpetItemLines(carpetCounts);
-  }
+  const serviceLines = (() => {
+    if (service === 'deep' && deepService === 'carpet_upholstery') {
+      return carpetItemLines(carpetCounts);
+    }
 
-  if (service === 'deep' && DEEP_SERVICE_LABELS[deepService]) {
-    return deepCleanLines(deepService, deepSize, deepBaths, addOnCounts, { deepWcs, isHouse, eotPackage, tailoredAddOns });
-  }
+    if (service === 'deep' && DEEP_SERVICE_LABELS[deepService]) {
+      return deepCleanLines(deepService, deepSize, deepBaths, addOnCounts, { deepWcs, isHouse, eotPackage, tailoredAddOns });
+    }
 
-  if (service === 'window') {
-    return [`Window cleaning — ${windowSizeLabel(windowSize)}`];
-  }
+    if (service === 'window') {
+      return [`Window cleaning — ${windowSizeLabel(windowSize)}`];
+    }
 
-  if (service === 'gutter') {
-    return [`Gutter clearing — ${humanizeKey(gutterType).replace(/ /g, '-')}`];
-  }
+    if (service === 'gutter') {
+      return [`Gutter clearing — ${humanizeKey(gutterType).replace(/ /g, '-')}`];
+    }
 
-  if (service === 'office') {
-    const hours = Number(officeHours) || 0;
-    return hours > 0 ? [`Office cleaning — ${hours} hour${hours !== 1 ? 's' : ''}`] : [];
-  }
+    if (service === 'office') {
+      const hours = Number(officeHours) || 0;
+      return hours > 0 ? [`Office cleaning — ${hours} hour${hours !== 1 ? 's' : ''}`] : [];
+    }
 
-  return [];
+    return [];
+  })();
+
+  if (serviceLines.length === 0) return [];
+  return [...serviceLines, ...accessChargeLines(parkingAvailable, congestionZone)];
 }
 
 /**

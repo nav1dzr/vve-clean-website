@@ -66,6 +66,11 @@ function futureDateISO(daysAhead = 30) {
 const FUTURE_DATE = futureDateISO();
 const FUTURE_DATE_LATER = futureDateISO(75);
 
+// A fixed future-dated fixture would eventually become "the past" as real
+// time moves on and fail every test in this file for an unrelated reason —
+// always derive it from "today" instead.
+const FUTURE_DATE = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
 function basePayload(overrides = {}) {
   return {
     service: 'Window Cleaning',
@@ -271,7 +276,7 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
     const call = sessionsCreateMock.mock.calls[0][0];
     expect(call.metadata.service_detail).toBe(
       '1 × 3-seater sofa\n'
-      + '1 × Mattress (double/king)\n'
+      + '1 × Mattress (double)\n'
       + 'Parking: free parking available — £0\n'
       + 'Congestion Charge zone: no — £0',
     );
