@@ -792,7 +792,11 @@ export default function QuoteCalculator({
                     '£30 deposit handled securely by Stripe',
                     'Professional equipment and direct support',
                     '£5m public liability insurance',
-                    'Rated 5.0 by genuine Google reviewers',
+                    // Was "Rated 5.0 by genuine Google reviewers". No verified
+                    // rating exists in the project (see data/googleRating.ts),
+                    // so the claim is now only that the reviews are real and
+                    // public — which the profile link substantiates.
+                    'Genuine reviews on our public Google profile',
                   ].map((benefit) => (
                     <li key={benefit} className="flex items-start gap-3 text-sm leading-6 text-navy-800">
                       <CheckCircle2 size={17} className="mt-1 flex-none text-royal-600" />

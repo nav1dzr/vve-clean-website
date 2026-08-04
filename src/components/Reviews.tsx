@@ -1,5 +1,6 @@
 import { Star } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
+import { SHOW_AGGREGATE_STARS, VERIFIED_GOOGLE_RATING } from '../data/googleRating';
 
 const GOOGLE_REVIEW_LINK  = 'https://g.page/r/CYDRQCaICK7vEAE/review';
 // Single source of truth for the Google profile URL — also used by the
@@ -20,7 +21,27 @@ export function GoogleIcon({ size = 20 }: { size?: number }) {
 // Three strong reviews, one per service line, shown near the quote decision
 // (this section sits directly below the calculator) — the full set is one
 // click away via "Read our Google reviews" below.
-const REVIEWS = [
+//
+// `rating` is the star count recorded against that specific review on the
+// Google profile. Every card previously drew a hardcoded five filled stars
+// regardless — an assumption, not data, and the same unsubstantiated claim the
+// aggregate badge was making. A card now shows stars only when its own rating
+// has been read off the profile and entered here. None have been, so the field
+// is absent everywhere and the quoted text stands on its own.
+interface Review {
+  name: string;
+  initial: string;
+  color: string;
+  location: string;
+  service: string;
+  date: string;
+  isLocalGuide: boolean;
+  text: string;
+  /** Verified star count for THIS review. Omit unless read off the profile. */
+  rating?: number;
+}
+
+const REVIEWS: Review[] = [
   {
     name: 'Hannah M.',
     initial: 'H',
@@ -88,23 +109,39 @@ export default function Reviews() {
             visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}
         >
-          {/* Google aggregate badge */}
+          {/* Google badge. Both the number and the star row come from
+              src/data/googleRating.ts and are omitted together while the rating
+              is unverified — this used to hardcode "5.0" with nothing in the
+              project substantiating it, and five filled gold stars go on
+              asserting the same figure after the digits are removed. What is
+              left is the Google logo and the neutral words "Google Reviews",
+              which the link itself substantiates. */}
           <div className="inline-flex items-center gap-3 bg-white border border-silver-200 rounded-2xl px-5 py-3 shadow-sm mb-6">
             <GoogleIcon size={22} />
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-navy-900 text-base leading-none">5.0</span>
-              <div className="flex gap-0.5">
-                {[1,2,3,4,5].map(k => (
-                  <Star key={k} size={13} className="text-yellow-400 fill-yellow-400" />
-                ))}
-              </div>
-            </div>
-            <div className="w-px h-5 bg-silver-200" />
-            <span className="text-silver-600 text-sm font-medium">Google Reviews</span>
+            {SHOW_AGGREGATE_STARS && VERIFIED_GOOGLE_RATING && (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-navy-900 text-base leading-none">
+                    {VERIFIED_GOOGLE_RATING.value}
+                  </span>
+                  <div className="flex gap-0.5" aria-hidden="true">
+                    {[1,2,3,4,5].map(k => (
+                      <Star key={k} size={13} className="text-yellow-400 fill-yellow-400" />
+                    ))}
+                  </div>
+                </div>
+                <div className="w-px h-5 bg-silver-200" />
+              </>
+            )}
+            <span className="text-silver-600 text-sm font-medium">
+              {VERIFIED_GOOGLE_RATING
+                ? `Google Reviews (${VERIFIED_GOOGLE_RATING.count})`
+                : 'Google Reviews'}
+            </span>
           </div>
 
           <p className="text-xs font-semibold tracking-[0.18em] uppercase mb-3 text-success">
-            Verified on Google
+            Read our reviews on Google
           </p>
 
           <h2
@@ -129,13 +166,25 @@ export default function Reviews() {
               }`}
               style={{ transitionDelay: `${i * 80}ms` }}
             >
-              {/* Stars + Google G */}
+              {/* Per-review stars, only when that review's own rating is
+                  recorded above, and the Google G that sources the quote. */}
               <div className="flex items-center justify-between mb-3">
-                <div className="flex gap-0.5">
-                  {[1,2,3,4,5].map(k => (
-                    <Star key={k} size={14} className="text-yellow-400 fill-yellow-400" />
-                  ))}
-                </div>
+                {r.rating ? (
+                  <div className="flex gap-0.5" aria-label={`Rated ${r.rating} out of 5`}>
+                    {Array.from({ length: 5 }, (_, k) => (
+                      <Star
+                        key={k}
+                        size={14}
+                        className={k < r.rating! ? 'text-yellow-400 fill-yellow-400' : 'text-silver-300'}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  // No stars rather than assumed stars. Two of these cards
+                  // already carry "Google review" in the footer date line, so a
+                  // placeholder label here would only repeat it.
+                  <span />
+                )}
                 <GoogleIcon size={17} />
               </div>
 

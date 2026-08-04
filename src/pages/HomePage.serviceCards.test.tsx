@@ -100,7 +100,11 @@ describe('HomePage — fresh visit', () => {
       '£30 deposit handled securely by Stripe',
       'Professional equipment and direct support',
       '£5m public liability insurance',
-      'Rated 5.0 by genuine Google reviewers',
+      // Was "Rated 5.0 by genuine Google reviewers". The numeric rating was
+      // never substantiated anywhere in the project and could not be verified
+      // against the live profile, so the claim is now only that the reviews are
+      // real and public. See src/data/googleRating.ts.
+      'Genuine reviews on our public Google profile',
     ]) {
       expect(q.getByText(benefit)).toBeInTheDocument();
     }
