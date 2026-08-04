@@ -178,7 +178,6 @@ const DATA: ServiceLandingData = {
   pricingNote:
     'Prices are for normally maintained, vacant properties with reasonable access. Carpet steam cleaning, upholstery, exterior windows, balconies and rubbish removal are available as paid extras. Parking and the Congestion Charge, where applicable, are passed through at actual cost — never an invented flat fee — and confirmed with you before the booking is accepted. Heavy soiling, mould, biohazard contamination or extreme conditions require a photo review and confirmed quote before work starts.',
   pricingCta: { href: '/end-of-tenancy-cleaning-london#quote', label: 'Build my quote' },
-  quoteService: 'end_of_tenancy',
 
   faqs: [
     {

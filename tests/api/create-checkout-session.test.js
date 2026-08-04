@@ -66,11 +66,6 @@ function futureDateISO(daysAhead = 30) {
 const FUTURE_DATE = futureDateISO();
 const FUTURE_DATE_LATER = futureDateISO(75);
 
-// A fixed future-dated fixture would eventually become "the past" as real
-// time moves on and fail every test in this file for an unrelated reason —
-// always derive it from "today" instead.
-const FUTURE_DATE = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
 function basePayload(overrides = {}) {
   return {
     service: 'Window Cleaning',
@@ -191,9 +186,10 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
 
     expect(res.statusCode).toBe(200);
     const call = sessionsCreateMock.mock.calls[0][0];
-    // The existing £90 minimum booking charge applies before access costs:
-    // £90 + £15 parking + £18 congestion = £123.
-    expect(call.metadata.price).toBe('123');
+    // Medium window clean is £85 (the true achievable floor, not a
+    // misleading "from" figure with a separate higher general minimum):
+    // £85 + £15 parking + £18 congestion = £118.
+    expect(call.metadata.price).toBe('118');
   });
 
   it('rejects a request where termsAccepted is not true, before creating a Stripe session', async () => {

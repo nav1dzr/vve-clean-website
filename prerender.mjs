@@ -61,10 +61,10 @@ const routes = [
     path: '/pricing',
     title: 'Cleaning Prices London | End of Tenancy & Carpet | VVE Clean',
     description:
-      'Fixed cleaning prices across East & North London. End of tenancy from £229, carpet rooms from £50, sofas from £75, move-in from £179, after builders from £249.',
+      'Fixed cleaning prices across East & North London. End of tenancy from £199, carpet rooms from £50, sofas from £70, move-in from £159, after builders from £249.',
     ogTitle: 'Cleaning Prices London | VVE Clean',
     ogDescription:
-      'Fixed cleaning prices for East & North London. End of tenancy from £229, carpet rooms from £50, sofas from £75. No hidden fees.',
+      'Fixed cleaning prices for East & North London. End of tenancy from £199, carpet rooms from £50, sofas from £70. No hidden fees.',
     changefreq: 'monthly',
     priority: '0.8',
     sources: ['src/pages/PricingPage.tsx', 'src/data/pricing.ts'],
@@ -169,12 +169,12 @@ const routes = [
   },
   {
     path: '/end-of-tenancy-cleaning-london',
-    title: 'End of Tenancy Cleaning London | Complete from £229 | VVE Clean',
+    title: 'End of Tenancy Cleaning London | Complete from £199 | VVE Clean',
     description:
-      'Complete end of tenancy cleaning in London from £229. Oven, emptied fridge/freezer, cupboards and internal windows included, with a 48-hour re-clean guarantee.',
+      'End of tenancy cleaning in London from £199. 67-point agency checklist, free oven clean, cupboards and internal windows included, with a 72-hour re-clean guarantee.',
     ogTitle: 'End of Tenancy Cleaning London | VVE Clean',
     ogDescription:
-      'Complete end of tenancy packages from £229, with essential appliances, cupboards and internal windows included as standard.',
+      'Complete and Tailored end of tenancy packages from £199, with essential appliances, cupboards and internal windows included as standard.',
     changefreq: 'monthly',
     priority: '0.9',
     sources: ['src/pages/EndOfTenancyPage.tsx'],

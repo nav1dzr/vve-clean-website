@@ -1,4 +1,4 @@
-// ⚠️  AUTO-GENERATED FILE — DO NOT EDIT MANUALLY. ⚠️
+// WARNING: AUTO-GENERATED FILE — DO NOT EDIT MANUALLY.
 //
 // This is a mechanically synced, verified-identical copy of
 // shared/pricingCatalogue.js (the single canonical pricing source for the
@@ -10,10 +10,10 @@
 // explanation.
 //
 // To change a price: edit shared/pricingCatalogue.js at the repository
-// root, NOT this file. Then run `npm run sync-admin-pricing` from the
-// repository root (this also runs automatically before `npm run build` in
+// root, NOT this file. Then run 'npm run sync-admin-pricing' from the
+// repository root (this also runs automatically before 'npm run build' in
 // both the root and admin/ projects). This file is committed to the repo so
-// admin/'s isolated build always has it — a test
+// admin's isolated build always has it — a test
 // (tests/api/pricingSource.test.js) fails loudly if it is ever out of date.
 //
 // ─────────────────────────────────────────────────────────────────────────
@@ -649,6 +649,32 @@ export function calculateDepositAndBalance(totalP) {
   return { depositP, balanceP };
 }
 
+// ─── Access charges — parking / Congestion Charge ────────────────────────────
+//
+// BookingPage asks these as two required questions for every booking,
+// regardless of service, and shows them as a clearly-labelled ESTIMATE added
+// on top of the quoted cleaning price — never folded silently into it, and
+// always reconciled to the actual cost afterwards. Kept out of every
+// per-service quote calculator's own running total (including the EOT
+// wizard) for the same reason: the wizard price is a quote for the cleaning
+// itself, this is a separate, itemised pass-through applied once at booking.
+export const PARKING_ESTIMATE_P = 1500;   // £15 estimate — parking not available or unsure, charged at actual cost
+export const CONGESTION_CHARGE_P = 1800;  // £18 — Congestion Charge zone pass-through
+export const PARKING_CHARGED_AT_ACTUAL_COST_NOTE =
+  'Parking is charged at the actual cost. The final balance will be adjusted if it costs less or more.';
+
+/** @param {{parkingAvailable?: string, congestionZone?: string}} quoteConfig */
+export function accessSurchargeP(quoteConfig) {
+  let addP = 0;
+  if (quoteConfig.parkingAvailable === 'no' || quoteConfig.parkingAvailable === 'not_sure') {
+    addP += PARKING_ESTIMATE_P;
+  }
+  if (quoteConfig.congestionZone === 'yes' || quoteConfig.congestionZone === 'not_sure') {
+    addP += CONGESTION_CHARGE_P;
+  }
+  return addP;
+}
+
 // ─── Same-day / next-day policy (no surcharge) ───────────────────────────────
 
 export const SAME_DAY_POLICY_SHORT =
@@ -719,7 +745,7 @@ function computeEotPriceServer(deepSize, deepBaths, deepWcs, isHouse, eotPackage
  * Every value returned is in POUNDS (not pence) to match this function's
  * pre-existing public contract with api/create-checkout-session.js.
  */
-export function computePrice(quoteConfig) {
+function computeBasePrice(quoteConfig) {
   if (!quoteConfig || !quoteConfig.service) return null;
 
   const {
@@ -794,6 +820,18 @@ export function computePrice(quoteConfig) {
   }
 
   return null;
+}
+
+/**
+ * Public entry point: the quoted cleaning price plus BookingPage's two
+ * required, itemised access-charge questions (parking / Congestion Charge),
+ * which apply once per booking regardless of service — see accessSurchargeP.
+ * @param {Record<string, unknown>} quoteConfig
+ */
+export function computePrice(quoteConfig) {
+  const base = computeBasePrice(quoteConfig);
+  if (base === null) return null;
+  return base + accessSurchargeP(quoteConfig) / 100;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

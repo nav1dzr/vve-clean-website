@@ -30,27 +30,30 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 export const SOURCE_PATH = path.join(REPO_ROOT, 'shared', 'pricingCatalogue.js');
 export const GENERATED_PATH = path.join(REPO_ROOT, 'admin', 'api', '_lib', 'pricingCatalogue.generated.js');
 
-const BANNER = `// ⚠️  AUTO-GENERATED FILE — DO NOT EDIT MANUALLY. ⚠️
-//
-// This is a mechanically synced, verified-identical copy of
-// shared/pricingCatalogue.js (the single canonical pricing source for the
-// whole repository), produced by scripts/sync-admin-pricing.mjs.
-//
-// WHY A COPY, NOT AN IMPORT: admin/ is deployed as a separate Vercel project
-// and cannot be guaranteed to have build-time access to files outside its
-// own directory tree — see that script's header comment for the full
-// explanation.
-//
-// To change a price: edit shared/pricingCatalogue.js at the repository
-// root, NOT this file. Then run \`npm run sync-admin-pricing\` from the
-// repository root (this also runs automatically before \`npm run build\` in
-// both the root and admin/ projects). This file is committed to the repo so
-// admin/'s isolated build always has it — a test
-// (tests/api/pricingSource.test.js) fails loudly if it is ever out of date.
-//
-// ─────────────────────────────────────────────────────────────────────────
-
-`;
+const BANNER_LINES = [
+  '// WARNING: AUTO-GENERATED FILE — DO NOT EDIT MANUALLY.',
+  '//',
+  '// This is a mechanically synced, verified-identical copy of',
+  '// shared/pricingCatalogue.js (the single canonical pricing source for the',
+  '// whole repository), produced by scripts/sync-admin-pricing.mjs.',
+  '//',
+  '// WHY A COPY, NOT AN IMPORT: admin/ is deployed as a separate Vercel project',
+  '// and cannot be guaranteed to have build-time access to files outside its',
+  '// own directory tree — see that script\'s header comment for the full',
+  '// explanation.',
+  '//',
+  '// To change a price: edit shared/pricingCatalogue.js at the repository',
+  '// root, NOT this file. Then run \'npm run sync-admin-pricing\' from the',
+  '// repository root (this also runs automatically before \'npm run build\' in',
+  '// both the root and admin/ projects). This file is committed to the repo so',
+  '// admin\'s isolated build always has it — a test',
+  '// (tests/api/pricingSource.test.js) fails loudly if it is ever out of date.',
+  '//',
+  '// ─────────────────────────────────────────────────────────────────────────',
+  '',
+  '',
+];
+const BANNER = BANNER_LINES.join('\n');
 
 export function buildGeneratedContent() {
   const source = readFileSync(SOURCE_PATH, 'utf8');

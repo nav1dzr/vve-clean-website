@@ -32,7 +32,7 @@ import {
   EOT_CARPET_ADDON_PRICES_P,
   COMMERCIAL_REGULAR_HOURLY_P,
   COMMERCIAL_REGULAR_MIN_HOURS,
-  CARPET_BUNDLE_TIERS,
+  CARPET_BUNDLE_BANDS,
   CARPET_ITEM_PRICES_P,
 } from '../data/pricing';
 
@@ -564,7 +564,7 @@ export default function QuoteCalculator({
           return '';
         }
         const label = carpetBundle!.source === 'promo' && promoCode
-          ? `Leaflet offer (${carpetBundle!.pct}% off)`
+          ? `Leaflet offer (${carpetBundle!.display})`
           : 'Same-visit bundle saving';
         return `• Items subtotal: £${carpetBundle!.preDiscount}\n• ${label}: −£${carpetBundle!.saving}\n`;
       })();
@@ -654,7 +654,11 @@ export default function QuoteCalculator({
         offerCode:      bundle!.source === 'promo' ? (promoCode ?? 'PROMO') : 'BUNDLE',
         standardPrice:  bundle!.preDiscount,
         discountAmount: bundle!.saving,
-        discountPercent: bundle!.pct,
+        // Only a genuine percentage for the promo path — the bundle discount
+        // is a flat £ amount (item-count band), not a percentage.
+        ...(bundle!.source === 'promo' && bundle!.preDiscount > 0
+          ? { discountPercent: Math.round((bundle!.saving / bundle!.preDiscount) * 100) }
+          : {}),
       } : hasEotScopeCredit ? {
         offerCode:       'EOT_SCOPE',
         standardPrice:   Math.round(eotStandardPrice),
@@ -1167,7 +1171,7 @@ export default function QuoteCalculator({
                       {/* Bundle savings info — hidden when a promo code already gives a better saving */}
                       {!promoCode && (
                         <p className="text-xs text-silver-700 leading-relaxed px-1">
-                          Book items together and save automatically — {CARPET_BUNDLE_TIERS.map((t) => `${t.display} over £${t.minP / 100}`).join(', ')}.
+                          Book items together and save automatically — {CARPET_BUNDLE_BANDS.filter((b) => b.amountP > 0).map((b) => `${b.display} at ${b.minItems}+ items`).join(', ')}.
                         </p>
                       )}
                     </>
@@ -1614,20 +1618,18 @@ export default function QuoteCalculator({
                         </div>
                       )}
 
-                      {/* Next-tier nudge — hidden when a promo already beats all tiers */}
-                      {isCarpet && (carpetResult?.bundle.toNextTier ?? 0) > 0 && carpetResult!.bundle.source !== 'promo' && (
+                      {/* Next-band nudge — hidden when a promo already beats all bands */}
+                      {isCarpet && (carpetResult?.bundle.toNextBand ?? 0) > 0 && carpetResult!.bundle.source !== 'promo' && (
                         <div className="text-center text-xs font-medium mt-1.5" style={{ color: '#1e6b42' }}>
-                          Add £{carpetResult!.bundle.toNextTier} more to unlock {carpetResult!.bundle.nextTierPct}% off
+                          Add {carpetResult!.bundle.toNextBand} more item{carpetResult!.bundle.toNextBand !== 1 ? 's' : ''} to save £{carpetResult!.bundle.nextBandSaving}
                         </div>
                       )}
 
 
-                      {/* Non-carpet subtitle */}
+                      {/* Non-carpet subtitle — end_of_tenancy never reaches this render path;
+                          isEot routes to EotQuoteWizard via the early return above. */}
                       {!isCarpet && service === 'deep' && (
                         <div className="text-center mt-3 text-sm" style={{ color: '#4a7a62' }}>
-                          {deepService === 'end_of_tenancy'
-                            ? `${eotScopeCredit > 0 ? 'Custom scope' : 'Everything essential included'} · `
-                            : ''}
                           48hr re-clean guarantee
                         </div>
                       )}
