@@ -16,7 +16,9 @@ import { MemoryRouter } from 'react-router-dom';
 import HomePage from './HomePage';
 import EndOfTenancyPage from './EndOfTenancyPage';
 import { CookieConsentProvider } from '../context/CookieConsentContext';
-import { EOT_COMPLETE_PRICES_P } from '../data/pricing';
+import { EOT_COMPLETE_PRICES_P, EOT_TAILORED_START_PRICES_P } from '../data/pricing';
+
+const cheapestP = (completeP: number, tailoredP: number) => Math.min(completeP, tailoredP);
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -68,7 +70,7 @@ describe('End of Tenancy quote — identical on the homepage and the service pag
     const user = userEvent.setup();
     renderHome();
     await chooseCard(user, 'End of Tenancy');
-    await waitFor(() => expect(quote().getByText(/Step 1 of 6/)).toBeInTheDocument());
+    await waitFor(() => expect(quote().getByText(/Step 1 of 4/)).toBeInTheDocument());
     expect(quote().queryByText('Service Type')).not.toBeInTheDocument();
   });
 
@@ -76,7 +78,7 @@ describe('End of Tenancy quote — identical on the homepage and the service pag
     const user = userEvent.setup();
     renderHome();
     await chooseCard(user, 'End of Tenancy');
-    await waitFor(() => expect(quote().getByText(/Step 1 of 6/)).toBeInTheDocument());
+    await waitFor(() => expect(quote().getByText(/Step 1 of 4/)).toBeInTheDocument());
     await user.click(quote().getByRole('button', { name: /^3 bed/ }));
     const homeTotal = quote().getByTestId('footer-total').textContent;
 
@@ -85,8 +87,9 @@ describe('End of Tenancy quote — identical on the homepage and the service pag
     const eotQuote = within(eotSections[eotSections.length - 1] as HTMLElement);
     await user.click(eotQuote.getByRole('button', { name: /^3 bed/ }));
 
-    expect(homeTotal).toBe(`£${EOT_COMPLETE_PRICES_P.bed3 / 100}`);
-    expect(eotQuote.getByTestId('footer-total')).toHaveTextContent(`£${EOT_COMPLETE_PRICES_P.bed3 / 100}`);
+    const expected = `£${cheapestP(EOT_COMPLETE_PRICES_P.bed3, EOT_TAILORED_START_PRICES_P.bed3) / 100}`;
+    expect(homeTotal).toBe(expected);
+    expect(eotQuote.getByTestId('footer-total')).toHaveTextContent(expected);
   });
 
   it('a pending "Back to quote" restore for an End of Tenancy booking reopens on the homepage too', async () => {
@@ -101,7 +104,8 @@ describe('End of Tenancy quote — identical on the homepage and the service pag
     }));
     try {
       renderHome();
-      await waitFor(() => expect(quote().getByTestId('footer-total')).toHaveTextContent(`£${EOT_COMPLETE_PRICES_P.bed2 / 100}`));
+      const expected = `£${cheapestP(EOT_COMPLETE_PRICES_P.bed2, EOT_TAILORED_START_PRICES_P.bed2) / 100}`;
+      await waitFor(() => expect(quote().getByTestId('footer-total')).toHaveTextContent(expected));
     } finally {
       sessionStorage.removeItem('vve_restore_quote');
       sessionStorage.removeItem('vve_booking');

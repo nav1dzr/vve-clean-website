@@ -15,7 +15,9 @@ import { MemoryRouter } from 'react-router-dom';
 import EndOfTenancyPage from './EndOfTenancyPage';
 import { CookieConsentProvider } from '../context/CookieConsentContext';
 import { BookingProvider } from '../context/BookingContext';
-import { EOT_COMPLETE_PRICES_P } from '../data/pricing';
+import { EOT_COMPLETE_PRICES_P, EOT_TAILORED_START_PRICES_P } from '../data/pricing';
+
+const cheapestP = (sizeP: number, tailoredP: number) => Math.min(sizeP, tailoredP);
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -59,21 +61,21 @@ describe('EndOfTenancyPage — mounts the Complete/Tailored wizard directly, not
     expect(
       screen.getByRole('heading', { name: /End of Tenancy Cleaning London/i }),
     ).toBeInTheDocument();
-    expect(quote().getByText(/Step 1 of 6/)).toBeInTheDocument();
+    expect(quote().getByText(/Step 1 of 4/)).toBeInTheDocument();
     expect(screen.queryByText('Service Type')).not.toBeInTheDocument();
   });
 
-  it('shows the Complete starting price for the default 2-bed selection', () => {
+  it('shows the cheapest starting price for the default 2-bed selection', () => {
     renderPage();
-    expect(quote().getByTestId('footer-total')).toHaveTextContent(`£${EOT_COMPLETE_PRICES_P.bed2 / 100}`);
+    expect(quote().getByTestId('footer-total')).toHaveTextContent(`£${cheapestP(EOT_COMPLETE_PRICES_P.bed2, EOT_TAILORED_START_PRICES_P.bed2) / 100}`);
   });
 
   it('changing property size updates the footer total, still on step 1', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(quote().getByRole('button', { name: /^1 bed/ }));
-    expect(quote().getByTestId('footer-total')).toHaveTextContent(`£${EOT_COMPLETE_PRICES_P.bed1 / 100}`);
-    expect(quote().getByText(/Step 1 of 6/)).toBeInTheDocument();
+    expect(quote().getByTestId('footer-total')).toHaveTextContent(`£${cheapestP(EOT_COMPLETE_PRICES_P.bed1, EOT_TAILORED_START_PRICES_P.bed1) / 100}`);
+    expect(quote().getByText(/Step 1 of 4/)).toBeInTheDocument();
   });
 
   it('lets the customer change service back to carpet & upholstery from within the quote', async () => {
@@ -82,7 +84,7 @@ describe('EndOfTenancyPage — mounts the Complete/Tailored wizard directly, not
     const changeService = quote().queryByRole('button', { name: /change service/i });
     if (changeService) {
       await user.click(changeService);
-      expect(quote().queryByText(/Step 1 of 6/)).not.toBeInTheDocument();
+      expect(quote().queryByText(/Step 1 of 4/)).not.toBeInTheDocument();
     }
   });
 
@@ -98,7 +100,7 @@ describe('EndOfTenancyPage — mounts the Complete/Tailored wizard directly, not
     }));
     try {
       renderPage();
-      expect(quote().getByTestId('footer-total')).toHaveTextContent(`£${EOT_COMPLETE_PRICES_P.bed3 / 100}`);
+      expect(quote().getByTestId('footer-total')).toHaveTextContent(`£${cheapestP(EOT_COMPLETE_PRICES_P.bed3, EOT_TAILORED_START_PRICES_P.bed3) / 100}`);
     } finally {
       sessionStorage.removeItem('vve_restore_quote');
       sessionStorage.removeItem('vve_booking');

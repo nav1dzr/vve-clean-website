@@ -837,8 +837,6 @@ export default function QuoteCalculator({
           gutterType: _restore.gutterType ?? 'terraced',
           officeHours: _restore.officeHours ?? MIN_OFFICE_HOURS,
           condition: _restore.condition ?? 'normal',
-          parking: _restore.parking ?? 'unsure',
-          congestionZone: _restore.congestionZone ?? false,
         }
       : null;
 
