@@ -5,46 +5,18 @@
 //   1 × 3-seater sofa
 // Used by the Telegram notification, business/customer emails, and the
 // Google Sheets row. Plain JS (not TS) so api/ serverless functions can
-// import it without a build step — labels are mirrored from
-// src/data/carpetPricing.ts (CARPET_ITEM_DEFS) and the addOnDefs list in
-// src/components/QuoteCalculator.tsx. Prices are not mirrored here; the
-// checkout engine imports admin/shared/pricingCatalogue.js directly.
+// import it without a build step. Item labels come from the single shared
+// pricing source (shared/pricingCatalogue.js) rather than a separately
+// maintained copy — the addOnDefs list in src/components/QuoteCalculator.tsx
+// still has its own labels since those are UI-only strings, not prices.
 
-const CARPET_ITEM_LABELS = {
-  bedroom:         'Bedroom',
-  living_room:     'Living / dining room',
-  large_lounge:    'Large or through lounge',
-  hallway:         'Hallway',
-  landing:         'Landing',
-  stairs:          'Stairs',
-  rug:             'Rug',
-  armchair:        'Armchair',
-  sofa_2:          '2-seater sofa',
-  sofa_3:          '3-seater sofa',
-  sofa_corner:     'Corner / L-shaped sofa',
-  mattress_single: 'Mattress (single)',
-  mattress_double: 'Mattress (double/king)',
-};
-
-// Rendering order — mirrors CARPET_ITEM_DEFS' order in carpetPricing.ts.
-const CARPET_ITEM_ORDER = Object.keys(CARPET_ITEM_LABELS);
+import { CARPET_ITEM_LABELS, CARPET_ITEM_ORDER, EOT_TAILORED_ADDON_LABELS } from '../../shared/pricingCatalogue.js';
 
 // Mirrors addOnDefs in QuoteCalculator.tsx.
 const ADDON_LABELS = {
   oven:          'Inside oven',
   fridge:        'Fridge / freezer',
   carpet_bundle: 'Carpets — whole home',
-  eot_living_carpet: 'Living / dining room carpet',
-  extra_wc:      'Additional WC',
-  reception:     'Additional reception room',
-  conservatory:  'Conservatory',
-  balcony:       'Balcony / small patio',
-  utility:       'Utility room',
-  eot_sofa_2:    '2-seater sofa steam clean',
-  eot_sofa_3:    '3-seater sofa steam clean',
-  eot_sofa_corner: 'Corner / L-shaped sofa steam clean',
-  eot_mattress_single: 'Single mattress steam clean',
-  eot_mattress_double: 'Double / king mattress steam clean',
   ext_windows:   'Exterior windows',
   wall_marks:    'Wall marks & scuffs',
   key_collect:   'Key collection/return',
@@ -69,7 +41,6 @@ function humanizeKey(key) {
 
 function sizeLabel(size) {
   if (size === 'studio') return 'Studio';
-  if (size === 'bed5') return '5+ Bedrooms (tailored quote)';
   const m = String(size || '').match(/^bed(\d+)$/);
   return m ? `${m[1]} Bed` : humanizeKey(size);
 }
@@ -98,40 +69,42 @@ function carpetItemLines(carpetCounts) {
   return lines;
 }
 
-const EOT_SCOPE_LABELS = {
-  oven: 'oven',
-  fridge_freezer: 'fridge/freezer',
-  cupboards: 'cupboards',
-  internal_windows: 'internal windows',
-};
-
-function deepCleanLines(deepService, deepSize, deepBaths, addOnCounts, propertyType, eotScopeExclusions) {
+function deepCleanLines(deepService, deepSize, deepBaths, addOnCounts, extra = {}) {
   const lines = [];
   const size  = sizeLabel(deepSize);
   const baths = Number(deepBaths) || 1;
-  const property = isEotProperty(deepService, propertyType);
-  lines.push(`${DEEP_SERVICE_LABELS[deepService]} — ${property}${size}, ${baths} bathroom${baths !== 1 ? 's' : ''}`);
-
-  const counts = addOnCounts && typeof addOnCounts === 'object' ? addOnCounts : {};
-  const isEot  = deepService === 'end_of_tenancy';
+  const isEot = deepService === 'end_of_tenancy';
 
   if (isEot) {
-    lines.push('Oven, fridge/freezer, cupboards and internal windows included');
-    if (propertyType === 'house') {
-      lines.push('House/maisonette adjustment: +£35 — covers normal additional hallways, landing, internal staircase cleaning and movement between floors');
+    const pkg = extra.eotPackage === 'tailored' ? 'Tailored Checklist Clean' : 'Complete Agency-Ready Clean';
+    lines.push(`${DEEP_SERVICE_LABELS[deepService]} (${pkg}) — ${size}, ${baths} bathroom${baths !== 1 ? 's' : ''}`);
+    if (extra.isHouse) lines.push('House / maisonette adjustment');
+    const wcs = Number(extra.deepWcs) || 0;
+    if (wcs > 0) lines.push(`${wcs} × Additional separate WC`);
+    lines.push('Inside oven (included free)');
+
+    if (extra.eotPackage === 'tailored' && extra.tailoredAddOns && typeof extra.tailoredAddOns === 'object') {
+      for (const [key, val] of Object.entries(extra.tailoredAddOns)) {
+        if (key === 'extraFridgeFreezers') {
+          const n = Number(val) || 0;
+          if (n > 0) lines.push(`${n} × ${EOT_TAILORED_ADDON_LABELS[key]}`);
+          continue;
+        }
+        if (val) lines.push(EOT_TAILORED_ADDON_LABELS[key] || humanizeKey(key));
+      }
     }
-    const exclusions = Array.isArray(eotScopeExclusions)
-      ? eotScopeExclusions.map((key) => EOT_SCOPE_LABELS[key]).filter(Boolean)
-      : [];
-    if (exclusions.length > 0) {
-      lines.push(`Custom scope excludes: ${exclusions.join(', ')}`);
-    }
+  } else {
+    lines.push(`${DEEP_SERVICE_LABELS[deepService]} — ${size}, ${baths} bathroom${baths !== 1 ? 's' : ''}`);
   }
+
+  const counts = addOnCounts && typeof addOnCounts === 'object' ? addOnCounts : {};
 
   // Legacy carpet add-ons (sofa/mattress/staircase) were superseded by the
   // itemised carpet flow above but can still appear in restored sessions —
   // mirrors the exclusion list in QuoteCalculator.tsx's WhatsApp summary.
-  const excluded = isEot ? ['oven', 'fridge', 'sofa', 'mattress'] : [];
+  // 'fridge' is excluded for EOT because it's covered by tailoredAddOns /
+  // included in Complete — never listed twice.
+  const excluded = isEot ? ['oven', 'fridge', 'sofa', 'mattress', 'staircase'] : [];
 
   for (const [key, qty] of Object.entries(counts)) {
     if (excluded.includes(key)) continue;
@@ -141,34 +114,6 @@ function deepCleanLines(deepService, deepSize, deepBaths, addOnCounts, propertyT
     lines.push(`${n} × ${label}`);
   }
 
-  return lines;
-}
-
-function isEotProperty(deepService, propertyType) {
-  if (deepService !== 'end_of_tenancy') return '';
-  if (propertyType === 'house') return 'House, ';
-  return 'Flat, ';
-}
-
-// Access charges (parking / Congestion Charge) — required booking questions
-// that apply regardless of service. Parking is an actual-cost estimate; the
-// Congestion Charge is a pass-through, never a cleaning-service fee.
-function accessChargeLines(parkingAvailable, congestionZone) {
-  const lines = [];
-  if (parkingAvailable === 'yes') {
-    lines.push('Parking: free parking available — £0');
-  } else if (parkingAvailable === 'no') {
-    lines.push('Parking: not available on-site — +£15 estimated parking allowance (charged at actual cost)');
-  } else if (parkingAvailable === 'not_sure') {
-    lines.push('Parking: not sure — +£15 estimated parking allowance (charged at actual cost)');
-  }
-  if (congestionZone === 'no') {
-    lines.push('Congestion Charge zone: no — £0');
-  } else if (congestionZone === 'yes') {
-    lines.push('Congestion Charge zone — +£18 pass-through Congestion Charge');
-  } else if (congestionZone === 'not_sure') {
-    lines.push('Congestion Charge zone: not sure — £18 estimated pending address confirmation (pass-through Congestion Charge)');
-  }
   return lines;
 }
 
@@ -183,46 +128,32 @@ export function formatBookingItemLines(quoteConfig) {
   if (!quoteConfig || typeof quoteConfig !== 'object') return [];
 
   const {
-    service, deepService, deepSize, deepBaths, addOnCounts,
-    windowSize, gutterType, officeHours, carpetCounts,
-    propertyType, eotScopeExclusions, parkingAvailable, congestionZone,
+    service, deepService, deepSize, deepBaths, addOnCounts, windowSize, gutterType, officeHours, carpetCounts,
+    deepWcs, isHouse, eotPackage, tailoredAddOns,
   } = quoteConfig;
 
-  const serviceLines = (() => {
-    if (service === 'deep' && deepService === 'carpet_upholstery') {
-      return carpetItemLines(carpetCounts);
-    }
+  if (service === 'deep' && deepService === 'carpet_upholstery') {
+    return carpetItemLines(carpetCounts);
+  }
 
-    if (service === 'deep' && DEEP_SERVICE_LABELS[deepService]) {
-      return deepCleanLines(
-        deepService,
-        deepSize,
-        deepBaths,
-        addOnCounts,
-        propertyType,
-        eotScopeExclusions,
-      );
-    }
+  if (service === 'deep' && DEEP_SERVICE_LABELS[deepService]) {
+    return deepCleanLines(deepService, deepSize, deepBaths, addOnCounts, { deepWcs, isHouse, eotPackage, tailoredAddOns });
+  }
 
-    if (service === 'window') {
-      return [`Window cleaning — ${windowSizeLabel(windowSize)}`];
-    }
+  if (service === 'window') {
+    return [`Window cleaning — ${windowSizeLabel(windowSize)}`];
+  }
 
-    if (service === 'gutter') {
-      return [`Gutter clearing — ${humanizeKey(gutterType).replace(/ /g, '-')}`];
-    }
+  if (service === 'gutter') {
+    return [`Gutter clearing — ${humanizeKey(gutterType).replace(/ /g, '-')}`];
+  }
 
-    if (service === 'office') {
-      const hours = Number(officeHours) || 0;
-      return hours > 0 ? [`Office cleaning — ${hours} hour${hours !== 1 ? 's' : ''}`] : [];
-    }
+  if (service === 'office') {
+    const hours = Number(officeHours) || 0;
+    return hours > 0 ? [`Office cleaning — ${hours} hour${hours !== 1 ? 's' : ''}`] : [];
+  }
 
-    return [];
-  })();
-
-  if (serviceLines.length === 0) return [];
-
-  return [...serviceLines, ...accessChargeLines(parkingAvailable, congestionZone)];
+  return [];
 }
 
 /**

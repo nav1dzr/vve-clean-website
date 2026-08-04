@@ -2,6 +2,7 @@ import { Phone, Mail, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import BrandLogo from './BrandLogo';
 import { useCookieConsent } from '../context/CookieConsentContext';
+import { COVERAGE_POSTCODE_LIST } from '../data/pricing';
 
 const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
 
@@ -42,7 +43,7 @@ export default function Footer() {
             <p className="text-silver-400 text-sm leading-relaxed mb-2">
               London's premium cleaning and property services. Specialising in commercial sites, empty     properties, and exterior cleaning.
             </p>
-            <p className="text-royal-400 text-xs mb-5">Serving East &amp; North London — E1, E2, E8, E9, E14, E15, E17, E20, N1, N4, N5, N7, N8, N10, N15, N16, N17, N19, N22, NW1, NW5</p>
+            <p className="text-royal-400 text-xs mb-5">Serving East &amp; North London — {COVERAGE_POSTCODE_LIST}</p>
             {/* Icon-only links: without an aria-label a screen reader reads
                 out the raw share URL. */}
             <div className="flex gap-3">

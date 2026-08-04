@@ -233,7 +233,7 @@ function ServiceCard({ selection, onChangeService }: {
             <span>
               {isLeaflet
                 ? `Leaflet discount ${selection.discountPercent ?? 20}%`
-                : `Bundle saving ${selection.discountPercent ?? 0}%`}
+                : 'Same-visit bundle saving'}
             </span>
             <span>−{money(selection.discountAmount ?? 0)}</span>
           </div>

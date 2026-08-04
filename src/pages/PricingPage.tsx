@@ -5,8 +5,10 @@ import {
   EOT_BASE_PRICES_P,
   EOT_EXTRA_BATH_P,
   EOT_EXTRA_WC_P,
+  EOT_HOUSE_ADJUSTMENT_P,
   MOVEIN_BASE_PRICES_P,
   MOVEIN_EXTRA_BATH_P,
+  MOVEIN_EXTRA_WC_P,
   EOT_CARPET_ADDON_PRICES_P,
   AFTER_BUILDERS_START_FROM_P,
   CARPET_ITEM_PRICES_P,
@@ -14,8 +16,16 @@ import {
   STAIRS_EXTRA_P,
   CARPET_MIN_BOOKING_P,
   ADDON_PRICES_P,
-  CARPET_BUNDLE_TIERS,
+  CARPET_BUNDLE_BANDS,
   SAME_DAY_POLICY_SHORT,
+  WINDOW_CLEANING_FROM_P,
+  WINDOW_CLEANING_MIN_P,
+  WINDOW_CLEANING_SCOPE,
+  GARDEN_SERVICES_FROM_P,
+  GARDEN_SERVICES_MIN_P,
+  PRESSURE_WASHING_FROM_P,
+  EOT_GUARANTEE_HOURS,
+  EOT_TAILORED_START_PRICES_P,
 } from '../data/pricing';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -88,8 +98,8 @@ export default function PricingPage() {
                 <th className="px-6 py-4 font-semibold text-silver-300 uppercase tracking-widest text-xs">
                   <div className="flex flex-col items-center gap-1">
                     <span className="bg-amber-400 text-amber-900 text-[9px] font-bold px-2 py-0.5 rounded-full tracking-widest uppercase">Most Booked</span>
-                    End of Tenancy
-                    <span className="text-green-400 text-[10px] font-normal normal-case tracking-normal">Complete package — appliances, cupboards and internal windows included</span>
+                    End of Tenancy — Complete
+                    <span className="text-green-400 text-[10px] font-normal normal-case tracking-normal">Oven, fridge/freezer &amp; internal storage included — no surprise appliance charges</span>
                   </div>
                 </th>
                 <th className="px-6 py-4 font-semibold text-silver-300 uppercase tracking-widest text-xs">Move-in Deep Clean</th>
@@ -131,7 +141,11 @@ export default function PricingPage() {
 
         {/* Footnote */}
         <p className="text-silver-500 text-xs mt-4 text-center leading-relaxed">
-          Each extra bathroom: <strong className="text-navy-700">+{p(EOT_EXTRA_BATH_P)}</strong> end of tenancy &nbsp;·&nbsp; <strong className="text-navy-700">+{p(MOVEIN_EXTRA_BATH_P)}</strong> move-in &nbsp;·&nbsp; Additional WC: <strong className="text-navy-700">+{p(EOT_EXTRA_WC_P)}</strong> (EOT)
+          Each extra bathroom: <strong className="text-navy-700">+{p(EOT_EXTRA_BATH_P)}</strong> end of tenancy &nbsp;·&nbsp; <strong className="text-navy-700">+{p(MOVEIN_EXTRA_BATH_P)}</strong> move-in &nbsp;·&nbsp; Additional WC: <strong className="text-navy-700">+{p(EOT_EXTRA_WC_P)}</strong> (EOT) / <strong className="text-navy-700">+{p(MOVEIN_EXTRA_WC_P)}</strong> (move-in) &nbsp;·&nbsp; House/maisonette: <strong className="text-navy-700">+{p(EOT_HOUSE_ADJUSTMENT_P)}</strong>
+        </p>
+        <p className="text-silver-500 text-xs mt-2 text-center leading-relaxed">
+          Prefer to choose only the tasks you need? Our Tailored Checklist Clean starts from{' '}
+          <strong className="text-navy-700">£{EOT_TAILORED_START_PRICES_P.studio / 100}</strong> — build it in the quote calculator. Full agency-ready guarantee applies to the Complete package; the Tailored guarantee covers only the tasks in your confirmed quote.
         </p>
 
         {/* Condition note */}
@@ -176,7 +190,7 @@ export default function PricingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-8">
             <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 mb-2">Carpet &amp; Upholstery</h2>
-            <p className="text-silver-600">Steam-cleaned. Deodorised. Dried in hours.</p>
+            <p className="text-silver-600">Steam-cleaned. Deodorised. Dried in hours. £{CARPET_MIN_BOOKING_P / 100} minimum booking.</p>
           </div>
 
           <div className="grid sm:grid-cols-2 gap-6 mb-6">
@@ -265,7 +279,7 @@ export default function PricingPage() {
           </div>
 
           <p className="text-center text-[#1a5c3a] text-sm font-semibold bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 max-w-md mx-auto">
-            Book multiple items together and save automatically — {CARPET_BUNDLE_TIERS.map((t) => `${t.display} over £${t.minP / 100}`).join(', ')}.
+            Book multiple items together and save automatically — {CARPET_BUNDLE_BANDS.filter((b) => b.amountP > 0).map((b) => `${b.display} at ${b.minItems}+ items`).join(', ')}.
           </p>
         </div>
       </section>
@@ -305,10 +319,10 @@ export default function PricingPage() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { title: 'Window Cleaning',       from: '£45',             desc: 'Exterior only. All sizes.',                         minNote: true  },
-              { title: 'Pressure Washing',       from: '£120',            desc: 'Driveways, patios & paths.',                        minNote: true  },
-              { title: 'Garden Services',        from: '£45',             desc: 'Clearance, tidy & maintenance.',                    minNote: true  },
-              { title: 'Commercial & Communal',  from: 'Free site visit', desc: 'Fixed written quote. Invoiced on 14-day terms.',    minNote: false },
+              { title: 'Window Cleaning',       from: `From £${WINDOW_CLEANING_FROM_P / 100}`,  desc: WINDOW_CLEANING_SCOPE,            minNote: WINDOW_CLEANING_MIN_P / 100  },
+              { title: 'Pressure Washing',       from: `From £${PRESSURE_WASHING_FROM_P / 100}`, desc: 'Driveways, patios & paths.',       minNote: 0 },
+              { title: 'Garden Services',        from: `From £${GARDEN_SERVICES_FROM_P / 100}`,  desc: 'Clearance, tidy & maintenance.',   minNote: GARDEN_SERVICES_MIN_P / 100  },
+              { title: 'Commercial & Communal',  from: 'Free site visit', desc: 'Fixed written quote. Invoiced on 14-day terms.',    minNote: 0 },
             ].map((card) => (
               <div key={card.title} className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-3">
                 <div>
@@ -316,8 +330,8 @@ export default function PricingPage() {
                   <div className="text-silver-400 text-xs leading-relaxed">{card.desc}</div>
                 </div>
                 <div className="font-display font-bold text-2xl text-amber-400">{card.from}</div>
-                {card.minNote && (
-                  <p className="text-silver-500 text-[10px] leading-snug -mt-1">Minimum call-out £75 on standalone visits</p>
+                {card.minNote > 0 && (
+                  <p className="text-silver-500 text-[10px] leading-snug -mt-1">Minimum call-out £{card.minNote} on standalone visits</p>
                 )}
                 <a href={WA_PHOTO} target="_blank" rel="noopener noreferrer"
                   className="mt-auto inline-flex items-center gap-1.5 text-xs font-semibold text-green-400 hover:text-green-300 transition-colors">
@@ -341,7 +355,7 @@ export default function PricingPage() {
             {[
               '67-point agency checklist',
               'Photos + cleaning receipt for your agent',
-              '48-hour free re-clean if anything is flagged',
+              `${EOT_GUARANTEE_HOURS}-hour free re-clean if anything is flagged (Complete package)`,
               '£15 off if we arrive over an hour late',
               'Free reschedule until 12pm the day before',
               'Refer a friend — you BOTH get £15 off',

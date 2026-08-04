@@ -1,129 +1,86 @@
-// VVE Clean pricing facade for the public TypeScript application.
+// ─── VVE Clean Pricing — thin re-export shim ─────────────────────────────────
 //
-// ALL approved monetary values now live in one cross-runtime catalogue:
-//   admin/shared/pricingCatalogue.js
+// DO NOT ADD OR EDIT PRICES IN THIS FILE.
 //
-// This file intentionally contains no price literals. It provides typed
-// re-exports plus the small calculation/display helpers used by the website.
-// The checkout API and CRM catalogue import the same JavaScript catalogue
-// directly, so a price change no longer requires hand-maintained mirrors.
+// The single canonical pricing source is ../../shared/pricingCatalogue.js —
+// plain ESM JavaScript so it can be imported unmodified by the frontend
+// (here), the payment-authority server (api/servicePrices.js), and the admin
+// CRM (admin/api/_lib/catalogueSeed.js, via a mechanically synced copy — see
+// scripts/sync-admin-pricing.mjs). This file exists only so the ~20 existing
+// call sites across src/ can keep writing `import { X } from '../data/pricing'`
+// unchanged, and to attach TypeScript types to the shared module's values.
+//
+// To change a price: edit shared/pricingCatalogue.js, then run
+// `npm run typecheck && npm test` (root) — tests/api/pricingSource.test.js
+// fails loudly if admin's synced copy goes stale.
 
+export * from '../../shared/pricingCatalogue.js';
 import {
-  CARPET_MIN_BOOKING_P,
-  CARPET_ITEM_PRICES_P,
-  STAIRS_FIRST_P,
-  STAIRS_EXTRA_P,
-  CARPET_BUNDLE_TIERS,
-  EOT_BASE_PRICES_P,
-  EOT_TAILORED_QUOTE_SIZE,
-  EOT_HOUSE_ADJUSTMENT_P,
-  EOT_EXTRA_BATH_P,
-  EOT_EXTRA_WC_P,
-  EOT_EXTRA_AREAS_P,
-  EOT_SCOPE_CREDITS_P,
-  EOT_SCOPE_CREDIT_MAX_P,
-  EOT_SCOPE_CREDIT_MAX_PERCENT,
-  EOT_CARPET_ADDON_PRICES_P,
-  MOVEIN_BASE_PRICES_P,
-  MOVEIN_EXTRA_BATH_P,
-  AFTER_BUILDERS_FROM_PRICES_P,
-  AFTER_BUILDERS_START_FROM_P,
-  COMMERCIAL_REGULAR_HOURLY_P,
-  COMMERCIAL_REGULAR_MIN_HOURS,
-  COMMERCIAL_REGULAR_MIN_CHARGE_P,
-  COMMERCIAL_ONCEOFF_HOURLY_P,
-  COMMERCIAL_ONCEOFF_MIN_HOURS,
-  COMMERCIAL_ONCEOFF_MIN_CHARGE_P,
-  COMMERCIAL_SHOP_CAFE_FROM_P,
-  COMMERCIAL_COMMUNAL_FROM_P,
-  COMMERCIAL_CARPET_PER_SQM_P,
-  COMMERCIAL_CARPET_MIN_P,
-  COMMERCIAL_EOL_FROM_P,
-  COMMERCIAL_AFTER_BUILDERS_FROM_P,
-  ADDON_PRICES_P,
-  EOT_CARPET_BUNDLE_P,
-  DEPOSIT_P,
-  PARKING_ESTIMATE_P,
-  CONGESTION_CHARGE_P,
-  LEGACY_CARPET_BASE_PRICES_P,
-  LEGACY_DEEP_ADDON_PRICES_P,
-  WINDOW_PRICES_P,
-  GUTTER_PRICES_P,
-  GENERAL_MIN_BOOKING_P,
-} from '../../admin/shared/pricingCatalogue.js';
+  calculateEotQuote as _calculateEotQuote,
+  calculateMoveInQuote as _calculateMoveInQuote,
+} from '../../shared/pricingCatalogue.js';
 
-export {
-  CARPET_MIN_BOOKING_P,
-  CARPET_ITEM_PRICES_P,
-  STAIRS_FIRST_P,
-  STAIRS_EXTRA_P,
-  CARPET_BUNDLE_TIERS,
-  EOT_BASE_PRICES_P,
-  EOT_TAILORED_QUOTE_SIZE,
-  EOT_HOUSE_ADJUSTMENT_P,
-  EOT_EXTRA_BATH_P,
-  EOT_EXTRA_WC_P,
-  EOT_EXTRA_AREAS_P,
-  EOT_SCOPE_CREDITS_P,
-  EOT_SCOPE_CREDIT_MAX_P,
-  EOT_SCOPE_CREDIT_MAX_PERCENT,
-  EOT_CARPET_ADDON_PRICES_P,
-  MOVEIN_BASE_PRICES_P,
-  MOVEIN_EXTRA_BATH_P,
-  AFTER_BUILDERS_FROM_PRICES_P,
-  AFTER_BUILDERS_START_FROM_P,
-  COMMERCIAL_REGULAR_HOURLY_P,
-  COMMERCIAL_REGULAR_MIN_HOURS,
-  COMMERCIAL_REGULAR_MIN_CHARGE_P,
-  COMMERCIAL_ONCEOFF_HOURLY_P,
-  COMMERCIAL_ONCEOFF_MIN_HOURS,
-  COMMERCIAL_ONCEOFF_MIN_CHARGE_P,
-  COMMERCIAL_SHOP_CAFE_FROM_P,
-  COMMERCIAL_COMMUNAL_FROM_P,
-  COMMERCIAL_CARPET_PER_SQM_P,
-  COMMERCIAL_CARPET_MIN_P,
-  COMMERCIAL_EOL_FROM_P,
-  COMMERCIAL_AFTER_BUILDERS_FROM_P,
-  ADDON_PRICES_P,
-  EOT_CARPET_BUNDLE_P,
-  DEPOSIT_P,
-  PARKING_ESTIMATE_P,
-  CONGESTION_CHARGE_P,
-  LEGACY_CARPET_BASE_PRICES_P,
-  LEGACY_DEEP_ADDON_PRICES_P,
-  WINDOW_PRICES_P,
-  GUTTER_PRICES_P,
-  GENERAL_MIN_BOOKING_P,
-};
+// Type-only declarations (compile-time only, erased at runtime — not price
+// data, so not a "duplicated calculation logic" concern). Mirrors the JSDoc
+// @typedef comments of the same name in pricingCatalogue.js; kept here as
+// plain TS because importing types back out of a JSDoc-annotated .js module
+// without `checkJs` is unreliable across TS versions.
+export type SizeKey = 'studio' | 'bed1' | 'bed2' | 'bed3' | 'bed4';
+export type PricingMode = 'fixed' | 'from' | 'quote_required';
+export type ServiceStartingPriceKey =
+  | 'eot_complete' | 'eot_tailored' | 'move_in' | 'after_builders'
+  | 'carpet' | 'upholstery' | 'window' | 'garden' | 'pressure_washing'
+  | 'commercial' | 'commercial_carpet';
 
-export type { BundleTier } from '../../admin/shared/pricingCatalogue.js';
-
-export function stairsLinePricePence(flights: number): number {
-  if (flights <= 0) return 0;
-  return STAIRS_FIRST_P + (flights - 1) * STAIRS_EXTRA_P;
+export interface EotQuoteInput {
+  size:            SizeKey;
+  package:         'complete' | 'tailored';
+  isHouse:         boolean;
+  extraBathrooms:  number;
+  extraWcs:        number;
+  tailoredAddOns?: {
+    fridgeFreezerInside?:  boolean;
+    extraFridgeFreezers?:  number;
+    dishwasherInside?:     boolean;
+    washingMachineInside?: boolean;
+    cupboards?:            boolean;
+  };
+  rooms?:          { id: string; addonKey: string; floor: string }[];
+  carpetRoomIds?:  string[];
 }
 
-export function eotScopeCreditPence(
-  basePricePence: number,
-  excludedItems: string[] = [],
-): number {
-  const uniqueItems = [...new Set(excludedItems)];
-  const requested = uniqueItems.reduce(
-    (sum, key) => sum + (EOT_SCOPE_CREDITS_P[key] ?? 0),
-    0,
-  );
-  const percentageCap = Math.floor(
-    (basePricePence * EOT_SCOPE_CREDIT_MAX_PERCENT) / 100 / 100,
-  ) * 100;
-  return Math.min(requested, EOT_SCOPE_CREDIT_MAX_P, percentageCap);
+export interface EotQuoteResult {
+  basePriceP:          number;
+  houseAdjP:            number;
+  bathroomsAddP:        number;
+  wcsAddP:              number;
+  tailoredAddOnsP:      number;
+  carpetAddonP:         number;
+  totalP:               number;
+  guaranteeHours:       number;
+  guaranteeScope:       'complete' | 'selected-tasks';
+  shouldOfferComplete:  boolean;
+  completeEquivalentP:  number;
 }
 
-export const PARKING_CHARGED_AT_ACTUAL_COST_NOTE =
-  'Parking is charged at the actual cost. The final balance will be adjusted if it costs less or more.';
+/** Typed wrapper — runtime implementation lives in shared/pricingCatalogue.js. */
+export function calculateEotQuote(input: EotQuoteInput): EotQuoteResult {
+  return _calculateEotQuote(input) as EotQuoteResult;
+}
 
-export const SAME_DAY_POLICY_SHORT =
-  'Same-day and next-day appointments may be available at the normal price. Contact us to check availability.';
+export interface MoveInQuoteInput {
+  size:           SizeKey;
+  extraBathrooms: number;
+  extraWcs:       number;
+}
+export interface MoveInQuoteResult {
+  basePriceP:    number;
+  bathroomsAddP: number;
+  wcsAddP:       number;
+  totalP:        number;
+}
 
-export function penceToDisplay(pence: number): string {
-  return `£${(pence / 100).toFixed(pence % 100 === 0 ? 0 : 2)}`;
+/** Typed wrapper — runtime implementation lives in shared/pricingCatalogue.js. */
+export function calculateMoveInQuote(input: MoveInQuoteInput): MoveInQuoteResult {
+  return _calculateMoveInQuote(input) as MoveInQuoteResult;
 }

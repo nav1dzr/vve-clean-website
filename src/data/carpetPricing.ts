@@ -1,17 +1,18 @@
-// Carpet & upholstery itemised pricing engine.
-// Kept separate so /leaflet or partner pages can import with a custom multiplier.
-//
-// All prices come through src/data/pricing.ts from the shared catalogue.
-// Do not edit price constants here; edit admin/shared/pricingCatalogue.js.
+// Carpet & upholstery UI configuration + thin re-export of the shared
+// calculation engine. The actual pricing logic (computeCarpetPrice) lives in
+// ../../shared/pricingCatalogue.js — the single canonical source shared with
+// the server and admin CRM. Do not reimplement pricing math here; this file
+// only adds frontend-only presentational metadata (grouping, helper copy).
 
 import {
   CARPET_MIN_BOOKING_P,
   CARPET_ITEM_PRICES_P,
+  CARPET_ITEM_LABELS,
   STAIRS_FIRST_P,
   STAIRS_EXTRA_P,
-  CARPET_BUNDLE_TIERS,
-  type BundleTier,
-} from './pricing';
+  stairsLinePricePence,
+  computeCarpetPrice as _computeCarpetPrice,
+} from '../../shared/pricingCatalogue.js';
 
 // In pounds for components that display £ values.
 export const CARPET_MIN_BOOKING = CARPET_MIN_BOOKING_P / 100;  // 85
@@ -21,21 +22,6 @@ export const CARPET_MIN_BOOKING = CARPET_MIN_BOOKING_P / 100;  // 85
 export const DISCOUNT_MIN_NOTE =
   `Book multiple carpet or upholstery items together and save automatically. ` +
   `£${CARPET_MIN_BOOKING} minimum booking applies.`;
-
-// Promo codes: key → discount percentage
-const PROMO_CODES: Record<string, number> = {
-  LEAFLET20: 20,
-};
-
-export interface BundleInfo {
-  pct:         number;              // discount percentage applied (0 if none)
-  saving:      number;              // £ saved (0 if none)
-  source:      'bundle' | 'promo' | 'none';
-  preDiscount: number;              // adjustedSubtotal before discount (for strikethrough)
-  nextTier:    number | null;       // next tier threshold in £ (e.g. 250/400/600) or null
-  toNextTier:  number;              // £ to add to reach next tier (0 if not within £40)
-  nextTierPct: number;              // pct at next tier
-}
 
 export type CarpetCondition = 'normal' | 'heavy' | 'delicate';
 
@@ -51,23 +37,24 @@ export interface CarpetItem {
 
 export const CARPET_ITEM_DEFS: CarpetItem[] = [
   // ── Carpets ──────────────────────────────────────────────────
-  { key: 'bedroom',         label: 'Bedroom',                 group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.bedroom         / 100 },
-  { key: 'living_room',     label: 'Living / dining room',    group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.living_room     / 100 },
-  { key: 'large_lounge',    label: 'Large or through lounge', group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.large_lounge    / 100 },
-  { key: 'hallway',         label: 'Hallway',                 group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.hallway         / 100 },
-  { key: 'landing',         label: 'Landing',                 group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.landing         / 100 },
-  { key: 'stairs',          label: 'Stairs',                  group: 'Carpets',            unitPrice: null,
+  { key: 'bedroom',         label: CARPET_ITEM_LABELS.bedroom,         group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.bedroom         / 100 },
+  { key: 'living_room',     label: CARPET_ITEM_LABELS.living_room,     group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.living_room     / 100 },
+  { key: 'large_lounge',    label: CARPET_ITEM_LABELS.large_lounge,    group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.large_lounge    / 100 },
+  { key: 'hallway',         label: CARPET_ITEM_LABELS.hallway,         group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.hallway         / 100 },
+  { key: 'landing',         label: CARPET_ITEM_LABELS.landing,         group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.landing         / 100 },
+  { key: 'stairs',          label: CARPET_ITEM_LABELS.stairs,          group: 'Carpets',            unitPrice: null,
     stairsFirst: STAIRS_FIRST_P / 100, stairsExtra: STAIRS_EXTRA_P / 100,
     helper: 'One flight = one set of stairs between floors.' },
-  { key: 'rug',             label: 'Rug',                     group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.rug             / 100,
-    helper: 'Large or wool rugs — send a photo for a tailored quote.' },
+  { key: 'rug',             label: CARPET_ITEM_LABELS.rug,             group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.rug             / 100,
+    helper: 'Large, wool, silk or specialist rugs — send a photo for a tailored quote.' },
   // ── Sofas & Upholstery ───────────────────────────────────────
-  { key: 'armchair',        label: 'Armchair',                group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.armchair        / 100  },
-  { key: 'sofa_2',          label: '2-seater sofa',           group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.sofa_2          / 100  },
-  { key: 'sofa_3',          label: '3-seater sofa',           group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.sofa_3          / 100  },
-  { key: 'sofa_corner',     label: 'Corner / L-shaped sofa',  group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.sofa_corner     / 100 },
-  { key: 'mattress_single', label: 'Mattress (single)',        group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.mattress_single / 100  },
-  { key: 'mattress_double', label: 'Mattress (double/king)',   group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.mattress_double / 100  },
+  { key: 'armchair',        label: CARPET_ITEM_LABELS.armchair,        group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.armchair        / 100  },
+  { key: 'sofa_2',          label: CARPET_ITEM_LABELS.sofa_2,          group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.sofa_2          / 100  },
+  { key: 'sofa_3',          label: CARPET_ITEM_LABELS.sofa_3,          group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.sofa_3          / 100  },
+  { key: 'sofa_corner',     label: CARPET_ITEM_LABELS.sofa_corner,     group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.sofa_corner     / 100 },
+  { key: 'mattress_single', label: CARPET_ITEM_LABELS.mattress_single, group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.mattress_single / 100  },
+  { key: 'mattress_double', label: CARPET_ITEM_LABELS.mattress_double, group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.mattress_double / 100  },
+  { key: 'mattress_king',   label: CARPET_ITEM_LABELS.mattress_king,   group: 'Sofas & Upholstery', unitPrice: CARPET_ITEM_PRICES_P.mattress_king   / 100  },
 ];
 
 // Pre-grouped for rendering
@@ -79,8 +66,7 @@ export const CARPET_GROUPS: { group: string; items: CarpetItem[] }[] = [
 export type CarpetCounts = Partial<Record<string, number>>;
 
 export function stairsLinePrice(n: number): number {
-  if (n <= 0) return 0;
-  return STAIRS_FIRST_P / 100 + (n - 1) * (STAIRS_EXTRA_P / 100);
+  return stairsLinePricePence(n) / 100;
 }
 
 export function itemLinePrice(item: CarpetItem, qty: number): number {
@@ -96,105 +82,42 @@ export interface CarpetPriceLine {
   lineTotal: number;
 }
 
+export interface BundleInfo {
+  saving:         number;
+  source:         'bundle' | 'promo' | 'none';
+  preDiscount:    number;
+  itemCount:      number;
+  display:        string;
+  nextBandItems:  number | null;
+  toNextBand:     number;
+  nextBandSaving: number;
+}
+
 export interface CarpetPriceResult {
   lines:              CarpetPriceLine[];
   subtotal:           number;
-  heavySurcharge:     number;  // 0 unless heavy condition
-  adjustedSubtotal:   number;  // subtotal + heavySurcharge — the "service subtotal"
+  heavySurcharge:     number;
+  adjustedSubtotal:   number;
   bundle:             BundleInfo;
-  discountedSubtotal: number;  // adjustedSubtotal minus the discount, BEFORE the minimum-charge floor
-  minAdjustment:      number;  // 0 unless min booking applies
+  discountedSubtotal: number;
+  minAdjustment:      number;
   finalTotal:         number;
   minApplied:         boolean;
-  // True only when a discount was calculated AND the minimum booking charge did
-  // NOT override it — i.e. the customer's final price genuinely reflects the
-  // full discount. When the minimum charge overrides the discount, this is
-  // false and no "you save £X" figure should be shown anywhere (it would be
-  // fictitious — the customer is paying the £85 floor, not the discounted price).
   showSaving:         boolean;
   totalItems:         number;
-  isPhotoQuote:       boolean; // true when condition === 'delicate'
+  isPhotoQuote:       boolean;
 }
 
-/**
- * @param counts     - map of item key → quantity
- * @param condition  - 'normal' | 'heavy' | 'delicate'
- * @param multiplier - price multiplier (default 1). Pass e.g. 0.9 for 10% off on /leaflet.
- */
+// Re-typed wrapper — the runtime implementation (and the only place the
+// actual pricing math lives) is computeCarpetPrice in the shared module,
+// which is also what api/servicePrices.js calls server-side. This wrapper
+// just attaches the TypeScript return type above for frontend consumers;
+// exported under the original name so existing call sites are unaffected.
 export function computeCarpetPrice(
-  counts:     CarpetCounts,
-  condition:  CarpetCondition,
-  multiplier  = 1,
+  counts: CarpetCounts,
+  condition: CarpetCondition,
+  multiplier = 1,
   promoCode?: string,
 ): CarpetPriceResult {
-  const isPhotoQuote = condition === 'delicate';
-
-  const lines: CarpetPriceLine[] = [];
-  let subtotal = 0;
-
-  for (const item of CARPET_ITEM_DEFS) {
-    const qty = counts[item.key] ?? 0;
-    if (qty <= 0) continue;
-    const lt = Math.round(itemLinePrice(item, qty) * multiplier);
-    subtotal += lt;
-    lines.push({ key: item.key, label: item.label, qty, lineTotal: lt });
-  }
-
-  const heavySurcharge   = condition === 'heavy' ? Math.round(subtotal * 0.2) : 0;
-  const adjustedSubtotal = subtotal + heavySurcharge;
-
-  // ── Bundle / promo discount (applied after condition multiplier) ──────────
-  const promoPct      = promoCode ? (PROMO_CODES[promoCode.toUpperCase()] ?? 0) : 0;
-  const tier: BundleTier | undefined = CARPET_BUNDLE_TIERS.find(
-    (t) => adjustedSubtotal >= t.minP / 100,
-  );
-  const rawBundleSave = tier ? Math.round(adjustedSubtotal * tier.pct / 100) : 0;
-  const bundleSave    = rawBundleSave;
-  const promoSave     = promoPct > 0 ? Math.round(adjustedSubtotal * promoPct / 100) : 0;
-  const finalSaving   = Math.max(bundleSave, promoSave);
-  const bundleSource: BundleInfo['source'] =
-    finalSaving === 0        ? 'none'
-    : promoSave > bundleSave ? 'promo'
-    : 'bundle';
-  const bundlePct = bundleSource === 'promo' ? promoPct : (tier?.pct ?? 0);
-
-  // Next-tier nudge: show if within £40 of the next higher tier
-  const nextTierEntry = [...CARPET_BUNDLE_TIERS]
-    .reverse()
-    .find((t) => t.minP / 100 > adjustedSubtotal) ?? null;
-  const toNextTier = nextTierEntry ? nextTierEntry.minP / 100 - adjustedSubtotal : 0;
-  const showNudge  = toNextTier > 0 && toNextTier <= 40;
-
-  const bundle: BundleInfo = {
-    pct:         bundlePct,
-    saving:      finalSaving,
-    source:      bundleSource,
-    preDiscount: adjustedSubtotal,
-    nextTier:    showNudge ? nextTierEntry!.minP / 100 : null,
-    toNextTier:  showNudge ? toNextTier : 0,
-    nextTierPct: showNudge ? nextTierEntry!.pct : 0,
-  };
-
-  // ── Min booking (applied after discount) ──────────────────────────────────
-  const discountedSubtotal = adjustedSubtotal - finalSaving;
-  const minApplied         = !isPhotoQuote && discountedSubtotal > 0 && discountedSubtotal < CARPET_MIN_BOOKING;
-  const minAdjustment      = minApplied ? CARPET_MIN_BOOKING - discountedSubtotal : 0;
-  const finalTotal         = isPhotoQuote
-    ? 0
-    : discountedSubtotal > 0
-      ? Math.max(discountedSubtotal, CARPET_MIN_BOOKING)
-      : 0;
-
-  // The discount is only "real" if the minimum charge didn't override it —
-  // otherwise the customer pays the £85 floor regardless of the calculated
-  // discount, and showing that discount amount as a saving would be false.
-  const showSaving = finalSaving > 0 && !minApplied;
-
-  const totalItems = Object.values(counts).reduce<number>((s, v) => s + (v ?? 0), 0);
-
-  return {
-    lines, subtotal, heavySurcharge, adjustedSubtotal,
-    bundle, discountedSubtotal, minAdjustment, finalTotal, minApplied, showSaving,
-    totalItems, isPhotoQuote,
-  };
+  return _computeCarpetPrice(counts as Record<string, number>, condition, multiplier, promoCode) as CarpetPriceResult;
 }

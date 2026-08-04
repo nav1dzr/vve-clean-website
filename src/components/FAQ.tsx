@@ -1,7 +1,9 @@
+import { EOT_GUARANTEE_HOURS, COVERAGE_POSTCODE_LIST } from '../data/pricing';
+
 const FAQS = [
   {
     q: 'How does the deposit-back guarantee work?',
-    a: 'We clean to a 67-point checklist that mirrors the standard London letting-agency inventory form — the same document your check-out clerk uses. If the agent or landlord flags any cleaning issue within 48 hours of our visit, we come back and re-clean those areas free of charge. Cleaning is the single biggest cause of deposit deductions in London — this is how we remove it from the equation.',
+    a: `We clean to a 67-point checklist that mirrors the standard London letting-agency inventory form — the same document your check-out clerk uses. If the agent or landlord flags any cleaning issue within ${EOT_GUARANTEE_HOURS} hours of our visit (Complete package), we come back and re-clean those areas free of charge. Cleaning is the single biggest cause of deposit deductions in London — this is how we remove it from the equation.`,
   },
   {
     q: "What's included in an end of tenancy clean?",
@@ -37,7 +39,7 @@ const FAQS = [
   },
   {
     q: 'Which areas do you cover?',
-    a: 'East and North London: E1, E2, E3, E5, E8, E9, E10, E14, E15, E17, N1, N4, N5, N7, N15 and N16. Just outside? WhatsApp us — if we can\'t help, we\'ll recommend someone good who can.',
+    a: `East and North London: ${COVERAGE_POSTCODE_LIST}. Just outside? WhatsApp us — if we can't help, we'll recommend someone good who can.`,
   },
   {
     q: 'Do you clean occupied homes?',
