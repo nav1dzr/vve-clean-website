@@ -307,7 +307,7 @@ const DBS_TRUST_ITEM = 'DBS-checked, vetted cleaners';
 const TRUST_ITEMS = [
   '£5m public liability insurance',
   DBS_TRUST_ITEM,
-  '48hr re-clean guarantee',
+  '72hr re-clean guarantee',
   'No hidden fees — fixed prices',
   'Secure Stripe checkout',
 ];
@@ -1541,7 +1541,7 @@ export default function QuoteCalculator({
                           isEot routes to EotQuoteWizard via the early return above. */}
                       {!isCarpet && service === 'deep' && (
                         <div className="text-center mt-3 text-sm" style={{ color: '#4a7a62' }}>
-                          48hr re-clean guarantee
+                          72hr re-clean guarantee
                         </div>
                       )}
                     </div>
