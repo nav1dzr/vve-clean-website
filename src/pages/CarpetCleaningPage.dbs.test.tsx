@@ -75,7 +75,7 @@ describe('Carpet page — DBS stated once', () => {
     expect(screen.queryByText(CALC_TRUST_ITEM)).not.toBeInTheDocument();
     for (const kept of [
       '£5m public liability insurance',
-      '48hr re-clean guarantee',
+      '72hr re-clean guarantee',
       'No hidden fees — fixed prices',
       'Secure Stripe checkout',
     ]) {

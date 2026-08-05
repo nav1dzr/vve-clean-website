@@ -80,7 +80,7 @@ export default function Hero() {
             {[
               '£5m public liability insurance',
               'DBS-checked, vetted cleaners',
-              '48-hour re-clean guarantee',
+              '72-hour re-clean guarantee',
             ].map((item) => (
               <li key={item} className="flex items-start gap-2.5">
                 <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0 mt-0.5" />
