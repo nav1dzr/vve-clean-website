@@ -2,14 +2,11 @@
 // catalogue.
 //
 // Neither the no-JavaScript fallback in index.html nor the prerendered meta
-// descriptions import pricing.ts, so nothing stopped them drifting. They had:
-//   - "End of tenancy cleaning — from £199", while EOT_BASE_PRICES_P.studio
-//     is £229 and the /pricing table itself renders £229;
-//   - "Carpet & upholstery — from £90", a legacy per-property figure the
-//     itemised carpet engine no longer uses.
-//
-// This reads the real files and compares against the real constants, so the
-// next edit that invents a price fails here rather than reaching a customer.
+// descriptions import pricing.ts, so nothing stops them drifting on their
+// own. This reads the real files and compares against the real constants
+// (EOT_BASE_PRICES_P.studio is the approved £199 Complete starting price),
+// so the next edit that invents a price fails here rather than reaching a
+// customer.
 
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -58,7 +55,7 @@ describe('no-JavaScript fallback quotes the catalogue', () => {
   });
 
   it('no longer carries the superseded figures', () => {
-    expect(noscript).not.toContain('£199');
+    expect(noscript).not.toContain('£229');
     expect(noscript).not.toMatch(/upholstery — from £90/);
   });
 });
@@ -66,7 +63,7 @@ describe('no-JavaScript fallback quotes the catalogue', () => {
 describe('prerendered metadata quotes the catalogue', () => {
   it('uses the correct end-of-tenancy entry price', () => {
     expect(prerender).toContain(`End of tenancy from ${FROM.eot}`);
-    expect(prerender).not.toContain('£199');
+    expect(prerender).not.toContain('£229');
   });
 
   it('uses per-item carpet pricing rather than a legacy per-property figure', () => {
@@ -81,14 +78,31 @@ describe('prerendered metadata quotes the catalogue', () => {
 });
 
 describe('titles and descriptions stay inside what search results render', () => {
-  const routes = [...prerender.matchAll(/path: '([^']+)'/g)].map((m) => m[1]);
-  const titles = [...prerender.matchAll(/^\s{4}title:\s*'((?:[^'\\]|\\.)*)'/gm)].map((m) => m[1]);
-  const descriptions = [...prerender.matchAll(/^\s{4}description:\s*\n?\s*'((?:[^'\\]|\\.)*)'/gm)].map((m) => m[1]);
+  // Scope the scan to the `routes` array. prerender.mjs also defines a separate
+  // `notFoundRoute` object (dist/404.html) whose properties are indented two
+  // spaces rather than four; counting it here previously skewed routes (14)
+  // against titles (13) and looked like a missing title.
+  const routesBlock = prerender.slice(
+    prerender.indexOf('const routes = ['),
+    prerender.indexOf('const notFoundRoute'),
+  );
 
-  it('found a title and description for all 13 routes', () => {
-    expect(routes).toHaveLength(13);
-    expect(titles).toHaveLength(13);
-    expect(descriptions).toHaveLength(13);
+  const routes = [...routesBlock.matchAll(/path: '([^']+)'/g)].map((m) => m[1]);
+  const titles = [...routesBlock.matchAll(/^\s{4}title:\s*'((?:[^'\\]|\\.)*)'/gm)].map((m) => m[1]);
+  const descriptions = [...routesBlock.matchAll(/^\s{4}description:\s*\n?\s*'((?:[^'\\]|\\.)*)'/gm)].map((m) => m[1]);
+
+  it('found a title and description for every prerendered route', () => {
+    // Asserted as parity rather than a fixed count, so adding a route cannot
+    // pass by updating one number — a route missing a title still fails.
+    expect(routes.length).toBeGreaterThanOrEqual(13);
+    expect(titles).toHaveLength(routes.length);
+    expect(descriptions).toHaveLength(routes.length);
+  });
+
+  it('gives the 404 page its own title and description', () => {
+    const notFound = prerender.slice(prerender.indexOf('const notFoundRoute'));
+    expect(notFound).toMatch(/title:\s*'[^']+'/);
+    expect(notFound).toMatch(/description:\s*\n?\s*'[^']+'/);
   });
 
   it('keeps every title at or under 65 characters', () => {

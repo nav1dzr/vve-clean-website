@@ -1,10 +1,11 @@
 import { Shield, CheckCircle, XCircle } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
+import { EOT_GUARANTEE_HOURS } from '../data/pricing';
 
 const COVERED = [
   'Missed areas from the original booked service',
   'Reported by landlord, letting agent, or inventory report',
-  'Reported within 48 hours of our visit',
+  `Reported within ${EOT_GUARANTEE_HOURS} hours of our visit`,
   'Supported by a report or photos',
 ];
 
@@ -52,13 +53,14 @@ export default function Guarantee() {
             className="font-display font-bold text-white mb-4 leading-tight"
             style={{ fontSize: 'clamp(1.9rem, 5vw, 2.75rem)' }}
           >
-            48-Hour Re-clean Guarantee
+            {EOT_GUARANTEE_HOURS}-Hour Re-clean Guarantee
           </h2>
 
           <p className="text-silver-300 text-base max-w-2xl mx-auto leading-relaxed">
             If your landlord, letting agent, or inventory report highlights a cleaning issue within
-            48 hours of our visit, send us the report or photos and we'll return once to re-clean
-            the missed areas — <span className="text-white font-semibold">free of charge</span>.
+            {' '}{EOT_GUARANTEE_HOURS} hours of our visit, send us the report or photos and we'll return once to re-clean
+            the missed areas — <span className="text-white font-semibold">free of charge</span>. Full agency-ready
+            coverage applies to our Complete end of tenancy package; Tailored cleans are covered for the tasks selected.
           </p>
         </div>
 

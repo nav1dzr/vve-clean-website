@@ -115,16 +115,16 @@ describe('Carpet page — optional upholstery disclosure', () => {
     // Two carpet rooms, so the carpet-only total sits clear of the £85
     // minimum booking and this test is about the cross-sell, not the floor.
     await add(u, 'Bedroom');                   // £50
-    await add(u, 'Living / dining room');      // £70 → £120
+    await add(u, 'Living / dining room');      // £60 → £110
     await u.click(yesBtn());
-    await add(u, '3-seater sofa');             // £95 → £215
-    expect(screen.getAllByText('£215').length).toBeGreaterThan(0);
+    await add(u, '3-seater sofa');             // £95 → £205, minus £10 3-item band = £195
+    expect(screen.getAllByText('£195').length).toBeGreaterThan(0);
 
     await u.click(noBtn());
 
     // Price drops back to carpets only — the hidden sofa is not still in it.
-    expect(screen.getAllByText('£120').length).toBeGreaterThan(0);
-    expect(screen.queryByText('£215')).not.toBeInTheDocument();
+    expect(screen.getAllByText('£110').length).toBeGreaterThan(0);
+    expect(screen.queryByText('£195')).not.toBeInTheDocument();
   });
 
   it('does not resurrect a cleared sofa when the panel is reopened', async () => {
@@ -147,7 +147,7 @@ describe('Carpet page — optional upholstery disclosure', () => {
     renderCalc('carpet', onBook);
 
     await add(u, 'Bedroom');
-    await add(u, 'Living / dining room');       // £50 + £70 = £120
+    await add(u, 'Living / dining room');       // £50 + £60 = £110
     await u.click(yesBtn());
     await add(u, 'Corner / L-shaped sofa');     // + £130
     await u.click(noBtn());                     // …then changes their mind
@@ -158,7 +158,7 @@ describe('Carpet page — optional upholstery disclosure', () => {
       price: number;
       quoteConfig?: { carpetCounts?: Record<string, number> };
     };
-    expect(sel.price).toBe(120);
+    expect(sel.price).toBe(110);
     expect(sel.quoteConfig?.carpetCounts?.sofa_corner).toBe(0);
     expect(sel.quoteConfig?.carpetCounts?.bedroom).toBe(1);
   });
@@ -277,7 +277,7 @@ describe('restore from a booking in progress', () => {
     expect(yesBtn()).toHaveAttribute('aria-expanded', 'true');
     // Appears twice once restored: the item row and the summary line.
     expect(screen.getAllByText('3-seater sofa').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('£165').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('£155').length).toBeGreaterThan(0);
 
     sessionStorage.clear();
   });
@@ -297,7 +297,7 @@ describe('restore from a booking in progress', () => {
 
     expect(yesBtn()).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByText('3-seater sofa')).not.toBeInTheDocument();
-    expect(screen.getAllByText('£120').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('£110').length).toBeGreaterThan(0);
 
     sessionStorage.clear();
   });

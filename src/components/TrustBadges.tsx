@@ -6,7 +6,10 @@ import { useReveal } from '../hooks/useReveal';
 const badges = [
   { icon: Shield,      label: '£5m Public Liability',  sub: 'Fully insured' },
   { icon: CheckCircle, label: 'DBS Checked',            sub: 'Every cleaner vetted' },
-  { icon: Star,        label: 'Real Google Reviews',    sub: '5.0 average rating' },
+  // sub was "5.0 average rating". A fourth unsubstantiated copy of the rating
+  // claim — see src/data/googleRating.ts. The reviews themselves are real and
+  // public, which is what this badge now says.
+  { icon: Star,        label: 'Real Google Reviews',    sub: 'From our public profile' },
   { icon: Lock,        label: 'Secure Stripe Payment',  sub: 'Your card is never stored' },
 ];
 

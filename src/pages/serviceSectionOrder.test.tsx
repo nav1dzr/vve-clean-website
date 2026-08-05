@@ -163,8 +163,9 @@ describe('Carpet page order', () => {
 });
 
 describe('End of Tenancy page order', () => {
-  // This page already followed the recommended order and is deliberately
-  // unchanged; the assertions exist so the shared-layout edits cannot regress it.
+  // The section order itself is unchanged by the Complete/Tailored wizard
+  // migration; the assertions exist so future shared-layout edits cannot
+  // regress it.
   it('runs hero → guided quote → proof → reviews → benefits → intro → includes → pricing', () => {
     const { container } = renderPage(<EndOfTenancyPage />, '/end-of-tenancy-cleaning-london');
     const at = locator(container);
@@ -175,9 +176,9 @@ describe('End of Tenancy page order', () => {
       ['proof media', at.heading('See the difference')],
       ['reviews', at.sel('#reviews')],
       ['benefits', at.heading('Why tenants and landlords choose VVE Clean')],
-      ['intro', at.heading('One complete clean')],
-      ['what every clean includes', at.heading('What every end of tenancy clean includes')],
-      ['pricing', at.heading('Complete fixed prices by property size')],
+      ['intro', at.heading('The clean your agent actually checks for')],
+      ['what every clean includes', at.heading('What every Complete end of tenancy clean includes')],
+      ['pricing', at.heading('Fixed end of tenancy cleaning prices')],
     ]);
   });
 

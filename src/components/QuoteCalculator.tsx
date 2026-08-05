@@ -6,6 +6,7 @@ import { useBookingCtx } from '../context/BookingContext';
 import { rememberQuoteOrigin } from '../lib/quoteOrigin';
 import { useReveal } from '../hooks/useReveal';
 import type { HomepageQuoteService } from './HomeServiceSelector';
+import EotQuoteWizard, { type EotBookingResult } from './EotQuoteWizard';
 import {
   CARPET_GROUPS,
   CARPET_MIN_BOOKING,
@@ -22,9 +23,6 @@ import {
   EOT_EXTRA_WC_P,
   EOT_EXTRA_AREAS_P,
   EOT_CARPET_BUNDLE_P,
-  EOT_SCOPE_CREDITS_P,
-  EOT_HOUSE_ADJUSTMENT_P,
-  eotScopeCreditPence,
   MOVEIN_BASE_PRICES_P,
   MOVEIN_EXTRA_BATH_P,
   AFTER_BUILDERS_FROM_PRICES_P,
@@ -33,7 +31,7 @@ import {
   EOT_CARPET_ADDON_PRICES_P,
   COMMERCIAL_REGULAR_HOURLY_P,
   COMMERCIAL_REGULAR_MIN_HOURS,
-  CARPET_BUNDLE_TIERS,
+  CARPET_BUNDLE_BANDS,
   CARPET_ITEM_PRICES_P,
 } from '../data/pricing';
 
@@ -56,19 +54,22 @@ const DEEP_SERVICE_LABELS: Record<DeepServiceType, string> = {
 // Prices in £ derived from the canonical pence values in pricing.ts.
 const BASE_PRICES: Record<DeepServiceType, Record<SizeKey, number>> = {
   carpet_upholstery: { studio:  90, bed1: 150, bed2: 210, bed3: 270, bed4: 330 }, // unused — carpet uses computeCarpetPrice
+  // unused — end_of_tenancy is priced entirely by EotQuoteWizard's
+  // Complete/Tailored packages (see the `if (isEot)` early return above);
+  // kept only so BASE_PRICES stays a total map over DeepServiceType.
   end_of_tenancy:    {
-    studio: EOT_BASE_PRICES_P.studio / 100,  // 229
-    bed1:   EOT_BASE_PRICES_P.bed1   / 100,  // 299
-    bed2:   EOT_BASE_PRICES_P.bed2   / 100,  // 369
-    bed3:   EOT_BASE_PRICES_P.bed3   / 100,  // 449
-    bed4:   EOT_BASE_PRICES_P.bed4   / 100,  // 549
+    studio: EOT_BASE_PRICES_P.studio / 100,  // 199
+    bed1:   EOT_BASE_PRICES_P.bed1   / 100,  // 249
+    bed2:   EOT_BASE_PRICES_P.bed2   / 100,  // 319
+    bed3:   EOT_BASE_PRICES_P.bed3   / 100,  // 379
+    bed4:   EOT_BASE_PRICES_P.bed4   / 100,  // 499
   },
   move_in: {
-    studio: MOVEIN_BASE_PRICES_P.studio / 100,  // 179
-    bed1:   MOVEIN_BASE_PRICES_P.bed1   / 100,  // 219
-    bed2:   MOVEIN_BASE_PRICES_P.bed2   / 100,  // 269
-    bed3:   MOVEIN_BASE_PRICES_P.bed3   / 100,  // 329
-    bed4:   MOVEIN_BASE_PRICES_P.bed4   / 100,  // 429
+    studio: MOVEIN_BASE_PRICES_P.studio / 100,  // 159
+    bed1:   MOVEIN_BASE_PRICES_P.bed1   / 100,  // 199
+    bed2:   MOVEIN_BASE_PRICES_P.bed2   / 100,  // 249
+    bed3:   MOVEIN_BASE_PRICES_P.bed3   / 100,  // 309
+    bed4:   MOVEIN_BASE_PRICES_P.bed4   / 100,  // 389
   },
   // after_builders uses "from" prices — BASE_PRICES is not used for quoting
   after_builders: {
@@ -141,13 +142,6 @@ const EOT_INCLUDED_ITEMS = [
   'Vacuuming, mopping, products and equipment',
 ] as const;
 
-const EOT_SCOPE_OPTIONS = [
-  { key: 'oven', label: 'Oven is already inspection-ready', credit: EOT_SCOPE_CREDITS_P.oven / 100 },
-  { key: 'fridge_freezer', label: 'Fridge/freezer is empty and inspection-ready', credit: EOT_SCOPE_CREDITS_P.fridge_freezer / 100 },
-  { key: 'cupboards', label: 'Empty cupboards are already inspection-ready', credit: EOT_SCOPE_CREDITS_P.cupboards / 100 },
-  { key: 'internal_windows', label: 'Internal windows are already inspection-ready', credit: EOT_SCOPE_CREDITS_P.internal_windows / 100 },
-] as const;
-
 const EOT_CARPET_BUNDLE_SCOPE: Record<SizeKey, string> = {
   studio: 'Main sleeping area carpet + hallway',
   bed1:   '1 bedroom carpet + hallway',
@@ -181,10 +175,20 @@ export interface BookingSelection {
     gutterType:       string;
     officeHours:      number;
     propertyType?:    'flat' | 'house';
-    eotScopeExclusions?: string[];
     // carpet-specific (optional, present only when deepService === 'carpet_upholstery')
     carpetCounts?:    CarpetCounts;
     carpetCondition?: CarpetCondition;
+    // end-of-tenancy specific (optional, present only when deepService === 'end_of_tenancy') —
+    // shape matches EotBookingResult['quoteConfig'] in EotQuoteWizard.tsx.
+    deepWcs?:         number;
+    isHouse?:         boolean;
+    eotPackage?:      'complete' | 'tailored';
+    tailoredAddOns?:  Record<string, boolean | number>;
+    rooms?:           { id: string; addonKey: string; floor: string; stairFlights?: number }[];
+    carpetRoomIds?:   string[];
+    condition?:       'normal' | 'heavy' | 'clutter' | 'biohazard';
+    parking?:         'yes' | 'no' | 'unsure';
+    congestionZone?:  boolean;
   };
 }
 
@@ -383,9 +387,6 @@ export default function QuoteCalculator({
   const [propertyType, setPropertyType] = useState<'flat' | 'house'>(
     () => _restore?.propertyType ?? 'flat',
   );
-  const [eotScopeExclusions, setEotScopeExclusions] = useState<string[]>(
-    () => _restore?.eotScopeExclusions ?? [],
-  );
   // "5+ Bedrooms" is a tailored-quote-only UI state, never a priced size —
   // it never reaches handleBookNow/checkout, mirroring the after-builders
   // and delicate-carpet manual-quote paths.
@@ -462,15 +463,6 @@ export default function QuoteCalculator({
     return addOnDefs.find((a) => a.key === key)?.price ?? 0;
   };
 
-  const eotScopeCredit = isEot
-    ? eotScopeCreditPence(
-        EOT_BASE_PRICES_P[deepSize],
-        eotScopeExclusions,
-      ) / 100
-    : 0;
-
-  const houseAdjustment = isEot && propertyType === 'house' ? EOT_HOUSE_ADJUSTMENT_P / 100 : 0;
-
   // Non-carpet price calculation
   const calcDeepOrOtherPrice = (): number => {
     if (isEot && eotTailoredQuote) return 0; // tailored quote — no fixed total
@@ -481,7 +473,7 @@ export default function QuoteCalculator({
         if (a.key === 'staircase') return s + STAIR_PRICES[Math.min(addOnCounts.staircase, 3)];
         return s + addOnCounts[a.key] * getAddOnPrice(a.key);
       }, 0);
-      return base + houseAdjustment + bathExtra + addOns - eotScopeCredit;
+      return base + bathExtra + addOns;
     }
     if (service === 'window') return Math.max(windowPrices[windowSize] ?? 35, MIN_CHARGE);
     if (service === 'gutter') return Math.max(gutterPrices[gutterType] ?? 75, MIN_CHARGE);
@@ -491,7 +483,6 @@ export default function QuoteCalculator({
 
   // The authoritative price used throughout the component
   const price = isCarpet ? (carpetResult?.finalTotal ?? 0) : calcDeepOrOtherPrice();
-  const eotStandardPrice = isEot ? price + eotScopeCredit : price;
 
   const rawPrice = (() => {
     if (service === 'window') return windowPrices[windowSize] ?? 35;
@@ -553,7 +544,7 @@ export default function QuoteCalculator({
           return '';
         }
         const label = carpetBundle!.source === 'promo' && promoCode
-          ? `Leaflet offer (${carpetBundle!.pct}% off)`
+          ? `Leaflet offer (${carpetBundle!.display})`
           : 'Same-visit bundle saving';
         return `• Items subtotal: £${carpetBundle!.preDiscount}\n• ${label}: −£${carpetBundle!.saving}\n`;
       })();
@@ -578,13 +569,7 @@ export default function QuoteCalculator({
           .filter((a) => !['oven', 'fridge', 'sofa', 'mattress'].includes(a.key) && addOnCounts[a.key] > 0)
           .map((a) => `${a.label}${addOnCounts[a.key] > 1 ? ` ×${addOnCounts[a.key]}` : ''}`)
           .join(', ');
-        const scopeLine = eotScopeExclusions.length > 0
-          ? ` Custom scope excludes: ${eotScopeExclusions.join(', ')}.`
-          : '';
-        const houseLine = propertyType === 'house'
-          ? ` House/maisonette adjustment: +£${EOT_HOUSE_ADJUSTMENT_P / 100}.`
-          : '';
-        extrasLine = `Complete package includes appliances, cupboards and internal windows${extras ? `; upgrades: ${extras}` : ''}.${houseLine}${scopeLine}`;
+        extrasLine = `Complete package includes appliances, cupboards and internal windows${extras ? `; upgrades: ${extras}` : ''}.`;
       } else {
         const extras = addOnDefs
           .filter((a) => addOnCounts[a.key] > 0)
@@ -625,7 +610,7 @@ export default function QuoteCalculator({
       const n = carpetResult?.totalItems ?? 0;
       return `Carpet & upholstery${n > 0 ? ` · ${n} item${n !== 1 ? 's' : ''}` : ''}`;
     }
-    return `${isEot && eotScopeCredit > 0 ? 'Custom end of tenancy' : DEEP_SERVICE_LABELS[deepService]} — ${deepSizeLabel}`;
+    return `${DEEP_SERVICE_LABELS[deepService]} — ${deepSizeLabel}`;
   })();
 
   const handleBookNow = () => {
@@ -634,7 +619,6 @@ export default function QuoteCalculator({
     // it — otherwise standardPrice - discountAmount would not equal price,
     // and the booking summary would show a saving the customer didn't get.
     const hasDiscount = carpetResult?.showSaving ?? false;
-    const hasEotScopeCredit = isEot && eotScopeCredit > 0;
     const minimumApplied = carpetResult?.minApplied ?? false;
     const sel: BookingSelection = {
       serviceName: bookingServiceName,
@@ -643,12 +627,11 @@ export default function QuoteCalculator({
         offerCode:      bundle!.source === 'promo' ? (promoCode ?? 'PROMO') : 'BUNDLE',
         standardPrice:  bundle!.preDiscount,
         discountAmount: bundle!.saving,
-        discountPercent: bundle!.pct,
-      } : hasEotScopeCredit ? {
-        offerCode:       'EOT_SCOPE',
-        standardPrice:   Math.round(eotStandardPrice),
-        discountAmount:  Math.round(eotScopeCredit),
-        discountPercent: Math.round((eotScopeCredit / eotStandardPrice) * 1000) / 10,
+        // Only a genuine percentage for the promo path — the bundle discount
+        // is a flat £ amount (item-count band), not a percentage.
+        ...(bundle!.source === 'promo' && bundle!.preDiscount > 0
+          ? { discountPercent: Math.round((bundle!.saving / bundle!.preDiscount) * 100) }
+          : {}),
       } : {}),
       ...(minimumApplied ? {
         minimumApplied:         true,
@@ -656,7 +639,7 @@ export default function QuoteCalculator({
       } : {}),
       quoteConfig: {
         service, deepService, deepSize, deepBaths, addOnCounts,
-        windowSize, gutterType, officeHours, propertyType, eotScopeExclusions,
+        windowSize, gutterType, officeHours, propertyType,
         ...(isCarpet ? { carpetCounts, carpetCondition } : {}),
       },
     };
@@ -688,13 +671,18 @@ export default function QuoteCalculator({
   const stableBook = useCallback(() => _bookRef.current(), []);
 
   useEffect(() => {
+    // The EOT wizard manages its own multi-step state and book action — the
+    // generic price/isReadyToBook computed above no longer reflects it once
+    // isEot is true (deepBaths/isHouse/etc. here are frozen at their
+    // pre-wizard defaults), so the sticky footer just scrolls to the wizard
+    // instead of showing a stale price or calling a stale book handler.
     setCtx({
-      state:  isManualQuote ? 'manual' : isReadyToBook ? 'bookable' : 'none',
+      state:  isEot ? 'none' : isManualQuote ? 'manual' : isReadyToBook ? 'bookable' : 'none',
       price:  Math.round(price),
       waLink,
       onBook: stableBook,
     });
-  }, [isManualQuote, isReadyToBook, price, waLink, stableBook, setCtx]);
+  }, [isEot, isManualQuote, isReadyToBook, price, waLink, stableBook, setCtx]);
 
   const handleBookWithValidation = () => {
     setBookError('Please choose at least one service first.');
@@ -792,7 +780,11 @@ export default function QuoteCalculator({
                     '£30 deposit handled securely by Stripe',
                     'Professional equipment and direct support',
                     '£5m public liability insurance',
-                    'Rated 5.0 by genuine Google reviewers',
+                    // Was "Rated 5.0 by genuine Google reviewers". No verified
+                    // rating exists in the project (see data/googleRating.ts),
+                    // so the claim is now only that the reviews are real and
+                    // public — which the profile link substantiates.
+                    'Genuine reviews on our public Google profile',
                   ].map((benefit) => (
                     <li key={benefit} className="flex items-start gap-3 text-sm leading-6 text-navy-800">
                       <CheckCircle2 size={17} className="mt-1 flex-none text-royal-600" />
@@ -802,6 +794,89 @@ export default function QuoteCalculator({
                 </ul>
               </aside>
             </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // ─── End of tenancy: dedicated multi-step wizard ──────────────────────────
+  // Replaces the generic single-panel configurator (and the retired
+  // exclusion-credit system above) entirely for this service — Complete/
+  // Tailored package comparison, floor-care per room and condition/access all
+  // need more room than the shared grid layout allows. Placed after every
+  // hook above has already run on every render (rules-of-hooks safe — this
+  // only changes what JSX is returned, never which hooks fire).
+  if (isEot) {
+    const eotRestoreConfig: EotBookingResult['quoteConfig'] | null = _restore && _restore.deepService === 'end_of_tenancy'
+      ? {
+          service: 'deep',
+          deepService: 'end_of_tenancy',
+          deepSize: _restore.deepSize,
+          deepBaths: _restore.deepBaths,
+          deepWcs: _restore.deepWcs ?? 0,
+          isHouse: _restore.isHouse ?? (_restore.propertyType === 'house'),
+          eotPackage: _restore.eotPackage ?? 'complete',
+          tailoredAddOns: {
+            microwaveInside: Boolean(_restore.tailoredAddOns?.microwaveInside),
+            fridgeFreezerInside: Boolean(_restore.tailoredAddOns?.fridgeFreezerInside),
+            extraFridgeFreezers: Number(_restore.tailoredAddOns?.extraFridgeFreezers) || 0,
+            dishwasherInside: Boolean(_restore.tailoredAddOns?.dishwasherInside),
+            washingMachineInside: Boolean(_restore.tailoredAddOns?.washingMachineInside),
+            cupboards: Boolean(_restore.tailoredAddOns?.cupboards),
+          },
+          addOnCounts: _restore.addOnCounts,
+          rooms: _restore.rooms ?? [],
+          carpetRoomIds: _restore.carpetRoomIds ?? [],
+          windowSize: _restore.windowSize ?? 'small',
+          gutterType: _restore.gutterType ?? 'terraced',
+          officeHours: _restore.officeHours ?? MIN_OFFICE_HOURS,
+          condition: _restore.condition ?? 'normal',
+        }
+      : null;
+
+    const handleWizardBook = (result: EotBookingResult) => {
+      trackBookingInitiated(result.serviceName);
+      if (onBook) {
+        onBook({ serviceName: result.serviceName, price: result.price, quoteConfig: result.quoteConfig });
+      } else {
+        sessionStorage.setItem('vve_booking', JSON.stringify({ serviceName: result.serviceName, price: result.price, quoteConfig: result.quoteConfig }));
+        navigate('/booking');
+      }
+    };
+
+    return (
+      <section id="quote" ref={ref} className={`${homepageMode ? 'bg-surface pb-20 pt-24 sm:pt-28' : 'bg-gradient-to-br from-navy-950 via-navy-900 to-navy-800 py-20'} scroll-mt-24`}>
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className={`text-center mb-8 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            {homepageMode ? (
+              <>
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-royal-700">Instant quote</p>
+                <h2 className="mb-3 font-display text-4xl font-bold text-navy-900 md:text-5xl">Get an instant quote</h2>
+              </>
+            ) : (
+              <>
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full border-2 border-white/40 px-4 py-1.5 text-white">
+                  <Calculator size={14} />
+                  <span className="text-xs font-semibold uppercase tracking-widest">Instant Pricing</span>
+                </div>
+                <h2 className="mb-3 font-display text-4xl font-bold text-white md:text-5xl">
+                  Get Your <span className="text-gradient-metallic">Instant Quote</span>
+                </h2>
+              </>
+            )}
+          </div>
+
+          <div className={`transition-all duration-700 delay-200 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            <EotQuoteWizard
+              onBook={handleWizardBook}
+              onChangeService={() => {
+                setDeepService('carpet_upholstery');
+                setAddOnCounts(Object.fromEntries(addOnDefs.map((a) => [a.key, 0])));
+                onHomepageServiceChange?.('carpet_upholstery');
+              }}
+              restoreConfig={eotRestoreConfig}
+            />
           </div>
         </div>
       </section>
@@ -1063,7 +1138,7 @@ export default function QuoteCalculator({
                       {/* Bundle savings info — hidden when a promo code already gives a better saving */}
                       {!promoCode && (
                         <p className="text-xs text-silver-700 leading-relaxed px-1">
-                          Book items together and save automatically — {CARPET_BUNDLE_TIERS.map((t) => `${t.display} over £${t.minP / 100}`).join(', ')}.
+                          Book items together and save automatically — {CARPET_BUNDLE_BANDS.filter((b) => b.amountP > 0).map((b) => `${b.display} at ${b.minItems}+ items`).join(', ')}.
                         </p>
                       )}
                     </>
@@ -1113,11 +1188,6 @@ export default function QuoteCalculator({
                                 </button>
                               ))}
                             </div>
-                            <p className="text-silver-600 text-[10px] mt-1.5">
-                              {propertyType === 'house'
-                                ? `Transparent +£${EOT_HOUSE_ADJUSTMENT_P / 100} house/maisonette adjustment — covers normal additional hallways, landing, internal staircase cleaning and movement between floors. Carpet steam cleaning for stairs remains a separate upgrade.`
-                                : `House / maisonette adds a transparent +£${EOT_HOUSE_ADJUSTMENT_P / 100} to cover normal additional hallways, landing, internal staircase cleaning and movement between floors.`}
-                            </p>
                           </fieldset>
                         </>
                       )}
@@ -1245,49 +1315,6 @@ export default function QuoteCalculator({
                               </div>
                             </div>
                           ))}
-
-                          <details className="rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden">
-                            <summary className="cursor-pointer list-none min-h-[44px] px-4 py-3 flex items-center justify-between gap-3 font-semibold text-sm text-navy-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600">
-                              <span>Already cleaned something? Reduce the scope</span>
-                              <span className="text-xs text-slate-500">Up to £30</span>
-                            </summary>
-                            <div className="border-t border-slate-200 p-4 space-y-3">
-                              <p className="text-xs leading-relaxed text-slate-600">
-                                Only select an item if it will be empty and inspection-ready before we arrive. Core cleaning cannot be removed.
-                              </p>
-                              {EOT_SCOPE_OPTIONS.map((option) => {
-                                const checked = eotScopeExclusions.includes(option.key);
-                                return (
-                                  <label
-                                    key={option.key}
-                                    className={`flex items-center justify-between gap-3 min-h-[44px] rounded-xl border px-3 py-2 cursor-pointer ${
-                                      checked ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white'
-                                    }`}
-                                  >
-                                    <span className="flex items-center gap-3">
-                                      <input
-                                        type="checkbox"
-                                        checked={checked}
-                                        onChange={() => setEotScopeExclusions((previous) => (
-                                          checked
-                                            ? previous.filter((key) => key !== option.key)
-                                            : [...previous, option.key]
-                                        ))}
-                                        className="w-5 h-5 accent-amber-600"
-                                      />
-                                      <span className="text-xs text-navy-800">{option.label}</span>
-                                    </span>
-                                    <span className="text-xs font-bold text-amber-700 whitespace-nowrap">−£{option.credit}</span>
-                                  </label>
-                                );
-                              })}
-                              {eotScopeCredit > 0 && (
-                                <div className="rounded-xl bg-amber-100 border border-amber-200 px-3 py-2 text-xs text-amber-900 leading-relaxed">
-                                  This is now a <strong>Custom EOT clean</strong>. Your £{eotScopeCredit} credit is applied, and removed items are excluded from the 48-hour re-clean guarantee.
-                                </div>
-                              )}
-                            </div>
-                          </details>
                         </>
                       ) : (
                         <div>
@@ -1444,7 +1471,7 @@ export default function QuoteCalculator({
                                 return `Carpet & upholstery · ${n} item${n !== 1 ? 's' : ''}`;
                               })()
                             : service === 'deep'
-                              ? `${isEot && eotScopeCredit > 0 ? 'Custom EOT' : DEEP_SERVICE_LABELS[deepService]} · ${deepSizeLabel} · ${deepBaths === 3 ? '3+' : deepBaths} Bath`
+                              ? `${DEEP_SERVICE_LABELS[deepService]} · ${deepSizeLabel} · ${deepBaths === 3 ? '3+' : deepBaths} Bath`
                               : serviceLabels[service]
                           }
                         </div>
@@ -1459,9 +1486,6 @@ export default function QuoteCalculator({
 
                       {/* Big price */}
                       <div className="text-center">
-                        {isEot && eotScopeCredit > 0 && (
-                          <div className="line-through text-silver-600 text-lg mb-1">£{Math.round(eotStandardPrice)}</div>
-                        )}
                         <div className="font-display font-bold leading-none" style={{ fontSize: '3.5rem', color: '#1a5c3a' }}>
                           {isCarpet && carpetCondition === 'heavy' ? '~' : ''}£{Math.round(price)}
                         </div>
@@ -1473,11 +1497,6 @@ export default function QuoteCalculator({
                             {carpetResult!.bundle.source === 'promo'
                               ? `Leaflet offer — you save £${carpetResult!.bundle.saving}`
                               : `Same-visit bundle saving — you save £${carpetResult!.bundle.saving}`}
-                          </div>
-                        )}
-                        {isEot && eotScopeCredit > 0 && (
-                          <div className="mt-1.5 inline-flex items-center gap-1.5 bg-amber-100 border border-amber-300 text-amber-900 text-xs font-semibold px-3 py-1 rounded-full">
-                            Custom-scope credit · £{eotScopeCredit} off
                           </div>
                         )}
                       </div>
@@ -1510,20 +1529,18 @@ export default function QuoteCalculator({
                         </div>
                       )}
 
-                      {/* Next-tier nudge — hidden when a promo already beats all tiers */}
-                      {isCarpet && (carpetResult?.bundle.toNextTier ?? 0) > 0 && carpetResult!.bundle.source !== 'promo' && (
+                      {/* Next-band nudge — hidden when a promo already beats all bands */}
+                      {isCarpet && (carpetResult?.bundle.toNextBand ?? 0) > 0 && carpetResult!.bundle.source !== 'promo' && (
                         <div className="text-center text-xs font-medium mt-1.5" style={{ color: '#1e6b42' }}>
-                          Add £{carpetResult!.bundle.toNextTier} more to unlock {carpetResult!.bundle.nextTierPct}% off
+                          Add {carpetResult!.bundle.toNextBand} more item{carpetResult!.bundle.toNextBand !== 1 ? 's' : ''} to save £{carpetResult!.bundle.nextBandSaving}
                         </div>
                       )}
 
 
-                      {/* Non-carpet subtitle */}
+                      {/* Non-carpet subtitle — end_of_tenancy never reaches this render path;
+                          isEot routes to EotQuoteWizard via the early return above. */}
                       {!isCarpet && service === 'deep' && (
                         <div className="text-center mt-3 text-sm" style={{ color: '#4a7a62' }}>
-                          {deepService === 'end_of_tenancy'
-                            ? `${eotScopeCredit > 0 ? 'Custom scope' : 'Everything essential included'} · `
-                            : ''}
                           48hr re-clean guarantee
                         </div>
                       )}
@@ -1634,11 +1651,6 @@ export default function QuoteCalculator({
                   £{carpetResult!.bundle.preDiscount}
                 </div>
               )}
-              {isEot && eotScopeCredit > 0 && (
-                <div className="text-silver-400 text-base line-through mb-0.5">
-                  £{Math.round(eotStandardPrice)}
-                </div>
-              )}
               <div className="text-5xl font-bold font-display text-white mb-1 transition-all duration-300">
                 {isAfterBuilders
                   ? `From £${AFTER_BUILDERS_START_FROM_P / 100}`
@@ -1666,9 +1678,7 @@ export default function QuoteCalculator({
                       const n = carpetResult?.totalItems ?? 0;
                       return n > 0 ? `Carpet & upholstery · ${n} item${n !== 1 ? 's' : ''}` : 'Carpet & upholstery';
                     })()
-                  : isEot && eotScopeCredit > 0
-                    ? 'Custom end of tenancy clean'
-                    : serviceLabels[service]}
+                  : serviceLabels[service]}
               </div>
 
               {/* Deposit split — shown whenever there's a bookable price */}
@@ -1789,7 +1799,7 @@ export default function QuoteCalculator({
                   <div className="space-y-2">
                     <p className="text-silver-200 text-xs leading-relaxed">
                       Service: <span className="text-white font-semibold">
-                        {isEot && eotScopeCredit > 0 ? 'Custom EOT' : serviceLabels[service]}
+                        {serviceLabels[service]}
                       </span>
                       {service === 'deep' && (
                         <>
@@ -1821,12 +1831,6 @@ export default function QuoteCalculator({
                             </div>
                           ))}
                         </div>
-                        {propertyType === 'house' && (
-                          <div className="flex justify-between gap-3 border-t border-white/10 pt-2 text-[11px]">
-                            <span className="text-silver-300">House/maisonette adjustment</span>
-                            <span className="text-white font-semibold">+£{EOT_HOUSE_ADJUSTMENT_P / 100}</span>
-                          </div>
-                        )}
                         {Object.entries(addOnCounts).some(([key, count]) => (
                           count > 0 && !['oven', 'fridge', 'sofa', 'mattress'].includes(key)
                         )) && (
@@ -1846,12 +1850,6 @@ export default function QuoteCalculator({
                                   </span>
                                 </div>
                               ))}
-                          </div>
-                        )}
-                        {eotScopeCredit > 0 && (
-                          <div className="flex justify-between gap-3 border-t border-white/10 pt-2 text-[11px]">
-                            <span className="text-amber-300">Custom-scope credit</span>
-                            <span className="text-amber-300 font-semibold">−£{eotScopeCredit}</span>
                           </div>
                         )}
                       </>

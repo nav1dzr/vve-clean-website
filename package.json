@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/sync-admin-pricing.mjs",
     "build": "vite build && vite build --ssr src/entry-server.tsx --outDir dist/server && node prerender.mjs",
+    "sync-admin-pricing": "node scripts/sync-admin-pricing.mjs",
+    "pretest": "node scripts/sync-admin-pricing.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",

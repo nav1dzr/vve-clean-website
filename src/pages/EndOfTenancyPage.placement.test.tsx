@@ -36,17 +36,17 @@ function renderPage() {
 // final CTA. The generic homepage-style Gallery block and its duplicate proof
 // content are intentionally omitted on this page.
 describe('EndOfTenancyPage — approved section order and real media', () => {
-  it('places the complete EOT quote calculator directly after the hero, with a working CTA href', () => {
+  it('places the EOT quote wizard directly after the hero, with a working CTA href', () => {
     renderPage();
 
-    expect(screen.getByRole('heading', { name: /Build your complete quote/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Get Your Instant Quote/i })).toBeInTheDocument();
 
-    const heroCta = screen.getAllByRole('link', { name: 'Build my complete quote' })[0];
+    const heroCta = screen.getAllByRole('link', { name: 'Build my quote' })[0];
     expect(heroCta).toHaveAttribute('href', '/end-of-tenancy-cleaning-london#quote');
 
     const positions = Array.from(document.querySelectorAll('h1, h2')).map((el) => el.textContent);
-    const h1Index = positions.findIndex((t) => t?.includes('Complete End of Tenancy Cleaning London'));
-    const quoteHeadingIndex = positions.findIndex((t) => t?.includes('Build your complete quote'));
+    const h1Index = positions.findIndex((t) => t?.includes('End of Tenancy Cleaning London'));
+    const quoteHeadingIndex = positions.findIndex((t) => t?.includes('Get Your'));
     expect(h1Index).toBeGreaterThanOrEqual(0);
     expect(quoteHeadingIndex).toBeGreaterThan(h1Index);
     expect(quoteHeadingIndex - h1Index).toBeLessThanOrEqual(1);
@@ -58,14 +58,14 @@ describe('EndOfTenancyPage — approved section order and real media', () => {
     const positions = Array.from(document.querySelectorAll('h1, h2')).map((el) => el.textContent ?? '');
     const indexOf = (needle: string) => positions.findIndex((t) => t.includes(needle));
 
-    const hero      = indexOf('Complete End of Tenancy Cleaning London');
-    const quote     = indexOf('Build your complete quote');
+    const hero      = indexOf('End of Tenancy Cleaning London');
+    const quote     = indexOf('Get Your');
     const media     = indexOf('See the difference');
     const reviews   = indexOf('Rated by London customers on Google');
     const benefits  = indexOf('Why tenants and landlords choose VVE Clean');
-    const intro     = indexOf('One complete clean');
-    const why       = indexOf('What every end of tenancy clean includes');
-    const pricing   = indexOf('Complete fixed prices by property size');
+    const intro     = indexOf('The clean your agent actually checks for');
+    const why       = indexOf('What every Complete end of tenancy clean includes');
+    const pricing   = indexOf('Fixed end of tenancy cleaning prices');
     const faq       = indexOf('Common questions');
 
     for (const idx of [hero, quote, media, reviews, benefits, intro, why, pricing, faq]) {

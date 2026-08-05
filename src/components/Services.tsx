@@ -5,6 +5,12 @@ import {
   EOT_BASE_PRICES_P,
   MOVEIN_BASE_PRICES_P,
   AFTER_BUILDERS_START_FROM_P,
+  CARPET_MIN_BOOKING_P,
+  WINDOW_CLEANING_FROM_P,
+  WINDOW_CLEANING_SCOPE,
+  GARDEN_SERVICES_FROM_P,
+  PRESSURE_WASHING_FROM_P,
+  EOT_GUARANTEE_HOURS,
 } from '../data/pricing';
 
 const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
@@ -15,7 +21,7 @@ const services = [
     price: `FROM £${EOT_BASE_PRICES_P.studio / 100} FIXED`,
     priceFixed: true,
     description:
-      'Vacant properties only. Complete package with oven, emptied fridge/defrosted freezer, inside cupboards, descaled bathrooms and internal windows included. 48-hour re-clean guarantee.',
+      `Vacant properties only. Our 67-point agency checklist: inside cupboards, appliances, oven included free, bathrooms descaled, internal windows. ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee.`,
     cta: 'Get your price →',
     ctaHref: '#quote',
     featured: true,
@@ -47,7 +53,7 @@ const services = [
   },
   {
     title: 'Carpet & upholstery',
-    price: 'FROM £85',
+    price: `FROM £${CARPET_MIN_BOOKING_P / 100}`,
     priceFixed: false,
     description:
       'Professional hot-water extraction for carpets, rugs and sofas. Removes stains, odours and allergens. Dry in hours, not days.',
@@ -69,10 +75,10 @@ const services = [
   },
   {
     title: 'Window cleaning',
-    price: 'FROM £45',
+    price: `FROM £${WINDOW_CLEANING_FROM_P / 100}`,
     priceFixed: false,
     description:
-      'Interior and exterior, streak-free, up to second-floor reach. Add to any clean or book on its own.',
+      `${WINDOW_CLEANING_SCOPE} Add to any clean or book on its own.`,
     cta: 'Get your price →',
     ctaHref: '#quote',
     featured: false,
@@ -80,7 +86,7 @@ const services = [
   },
   {
     title: 'Pressure washing',
-    price: 'FROM £120',
+    price: `FROM £${PRESSURE_WASHING_FROM_P / 100}`,
     priceFixed: false,
     description:
       'Driveways, patios, decking, paths and bin areas jet-washed back to their original colour. Instant kerb-appeal for sales and lettings.',
@@ -92,7 +98,7 @@ const services = [
   },
   {
     title: 'Garden services',
-    price: 'FROM £45',
+    price: `FROM £${GARDEN_SERVICES_FROM_P / 100}`,
     priceFixed: false,
     description:
       'Lawn mowing, hedge trimming, weeding and garden tidy-ups with green-waste removal. Send a photo of your garden — priced in minutes.',

@@ -52,7 +52,12 @@ const DEPOSIT      = 30;
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function money(n: number) {
-  return '£' + Math.round(n).toLocaleString('en-GB');
+  // Guard against float noise (e.g. 47.500000000001) without ever rounding a
+  // genuine .50 to a whole pound — every EOT/carpet total must display the
+  // exact pence value the customer is actually charged.
+  const rounded = Math.round(n * 100) / 100;
+  const hasPence = Math.abs(rounded % 1) > 1e-9;
+  return '£' + rounded.toLocaleString('en-GB', { minimumFractionDigits: hasPence ? 2 : 0, maximumFractionDigits: 2 });
 }
 
 function validEmail(v: string)    { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
@@ -233,7 +238,7 @@ function ServiceCard({ selection, onChangeService }: {
             <span>
               {isLeaflet
                 ? `Leaflet discount ${selection.discountPercent ?? 20}%`
-                : `Bundle saving ${selection.discountPercent ?? 0}%`}
+                : 'Same-visit bundle saving'}
             </span>
             <span>−{money(selection.discountAmount ?? 0)}</span>
           </div>

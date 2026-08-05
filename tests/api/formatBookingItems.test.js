@@ -12,7 +12,7 @@ describe('formatBookingItemLines — carpet & upholstery', () => {
       deepService: 'carpet_upholstery',
       carpetCounts: { mattress_double: 1, sofa_3: 1 },
     });
-    expect(lines).toEqual(['1 × 3-seater sofa', '1 × Mattress (double/king)']);
+    expect(lines).toEqual(['1 × 3-seater sofa', '1 × Mattress (double)']);
   });
 
   it('lists rooms, stairs and rugs with correct quantities', () => {
@@ -63,70 +63,53 @@ describe('formatBookingItemLines — carpet & upholstery', () => {
 });
 
 describe('formatBookingItemLines — end of tenancy / deep clean', () => {
-  it('shows property type, size, bathroom count and complete-package inclusions', () => {
+  it('shows property size, bathroom count and included-free oven, with the Complete package named', () => {
     const lines = formatBookingItemLines({
       service: 'deep',
       deepService: 'end_of_tenancy',
       deepSize: 'bed2',
       deepBaths: 1,
-      propertyType: 'flat',
       addOnCounts: {},
+      eotPackage: 'complete',
     });
-    expect(lines).toEqual([
-      'End of tenancy — Flat, 2 Bed, 1 bathroom',
-      'Oven, fridge/freezer, cupboards and internal windows included',
-    ]);
+    expect(lines).toEqual(['End of tenancy (Complete Agency-Ready Clean) — 2 Bed, 1 bathroom', 'Inside oven (included free)']);
   });
 
-  it('lists selected add-ons for end of tenancy', () => {
+  it('lists selected add-ons for end of tenancy — fridge is excluded (covered by Tailored add-ons / included in Complete)', () => {
     const lines = formatBookingItemLines({
       service: 'deep',
       deepService: 'end_of_tenancy',
       deepSize: 'bed3',
       deepBaths: 2,
-      propertyType: 'house',
-      addOnCounts: { ext_windows: 1, fridge: 1, staircase: 1 },
+      addOnCounts: { ext_windows: 1, fridge: 1 },
+      eotPackage: 'complete',
     });
     expect(lines).toEqual([
-      'End of tenancy — House, 3 Bed, 2 bathrooms',
-      'Oven, fridge/freezer, cupboards and internal windows included',
-      'House/maisonette adjustment: +£35 — covers normal additional hallways, landing, internal staircase cleaning and movement between floors',
+      'End of tenancy (Complete Agency-Ready Clean) — 3 Bed, 2 bathrooms',
+      'Inside oven (included free)',
       '1 × Exterior windows',
-      '1 × Flights of stairs',
     ]);
   });
 
-  it('records custom-scope exclusions separately from included items', () => {
+  it('names the Tailored package and lists selected internal add-ons, house adjustment and extra WCs', () => {
     const lines = formatBookingItemLines({
       service: 'deep',
       deepService: 'end_of_tenancy',
       deepSize: 'bed1',
       deepBaths: 1,
-      propertyType: 'flat',
-      eotScopeExclusions: ['oven', 'internal_windows'],
+      deepWcs: 1,
+      isHouse: true,
+      eotPackage: 'tailored',
       addOnCounts: {},
+      tailoredAddOns: { fridgeFreezerInside: true, extraFridgeFreezers: 2, dishwasherInside: false },
     });
     expect(lines).toEqual([
-      'End of tenancy — Flat, 1 Bed, 1 bathroom',
-      'Oven, fridge/freezer, cupboards and internal windows included',
-      'Custom scope excludes: oven, internal windows',
-    ]);
-  });
-
-  it('itemises EOT upholstery and mattress upgrades', () => {
-    const lines = formatBookingItemLines({
-      service: 'deep',
-      deepService: 'end_of_tenancy',
-      deepSize: 'bed1',
-      deepBaths: 1,
-      propertyType: 'flat',
-      addOnCounts: { eot_sofa_2: 1, eot_mattress_double: 1 },
-    });
-    expect(lines).toEqual([
-      'End of tenancy — Flat, 1 Bed, 1 bathroom',
-      'Oven, fridge/freezer, cupboards and internal windows included',
-      '1 × 2-seater sofa steam clean',
-      '1 × Double / king mattress steam clean',
+      'End of tenancy (Tailored Checklist Clean) — 1 Bed, 1 bathroom',
+      'House / maisonette adjustment',
+      '1 × Additional separate WC',
+      'Inside oven (included free)',
+      'Inside fridge/freezer',
+      '2 × Additional fridge/freezer',
     ]);
   });
 
@@ -153,12 +136,13 @@ describe('formatBookingItemLines — house/maisonette adjustment', () => {
       deepService: 'end_of_tenancy',
       deepSize: 'bed4',
       deepBaths: 1,
-      propertyType: 'flat',
+      isHouse: false,
       addOnCounts: {},
+      eotPackage: 'complete',
     });
     expect(lines).toEqual([
-      'End of tenancy — Flat, 4 Bed, 1 bathroom',
-      'Oven, fridge/freezer, cupboards and internal windows included',
+      'End of tenancy (Complete Agency-Ready Clean) — 4 Bed, 1 bathroom',
+      'Inside oven (included free)',
     ]);
   });
 });

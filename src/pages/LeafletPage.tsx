@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Shield, Star } from 'lucide-react';
 import QuoteCalculator, { type BookingSelection } from '../components/QuoteCalculator';
-import { setLeafletAttribution } from '../lib/attribution';
+import { markLeafletVisit } from '../lib/attribution';
 import { DISCOUNT_MIN_NOTE } from '../data/carpetPricing';
 
 const WA_NUMBER = '447845451111';
@@ -55,8 +55,12 @@ function LeafletHeader() {
 export default function LeafletPage() {
   const navigate = useNavigate();
 
+  // Writes the discount this leaflet promised straight away — that is what the
+  // visitor scanned the QR code to get, and withholding it pending a cookie
+  // choice would break the offer. The campaign/source half is held in memory
+  // and written only if advertising consent is given; see lib/attribution.ts.
   useEffect(() => {
-    setLeafletAttribution();
+    markLeafletVisit();
   }, []);
 
   const handleBook = (sel: BookingSelection) => {

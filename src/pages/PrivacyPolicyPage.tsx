@@ -70,6 +70,12 @@ const sections: Section[] = [
             'Messages and notes you send us when requesting a quote or support',
             'Photos you share to help us assess a job or provide a quote',
             'Website usage data where analytics or advertising tracking is in use (see Section 7)',
+            // Attribution capture moved from /leaflet only to every public
+            // route, so the policy now describes it explicitly rather than
+            // leaving it to the general "website usage data" line above. It is
+            // advertising storage, not essential storage — the wording has to
+            // say so, and Section 7 has to match.
+            'How you reached our website — for example the advertising campaign, search click or link you arrived from. This is only stored on your device if you accept advertising cookies, and is only sent to us, attached to your booking, if you go on to make one',
           ].map((item) => (
             <li key={item} className="flex items-start gap-2.5 text-silver-700">
               <span className="w-1.5 h-1.5 rounded-full bg-royal-500 flex-shrink-0 mt-2" />
@@ -202,8 +208,9 @@ const sections: Section[] = [
           Some storage on your device is required for the website to work at all, and is not switched off by
           your cookie choice. This includes: remembering your quote and booking selections as you move between
           pages, restoring your booking details if you leave and come back, keeping your visit to our booking
-          and payment pages working correctly, and remembering which leaflet or advert brought you to the site
-          so we can honour any associated discount. None of this is used for advertising on its own.
+          and payment pages working correctly, and remembering a discount code you have asked us to apply — for
+          example the 20% offer from one of our leaflets — so that we can honour it when you book. None of this
+          is used for advertising or measurement.
         </p>
 
         <h3 className="font-semibold text-navy-900 text-sm mt-5 mb-2">Analytics storage (optional)</h3>
@@ -215,7 +222,13 @@ const sections: Section[] = [
         <h3 className="font-semibold text-navy-900 text-sm mt-5 mb-2">Advertising storage (optional)</h3>
         <p>
           If you agree, we allow Google to use advertising storage to measure and improve the relevance of our
-          adverts (for example, Google Ads). This is switched off until you agree to it.
+          adverts (for example, Google Ads). We also record on your device how you reached our site — the
+          advertising campaign, search click or link you arrived from — so that if you go on to book, we can
+          tell which adverts actually bring us work. That record is attached to your booking and sent to us only
+          at the point you submit it; it is never sent while you are simply browsing, and it is never shown on
+          the page. All of this is switched off until you agree to it. If you refuse, or later withdraw your
+          agreement using <CookieSettingsLink />, we store none of it and delete anything already stored — your
+          quote, your booking and any discount you were promised carry on working exactly as before.
         </p>
 
         <h3 className="font-semibold text-navy-900 text-sm mt-5 mb-2">Google Consent Mode</h3>

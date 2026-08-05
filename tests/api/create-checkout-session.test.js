@@ -186,9 +186,10 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
 
     expect(res.statusCode).toBe(200);
     const call = sessionsCreateMock.mock.calls[0][0];
-    // The existing £90 minimum booking charge applies before access costs:
-    // £90 + £15 parking + £18 congestion = £123.
-    expect(call.metadata.price).toBe('123');
+    // Medium window clean is £85 (the true achievable floor, not a
+    // misleading "from" figure with a separate higher general minimum):
+    // £85 + £15 parking + £18 congestion = £118.
+    expect(call.metadata.price).toBe('118');
   });
 
   it('rejects a request where termsAccepted is not true, before creating a Stripe session', async () => {
@@ -271,7 +272,7 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
     const call = sessionsCreateMock.mock.calls[0][0];
     expect(call.metadata.service_detail).toBe(
       '1 × 3-seater sofa\n'
-      + '1 × Mattress (double/king)\n'
+      + '1 × Mattress (double)\n'
       + 'Parking: free parking available — £0\n'
       + 'Congestion Charge zone: no — £0',
     );
