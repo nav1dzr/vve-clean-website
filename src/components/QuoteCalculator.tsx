@@ -23,7 +23,6 @@ import {
   EOT_EXTRA_WC_P,
   EOT_EXTRA_AREAS_P,
   EOT_CARPET_BUNDLE_P,
-  EOT_HOUSE_ADJUSTMENT_P,
   MOVEIN_BASE_PRICES_P,
   MOVEIN_EXTRA_BATH_P,
   AFTER_BUILDERS_FROM_PRICES_P,
@@ -464,8 +463,6 @@ export default function QuoteCalculator({
     return addOnDefs.find((a) => a.key === key)?.price ?? 0;
   };
 
-  const houseAdjustment = isEot && propertyType === 'house' ? EOT_HOUSE_ADJUSTMENT_P / 100 : 0;
-
   // Non-carpet price calculation
   const calcDeepOrOtherPrice = (): number => {
     if (isEot && eotTailoredQuote) return 0; // tailored quote — no fixed total
@@ -476,7 +473,7 @@ export default function QuoteCalculator({
         if (a.key === 'staircase') return s + STAIR_PRICES[Math.min(addOnCounts.staircase, 3)];
         return s + addOnCounts[a.key] * getAddOnPrice(a.key);
       }, 0);
-      return base + houseAdjustment + bathExtra + addOns;
+      return base + bathExtra + addOns;
     }
     if (service === 'window') return Math.max(windowPrices[windowSize] ?? 35, MIN_CHARGE);
     if (service === 'gutter') return Math.max(gutterPrices[gutterType] ?? 75, MIN_CHARGE);
@@ -572,10 +569,7 @@ export default function QuoteCalculator({
           .filter((a) => !['oven', 'fridge', 'sofa', 'mattress'].includes(a.key) && addOnCounts[a.key] > 0)
           .map((a) => `${a.label}${addOnCounts[a.key] > 1 ? ` ×${addOnCounts[a.key]}` : ''}`)
           .join(', ');
-        const houseLine = propertyType === 'house'
-          ? ` House/maisonette adjustment: +£${EOT_HOUSE_ADJUSTMENT_P / 100}.`
-          : '';
-        extrasLine = `Complete package includes appliances, cupboards and internal windows${extras ? `; upgrades: ${extras}` : ''}.${houseLine}`;
+        extrasLine = `Complete package includes appliances, cupboards and internal windows${extras ? `; upgrades: ${extras}` : ''}.`;
       } else {
         const extras = addOnDefs
           .filter((a) => addOnCounts[a.key] > 0)
@@ -824,6 +818,7 @@ export default function QuoteCalculator({
           isHouse: _restore.isHouse ?? (_restore.propertyType === 'house'),
           eotPackage: _restore.eotPackage ?? 'complete',
           tailoredAddOns: {
+            microwaveInside: Boolean(_restore.tailoredAddOns?.microwaveInside),
             fridgeFreezerInside: Boolean(_restore.tailoredAddOns?.fridgeFreezerInside),
             extraFridgeFreezers: Number(_restore.tailoredAddOns?.extraFridgeFreezers) || 0,
             dishwasherInside: Boolean(_restore.tailoredAddOns?.dishwasherInside),
@@ -1193,11 +1188,6 @@ export default function QuoteCalculator({
                                 </button>
                               ))}
                             </div>
-                            <p className="text-silver-600 text-[10px] mt-1.5">
-                              {propertyType === 'house'
-                                ? `Transparent +£${EOT_HOUSE_ADJUSTMENT_P / 100} house/maisonette adjustment — covers normal additional hallways, landing, internal staircase cleaning and movement between floors. Carpet steam cleaning for stairs remains a separate upgrade.`
-                                : `House / maisonette adds a transparent +£${EOT_HOUSE_ADJUSTMENT_P / 100} to cover normal additional hallways, landing, internal staircase cleaning and movement between floors.`}
-                            </p>
                           </fieldset>
                         </>
                       )}
@@ -1841,12 +1831,6 @@ export default function QuoteCalculator({
                             </div>
                           ))}
                         </div>
-                        {propertyType === 'house' && (
-                          <div className="flex justify-between gap-3 border-t border-white/10 pt-2 text-[11px]">
-                            <span className="text-silver-300">House/maisonette adjustment</span>
-                            <span className="text-white font-semibold">+£{EOT_HOUSE_ADJUSTMENT_P / 100}</span>
-                          </div>
-                        )}
                         {Object.entries(addOnCounts).some(([key, count]) => (
                           count > 0 && !['oven', 'fridge', 'sofa', 'mattress'].includes(key)
                         )) && (

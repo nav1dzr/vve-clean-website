@@ -4,9 +4,10 @@ import {
   CARPET_MIN_BOOKING_P,
   EOT_COMPLETE_PRICES_P,
   EOT_TAILORED_START_PRICES_P,
+  EOT_PRICES_P,
+  eotPropertySizeValid,
   EOT_EXTRA_BATH_P,
   EOT_EXTRA_WC_P,
-  EOT_HOUSE_ADJUSTMENT_P,
   EOT_GUARANTEE_HOURS,
   EOT_CARPET_ADDON_PRICES_P,
   EOT_TAILORED_ADDON_PRICES_P,
@@ -45,33 +46,23 @@ import { computeCarpetPrice, CARPET_MIN_BOOKING } from './carpetPricing';
 
 // ─── Canonical price values ───────────────────────────────────────────────────
 
-describe('EOT Complete package — canonical values in pence', () => {
+describe('EOT price matrix — flat, explicit canonical values in pence', () => {
   it.each([
-    ['studio', 19900],
-    ['bed1',   24900],
-    ['bed2',   31900],
-    ['bed3',   37900],
-    ['bed4',   49900],
-  ])('%s is %ip', (key, expected) => {
-    expect(EOT_COMPLETE_PRICES_P[key as keyof typeof EOT_COMPLETE_PRICES_P]).toBe(expected);
+    ['studio', 15900, 22000],
+    ['bed1',   19900, 27900],
+    ['bed2',   25900, 33900],
+    ['bed3',   31900, 40900],
+    ['bed4',   41900, 52900],
+  ])('%s — Tailored %ip, Complete %ip', (key, tailored, complete) => {
+    expect(EOT_PRICES_P.flat[key as keyof typeof EOT_PRICES_P.flat].tailored).toBe(tailored);
+    expect(EOT_PRICES_P.flat[key as keyof typeof EOT_PRICES_P.flat].complete).toBe(complete);
+    expect(EOT_TAILORED_START_PRICES_P[key as keyof typeof EOT_TAILORED_START_PRICES_P]).toBe(tailored);
+    expect(EOT_COMPLETE_PRICES_P[key as keyof typeof EOT_COMPLETE_PRICES_P]).toBe(complete);
   });
 
   it('extra bath is £40 (4000p)', () => expect(EOT_EXTRA_BATH_P).toBe(4000));
   it('extra WC is £20 (2000p)', () => expect(EOT_EXTRA_WC_P).toBe(2000));
-  it('house/maisonette adjustment is £30 (3000p)', () => expect(EOT_HOUSE_ADJUSTMENT_P).toBe(3000));
   it('guarantee window is 72 hours', () => expect(EOT_GUARANTEE_HOURS).toBe(72));
-});
-
-describe('EOT Tailored package — canonical starting values in pence', () => {
-  it.each([
-    ['studio', 15900],
-    ['bed1',   19900],
-    ['bed2',   25900],
-    ['bed3',   31900],
-    ['bed4',   41900],
-  ])('%s is %ip', (key, expected) => {
-    expect(EOT_TAILORED_START_PRICES_P[key as keyof typeof EOT_TAILORED_START_PRICES_P]).toBe(expected);
-  });
 
   it('every Tailored starting price is below the equivalent Complete price', () => {
     for (const key of Object.keys(EOT_TAILORED_START_PRICES_P) as (keyof typeof EOT_TAILORED_START_PRICES_P)[]) {
@@ -79,7 +70,8 @@ describe('EOT Tailored package — canonical starting values in pence', () => {
     }
   });
 
-  it('Tailored add-on prices', () => {
+  it('Tailored add-on prices, including the microwave', () => {
+    expect(EOT_TAILORED_ADDON_PRICES_P.microwave_inside).toBe(1000);
     expect(EOT_TAILORED_ADDON_PRICES_P.fridge_freezer_inside).toBe(2500);
     expect(EOT_TAILORED_ADDON_PRICES_P.extra_fridge_freezer).toBe(1500);
     expect(EOT_TAILORED_ADDON_PRICES_P.dishwasher_inside).toBe(1000);
@@ -94,12 +86,47 @@ describe('EOT Tailored package — canonical starting values in pence', () => {
     expect(EOT_TAILORED_CUPBOARDS_PRICES_P.bed4).toBe(5500);
   });
 
-  it('building every Tailored add-on never costs less than Complete stays a better/equal deal at bed2', () => {
-    // Complete bed2 = 31900p. Tailored bed2 (25900) + every add-on
-    // (2500 + 1000 + 1000 + 3500 = 8000) = 33900p — Complete is cheaper,
-    // which is exactly when the "switch to Complete" nudge should fire.
-    const tailoredFull = EOT_TAILORED_START_PRICES_P.bed2 + 2500 + 1000 + 1000 + EOT_TAILORED_CUPBOARDS_PRICES_P.bed2;
+  it('building every Tailored add-on (including microwave) can reach or exceed Complete at bed2', () => {
+    // Complete bed2 = 33900p. Tailored bed2 (25900) + every add-on
+    // (1000 microwave + 2500 + 1000 + 1000 + 3500 cupboards = 9000) = 34900p
+    // — Complete is cheaper, which is exactly when shouldOfferComplete fires.
+    const tailoredFull = EOT_TAILORED_START_PRICES_P.bed2
+      + EOT_TAILORED_ADDON_PRICES_P.microwave_inside
+      + EOT_TAILORED_ADDON_PRICES_P.fridge_freezer_inside
+      + EOT_TAILORED_ADDON_PRICES_P.dishwasher_inside
+      + EOT_TAILORED_ADDON_PRICES_P.washing_machine_inside
+      + EOT_TAILORED_CUPBOARDS_PRICES_P.bed2;
     expect(tailoredFull).toBeGreaterThanOrEqual(EOT_COMPLETE_PRICES_P.bed2);
+  });
+});
+
+describe('EOT price matrix — house/maisonette, explicit canonical values (never flat + a blanket adjustment)', () => {
+  it.each([
+    ['bed1', 23900, 31900],
+    ['bed2', 30900, 39900],
+    ['bed3', 38900, 49900],
+    ['bed4', 49900, 62900],
+  ])('%s — Tailored %ip, Complete %ip', (key, tailored, complete) => {
+    expect(EOT_PRICES_P.house[key as 'bed1' | 'bed2' | 'bed3' | 'bed4']!.tailored).toBe(tailored);
+    expect(EOT_PRICES_P.house[key as 'bed1' | 'bed2' | 'bed3' | 'bed4']!.complete).toBe(complete);
+  });
+
+  it('has no studio entry — house/maisonette studios are always a manual quotation', () => {
+    expect(EOT_PRICES_P.house.studio).toBeUndefined();
+    expect(eotPropertySizeValid('house', 'studio')).toBe(false);
+    expect(eotPropertySizeValid('flat', 'studio')).toBe(true);
+  });
+
+  it('every house price is genuinely higher than the equivalent flat price, not derived from a flat + surcharge formula', () => {
+    for (const key of ['bed1', 'bed2', 'bed3', 'bed4'] as const) {
+      expect(EOT_PRICES_P.house[key]!.tailored).toBeGreaterThan(EOT_PRICES_P.flat[key].tailored);
+      expect(EOT_PRICES_P.house[key]!.complete).toBeGreaterThan(EOT_PRICES_P.flat[key].complete);
+      // Not simply "flat + a constant" — the gap varies by size, confirming
+      // these are independent, explicit catalogue entries.
+    }
+    const gapBed1 = EOT_PRICES_P.house.bed1!.complete - EOT_PRICES_P.flat.bed1.complete;
+    const gapBed4 = EOT_PRICES_P.house.bed4!.complete - EOT_PRICES_P.flat.bed4.complete;
+    expect(gapBed1).not.toBe(gapBed4);
   });
 });
 
@@ -285,21 +312,21 @@ describe('SAME_DAY_POLICY_SHORT — no automated surcharge', () => {
 describe('calculateEotQuote — Complete package', () => {
   it('studio, flat, 1 bathroom, no WCs', () => {
     const r = calculateEotQuote({ size: 'studio', package: 'complete', isHouse: false, extraBathrooms: 0, extraWcs: 0 });
-    expect(r.totalP).toBe(19900);
+    expect(r.totalP).toBe(22000);
     expect(r.guaranteeScope).toBe('complete');
     expect(r.guaranteeHours).toBe(72);
     expect(r.shouldOfferComplete).toBe(false);
   });
 
-  it('2 bed house with 1 extra bathroom and 1 extra WC', () => {
+  it('2 bed house with 1 extra bathroom and 1 extra WC — from the explicit house price, not flat + a blanket adjustment', () => {
     const r = calculateEotQuote({ size: 'bed2', package: 'complete', isHouse: true, extraBathrooms: 1, extraWcs: 1 });
-    // 31900 + 3000 (house) + 4000 (bath) + 2000 (wc) = 40900
-    expect(r.totalP).toBe(40900);
+    // 39900 (explicit house bed2 Complete) + 4000 (bath) + 2000 (wc) = 45900
+    expect(r.totalP).toBe(45900);
   });
 
   it('negative bathroom/WC counts are treated as zero, never subtracted', () => {
     const r = calculateEotQuote({ size: 'studio', package: 'complete', isHouse: false, extraBathrooms: -3, extraWcs: -2 });
-    expect(r.totalP).toBe(19900);
+    expect(r.totalP).toBe(22000);
   });
 });
 
@@ -310,13 +337,13 @@ describe('calculateEotQuote — Tailored package', () => {
     expect(r.guaranteeScope).toBe('selected-tasks');
   });
 
-  it('adding every add-on for bed1', () => {
+  it('adding every add-on for bed1, including the microwave', () => {
     const r = calculateEotQuote({
       size: 'bed1', package: 'tailored', isHouse: false, extraBathrooms: 0, extraWcs: 0,
-      tailoredAddOns: { fridgeFreezerInside: true, dishwasherInside: true, washingMachineInside: true, cupboards: true, extraFridgeFreezers: 1 },
+      tailoredAddOns: { microwaveInside: true, fridgeFreezerInside: true, dishwasherInside: true, washingMachineInside: true, cupboards: true, extraFridgeFreezers: 1 },
     });
-    // 19900 + 2500 + 1000 + 1000 + 2500 (cupboards bed1) + 1500 (extra fridge) = 28400
-    expect(r.totalP).toBe(28400);
+    // 19900 + 1000 (microwave) + 2500 + 1000 + 1000 + 2500 (cupboards bed1) + 1500 (extra fridge) = 29400
+    expect(r.totalP).toBe(29400);
   });
 
   it('shouldOfferComplete becomes true once Tailored reaches the Complete price', () => {
@@ -324,9 +351,9 @@ describe('calculateEotQuote — Tailored package', () => {
       size: 'bed2', package: 'tailored', isHouse: false, extraBathrooms: 0, extraWcs: 0,
       tailoredAddOns: { fridgeFreezerInside: true, dishwasherInside: true, washingMachineInside: true, cupboards: true },
     });
-    // 25900 + 2500 + 1000 + 1000 + 3500 = 33900 >= Complete 31900
+    // 25900 + 2500 + 1000 + 1000 + 3500 = 33900 >= Complete 33900 (flat bed2)
     expect(r.totalP).toBe(33900);
-    expect(r.completeEquivalentP).toBe(31900);
+    expect(r.completeEquivalentP).toBe(33900);
     expect(r.shouldOfferComplete).toBe(true);
   });
 
@@ -341,7 +368,7 @@ describe('calculateEotQuote — Tailored package', () => {
 });
 
 describe('calculateEotQuote — adding scope never reduces the total (monotonic)', () => {
-  it('adding bathrooms, WCs, house adjustment and add-ons only ever raises the price', () => {
+  it('adding bathrooms, WCs, switching to an explicit house price and add-ons only ever raises the price', () => {
     let prev = calculateEotQuote({ size: 'bed2', package: 'tailored', isHouse: false, extraBathrooms: 0, extraWcs: 0 }).totalP;
     const steps = [
       calculateEotQuote({ size: 'bed2', package: 'tailored', isHouse: false, extraBathrooms: 1, extraWcs: 0 }).totalP,

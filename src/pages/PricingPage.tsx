@@ -3,9 +3,9 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import {
   EOT_BASE_PRICES_P,
+  EOT_PRICES_P,
   EOT_EXTRA_BATH_P,
   EOT_EXTRA_WC_P,
-  EOT_HOUSE_ADJUSTMENT_P,
   MOVEIN_BASE_PRICES_P,
   MOVEIN_EXTRA_BATH_P,
   MOVEIN_EXTRA_WC_P,
@@ -142,7 +142,11 @@ export default function PricingPage() {
 
         {/* Footnote */}
         <p className="text-silver-500 text-xs mt-4 text-center leading-relaxed">
-          Each extra bathroom: <strong className="text-navy-700">+{p(EOT_EXTRA_BATH_P)}</strong> end of tenancy &nbsp;·&nbsp; <strong className="text-navy-700">+{p(MOVEIN_EXTRA_BATH_P)}</strong> move-in &nbsp;·&nbsp; Additional WC: <strong className="text-navy-700">+{p(EOT_EXTRA_WC_P)}</strong> (EOT) / <strong className="text-navy-700">+{p(MOVEIN_EXTRA_WC_P)}</strong> (move-in) &nbsp;·&nbsp; House/maisonette: <strong className="text-navy-700">+{p(EOT_HOUSE_ADJUSTMENT_P)}</strong>
+          Each extra bathroom: <strong className="text-navy-700">+{p(EOT_EXTRA_BATH_P)}</strong> end of tenancy &nbsp;·&nbsp; <strong className="text-navy-700">+{p(MOVEIN_EXTRA_BATH_P)}</strong> move-in &nbsp;·&nbsp; Additional WC: <strong className="text-navy-700">+{p(EOT_EXTRA_WC_P)}</strong> (EOT) / <strong className="text-navy-700">+{p(MOVEIN_EXTRA_WC_P)}</strong> (move-in)
+        </p>
+        <p className="text-silver-500 text-xs mt-2 text-center leading-relaxed">
+          House / maisonette end of tenancy prices are set separately (not a flat surcharge) — from{' '}
+          <strong className="text-navy-700">£{EOT_PRICES_P.house.bed1!.tailored / 100}</strong> for a 1-bedroom Tailored clean — confirmed in the quote calculator.
         </p>
         <p className="text-silver-500 text-xs mt-2 text-center leading-relaxed">
           Prefer to choose only the tasks you need? Our Tailored Checklist Clean starts from{' '}

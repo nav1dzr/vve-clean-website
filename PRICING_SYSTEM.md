@@ -105,36 +105,68 @@ credit) was fully retired; do not reintroduce it.
   (fridge/freezer, cupboards, dishwasher, washing machine). The guarantee
   applies only to the tasks actually included in the confirmed quote.
 
-| Property | Complete (`EOT_COMPLETE_PRICES_P`) | Tailored, from (`EOT_TAILORED_START_PRICES_P`) |
-|----------|------------------------------------:|------------------------------------------------:|
-| Studio | £199 | £159 |
-| 1 bedroom | £249 | £199 |
-| 2 bedrooms | £319 | £259 |
-| 3 bedrooms | £379 | £319 |
-| 4 bedrooms | £499 | £419 |
+Every {property type × size} combination is its own explicit catalogue entry
+in `EOT_PRICES_P` — **never** a flat base price plus a blanket house/maisonette
+surcharge (an earlier `EOT_HOUSE_ADJUSTMENT_P` constant did this and has been
+removed; house/maisonette prices are a genuinely different, independently-set
+figure per size, not a formula derived from the flat prices).
+`EOT_COMPLETE_PRICES_P` / `EOT_TAILORED_START_PRICES_P` remain as flat-only
+aliases derived from `EOT_PRICES_P.flat`, kept for backward compatibility with
+existing call sites (PricingPage, schema.org structured data, the admin
+catalogue seed).
+
+**Flats** (`EOT_PRICES_P.flat`):
+
+| Property | Complete | Tailored, from |
+|----------|---------:|----------------:|
+| Studio | £220 | £159 |
+| 1 bedroom | £279 | £199 |
+| 2 bedrooms | £339 | £259 |
+| 3 bedrooms | £409 | £319 |
+| 4 bedrooms | £529 | £419 |
 | 5+ bedrooms | Tailored quote required | Tailored quote required |
 
-The Complete package includes the oven/hob/extractor, inside an emptied fridge
-and defrosted freezer, accessible dishwasher/washing-machine compartments,
+**House / Maisonette** (`EOT_PRICES_P.house`) — no studio entry; a
+house/maisonette studio (like 5+ bedrooms of any property type) is always a
+manual quotation, never an instant price:
+
+| Property | Complete | Tailored, from |
+|----------|---------:|----------------:|
+| 1 bedroom | £319 | £239 |
+| 2 bedrooms | £399 | £309 |
+| 3 bedrooms | £499 | £389 |
+| 4 bedrooms | £629 | £499 |
+| 5+ bedrooms | Tailored quote required | Tailored quote required |
+
+The Complete package includes the microwave, inside an emptied fridge and
+defrosted freezer, accessible dishwasher/washing-machine compartments,
 cupboards inside and out, internal windows, descaling, standard rooms and
 floors, products and equipment. Carpet steam cleaning remains a genuine
-upgrade; ordinary vacuuming is included. Tailored internal add-ons
-(`EOT_TAILORED_ADDON_PRICES_P`, `EOT_TAILORED_CUPBOARDS_PRICES_P`) are priced
-individually and never added silently.
-
-Flats/apartments have no property-type adjustment. Houses and maisonettes add
-£30 (`EOT_HOUSE_ADJUSTMENT_P`) for the normal additional hallway, landing,
-internal-staircase cleaning and movement between floors — this applies to
-either package. Carpet steam cleaning for stairs remains a separate upgrade.
+upgrade; ordinary vacuuming is included. The Tailored package includes one
+standard oven/hob/grill/extractor clean as standard; every other appliance or
+storage interior (microwave, fridge/freezer, dishwasher, washing machine,
+cupboards) is a separate, individually-priced add-on
+(`EOT_TAILORED_ADDON_PRICES_P`, `EOT_TAILORED_CUPBOARDS_PRICES_P`) and is
+never added silently.
 
 Five-bedroom and larger properties never reuse the four-bedroom price. The
 wizard offers a tailored-quote path and may submit an enquiry without being
 shown a misleading fixed total.
 
-The EOT quote offers upholstery and mattress upgrades at the same canonical
-item prices used by the carpet/upholstery service. Curtains and blinds, full
-wall washing, extreme buildup, mould, biohazards and unusual access remain
+The Step 4 "Upholstery & mattress cleaning" selector adds sofas, armchairs and
+mattresses straight to the current EOT quote — an inline expandable panel, not
+a separate page — priced from the same canonical `CARPET_ITEM_PRICES_P` used
+by the standalone carpet/upholstery service
+(`EOT_UPHOLSTERY_ADDON_KEYS` allow-lists exactly which addOnCounts keys the
+server will price this way, so it can never be confused with the EOT
+carpet-package's own room-based keys). Rugs, curtains and blinds, full wall
+washing, extreme buildup, mould, biohazards and unusual access remain
 photo-review items rather than invented fixed-price extras.
+
+All EOT prices are integer pence end-to-end and displayed with exact pence
+(e.g. £92.50) wherever a total includes an odd-£0.50 carpet-package charge —
+never rounded to the nearest whole pound, in the wizard, the review card,
+BookingPage, the server payload, or the CRM/admin display.
 
 Commercial carpet cleaning stays quote-required
 (`COMMERCIAL_CARPET_RATE_APPROVED = false`) — the £4.50/sqm rate has no

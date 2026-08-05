@@ -3,9 +3,8 @@ import {
   CheckCircle2, ChevronLeft, ChevronRight, Info, Mail, MessageCircle, Minus, Plus, ShieldCheck, Sparkles, XCircle,
 } from 'lucide-react';
 import {
-  EOT_COMPLETE_PRICES_P,
-  EOT_TAILORED_START_PRICES_P,
-  EOT_HOUSE_ADJUSTMENT_P,
+  EOT_PRICES_P,
+  eotPropertySizeValid,
   EOT_EXTRA_BATH_P,
   EOT_EXTRA_WC_P,
   EOT_GUARANTEE_HOURS,
@@ -28,9 +27,9 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-// Maisonettes price identically to houses (both take EOT_HOUSE_ADJUSTMENT_P),
-// so they are offered as a single combined choice rather than a third,
-// pricing-identical option.
+// Maisonettes price identically to houses in the explicit EOT_PRICES_P
+// matrix, so they are offered as a single combined choice rather than a
+// third, pricing-identical option.
 export type PropertyType = 'flat' | 'house';
 export type EotPackage = 'complete' | 'tailored';
 export type FloorState = 'unset' | 'carpet' | 'hard' | 'na';
@@ -52,6 +51,7 @@ export interface RoomState {
 }
 
 export interface TailoredAddOns {
+  microwaveInside: boolean;
   fridgeFreezerInside: boolean;
   extraFridgeFreezers: number;
   dishwasherInside: boolean;
@@ -65,6 +65,19 @@ export interface ExtrasState {
   wall_marks: number;
   key_collect: number;
   rubbish: number;
+}
+
+// Inline upholstery/mattress add-ons (Step 4 expandable selector) — priced
+// from the same standalone carpet & upholstery catalogue, added directly to
+// this EOT quote rather than sending the customer to another page.
+export interface UpholsteryCounts {
+  armchair:         number;
+  sofa_2:           number;
+  sofa_3:           number;
+  sofa_corner:      number;
+  mattress_single:  number;
+  mattress_double:  number;
+  mattress_king:    number;
 }
 
 // Manual, individually-counted carpet areas (Floor care → "Choose areas
@@ -94,6 +107,7 @@ export interface EotWizardState {
   rooms: RoomState[]; // used by the "whole-property" suggested-layout carpet mode
   manualCarpetCounts: ManualCarpetCounts; // used by the "choose areas individually" carpet mode
   extras: ExtrasState;
+  upholsteryCounts: UpholsteryCounts;
   condition: ConditionState;
 }
 
@@ -109,6 +123,7 @@ export interface EotBookingResult {
     isHouse: boolean;
     eotPackage: EotPackage;
     tailoredAddOns: {
+      microwaveInside: boolean;
       fridgeFreezerInside: boolean;
       extraFridgeFreezers: number;
       dishwasherInside: boolean;
@@ -139,7 +154,7 @@ const SIZE_OPTIONS: { key: SizeKey; label: string }[] = [
   { key: 'bed4', label: '4 beds' },
 ];
 
-const STEP_LABELS = ['Property details', 'Choose your cleaning package', 'Floor care', 'Add-ons & review'];
+const STEP_LABELS = ['Property', 'Package', 'Floor care', 'Review'];
 const TOTAL_STEPS = 4;
 
 const MANUAL_CARPET_FIELDS: { key: keyof Omit<ManualCarpetCounts, 'stairFlights'>; addonKey: string; label: string; idPrefix: string; priceP: number }[] = [
@@ -151,11 +166,24 @@ const MANUAL_CARPET_FIELDS: { key: keyof Omit<ManualCarpetCounts, 'stairFlights'
   { key: 'landing', addonKey: 'landing', label: 'Landings', idPrefix: 'land', priceP: CARPET_ITEM_PRICES_P.landing },
 ];
 
+const UPHOLSTERY_FIELDS: { key: keyof UpholsteryCounts; label: string; priceP: number }[] = [
+  { key: 'armchair', label: 'Armchair', priceP: CARPET_ITEM_PRICES_P.armchair },
+  { key: 'sofa_2', label: '2-seater sofa', priceP: CARPET_ITEM_PRICES_P.sofa_2 },
+  { key: 'sofa_3', label: '3-seater sofa', priceP: CARPET_ITEM_PRICES_P.sofa_3 },
+  { key: 'sofa_corner', label: 'Corner / L-shaped sofa', priceP: CARPET_ITEM_PRICES_P.sofa_corner },
+  { key: 'mattress_single', label: 'Mattress (single)', priceP: CARPET_ITEM_PRICES_P.mattress_single },
+  { key: 'mattress_double', label: 'Mattress (double)', priceP: CARPET_ITEM_PRICES_P.mattress_double },
+  { key: 'mattress_king', label: 'Mattress (king-size)', priceP: CARPET_ITEM_PRICES_P.mattress_king },
+];
+
 function defaultTailoredAddOns(): TailoredAddOns {
-  return { fridgeFreezerInside: false, extraFridgeFreezers: 0, dishwasherInside: false, washingMachineInside: false, cupboards: false };
+  return { microwaveInside: false, fridgeFreezerInside: false, extraFridgeFreezers: 0, dishwasherInside: false, washingMachineInside: false, cupboards: false };
 }
 function defaultExtras(): ExtrasState {
   return { ext_windows: 0, balcony: 0, wall_marks: 0, key_collect: 0, rubbish: 0 };
+}
+function defaultUpholsteryCounts(): UpholsteryCounts {
+  return { armchair: 0, sofa_2: 0, sofa_3: 0, sofa_corner: 0, mattress_single: 0, mattress_double: 0, mattress_king: 0 };
 }
 function defaultManualCarpetCounts(): ManualCarpetCounts {
   return { bedroom: 0, livingRoom: 0, diningRoom: 0, largeLounge: 0, hallway: 0, landing: 0, stairFlights: 0 };
@@ -207,8 +235,10 @@ function manualCarpetRooms(counts: ManualCarpetCounts): RoomState[] {
 }
 
 function makeInitialState(restore?: EotBookingResult['quoteConfig'] | null): EotWizardState {
-  const size: SizeKey = (restore?.deepSize as SizeKey) ?? 'bed2';
-  const propertyType: PropertyType = restore?.isHouse ? 'house' : 'flat';
+  const restoredPropertyType: PropertyType = restore?.isHouse ? 'house' : 'flat';
+  const restoredSize: SizeKey = (restore?.deepSize as SizeKey) ?? 'bed2';
+  const size: SizeKey = eotPropertySizeValid(restoredPropertyType, restoredSize) ? restoredSize : 'bed1';
+  const propertyType = restoredPropertyType;
   const restoredCarpetIds = restore?.carpetRoomIds ?? [];
   const hasCarpet = restoredCarpetIds.length > 0;
   const isManualRestore = hasCarpet && restoredCarpetIds.some((id) => id.startsWith('manual-'));
@@ -249,23 +279,50 @@ function makeInitialState(restore?: EotBookingResult['quoteConfig'] | null): Eot
     extras: restore?.addOnCounts
       ? { ...defaultExtras(), ...(restore.addOnCounts as Partial<ExtrasState>) }
       : defaultExtras(),
+    upholsteryCounts: restore?.addOnCounts
+      ? { ...defaultUpholsteryCounts(), ...(restore.addOnCounts as Partial<UpholsteryCounts>) }
+      : defaultUpholsteryCounts(),
     condition: restore?.condition ?? 'normal',
   };
 }
 
 // ─── Small shared bits ────────────────────────────────────────────────────────
 
-function StepDots({ step, total }: { step: number; total: number }) {
+// Connected four-step tracker. Completed steps use a filled royal-blue
+// circle with a check icon, the current step uses a white circle with a
+// gold/amber ring, and upcoming steps use a translucent outline — three
+// visually distinct cues (fill, icon, ring) so progress never depends on
+// colour alone.
+function StepTracker({ step }: { step: number }) {
   return (
-    <div className="flex items-center gap-1.5" aria-hidden="true">
-      {Array.from({ length: total }).map((_, i) => (
-        <span
-          key={i}
-          className={`h-1.5 rounded-full transition-all duration-300 ${
-            i + 1 === step ? 'w-6 bg-royal-500' : i + 1 < step ? 'w-1.5 bg-royal-300' : 'w-1.5 bg-silver-200'
-          }`}
-        />
-      ))}
+    <div className="flex items-start w-full" role="list" aria-label={`Step ${step} of ${TOTAL_STEPS}: ${STEP_LABELS[step - 1]}`}>
+      {STEP_LABELS.map((label, i) => {
+        const n = i + 1;
+        const state = n < step ? 'done' : n === step ? 'current' : 'upcoming';
+        return (
+          <div key={label} role="listitem" className={`flex items-center ${i < STEP_LABELS.length - 1 ? 'flex-1' : ''}`}>
+            <div className="flex flex-col items-center gap-1 flex-shrink-0">
+              <div
+                aria-current={state === 'current' ? 'step' : undefined}
+                className={[
+                  'w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[11px] sm:text-xs font-bold border-2 transition-colors duration-200',
+                  state === 'done' ? 'bg-royal-500 border-royal-500 text-white' : '',
+                  state === 'current' ? 'bg-white border-amber-400 text-navy-900 ring-2 ring-amber-300/70 ring-offset-1 ring-offset-navy-900' : '',
+                  state === 'upcoming' ? 'bg-white/10 border-white/40 text-white/80' : '',
+                ].join(' ')}
+              >
+                {state === 'done' ? <CheckCircle2 size={14} /> : n}
+              </div>
+              <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wide whitespace-nowrap ${state === 'upcoming' ? 'text-white/60' : 'text-white'}`}>
+                {label}
+              </span>
+            </div>
+            {i < STEP_LABELS.length - 1 && (
+              <div className={`h-0.5 flex-1 min-w-[10px] mx-1 sm:mx-2 rounded-full self-start mt-3.5 sm:mt-4 ${n < step ? 'bg-royal-400' : 'bg-white/25'}`} />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -275,13 +332,13 @@ function Counter({ value, onChange, min = 0, max, label }: { value: number; onCh
     <div className="flex items-center gap-1">
       <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min}
         aria-label={`Decrease ${label}`}
-        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-silver-300 flex items-center justify-center text-silver-500 hover:border-royal-400 hover:text-royal-600 active:bg-royal-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600">
+        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-silver-300 flex items-center justify-center text-silver-700 hover:border-royal-400 hover:text-royal-600 active:bg-royal-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600">
         <Minus size={14} />
       </button>
       <span className="w-7 text-center text-navy-900 font-bold text-sm" aria-live="polite">{value}</span>
       <button type="button" onClick={() => onChange(max !== undefined ? Math.min(max, value + 1) : value + 1)} disabled={max !== undefined && value >= max}
         aria-label={`Increase ${label}`}
-        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-silver-300 flex items-center justify-center text-silver-500 hover:border-royal-400 hover:text-royal-600 active:bg-royal-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600">
+        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border border-silver-300 flex items-center justify-center text-silver-700 hover:border-royal-400 hover:text-royal-600 active:bg-royal-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600">
         <Plus size={14} />
       </button>
     </div>
@@ -290,33 +347,35 @@ function Counter({ value, onChange, min = 0, max, label }: { value: number; onCh
 
 // Live carpet-package breakdown — the single presentation used everywhere a
 // standalone value / package saving / today price needs to be shown, so the
-// numbers can never drift between Step 3 and the Step 4 review.
+// numbers can never drift between Step 3 and the Step 4 review. Every value
+// goes through penceToDisplay, which shows exact pence (e.g. £47.50) rather
+// than rounding to a whole pound.
 function CarpetPackageBreakdown({ carpetPackage }: { carpetPackage: ReturnType<typeof calculateEotCarpetPackage> }) {
   if (carpetPackage.itemCount === 0) return null;
   return (
     <div className="rounded-xl bg-royal-50 border border-royal-200 px-4 py-3 space-y-1.5">
       <div className="flex items-center justify-between text-sm">
-        <span className="text-royal-700">Standard carpet-cleaning value</span>
+        <span className="text-royal-800">Standard carpet-cleaning value</span>
         <span className="text-navy-900 font-semibold">{penceToDisplay(carpetPackage.standaloneSubtotalP)}</span>
       </div>
       {carpetPackage.eligible ? (
         <>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-royal-700">EOT carpet-package saving</span>
+            <span className="text-royal-800">EOT carpet-package saving</span>
             <span className="text-green-700 font-semibold">−{penceToDisplay(carpetPackage.savingP)}</span>
           </div>
           <div className="flex items-center justify-between text-base border-t border-royal-200 pt-1.5 mt-1">
-            <span className="text-royal-700 font-semibold">Professional carpet cleaning today</span>
+            <span className="text-royal-800 font-semibold">Professional carpet cleaning today</span>
             <span className="text-royal-700 font-display font-bold text-lg">{penceToDisplay(carpetPackage.chargedP)}</span>
           </div>
         </>
       ) : (
         <>
           <div className="flex items-center justify-between text-base border-t border-royal-200 pt-1.5 mt-1">
-            <span className="text-royal-700 font-semibold">Professional carpet cleaning today</span>
+            <span className="text-royal-800 font-semibold">Professional carpet cleaning today</span>
             <span className="text-royal-700 font-display font-bold text-lg">{penceToDisplay(carpetPackage.chargedP)}</span>
           </div>
-          <p className="text-royal-600 text-xs">
+          <p className="text-royal-800 text-xs">
             Add {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS - carpetPackage.itemCount} more qualifying area{EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS - carpetPackage.itemCount !== 1 ? 's' : ''} to unlock up to {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% off.
           </p>
         </>
@@ -326,28 +385,34 @@ function CarpetPackageBreakdown({ carpetPackage }: { carpetPackage: ReturnType<t
 }
 
 const COMPLETE_KEY_BENEFITS = [
-  'Full appliance interiors',
-  'Internal cupboards, drawers and wardrobes',
-  'Internal windows',
-  'Complete kitchen and bathroom detailing',
+  'Oven, hob, grill and extractor',
+  'Microwave, fridge/freezer, dishwasher and washing-machine interiors',
+  'Cupboards, drawers and wardrobes',
+  'Full kitchen and bathroom detailing',
   'Standard vacuuming and hard-floor mopping',
-  'Agency-ready cleaning guarantee',
-  'Cleaning receipt or confirmation',
+];
+const COMPLETE_MORE_INCLUDED = [
+  'Internal windows', 'Bathrooms fully descaled, tiles, grouting and fixtures',
+  'Skirting boards, doors, frames and switches', 'Photographic cleaning receipt',
 ];
 const COMPLETE_NOT_INCLUDED = [
   'Professional carpet steam cleaning', 'Upholstery cleaning', 'Exterior windows', 'Rubbish removal', 'Parking and Congestion Charge',
 ];
-const TAILORED_INCLUDED = [
-  'Kitchen and bathroom surfaces', 'Oven, hob, grill and extractor', 'Bedrooms and reception rooms',
-  'Internal windows', 'Skirting boards, doors, frames and switches', 'Standard vacuuming', 'Standard hard-floor mopping', 'Photographic receipt',
+const TAILORED_CORE_INCLUDED = [
+  'One standard oven, hob, grill and extractor clean',
+  'Kitchen and bathroom surfaces',
+  'Standard vacuuming and hard-floor mopping',
+];
+const TAILORED_MORE_INCLUDED = [
+  'Bedrooms and reception rooms', 'Internal windows', 'Skirting boards, doors, frames and switches', 'Photographic receipt',
 ];
 const TAILORED_ADD_LATER = [
-  'Inside fridge/freezer', 'Inside dishwasher', 'Inside washing machine', 'Cupboards, drawers and wardrobes',
+  'Inside microwave', 'Inside fridge/freezer', 'Inside dishwasher', 'Inside washing machine', 'Cupboards, drawers and wardrobes',
 ];
 
-const FLOOR_CARE_OPTIONS: { key: 'standard' | 'professional' | 'none'; title: string; bullets: string[] }[] = [
+const FLOOR_CARE_OPTIONS: { key: 'professional' | 'standard' | 'none'; title: string; badge?: string; bullets: string[] }[] = [
+  { key: 'professional', title: 'Professional carpet steam cleaning', badge: 'Popular', bullets: ['Deep hot-water extraction cleaning', 'Added to the same End of Tenancy visit', 'Package savings on qualifying areas'] },
   { key: 'standard', title: 'Standard floor care', bullets: ['Vacuuming of carpets', 'Mopping of suitable hard floors', 'Included with the End of Tenancy clean', 'No additional charge'] },
-  { key: 'professional', title: 'Professional carpet steam cleaning', bullets: ['Deep hot-water extraction cleaning', 'Added to the same End of Tenancy visit', 'Package savings available'] },
   { key: 'none', title: 'No carpeted areas', bullets: ['Property has hard floors only', 'Standard suitable floor cleaning remains included'] },
 ];
 
@@ -357,12 +422,18 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   const [state, setState] = useState<EotWizardState>(() => makeInitialState(restoreConfig));
   const [step, setStep] = useState(1);
   const [bookError, setBookError] = useState('');
+  const [upholsteryOpen, setUpholsteryOpen] = useState(false);
 
-  const houseAdjP = state.propertyType !== 'flat' ? EOT_HOUSE_ADJUSTMENT_P : 0;
+  const availableSizeOptions = useMemo(
+    () => SIZE_OPTIONS.filter((s) => eotPropertySizeValid(state.propertyType, s.key)),
+    [state.propertyType],
+  );
+
+  const priceEntry = EOT_PRICES_P[state.propertyType]?.[state.size] ?? EOT_PRICES_P.flat.bed2;
   const bathroomsAddP = Math.max(0, state.fullBathrooms - 1) * EOT_EXTRA_BATH_P;
   const wcsAddP = state.extraWcs * EOT_EXTRA_WC_P;
-  const completeAtConfigP = EOT_COMPLETE_PRICES_P[state.size] + houseAdjP + bathroomsAddP + wcsAddP;
-  const tailoredAtConfigP = EOT_TAILORED_START_PRICES_P[state.size] + houseAdjP + bathroomsAddP + wcsAddP;
+  const completeAtConfigP = priceEntry.complete + bathroomsAddP + wcsAddP;
+  const tailoredAtConfigP = priceEntry.tailored + bathroomsAddP + wcsAddP;
   const cheapestStartingP = Math.min(completeAtConfigP, tailoredAtConfigP);
 
   // Whole-property carpet preview — the exact same calculation the customer
@@ -396,6 +467,11 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
     carpetRoomIds: activeCarpetRoomIds,
   }), [state.size, state.pkg, state.propertyType, state.fullBathrooms, state.extraWcs, state.tailoredAddOns, activeCarpetRooms, activeCarpetRoomIds]);
 
+  const upholsteryTotalP = useMemo(
+    () => UPHOLSTERY_FIELDS.reduce((s, f) => s + state.upholsteryCounts[f.key] * f.priceP, 0),
+    [state.upholsteryCounts],
+  );
+
   const extrasTotalP = useMemo(() => {
     let total = 0;
     total += state.extras.ext_windows * ADDON_PRICES_P.ext_windows;
@@ -403,12 +479,11 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
     total += state.extras.wall_marks * ADDON_PRICES_P.wall_marks;
     total += state.extras.key_collect * ADDON_PRICES_P.key_collect;
     total += state.extras.rubbish * ADDON_PRICES_P.rubbish;
-    return total;
-  }, [state.extras]);
+    return total + upholsteryTotalP;
+  }, [state.extras, upholsteryTotalP]);
 
   const isQuoteReviewCondition = state.condition === 'heavy' || state.condition === 'clutter' || state.condition === 'biohazard';
   const totalP = quote.totalP + extrasTotalP;
-  const totalPounds = Math.round(totalP / 100);
   const { depositP, balanceP } = calculateDepositAndBalance(totalP);
   const carpetPackage = quote.carpetPackage;
 
@@ -417,7 +492,10 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
     setState((p) => ({ ...p, size, is5Plus: false, rooms: defaultRooms(size, p.propertyType) }));
   }
   function changePropertyType(propertyType: PropertyType) {
-    setState((p) => ({ ...p, propertyType, rooms: defaultRooms(p.size, propertyType) }));
+    setState((p) => {
+      const validSize = eotPropertySizeValid(propertyType, p.size) ? p.size : 'bed1';
+      return { ...p, propertyType, size: validSize, rooms: defaultRooms(validSize, propertyType) };
+    });
   }
   function select5Plus() {
     setState((p) => ({ ...p, is5Plus: true }));
@@ -460,6 +538,9 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   function setManualStairFlights(v: number) {
     setState((p) => ({ ...p, manualCarpetCounts: { ...p.manualCarpetCounts, stairFlights: Math.max(0, v) } }));
   }
+  function setUpholsteryCount(key: keyof UpholsteryCounts, v: number) {
+    setState((p) => ({ ...p, upholsteryCounts: { ...p.upholsteryCounts, [key]: Math.max(0, v) } }));
+  }
 
   function goNext() {
     setBookError('');
@@ -477,7 +558,10 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
     }
     const sel: EotBookingResult = {
       serviceName: `End of tenancy — ${state.pkg === 'complete' ? 'Complete Agency-Ready Clean' : 'Tailored Checklist Clean'} · ${SIZE_OPTIONS.find((s) => s.key === state.size)?.label}`,
-      price: totalPounds,
+      // Exact pence, converted to pounds without rounding — a £127.50 total
+      // must never become £128 anywhere downstream (BookingPage, server
+      // payload, CRM/admin, WhatsApp text).
+      price: totalP / 100,
       quoteConfig: {
         service: 'deep',
         deepService: 'end_of_tenancy',
@@ -487,7 +571,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         isHouse: state.propertyType !== 'flat',
         eotPackage: state.pkg,
         tailoredAddOns: state.tailoredAddOns,
-        addOnCounts: state.extras as unknown as Record<string, number>,
+        addOnCounts: { ...state.extras, ...state.upholsteryCounts } as unknown as Record<string, number>,
         rooms: activeCarpetRooms.map((r) => ({ id: r.id, addonKey: r.addonKey, floor: r.floor, stairFlights: r.stairFlights })),
         carpetRoomIds: activeCarpetRoomIds,
         windowSize: 'small',
@@ -512,14 +596,9 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   return (
     <div className="rounded-2xl bg-white shadow-2xl overflow-hidden">
       {/* Header / progress */}
-      <div className="navy-gradient px-5 sm:px-8 py-5 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-silver-400 text-[10px] font-bold uppercase tracking-widest mb-0.5">
-            Step {step} of {TOTAL_STEPS} — {STEP_LABELS[step - 1]}
-          </p>
-          <h2 className="text-white font-display font-bold text-lg sm:text-xl">End of Tenancy Quote</h2>
-        </div>
-        <StepDots step={step} total={TOTAL_STEPS} />
+      <div className="navy-gradient px-4 sm:px-8 py-5">
+        <h2 className="text-white font-display font-bold text-lg sm:text-xl mb-4">End of Tenancy Quote</h2>
+        <StepTracker step={step} />
       </div>
 
       {onChangeService && (
@@ -530,8 +609,8 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         </div>
       )}
 
-      <div className="px-5 sm:px-8 py-6">
-        {/* ══ Step 1: Property details ══ */}
+      <div className="px-5 sm:px-8 py-6 max-w-2xl mx-auto w-full">
+        {/* ══ Step 1: Property ══ */}
         {step === 1 && (
           <div className="space-y-6">
             <div>
@@ -540,30 +619,35 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                 {(['flat', 'house'] as PropertyType[]).map((t) => (
                   <button key={t} type="button" onClick={() => changePropertyType(t)}
                     className={`py-3.5 rounded-xl border-2 text-sm font-bold transition-all duration-200 min-h-[44px] ${
-                      state.propertyType === t ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-navy-700 hover:border-royal-300'
+                      state.propertyType === t ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-300 text-navy-700 hover:border-royal-300'
                     }`}>
                     {t === 'flat' ? 'Flat' : 'House / Maisonette'}
                   </button>
                 ))}
               </div>
-              {state.propertyType !== 'flat' && (
-                <p className="text-royal-600 text-xs font-semibold mt-2">+{penceToDisplay(EOT_HOUSE_ADJUSTMENT_P)} house/maisonette adjustment</p>
-              )}
             </div>
 
             <div>
               <h3 className="text-navy-900 font-bold text-base mb-3">Property size</h3>
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                {SIZE_OPTIONS.map((s) => (
+                {availableSizeOptions.map((s) => (
                   <button key={s.key} type="button" onClick={() => changeSize(s.key)}
-                    className={`py-3 rounded-xl border-2 text-center transition-all duration-200 min-h-[44px] ${
-                      !state.is5Plus && state.size === s.key ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-navy-700 hover:border-royal-300'
+                    className={`py-3.5 rounded-xl border-2 text-center text-xs font-bold transition-all duration-200 min-h-[44px] ${
+                      !state.is5Plus && state.size === s.key ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-300 text-navy-700 hover:border-royal-300'
                     }`}>
-                    <div className="text-xs font-bold">{s.label}</div>
-                    <div className="text-[10px] mt-0.5">from £{Math.min(EOT_COMPLETE_PRICES_P[s.key], EOT_TAILORED_START_PRICES_P[s.key]) / 100}</div>
+                    {s.label}
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div>
+              <h3 className="text-navy-900 font-bold text-base mb-1">Full bathrooms</h3>
+              <Counter value={state.fullBathrooms} min={1} max={6} label="full bathrooms" onChange={(v) => setState((p) => ({ ...p, fullBathrooms: v }))} />
+            </div>
+            <div>
+              <h3 className="text-navy-900 font-bold text-base mb-1">Separate WCs</h3>
+              <Counter value={state.extraWcs} min={0} max={6} label="separate WCs" onChange={(v) => setState((p) => ({ ...p, extraWcs: v }))} />
             </div>
 
             {/* 5+ bedrooms — an active, intentional choice, never disabled-looking */}
@@ -573,7 +657,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
               }`}>
               <div>
                 <div className="text-navy-900 font-bold text-sm">5+ bedrooms</div>
-                <div className="text-royal-600 text-xs font-semibold">Tailored quotation required</div>
+                <div className="text-royal-700 text-xs font-semibold">Tailored quotation required</div>
               </div>
               <ChevronRight size={18} className="text-royal-500 flex-shrink-0" />
             </button>
@@ -581,7 +665,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
             {state.is5Plus && (
               <div className="rounded-2xl bg-royal-50 border-2 border-royal-200 p-5 text-center space-y-3">
                 <p className="text-navy-900 font-bold text-sm">Large properties are quoted individually</p>
-                <p className="text-silver-600 text-xs leading-relaxed max-w-sm mx-auto">
+                <p className="text-navy-700 text-xs leading-relaxed max-w-sm mx-auto">
                   5+ bedroom homes vary too much for a fixed instant price. Send us a few details and we'll confirm a fixed price, usually within the hour.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-2 justify-center">
@@ -596,38 +680,6 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                 </div>
               </div>
             )}
-
-            <div>
-              <h3 className="text-navy-900 font-bold text-base mb-1">Number of full bathrooms</h3>
-              <p className="text-silver-600 text-xs mb-3">The first bathroom is included in the base price.</p>
-              <Counter value={state.fullBathrooms} min={1} max={6} label="full bathrooms" onChange={(v) => setState((p) => ({ ...p, fullBathrooms: v }))} />
-              {state.fullBathrooms > 1 && (
-                <p className="text-royal-600 text-xs font-semibold mt-2">
-                  +{penceToDisplay(EOT_EXTRA_BATH_P * (state.fullBathrooms - 1))} for {state.fullBathrooms - 1} extra bathroom{state.fullBathrooms > 2 ? 's' : ''}
-                </p>
-              )}
-            </div>
-            <div>
-              <h3 className="text-navy-900 font-bold text-base mb-1">Number of separate toilets/WCs</h3>
-              <p className="text-silver-600 text-xs mb-3">A standalone toilet that isn't part of a full bathroom.</p>
-              <Counter value={state.extraWcs} min={0} max={6} label="separate WCs" onChange={(v) => setState((p) => ({ ...p, extraWcs: v }))} />
-              {state.extraWcs > 0 && (
-                <p className="text-royal-600 text-xs font-semibold mt-2">+{penceToDisplay(EOT_EXTRA_WC_P * state.extraWcs)} for {state.extraWcs} separate WC{state.extraWcs > 1 ? 's' : ''}</p>
-              )}
-            </div>
-
-            {!state.is5Plus && (
-              <div className="rounded-xl bg-royal-50 border border-royal-200 px-4 py-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-royal-700 text-sm font-semibold">Starting from</span>
-                  <span className="text-royal-700 font-display font-bold text-2xl">{penceToDisplay(cheapestStartingP)}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs text-silver-600 mt-1.5 pt-1.5 border-t border-royal-200/60">
-                  <span>Tailored from {penceToDisplay(tailoredAtConfigP)}</span>
-                  <span>Complete {penceToDisplay(completeAtConfigP)}</span>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -635,75 +687,91 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         {step === 2 && (
           <div className="space-y-4">
             <h3 className="text-navy-900 font-bold text-base">Choose your cleaning package</h3>
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-2 gap-4 items-start">
               {/* Complete */}
               <button type="button" onClick={() => setState((p) => ({ ...p, pkg: 'complete' }))}
                 className={`relative text-left rounded-2xl border-2 p-5 transition-all duration-200 flex flex-col ${
-                  state.pkg === 'complete' ? 'border-royal-500 bg-royal-50 shadow-lg' : 'border-silver-200 hover:border-royal-300'
+                  state.pkg === 'complete' ? 'border-royal-500 bg-royal-50 shadow-lg' : 'border-silver-300 hover:border-royal-300'
                 }`}>
-                <span className="absolute -top-3 left-4 bg-amber-400 text-amber-900 text-[10px] font-bold px-3 py-1 rounded-full tracking-widest uppercase shadow-sm">
+                <span className="absolute -top-3 left-4 bg-amber-400 text-amber-950 text-[10px] font-bold px-3 py-1 rounded-full tracking-widest uppercase shadow-sm">
                   Recommended · Best value
                 </span>
                 <div className="mt-2 font-display font-bold text-navy-900 text-lg">Complete Agency-Ready Clean</div>
                 <div data-testid="complete-price" className="font-display font-bold text-3xl text-royal-600 mt-1">
                   {penceToDisplay(quote.completeEquivalentP)}
                 </div>
-                <p className="text-silver-600 text-xs leading-relaxed mt-1">Fixed package price for your selected property.</p>
                 <p className="text-navy-700 text-xs leading-relaxed mt-2">
                   <strong>Best for:</strong> tenants, landlords and agents preparing for final inspection.
                 </p>
-                <div className="mt-3">
-                  <p className="text-navy-700 text-xs font-bold mb-1.5">Key benefits</p>
-                  <div className="grid grid-cols-1 gap-1">
-                    {COMPLETE_KEY_BENEFITS.map((i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-navy-700"><CheckCircle2 size={12} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
-                    ))}
-                  </div>
-                </div>
                 <div className="mt-3 flex items-center gap-1.5 text-green-700 text-xs font-semibold">
                   <ShieldCheck size={14} /> Full {EOT_GUARANTEE_HOURS}-hour agency-ready guarantee
                 </div>
-                <div className="mt-3 pt-3 border-t border-silver-200">
-                  <p className="text-silver-500 text-xs font-bold mb-1.5">Not included</p>
+                <div className="mt-3">
+                  <p className="text-navy-800 text-xs font-bold mb-1.5">Included</p>
                   <div className="grid grid-cols-1 gap-1">
-                    {COMPLETE_NOT_INCLUDED.map((i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-silver-500"><XCircle size={12} className="text-silver-400 mt-0.5 flex-shrink-0" />{i}</div>
+                    {COMPLETE_KEY_BENEFITS.map((i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-navy-800"><CheckCircle2 size={12} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
                     ))}
                   </div>
                 </div>
+                <details className="mt-3 group">
+                  <summary className="text-royal-700 text-xs font-bold cursor-pointer list-none flex items-center gap-1">
+                    See full details <ChevronRight size={12} className="transition-transform group-open:rotate-90" />
+                  </summary>
+                  <div className="mt-2 grid grid-cols-1 gap-1">
+                    {COMPLETE_MORE_INCLUDED.map((i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-navy-800"><CheckCircle2 size={12} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
+                    ))}
+                    <div className="h-px bg-silver-300 my-1.5" />
+                    <p className="text-silver-700 text-[11px] font-bold mb-0.5">Not included</p>
+                    {COMPLETE_NOT_INCLUDED.map((i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-silver-700"><XCircle size={12} className="text-silver-500 mt-0.5 flex-shrink-0" />{i}</div>
+                    ))}
+                  </div>
+                </details>
               </button>
 
               {/* Tailored */}
               <button type="button" onClick={() => setState((p) => ({ ...p, pkg: 'tailored' }))}
                 className={`text-left rounded-2xl border-2 p-5 transition-all duration-200 flex flex-col ${
-                  state.pkg === 'tailored' ? 'border-royal-500 bg-royal-50 shadow-lg' : 'border-silver-200 hover:border-royal-300'
+                  state.pkg === 'tailored' ? 'border-royal-500 bg-royal-50 shadow-lg' : 'border-silver-300 hover:border-royal-300'
                 }`}>
                 <div className="font-display font-bold text-navy-900 text-lg">Tailored Checklist Clean</div>
                 <div data-testid="tailored-price" className="font-display font-bold text-3xl text-royal-600 mt-1">
                   Starts at {penceToDisplay(tailoredAtConfigP)}
                 </div>
-                <p className="text-silver-600 text-xs leading-relaxed mt-2">
-                  Build the service around the items you actually require. You'll choose the internal cleaning items you need in the next step.
+                <p className="text-navy-700 text-xs leading-relaxed mt-2">
+                  A core checklist clean you build up with only the internal tasks you actually need.
                 </p>
-                <div className="mt-3 flex items-center gap-1.5 text-amber-700 text-xs font-semibold">
-                  <Info size={14} /> Guarantee applies only to the tasks in your quote
+                <div className="mt-3 flex items-center gap-1.5 text-amber-800 text-xs font-semibold">
+                  <Info size={14} /> Guarantee applies only to included and selected tasks
                 </div>
+                <p className="text-navy-700 text-xs leading-relaxed mt-2">
+                  Other appliance and storage interiors are not silently included — add exactly what you need in the next step.
+                </p>
                 <div className="mt-3">
-                  <p className="text-navy-700 text-xs font-bold mb-1.5">Included as standard</p>
+                  <p className="text-navy-800 text-xs font-bold mb-1.5">Included</p>
                   <div className="grid grid-cols-1 gap-1">
-                    {TAILORED_INCLUDED.map((i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-navy-700"><CheckCircle2 size={12} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
+                    {TAILORED_CORE_INCLUDED.map((i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-navy-800"><CheckCircle2 size={12} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
                     ))}
                   </div>
                 </div>
-                <div className="mt-3 pt-3 border-t border-silver-200">
-                  <p className="text-silver-500 text-xs font-bold mb-1.5">Add back what you need next</p>
-                  <div className="grid grid-cols-1 gap-1">
+                <details className="mt-3 group">
+                  <summary className="text-royal-700 text-xs font-bold cursor-pointer list-none flex items-center gap-1">
+                    See full details <ChevronRight size={12} className="transition-transform group-open:rotate-90" />
+                  </summary>
+                  <div className="mt-2 grid grid-cols-1 gap-1">
+                    {TAILORED_MORE_INCLUDED.map((i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-navy-800"><CheckCircle2 size={12} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
+                    ))}
+                    <div className="h-px bg-silver-300 my-1.5" />
+                    <p className="text-silver-700 text-[11px] font-bold mb-0.5">Add back what you need next</p>
                     {TAILORED_ADD_LATER.map((i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-silver-500"><XCircle size={12} className="text-silver-400 mt-0.5 flex-shrink-0" />{i}</div>
+                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-silver-700"><XCircle size={12} className="text-silver-500 mt-0.5 flex-shrink-0" />{i}</div>
                     ))}
                   </div>
-                </div>
+                </details>
               </button>
             </div>
           </div>
@@ -716,13 +784,18 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
             <div className="space-y-2.5">
               {FLOOR_CARE_OPTIONS.map((opt) => (
                 <button key={opt.key} type="button" onClick={() => setFloorCareChoice(opt.key)}
-                  className={`w-full text-left rounded-2xl border-2 px-4 py-3.5 transition-all duration-200 ${
-                    state.floorCareChoice === opt.key ? 'border-royal-500 bg-royal-50 shadow-md' : 'border-silver-200 hover:border-royal-300'
+                  className={`relative w-full text-left rounded-2xl border-2 px-4 py-3.5 transition-all duration-200 ${
+                    state.floorCareChoice === opt.key ? 'border-royal-500 bg-royal-50 shadow-md' : 'border-silver-300 hover:border-royal-300'
                   }`}>
-                  <div className="font-bold text-navy-900 text-sm">{opt.title}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-navy-900 text-sm">{opt.title}</span>
+                    {opt.badge && (
+                      <span className="bg-amber-400 text-amber-950 text-[9px] font-bold px-2 py-0.5 rounded-full tracking-widest uppercase">{opt.badge}</span>
+                    )}
+                  </div>
                   <ul className="mt-1.5 grid grid-cols-1 gap-0.5">
                     {opt.bullets.map((b) => (
-                      <li key={b} className="text-navy-600 text-xs flex items-start gap-1.5"><CheckCircle2 size={12} className="text-green-600 mt-0.5 flex-shrink-0" />{b}</li>
+                      <li key={b} className="text-navy-700 text-xs flex items-start gap-1.5"><CheckCircle2 size={12} className="text-green-600 mt-0.5 flex-shrink-0" />{b}</li>
                     ))}
                   </ul>
                 </button>
@@ -735,17 +808,17 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   {/* Whole-property */}
                   <button type="button" onClick={enterWholePropertyCarpet}
                     className={`text-left rounded-2xl border-2 p-4 transition-all duration-200 ${
-                      state.carpetMode === 'whole' ? 'border-royal-500 bg-royal-50 shadow-md' : 'border-silver-200 hover:border-royal-300'
+                      state.carpetMode === 'whole' ? 'border-royal-500 bg-royal-50 shadow-md' : 'border-silver-300 hover:border-royal-300'
                     }`}>
-                    <div className="flex items-center gap-1.5 text-royal-600 text-[10px] font-bold uppercase tracking-widest mb-1">
+                    <div className="flex items-center gap-1.5 text-royal-700 text-[10px] font-bold uppercase tracking-widest mb-1">
                       <Sparkles size={12} /> Recommended for a quick quote
                     </div>
                     <div className="font-display font-bold text-navy-900 text-base">Whole-property carpet cleaning</div>
                     <p className="text-green-700 text-xs font-semibold leading-relaxed mt-1.5">
                       Clean all your carpeted areas during the same End of Tenancy visit and save up to {EOT_CARPET_PACKAGE_DISCOUNT_PCT}%.
                     </p>
-                    <div className="mt-3 text-xs space-y-1 bg-white/60 rounded-lg px-3 py-2">
-                      <div className="flex justify-between text-navy-600"><span>Normally</span><span>{penceToDisplay(wholePreview.standaloneSubtotalP)} separately</span></div>
+                    <div className="mt-3 text-xs space-y-1 bg-white/70 rounded-lg px-3 py-2">
+                      <div className="flex justify-between text-navy-700"><span>Normally</span><span>{penceToDisplay(wholePreview.standaloneSubtotalP)} separately</span></div>
                       <div className="flex justify-between text-navy-900 font-semibold"><span>Add to this visit for</span><span>{penceToDisplay(wholePreview.chargedP)}</span></div>
                       <div className="flex justify-between text-green-700 font-bold"><span>You save</span><span>{penceToDisplay(wholePreview.savingP)}</span></div>
                     </div>
@@ -754,13 +827,13 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   {/* Manual */}
                   <button type="button" onClick={enterManualCarpet}
                     className={`text-left rounded-2xl border-2 p-4 transition-all duration-200 ${
-                      state.carpetMode === 'manual' ? 'border-royal-500 bg-royal-50 shadow-md' : 'border-silver-200 hover:border-royal-300'
+                      state.carpetMode === 'manual' ? 'border-royal-500 bg-royal-50 shadow-md' : 'border-silver-300 hover:border-royal-300'
                     }`}>
                     <div className="font-display font-bold text-navy-900 text-base">Choose areas individually</div>
-                    <p className="text-silver-600 text-xs leading-relaxed mt-1.5">
+                    <p className="text-navy-700 text-xs leading-relaxed mt-1.5">
                       Select only the carpeted areas that need professional cleaning.
                     </p>
-                    <p className="text-royal-600 text-xs font-semibold mt-3">
+                    <p className="text-royal-700 text-xs font-semibold mt-3">
                       {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS}+ qualifying areas unlock up to {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% off, calculated live as you add them.
                     </p>
                   </button>
@@ -769,24 +842,24 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                 {/* Whole-property suggested layout */}
                 {state.carpetMode === 'whole' && (
                   <div className="space-y-3">
-                    <div className="rounded-xl bg-sky-50 border border-sky-200 px-4 py-3 text-xs text-navy-700 leading-relaxed">
+                    <div className="rounded-xl bg-sky-50 border border-sky-200 px-4 py-3 text-xs text-navy-800 leading-relaxed">
                       We have prepared a typical carpet layout for your property. Review it below and remove or add any areas before continuing. Nothing outside this list is charged.
                     </div>
                     <div className="space-y-2">
                       {state.rooms.map((room) => {
                         const standaloneP = eotCarpetAreaStandalonePriceP(room.addonKey, room.stairFlights ?? 1);
                         return (
-                          <div key={room.id} className="rounded-xl border border-silver-200 px-4 py-3">
+                          <div key={room.id} className="rounded-xl border border-silver-300 px-4 py-3">
                             <label className="flex items-center justify-between gap-2 cursor-pointer">
                               <span className="flex items-center gap-2">
                                 <input type="checkbox" checked={room.steamClean} onChange={() => toggleSteamClean(room.id)}
-                                  className="w-5 h-5 rounded border-2 border-silver-300 text-royal-600 focus:ring-royal-500" />
-                                <span className="text-navy-800 text-sm font-semibold">{room.label}</span>
+                                  className="w-5 h-5 rounded border-2 border-silver-400 text-royal-600 focus:ring-royal-500" />
+                                <span className="text-navy-900 text-sm font-semibold">{room.label}</span>
                               </span>
                               <span className="flex items-center gap-3">
-                                <span className="text-royal-600 text-xs font-bold">{penceToDisplay(standaloneP)}</span>
+                                <span className="text-royal-700 text-xs font-bold">{penceToDisplay(standaloneP)}</span>
                                 {room.removable && (
-                                  <button type="button" onClick={(e) => { e.preventDefault(); removeRoom(room.id); }} className="text-silver-400 hover:text-red-500 text-xs font-medium">Remove</button>
+                                  <button type="button" onClick={(e) => { e.preventDefault(); removeRoom(room.id); }} className="text-silver-600 hover:text-red-600 text-xs font-medium">Remove</button>
                                 )}
                               </span>
                             </label>
@@ -802,9 +875,9 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                       })}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => addWholeRoom('reception')} className="text-xs font-semibold text-royal-600 hover:text-royal-700 border border-royal-200 rounded-full px-3 py-1.5">+ Reception room</button>
-                      <button type="button" onClick={() => addWholeRoom('hallway')} className="text-xs font-semibold text-royal-600 hover:text-royal-700 border border-royal-200 rounded-full px-3 py-1.5">+ Hallway</button>
-                      <button type="button" onClick={() => addWholeRoom('landing')} className="text-xs font-semibold text-royal-600 hover:text-royal-700 border border-royal-200 rounded-full px-3 py-1.5">+ Landing</button>
+                      <button type="button" onClick={() => addWholeRoom('reception')} className="text-xs font-semibold text-royal-700 hover:text-royal-800 border border-royal-300 rounded-full px-3 py-1.5">+ Reception room</button>
+                      <button type="button" onClick={() => addWholeRoom('hallway')} className="text-xs font-semibold text-royal-700 hover:text-royal-800 border border-royal-300 rounded-full px-3 py-1.5">+ Hallway</button>
+                      <button type="button" onClick={() => addWholeRoom('landing')} className="text-xs font-semibold text-royal-700 hover:text-royal-800 border border-royal-300 rounded-full px-3 py-1.5">+ Landing</button>
                     </div>
                   </div>
                 )}
@@ -813,18 +886,18 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                 {state.carpetMode === 'manual' && (
                   <div className="space-y-2">
                     {MANUAL_CARPET_FIELDS.map((f) => (
-                      <div key={f.key} className="flex items-center justify-between gap-2 rounded-xl border border-silver-200 px-4 py-3 min-h-[44px]">
+                      <div key={f.key} className="flex items-center justify-between gap-2 rounded-xl border border-silver-300 px-4 py-3 min-h-[44px]">
                         <div>
                           <div className="text-navy-800 text-sm font-medium">{f.label}</div>
-                          <div className="text-royal-600 text-[11px] font-bold">{penceToDisplay(f.priceP)} each</div>
+                          <div className="text-royal-700 text-[11px] font-bold">{penceToDisplay(f.priceP)} each</div>
                         </div>
                         <Counter value={state.manualCarpetCounts[f.key]} max={10} label={f.label} onChange={(v) => setManualCount(f.key, v)} />
                       </div>
                     ))}
-                    <div className="flex items-center justify-between gap-2 rounded-xl border border-silver-200 px-4 py-3 min-h-[44px]">
+                    <div className="flex items-center justify-between gap-2 rounded-xl border border-silver-300 px-4 py-3 min-h-[44px]">
                       <div>
                         <div className="text-navy-800 text-sm font-medium">Staircase flights</div>
-                        <div className="text-royal-600 text-[11px] font-bold">{penceToDisplay(STAIRS_FIRST_P)} first flight, +{penceToDisplay(STAIRS_EXTRA_P)} each extra</div>
+                        <div className="text-royal-700 text-[11px] font-bold">{penceToDisplay(STAIRS_FIRST_P)} first flight, +{penceToDisplay(STAIRS_EXTRA_P)} each extra</div>
                       </div>
                       <Counter value={state.manualCarpetCounts.stairFlights} max={6} label="staircase flights" onChange={setManualStairFlights} />
                     </div>
@@ -843,60 +916,46 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
             {state.pkg === 'tailored' ? (
               <div>
                 <h3 className="text-navy-900 font-bold text-base mb-1">Add back the internal tasks you need</h3>
-                <p className="text-silver-600 text-xs mb-3">Every price is shown before you select it — nothing is added silently.</p>
+                <p className="text-navy-700 text-xs mb-3">Every price is shown before you select it — nothing is added silently.</p>
 
-                <p className="text-navy-700 text-xs font-bold uppercase tracking-widest mb-1.5 mt-3">Appliance interiors</p>
+                <p className="text-navy-800 text-xs font-bold uppercase tracking-widest mb-1.5 mt-3">Appliance interiors</p>
                 <div className="space-y-2">
                   {[
+                    { key: 'microwaveInside' as const, label: 'Inside microwave', price: EOT_TAILORED_ADDON_PRICES_P.microwave_inside },
                     { key: 'fridgeFreezerInside' as const, label: 'Inside standard fridge/freezer', price: EOT_TAILORED_ADDON_PRICES_P.fridge_freezer_inside },
                     { key: 'dishwasherInside' as const, label: 'Inside dishwasher compartments', price: EOT_TAILORED_ADDON_PRICES_P.dishwasher_inside },
                     { key: 'washingMachineInside' as const, label: 'Inside washing-machine compartments', price: EOT_TAILORED_ADDON_PRICES_P.washing_machine_inside },
                   ].map((item) => (
-                    <label key={item.key} className="flex items-center justify-between gap-2 rounded-xl bg-silver-50 border border-silver-200 px-4 py-3 cursor-pointer min-h-[44px]">
+                    <label key={item.key} className="flex items-center justify-between gap-2 rounded-xl bg-silver-100 border border-silver-300 px-4 py-3 cursor-pointer min-h-[44px]">
                       <span className="text-navy-800 text-sm font-medium">{item.label}</span>
                       <span className="flex items-center gap-3">
-                        <span className="text-royal-600 text-xs font-bold">+{penceToDisplay(item.price)}</span>
+                        <span className="text-royal-700 text-xs font-bold">+{penceToDisplay(item.price)}</span>
                         <input type="checkbox" checked={state.tailoredAddOns[item.key]}
                           onChange={(e) => setState((p) => ({ ...p, tailoredAddOns: { ...p.tailoredAddOns, [item.key]: e.target.checked } }))}
-                          className="w-5 h-5 rounded border-2 border-silver-300 text-royal-600 focus:ring-royal-500" />
+                          className="w-5 h-5 rounded border-2 border-silver-400 text-royal-600 focus:ring-royal-500" />
                       </span>
                     </label>
                   ))}
-                  <div className="flex items-center justify-between gap-2 rounded-xl bg-silver-50 border border-silver-200 px-4 py-3 min-h-[44px]">
+                  <div className="flex items-center justify-between gap-2 rounded-xl bg-silver-100 border border-silver-300 px-4 py-3 min-h-[44px]">
                     <span className="text-navy-800 text-sm font-medium">Additional separate fridge or freezer</span>
                     <span className="flex items-center gap-3">
-                      <span className="text-royal-600 text-xs font-bold">+{penceToDisplay(EOT_TAILORED_ADDON_PRICES_P.extra_fridge_freezer)} each</span>
+                      <span className="text-royal-700 text-xs font-bold">+{penceToDisplay(EOT_TAILORED_ADDON_PRICES_P.extra_fridge_freezer)} each</span>
                       <Counter value={state.tailoredAddOns.extraFridgeFreezers} label="additional fridge/freezer"
                         onChange={(v) => setState((p) => ({ ...p, tailoredAddOns: { ...p.tailoredAddOns, extraFridgeFreezers: v } }))} />
                     </span>
                   </div>
                 </div>
 
-                <p className="text-navy-700 text-xs font-bold uppercase tracking-widest mb-1.5 mt-4">Cupboards and storage</p>
-                <label className="flex items-center justify-between gap-2 rounded-xl bg-silver-50 border border-silver-200 px-4 py-3 cursor-pointer min-h-[44px]">
+                <p className="text-navy-800 text-xs font-bold uppercase tracking-widest mb-1.5 mt-4">Cupboards and storage</p>
+                <label className="flex items-center justify-between gap-2 rounded-xl bg-silver-100 border border-silver-300 px-4 py-3 cursor-pointer min-h-[44px]">
                   <span className="text-navy-800 text-sm font-medium">Cupboards, drawers &amp; wardrobes</span>
                   <span className="flex items-center gap-3">
-                    <span className="text-royal-600 text-xs font-bold">+{penceToDisplay(EOT_TAILORED_CUPBOARDS_PRICES_P[state.size])}</span>
+                    <span className="text-royal-700 text-xs font-bold">+{penceToDisplay(EOT_TAILORED_CUPBOARDS_PRICES_P[state.size])}</span>
                     <input type="checkbox" checked={state.tailoredAddOns.cupboards}
                       onChange={(e) => setState((p) => ({ ...p, tailoredAddOns: { ...p.tailoredAddOns, cupboards: e.target.checked } }))}
-                      className="w-5 h-5 rounded border-2 border-silver-300 text-royal-600 focus:ring-royal-500" />
+                      className="w-5 h-5 rounded border-2 border-silver-400 text-royal-600 focus:ring-royal-500" />
                   </span>
                 </label>
-
-                {quote.shouldOfferComplete ? (
-                  <button type="button" onClick={() => setState((p) => ({ ...p, pkg: 'complete' }))}
-                    className="w-full text-left rounded-xl bg-amber-50 border-2 border-amber-300 px-4 py-3 mt-4">
-                    <p className="text-amber-800 text-sm font-bold">Complete saves you money and covers the full internal checklist</p>
-                    <p className="text-amber-700 text-xs mt-0.5">
-                      Your Tailored selections now cost {penceToDisplay(quote.basePriceP + quote.houseAdjP + quote.bathroomsAddP + quote.wcsAddP + quote.tailoredAddOnsP)} —
-                      the same as, or more than, Complete at {penceToDisplay(quote.completeEquivalentP)}. Tap to switch at no extra cost.
-                    </p>
-                  </button>
-                ) : (
-                  <p className="text-silver-500 text-xs mt-3">
-                    Switching to Complete for {penceToDisplay(quote.completeEquivalentP - (quote.basePriceP + quote.houseAdjP + quote.bathroomsAddP + quote.wcsAddP + quote.tailoredAddOnsP))} more covers every internal task.
-                  </p>
-                )}
               </div>
             ) : (
               <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 font-medium">
@@ -914,34 +973,53 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   { key: 'key_collect' as const, label: 'Key collection/return', price: ADDON_PRICES_P.key_collect },
                   { key: 'rubbish' as const, label: 'Rubbish removal (small load)', price: ADDON_PRICES_P.rubbish },
                 ].map((item) => (
-                  <div key={item.key} className="flex items-center justify-between gap-2 rounded-xl bg-silver-50 border border-silver-200 px-4 py-3 min-h-[44px]">
+                  <div key={item.key} className="flex items-center justify-between gap-2 rounded-xl bg-silver-100 border border-silver-300 px-4 py-3 min-h-[44px]">
                     <div>
                       <div className="text-navy-800 text-sm font-medium">{item.label}</div>
-                      <div className="text-royal-600 text-[11px] font-bold">+{penceToDisplay(item.price)}</div>
+                      <div className="text-royal-700 text-[11px] font-bold">+{penceToDisplay(item.price)}</div>
                     </div>
                     <Counter value={state.extras[item.key]} label={item.label} onChange={(v) => setState((p) => ({ ...p, extras: { ...p.extras, [item.key]: v } }))} />
                   </div>
                 ))}
-                <div className="flex items-center justify-between gap-2 rounded-xl bg-purple-50 border border-purple-200 px-4 py-3">
-                  <div>
-                    <div className="text-navy-800 text-sm font-medium">Upholstery cleaning</div>
-                    <div className="text-purple-700 text-[11px] font-semibold">Priced separately — see the sofa &amp; upholstery calculator</div>
-                  </div>
-                  <a href="/sofa-cleaning-london" className="text-xs font-semibold text-purple-700 underline underline-offset-2 whitespace-nowrap">View prices</a>
+
+                {/* Inline upholstery/mattress selector — adds straight to this quote, no navigation away */}
+                <div className="rounded-xl border border-purple-300 bg-purple-50 overflow-hidden">
+                  <button type="button" onClick={() => setUpholsteryOpen((o) => !o)}
+                    aria-expanded={upholsteryOpen}
+                    className="w-full flex items-center justify-between gap-2 px-4 py-3 min-h-[44px] text-left">
+                    <div>
+                      <div className="text-navy-800 text-sm font-medium">Upholstery &amp; mattress cleaning</div>
+                      <div className="text-purple-800 text-[11px] font-semibold">
+                        {upholsteryTotalP > 0 ? `${penceToDisplay(upholsteryTotalP)} added to this quote` : 'Add sofas, armchairs or mattresses to this visit'}
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className={`text-purple-700 flex-shrink-0 transition-transform duration-200 ${upholsteryOpen ? 'rotate-90' : ''}`} />
+                  </button>
+                  {upholsteryOpen && (
+                    <div className="px-4 pb-4 pt-1 border-t border-purple-200 space-y-2.5">
+                      {UPHOLSTERY_FIELDS.map((f) => (
+                        <div key={f.key} className="flex items-center justify-between gap-2">
+                          <div>
+                            <div className="text-navy-800 text-xs font-medium">{f.label}</div>
+                            <div className="text-purple-800 text-[11px] font-bold">{penceToDisplay(f.priceP)} each</div>
+                          </div>
+                          <Counter value={state.upholsteryCounts[f.key]} max={10} label={f.label} onChange={(v) => setUpholsteryCount(f.key, v)} />
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => setUpholsteryOpen(false)}
+                        className="text-xs font-semibold text-purple-800 underline underline-offset-2 mt-1">
+                        Done
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center justify-between gap-2 rounded-xl bg-purple-50 border border-purple-200 px-4 py-3">
-                  <div>
-                    <div className="text-navy-800 text-sm font-medium">Mattress cleaning</div>
-                    <div className="text-purple-700 text-[11px] font-semibold">Priced separately — see the carpet &amp; upholstery calculator</div>
-                  </div>
-                  <a href="/carpet-cleaning-london" className="text-xs font-semibold text-purple-700 underline underline-offset-2 whitespace-nowrap">View prices</a>
-                </div>
+
                 <div className="flex items-center justify-between gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
                   <div>
                     <div className="text-navy-800 text-sm font-medium">Rug cleaning</div>
-                    <div className="text-amber-700 text-[11px] font-semibold">Photo assessment required — not automatically priced</div>
+                    <div className="text-amber-800 text-[11px] font-semibold">Photo assessment required — not automatically priced</div>
                   </div>
-                  <a href={WA_LINK} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-amber-700 underline underline-offset-2 whitespace-nowrap">WhatsApp a photo</a>
+                  <a href={WA_LINK} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-amber-800 underline underline-offset-2 whitespace-nowrap">WhatsApp a photo</a>
                 </div>
               </div>
             </div>
@@ -958,8 +1036,8 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   <button key={k} type="button" onClick={() => setState((p) => ({ ...p, condition: k }))}
                     className={`py-3 px-3 rounded-xl border-2 text-left text-xs font-semibold leading-snug transition-all duration-200 min-h-[44px] ${
                       state.condition === k
-                        ? k === 'normal' ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-amber-400 bg-amber-50 text-amber-800'
-                        : 'border-silver-200 text-navy-700 hover:border-royal-300'
+                        ? k === 'normal' ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-amber-400 bg-amber-50 text-amber-900'
+                        : 'border-silver-300 text-navy-700 hover:border-royal-300'
                     }`}>
                     {l}
                   </button>
@@ -967,8 +1045,8 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
               </div>
               {isQuoteReviewCondition && (
                 <div className="flex items-start gap-2 mt-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
-                  <Info size={13} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-amber-800 text-xs leading-relaxed font-medium">
+                  <Info size={13} className="text-amber-700 flex-shrink-0 mt-0.5" />
+                  <p className="text-amber-900 text-xs leading-relaxed font-medium">
                     Photo review required. We will confirm any adjustment before accepting the booking request — no automatic surcharge is applied.
                   </p>
                 </div>
@@ -976,36 +1054,37 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
             </div>
 
             <div className="rounded-xl bg-sky-50 border border-sky-200 px-4 py-3">
-              <p className="text-navy-700 text-xs leading-relaxed">
+              <p className="text-navy-800 text-xs leading-relaxed">
                 Parking costs are not included and may be added at the actual cost where required. Congestion Charge will only be added if applicable. These details are confirmed during booking.
               </p>
             </div>
 
             <div>
               <h3 className="text-navy-900 font-bold text-base">Review your quote</h3>
-              <div className="rounded-2xl border border-silver-200 divide-y divide-silver-100 overflow-hidden mt-3">
+              <div className="rounded-2xl border border-silver-300 divide-y divide-silver-200 overflow-hidden mt-3">
                 <div className="px-4 py-3 flex justify-between text-sm">
-                  <span className="text-silver-600">Property</span>
+                  <span className="text-navy-600">Property</span>
                   <span className="text-navy-900 font-semibold">{state.propertyType === 'flat' ? 'Flat' : 'House / Maisonette'} · {sizeLabel}</span>
                 </div>
                 <div className="px-4 py-3 flex justify-between text-sm">
-                  <span className="text-silver-600">Bathrooms / WCs</span>
+                  <span className="text-navy-600">Bathrooms / WCs</span>
                   <span className="text-navy-900 font-semibold">{state.fullBathrooms} bathroom{state.fullBathrooms !== 1 ? 's' : ''}{state.extraWcs > 0 ? ` · ${state.extraWcs} WC${state.extraWcs > 1 ? 's' : ''}` : ''}</span>
                 </div>
                 <div className="px-4 py-3 flex justify-between text-sm">
-                  <span className="text-silver-600">Package</span>
+                  <span className="text-navy-600">Package</span>
                   <span className="text-navy-900 font-semibold">{state.pkg === 'complete' ? 'Complete Agency-Ready Clean' : 'Tailored Checklist Clean'}</span>
                 </div>
                 <div className="px-4 py-3 flex justify-between text-sm">
-                  <span className="text-silver-600">Floor care</span>
+                  <span className="text-navy-600">Floor care</span>
                   <span className="text-navy-900 font-semibold">
                     {state.floorCareChoice === 'professional' ? 'Professional carpet steam cleaning' : state.floorCareChoice === 'none' ? 'No carpeted areas' : 'Standard (included)'}
                   </span>
                 </div>
                 {state.pkg === 'tailored' && Object.entries(state.tailoredAddOns).some(([k, v]) => (k === 'extraFridgeFreezers' ? Number(v) > 0 : v)) && (
                   <div className="px-4 py-3 text-sm">
-                    <span className="text-silver-600 block mb-1">Internal tasks added</span>
+                    <span className="text-navy-600 block mb-1">Internal tasks added</span>
                     <ul className="text-navy-900 text-xs space-y-0.5">
+                      {state.tailoredAddOns.microwaveInside && <li>• Inside microwave</li>}
                       {state.tailoredAddOns.fridgeFreezerInside && <li>• Inside fridge/freezer</li>}
                       {state.tailoredAddOns.extraFridgeFreezers > 0 && <li>• {state.tailoredAddOns.extraFridgeFreezers} × additional fridge/freezer</li>}
                       {state.tailoredAddOns.dishwasherInside && <li>• Inside dishwasher</li>}
@@ -1016,7 +1095,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                 )}
                 {activeCarpetRooms.length > 0 && (
                   <div className="px-4 py-3 text-sm">
-                    <span className="text-silver-600 block mb-1">Confirmed carpet areas</span>
+                    <span className="text-navy-600 block mb-1">Confirmed carpet areas</span>
                     <ul className="text-navy-900 text-xs space-y-0.5 mb-2">
                       {activeCarpetRooms.map((r) => (
                         <li key={r.id}>
@@ -1028,33 +1107,36 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                     <CarpetPackageBreakdown carpetPackage={carpetPackage} />
                   </div>
                 )}
-                {Object.entries(state.extras).some(([, v]) => v > 0) && (
+                {(Object.entries(state.extras).some(([, v]) => v > 0) || upholsteryTotalP > 0) && (
                   <div className="px-4 py-3 text-sm">
-                    <span className="text-silver-600 block mb-1">Other extras</span>
+                    <span className="text-navy-600 block mb-1">Other extras</span>
                     <ul className="text-navy-900 text-xs space-y-0.5">
                       {state.extras.ext_windows > 0 && <li>• {state.extras.ext_windows} × Exterior windows</li>}
                       {state.extras.balcony > 0 && <li>• {state.extras.balcony} × Balcony</li>}
                       {state.extras.wall_marks > 0 && <li>• {state.extras.wall_marks} × Wall-mark treatment</li>}
                       {state.extras.key_collect > 0 && <li>• {state.extras.key_collect} × Key collection/return</li>}
                       {state.extras.rubbish > 0 && <li>• {state.extras.rubbish} × Rubbish removal</li>}
+                      {UPHOLSTERY_FIELDS.filter((f) => state.upholsteryCounts[f.key] > 0).map((f) => (
+                        <li key={f.key}>• {state.upholsteryCounts[f.key]} × {f.label}</li>
+                      ))}
                     </ul>
                   </div>
                 )}
                 <div className="px-4 py-3 text-sm">
-                  <span className="text-silver-600 block mb-1">Condition</span>
+                  <span className="text-navy-600 block mb-1">Condition</span>
                   <p className="text-navy-900 text-xs">
                     {state.condition === 'normal' ? 'Normal used condition' : 'Flagged for photo review — quote to be confirmed'}
                   </p>
                 </div>
-                <div className="px-4 py-3 text-xs text-silver-500 leading-relaxed">
+                <div className="px-4 py-3 text-xs text-navy-600 leading-relaxed">
                   Parking and Congestion Charge are not included above — confirmed and charged at actual cost during booking.
                 </div>
               </div>
 
               {isQuoteReviewCondition ? (
                 <div className="rounded-2xl bg-purple-50 border-2 border-purple-200 p-5 text-center space-y-2 mt-4">
-                  <p className="text-purple-800 font-bold text-sm">Photo review required</p>
-                  <p className="text-purple-700 text-xs leading-relaxed">
+                  <p className="text-purple-900 font-bold text-sm">Photo review required</p>
+                  <p className="text-purple-800 text-xs leading-relaxed">
                     The condition you selected needs a quick photo review before we can confirm a fixed price — no automatic surcharge is applied. Send us photos on WhatsApp and we'll confirm within the hour.
                   </p>
                   <a href={WA_LINK} target="_blank" rel="noopener noreferrer"
@@ -1063,30 +1145,29 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   </a>
                 </div>
               ) : (
-                <div className="rounded-2xl px-5 py-5 mt-4" style={{ backgroundColor: '#dff0e8', border: '1.5px solid #b6d9c8' }}>
-                  <div className="flex justify-between text-sm text-navy-700 mb-1">
-                    <span>Total service price</span>
-                    <span>£{totalPounds}</span>
+                // ── Final payment card ── one clean, premium card: single Total,
+                // deposit, balance, guarantee badge. No duplicated pricing block.
+                <div className="rounded-2xl bg-white border border-silver-300 shadow-sm px-5 py-5 mt-4">
+                  <p className="text-navy-500 text-[10px] font-bold uppercase tracking-widest mb-2">Your quote</p>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-navy-800 text-sm font-semibold">Total</span>
+                    <span data-testid="final-total" className="text-navy-900 font-display font-bold text-3xl">{penceToDisplay(totalP)}</span>
                   </div>
-                  <div className="flex justify-between font-display font-bold text-3xl text-[#1a5c3a] border-t border-[#b6d9c8] mt-2 pt-2">
-                    <span className="text-base font-sans font-semibold self-center text-navy-800">Final total</span>
-                    <span>£{totalPounds}</span>
+                  <div className="mt-3 pt-3 border-t border-silver-200 space-y-1.5 text-sm">
+                    <div className="flex justify-between text-navy-700"><span>Deposit today</span><span className="font-semibold text-navy-900">{penceToDisplay(depositP)}</span></div>
+                    <div className="flex justify-between text-navy-700"><span>Balance after cleaning</span><span className="font-semibold text-navy-900">{penceToDisplay(balanceP)}</span></div>
                   </div>
-                  <div className="mt-3 space-y-1 text-sm">
-                    <div className="flex justify-between text-navy-700"><span>Deposit today</span><span className="font-semibold">{penceToDisplay(depositP)}</span></div>
-                    <div className="flex justify-between text-navy-700"><span>Remaining balance</span><span className="font-semibold">{penceToDisplay(balanceP)}</span></div>
+                  <div className="mt-4 inline-flex items-center gap-1.5 text-green-800 bg-green-50 border border-green-200 rounded-full px-3 py-1.5 text-xs font-semibold">
+                    <ShieldCheck size={13} /> {state.pkg === 'complete' ? `Full ${EOT_GUARANTEE_HOURS}-hour agency-ready guarantee` : `${EOT_GUARANTEE_HOURS}-hour guarantee on selected tasks`}
                   </div>
-                  <p className="text-[#1a5c3a] text-[11px] mt-2 leading-relaxed">
+                  <p className="text-navy-600 text-[11px] mt-3 leading-relaxed">
                     The remaining balance is due after the work is completed and you have had the opportunity to inspect it. Your appointment is a booking request until availability is confirmed.
-                  </p>
-                  <p className="text-[#1a5c3a] text-[11px] mt-1 leading-relaxed">
-                    Guarantee: {state.pkg === 'complete' ? `Full ${EOT_GUARANTEE_HOURS}-hour agency-ready re-clean guarantee.` : `${EOT_GUARANTEE_HOURS}-hour re-clean guarantee, covering only the tasks in this quote.`}
                   </p>
                 </div>
               )}
 
               {bookError && (
-                <div role="alert" className="rounded-xl px-4 py-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm mt-3">{bookError}</div>
+                <div role="alert" className="rounded-xl px-4 py-3 bg-amber-50 border border-amber-200 text-amber-900 text-sm mt-3">{bookError}</div>
               )}
 
               {!isQuoteReviewCondition && (
@@ -1107,7 +1188,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
           <ChevronLeft size={16} /> Back
         </button>
         <div className="text-right">
-          <div className="text-[10px] uppercase tracking-widest text-silver-500 font-bold">
+          <div className="text-[10px] uppercase tracking-widest text-navy-500 font-bold">
             {step === 1 ? 'Starting from' : isQuoteReviewCondition && step === 4 ? '' : 'Current total'}
           </div>
           <div data-testid="footer-total" className="text-navy-900 font-display font-bold text-lg">
@@ -1115,10 +1196,13 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
               ? 'Quote required'
               : isQuoteReviewCondition && step === 4
                 ? 'Quote review'
-                : step === 1 ? `£${Math.round(cheapestStartingP / 100)}` : `£${totalPounds}`}
+                : step === 1 ? penceToDisplay(cheapestStartingP) : penceToDisplay(totalP)}
           </div>
+          {step === 1 && !state.is5Plus && (
+            <div className="text-[10px] text-navy-500">Based on your property details — choose your package next</div>
+          )}
           {step >= 2 && !(isQuoteReviewCondition && step === 4) && (
-            <div className="text-[10px] text-silver-500">
+            <div className="text-[10px] text-navy-500">
               {state.pkg === 'complete' ? 'Complete Agency-Ready Clean' : 'Tailored Checklist Clean'} · based on your current selections
             </div>
           )}
@@ -1126,7 +1210,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         {step < TOTAL_STEPS ? (
           <button type="button" onClick={goNext} disabled={step === 1 && state.is5Plus}
             className="inline-flex items-center gap-1.5 text-sm font-bold text-white bg-royal-500 hover:bg-royal-600 rounded-full px-5 py-2.5 min-h-[44px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7] disabled:opacity-40 disabled:cursor-not-allowed">
-            Next <ChevronRight size={16} />
+            Continue <ChevronRight size={16} />
           </button>
         ) : (
           <span className="w-16" aria-hidden="true" />

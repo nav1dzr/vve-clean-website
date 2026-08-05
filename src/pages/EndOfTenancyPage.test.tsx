@@ -61,7 +61,7 @@ describe('EndOfTenancyPage — mounts the Complete/Tailored wizard directly, not
     expect(
       screen.getByRole('heading', { name: /End of Tenancy Cleaning London/i }),
     ).toBeInTheDocument();
-    expect(quote().getByText(/Step 1 of 4/)).toBeInTheDocument();
+    expect(quote().getByRole('list', { name: /Step 1 of 4/ })).toBeInTheDocument();
     expect(screen.queryByText('Service Type')).not.toBeInTheDocument();
   });
 
@@ -75,7 +75,7 @@ describe('EndOfTenancyPage — mounts the Complete/Tailored wizard directly, not
     renderPage();
     await user.click(quote().getByRole('button', { name: /^1 bed/ }));
     expect(quote().getByTestId('footer-total')).toHaveTextContent(`£${cheapestP(EOT_COMPLETE_PRICES_P.bed1, EOT_TAILORED_START_PRICES_P.bed1) / 100}`);
-    expect(quote().getByText(/Step 1 of 4/)).toBeInTheDocument();
+    expect(quote().getByRole('list', { name: /Step 1 of 4/ })).toBeInTheDocument();
   });
 
   it('lets the customer change service back to carpet & upholstery from within the quote', async () => {
@@ -84,7 +84,7 @@ describe('EndOfTenancyPage — mounts the Complete/Tailored wizard directly, not
     const changeService = quote().queryByRole('button', { name: /change service/i });
     if (changeService) {
       await user.click(changeService);
-      expect(quote().queryByText(/Step 1 of 4/)).not.toBeInTheDocument();
+      expect(quote().queryByRole('list', { name: /Step 1 of 4/ })).not.toBeInTheDocument();
     }
   });
 

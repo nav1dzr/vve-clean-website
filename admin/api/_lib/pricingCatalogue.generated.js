@@ -245,14 +245,52 @@ export function computeCarpetPrice(counts, condition, multiplier = 1, promoCode)
 // extreme conditions always require a photo review and confirmed quote —
 // never an automatic multiplier.
 
-/** @type {Record<string, number>} */
-export const EOT_COMPLETE_PRICES_P = {
-  studio: 19900,  // £199
-  bed1:   24900,  // £249
-  bed2:   31900,  // £319
-  bed3:   37900,  // £379
-  bed4:   49900,  // £499
+// Owner-approved explicit price matrix — every {propertyType, size} combination
+// is its own catalogue entry, never a flat base plus a blanket house/maisonette
+// surcharge. House/maisonette prices are genuinely different figures set by
+// the business, not a formula derived from the flat prices. There is
+// deliberately no `house.studio` entry — house/maisonette studios (like any
+// 5+ bedroom property) are always a manual quotation, never an instant price.
+/** @type {{flat: Record<SizeKey, {tailored: number, complete: number}>, house: Partial<Record<SizeKey, {tailored: number, complete: number}>>}} */
+export const EOT_PRICES_P = {
+  flat: {
+    studio: { tailored: 15900, complete: 22000 },  // £159 / £220
+    bed1:   { tailored: 19900, complete: 27900 },  // £199 / £279
+    bed2:   { tailored: 25900, complete: 33900 },  // £259 / £339
+    bed3:   { tailored: 31900, complete: 40900 },  // £319 / £409
+    bed4:   { tailored: 41900, complete: 52900 },  // £419 / £529
+  },
+  house: {
+    bed1: { tailored: 23900, complete: 31900 },  // £239 / £319
+    bed2: { tailored: 30900, complete: 39900 },  // £309 / £399
+    bed3: { tailored: 38900, complete: 49900 },  // £389 / £499
+    bed4: { tailored: 49900, complete: 62900 },  // £499 / £629
+  },
 };
+
+/**
+ * True only for {propertyType, size} combinations that have a fixed instant
+ * price in EOT_PRICES_P. Used to keep the wizard from ever offering a size
+ * (e.g. a house/maisonette studio) that has no catalogue entry.
+ * @param {'flat'|'house'} propertyType
+ * @param {SizeKey} size
+ */
+export function eotPropertySizeValid(propertyType, size) {
+  return Boolean(EOT_PRICES_P[propertyType]?.[size]);
+}
+
+// Flagship/flat baseline — kept under their original names so every existing
+// call site (PricingPage, schema.org structured data, SEO copy, the admin
+// catalogue seed) keeps working unchanged. Both are DERIVED from
+// EOT_PRICES_P.flat below — never a second, separately-maintained table.
+/** @type {Record<string, number>} */
+export const EOT_COMPLETE_PRICES_P = Object.fromEntries(
+  SIZE_KEYS.map((k) => [k, EOT_PRICES_P.flat[k].complete]),
+);
+/** @type {Record<string, number>} */
+export const EOT_TAILORED_START_PRICES_P = Object.fromEntries(
+  SIZE_KEYS.map((k) => [k, EOT_PRICES_P.flat[k].tailored]),
+);
 
 // Backward/forward-compatible alias — "the" EOT price shown wherever a single
 // headline figure is needed (service cards, structured data, SEO copy). This
@@ -260,21 +298,10 @@ export const EOT_COMPLETE_PRICES_P = {
 // product and the one that should anchor comparisons.
 export const EOT_BASE_PRICES_P = EOT_COMPLETE_PRICES_P;
 
-/** @type {Record<string, number>} */
-export const EOT_TAILORED_START_PRICES_P = {
-  studio: 15900,  // £159
-  bed1:   19900,  // £199
-  bed2:   25900,  // £259
-  bed3:   31900,  // £319
-  bed4:   41900,  // £419
-};
-
 // Per additional bathroom beyond the first (integer pence).
 export const EOT_EXTRA_BATH_P = 4000;  // £40
 // Per additional separate WC beyond the first.
 export const EOT_EXTRA_WC_P = 2000;  // £20
-// House or maisonette adjustment (applies to both packages).
-export const EOT_HOUSE_ADJUSTMENT_P = 3000;  // £30
 
 // Re-clean guarantee window, in hours. Shared by both packages — only the
 // SCOPE differs (Complete = full checklist; Tailored = selected tasks only).
@@ -288,6 +315,7 @@ export const EOT_GUARANTEE_APPROVED = true;
 // selection.
 /** @type {Record<string, number>} */
 export const EOT_TAILORED_ADDON_PRICES_P = {
+  microwave_inside:       1000,  // £10 — inside microwave
   fridge_freezer_inside:  2500,  // £25 — inside standard fridge/freezer
   extra_fridge_freezer:   1500,  // £15 each — additional separate fridge or freezer
   dishwasher_inside:      1000,  // £10 — inside dishwasher compartments
@@ -296,6 +324,7 @@ export const EOT_TAILORED_ADDON_PRICES_P = {
 
 /** @type {Record<string, string>} */
 export const EOT_TAILORED_ADDON_LABELS = {
+  microwaveInside:      'Inside microwave',
   fridgeFreezerInside:  'Inside fridge/freezer',
   extraFridgeFreezers:  'Additional fridge/freezer',
   dishwasherInside:     'Inside dishwasher',
@@ -321,6 +350,7 @@ export const EOT_TAILORED_CUPBOARDS_PRICES_P = {
  */
 export function tailoredFullAddonTotalP(size) {
   return (
+    EOT_TAILORED_ADDON_PRICES_P.microwave_inside +
     EOT_TAILORED_ADDON_PRICES_P.fridge_freezer_inside +
     EOT_TAILORED_ADDON_PRICES_P.dishwasher_inside +
     EOT_TAILORED_ADDON_PRICES_P.washing_machine_inside +
@@ -499,19 +529,33 @@ export function calculateEotCarpetPackage(rooms, carpetRoomIds) {
  * @property {boolean} isHouse
  * @property {number} extraBathrooms
  * @property {number} extraWcs
- * @property {{fridgeFreezerInside?: boolean, extraFridgeFreezers?: number, dishwasherInside?: boolean, washingMachineInside?: boolean, cupboards?: boolean}} [tailoredAddOns]
+ * @property {{microwaveInside?: boolean, fridgeFreezerInside?: boolean, extraFridgeFreezers?: number, dishwasherInside?: boolean, washingMachineInside?: boolean, cupboards?: boolean}} [tailoredAddOns]
  * @property {string[]} [carpetRoomIds] - ids of rooms (from generateDefaultRooms) the customer has confirmed for professional carpet steam cleaning
  * @property {{id: string, addonKey: string, floor: string, stairFlights?: number}[]} [rooms] - full suggested/confirmed room list, used to look up addonKey/stairFlights for carpetRoomIds — a room existing here is only a SUGGESTION, never a charge, until its id also appears in carpetRoomIds
  */
 
+/**
+ * Looks up the explicit {propertyType, size} catalogue entry. Callers that
+ * accept untrusted input (the server) must validate with
+ * eotPropertySizeValid() BEFORE calling calculateEotQuote — this lookup
+ * falls back to a safe default rather than throwing, because
+ * calculateEotQuote's contract is to always return a priced quote for any
+ * well-formed EotQuoteInput.
+ * @param {'flat'|'house'} propertyType @param {SizeKey} size
+ */
+function eotPriceEntry(propertyType, size) {
+  return EOT_PRICES_P[propertyType]?.[size] ?? EOT_PRICES_P.flat[size] ?? EOT_PRICES_P.flat.bed2;
+}
+
 /** @param {EotQuoteInput} input */
 export function calculateEotQuote(input) {
   const { size, isHouse, extraBathrooms, extraWcs } = input;
-  const houseAdjP = isHouse ? EOT_HOUSE_ADJUSTMENT_P : 0;
+  const propertyType = isHouse ? 'house' : 'flat';
+  const entry = eotPriceEntry(propertyType, size);
   const bathroomsAddP = Math.max(0, extraBathrooms) * EOT_EXTRA_BATH_P;
   const wcsAddP = Math.max(0, extraWcs) * EOT_EXTRA_WC_P;
 
-  const completeEquivalentP = EOT_COMPLETE_PRICES_P[size] + houseAdjP + bathroomsAddP + wcsAddP;
+  const completeEquivalentP = entry.complete + bathroomsAddP + wcsAddP;
 
   // Floor-care carpet package applies identically to either package —
   // Complete never automatically includes professional carpet steam
@@ -521,8 +565,8 @@ export function calculateEotQuote(input) {
 
   if (input.package === 'complete') {
     return {
-      basePriceP: EOT_COMPLETE_PRICES_P[size],
-      houseAdjP, bathroomsAddP, wcsAddP,
+      basePriceP: entry.complete,
+      bathroomsAddP, wcsAddP,
       tailoredAddOnsP: 0,
       carpetAddonP,
       carpetPackage,
@@ -536,22 +580,23 @@ export function calculateEotQuote(input) {
 
   const t = input.tailoredAddOns ?? {};
   let tailoredAddOnsP = 0;
+  if (t.microwaveInside) tailoredAddOnsP += EOT_TAILORED_ADDON_PRICES_P.microwave_inside;
   if (t.fridgeFreezerInside) tailoredAddOnsP += EOT_TAILORED_ADDON_PRICES_P.fridge_freezer_inside;
   if (t.dishwasherInside) tailoredAddOnsP += EOT_TAILORED_ADDON_PRICES_P.dishwasher_inside;
   if (t.washingMachineInside) tailoredAddOnsP += EOT_TAILORED_ADDON_PRICES_P.washing_machine_inside;
   if (t.cupboards) tailoredAddOnsP += EOT_TAILORED_CUPBOARDS_PRICES_P[size];
   tailoredAddOnsP += Math.max(0, t.extraFridgeFreezers ?? 0) * EOT_TAILORED_ADDON_PRICES_P.extra_fridge_freezer;
 
-  const basePriceP = EOT_TAILORED_START_PRICES_P[size];
-  const totalP = basePriceP + houseAdjP + bathroomsAddP + wcsAddP + tailoredAddOnsP + carpetAddonP;
+  const basePriceP = entry.tailored;
+  const totalP = basePriceP + bathroomsAddP + wcsAddP + tailoredAddOnsP + carpetAddonP;
 
   return {
-    basePriceP, houseAdjP, bathroomsAddP, wcsAddP, tailoredAddOnsP, carpetAddonP,
+    basePriceP, bathroomsAddP, wcsAddP, tailoredAddOnsP, carpetAddonP,
     carpetPackage,
     totalP,
     guaranteeHours: EOT_GUARANTEE_HOURS,
     guaranteeScope: 'selected-tasks',
-    shouldOfferComplete: (basePriceP + houseAdjP + bathroomsAddP + wcsAddP + tailoredAddOnsP) >= completeEquivalentP,
+    shouldOfferComplete: (basePriceP + bathroomsAddP + wcsAddP + tailoredAddOnsP) >= completeEquivalentP,
     completeEquivalentP,
   };
 }
@@ -695,6 +740,15 @@ export const ADDON_PRICES_P = {
   rubbish:     4000,  // £40 (small load)
 };
 
+// Upholstery/mattress items sold as simple inline EOT-visit add-ons (the
+// Step 4 "Upholstery & mattress cleaning" selector) — priced from the SAME
+// standalone CARPET_ITEM_PRICES_P used by the carpet & upholstery page,
+// never a second table. Deliberately excludes the floor-care keys (bedroom,
+// hallway, landing, etc.), which are reserved for calculateEotCarpetPackage's
+// own room-based flow and must never be reachable via a plain addOnCounts
+// entry.
+export const EOT_UPHOLSTERY_ADDON_KEYS = ['armchair', 'sofa_2', 'sofa_3', 'sofa_corner', 'mattress_single', 'mattress_double', 'mattress_king'];
+
 // ─── Booking constants ────────────────────────────────────────────────────────
 
 export const DEPOSIT_P = 3000;  // £30 — deducted from final balance. Never removed, never changed here casually.
@@ -787,7 +841,10 @@ export function getServiceStartingPrice(key) {
 const STAIR_ADDON_PRICES_LEGACY = [0, EOT_CARPET_ADDON_PRICES_P.stairs_first, EOT_CARPET_ADDON_PRICES_P.stairs_first + EOT_CARPET_ADDON_PRICES_P.stairs_extra, EOT_CARPET_ADDON_PRICES_P.stairs_first + 2 * EOT_CARPET_ADDON_PRICES_P.stairs_extra];
 
 function computeEotPriceServer(deepSize, deepBaths, deepWcs, isHouse, eotPackage, tailoredAddOns, rooms, carpetRoomIds) {
-  if (!EOT_COMPLETE_PRICES_P[deepSize]) return null;
+  // No guessed price for a {propertyType, size} combination outside the
+  // explicit catalogue (e.g. a house/maisonette studio, or 5+ bedrooms) —
+  // those are always a manual quotation.
+  if (!eotPropertySizeValid(isHouse ? 'house' : 'flat', deepSize)) return null;
   const result = calculateEotQuote({
     size: deepSize,
     package: eotPackage === 'tailored' ? 'tailored' : 'complete',
@@ -834,6 +891,7 @@ function computeBasePrice(quoteConfig) {
           if (n <= 0) continue;
           if (key === 'oven' || key === 'fridge') continue; // free with EOT / handled by tailoredAddOns
           if (key === 'carpet_bundle') addons += ((EOT_CARPET_BUNDLE_P[deepSize] ?? 0) / 100) * n;
+          else if (EOT_UPHOLSTERY_ADDON_KEYS.includes(key)) addons += ((CARPET_ITEM_PRICES_P[key] ?? 0) / 100) * n;
           else addons += ((ADDON_PRICES_P[key] ?? 0) / 100) * n;
         }
       }
@@ -921,12 +979,22 @@ export const CATALOGUE_SEED_ITEMS = [
   seed('End of tenancy clean (Tailored) — 3 bedroom', EOT_TAILORED_START_PRICES_P.bed3,   'End of tenancy', 'Starting price — core clean; add internal tasks separately. Guarantee covers selected tasks only.'),
   seed('End of tenancy clean (Tailored) — 4 bedroom', EOT_TAILORED_START_PRICES_P.bed4,   'End of tenancy', 'Starting price — core clean; add internal tasks separately. Guarantee covers selected tasks only.'),
 
-  // ── EOT bath/WC/house surcharges ───────────────────────────────────────
+  // ── End of tenancy — House / Maisonette (explicit prices, not a flat + surcharge) ──
+  seed('End of tenancy clean (Complete) — house/maisonette, 1 bedroom', EOT_PRICES_P.house.bed1.complete, 'End of tenancy', 'Fixed price, full agency-ready checklist, oven clean included. 1 bathroom.'),
+  seed('End of tenancy clean (Complete) — house/maisonette, 2 bedroom', EOT_PRICES_P.house.bed2.complete, 'End of tenancy', 'Fixed price, full agency-ready checklist, oven clean included. 1 bathroom.'),
+  seed('End of tenancy clean (Complete) — house/maisonette, 3 bedroom', EOT_PRICES_P.house.bed3.complete, 'End of tenancy', 'Fixed price, full agency-ready checklist, oven clean included. 1 bathroom.'),
+  seed('End of tenancy clean (Complete) — house/maisonette, 4 bedroom', EOT_PRICES_P.house.bed4.complete, 'End of tenancy', 'Fixed price, full agency-ready checklist, oven clean included. 1 bathroom.'),
+  seed('End of tenancy clean (Tailored) — house/maisonette, 1 bedroom', EOT_PRICES_P.house.bed1.tailored, 'End of tenancy', 'Starting price — core clean; add internal tasks separately. Guarantee covers selected tasks only.'),
+  seed('End of tenancy clean (Tailored) — house/maisonette, 2 bedroom', EOT_PRICES_P.house.bed2.tailored, 'End of tenancy', 'Starting price — core clean; add internal tasks separately. Guarantee covers selected tasks only.'),
+  seed('End of tenancy clean (Tailored) — house/maisonette, 3 bedroom', EOT_PRICES_P.house.bed3.tailored, 'End of tenancy', 'Starting price — core clean; add internal tasks separately. Guarantee covers selected tasks only.'),
+  seed('End of tenancy clean (Tailored) — house/maisonette, 4 bedroom', EOT_PRICES_P.house.bed4.tailored, 'End of tenancy', 'Starting price — core clean; add internal tasks separately. Guarantee covers selected tasks only.'),
+
+  // ── EOT bath/WC surcharges ───────────────────────────────────────
   seed('EOT — additional full bathroom',      EOT_EXTRA_BATH_P,       'End of tenancy', 'Per extra bathroom beyond the first.'),
   seed('EOT — additional WC',                 EOT_EXTRA_WC_P,         'End of tenancy', 'Per additional separate WC beyond the first.'),
-  seed('EOT — house / maisonette adjustment', EOT_HOUSE_ADJUSTMENT_P, 'End of tenancy', 'Applies to houses and maisonettes (not flats).'),
 
   // ── EOT Tailored internal add-ons ──────────────────────────────────────
+  seed('EOT Tailored — inside microwave',          EOT_TAILORED_ADDON_PRICES_P.microwave_inside,       'End of tenancy', 'Inside one microwave.'),
   seed('EOT Tailored — inside fridge/freezer',     EOT_TAILORED_ADDON_PRICES_P.fridge_freezer_inside, 'End of tenancy', 'Inside one standard fridge/freezer.'),
   seed('EOT Tailored — additional fridge/freezer', EOT_TAILORED_ADDON_PRICES_P.extra_fridge_freezer,  'End of tenancy', 'Per additional separate unit.'),
   seed('EOT Tailored — inside dishwasher',         EOT_TAILORED_ADDON_PRICES_P.dishwasher_inside,      'End of tenancy'),

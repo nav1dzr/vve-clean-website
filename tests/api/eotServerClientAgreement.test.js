@@ -157,11 +157,11 @@ describe('EOT starting price is the same wherever it is displayed', () => {
   it.each(filesToCheck)('%s imports EOT prices from ../data/pricing rather than hardcoding them', (relPath) => {
     const src = readFileSync(path.join(REPO_ROOT, relPath), 'utf8');
     expect(src).toMatch(/from ['"](\.\.\/)*data\/pricing['"]/);
-    expect(src).toMatch(/EOT_(COMPLETE|TAILORED|BASE)_PRICES?_P/);
+    expect(src).toMatch(/EOT_(COMPLETE|TAILORED|BASE)_PRICES?_P|EOT_PRICES_P/);
   });
 
-  it('EOT_COMPLETE_PRICES_P.studio matches the value getServiceStartingPrice("eot_complete") returns', () => {
-    expect(EOT_COMPLETE_PRICES_P.studio).toBe(19900);
+  it('EOT_COMPLETE_PRICES_P.studio matches the explicit flat catalogue entry', () => {
+    expect(EOT_COMPLETE_PRICES_P.studio).toBe(22000);
   });
 
   it('EOT_TAILORED_START_PRICES_P.studio is genuinely lower than the Complete price (a real "from")', () => {

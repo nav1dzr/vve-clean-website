@@ -70,7 +70,7 @@ describe('End of Tenancy quote — identical on the homepage and the service pag
     const user = userEvent.setup();
     renderHome();
     await chooseCard(user, 'End of Tenancy');
-    await waitFor(() => expect(quote().getByText(/Step 1 of 4/)).toBeInTheDocument());
+    await waitFor(() => expect(quote().getByRole('list', { name: /Step 1 of 4/ })).toBeInTheDocument());
     expect(quote().queryByText('Service Type')).not.toBeInTheDocument();
   });
 
@@ -78,7 +78,7 @@ describe('End of Tenancy quote — identical on the homepage and the service pag
     const user = userEvent.setup();
     renderHome();
     await chooseCard(user, 'End of Tenancy');
-    await waitFor(() => expect(quote().getByText(/Step 1 of 4/)).toBeInTheDocument());
+    await waitFor(() => expect(quote().getByRole('list', { name: /Step 1 of 4/ })).toBeInTheDocument());
     await user.click(quote().getByRole('button', { name: /^3 bed/ }));
     const homeTotal = quote().getByTestId('footer-total').textContent;
 

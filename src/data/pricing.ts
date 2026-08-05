@@ -39,6 +39,7 @@ export interface EotQuoteInput {
   extraBathrooms:  number;
   extraWcs:        number;
   tailoredAddOns?: {
+    microwaveInside?:      boolean;
     fridgeFreezerInside?:  boolean;
     extraFridgeFreezers?:  number;
     dishwasherInside?:     boolean;
@@ -47,6 +48,15 @@ export interface EotQuoteInput {
   };
   rooms?:          { id: string; addonKey: string; floor: string; stairFlights?: number }[];
   carpetRoomIds?:  string[];
+}
+
+export interface EotPriceEntry {
+  tailored: number;
+  complete: number;
+}
+export interface EotPricesTable {
+  flat:  Record<SizeKey, EotPriceEntry>;
+  house: Partial<Record<SizeKey, EotPriceEntry>>;
 }
 
 export interface EotCarpetPackageResult {
@@ -59,7 +69,6 @@ export interface EotCarpetPackageResult {
 
 export interface EotQuoteResult {
   basePriceP:          number;
-  houseAdjP:            number;
   bathroomsAddP:        number;
   wcsAddP:              number;
   tailoredAddOnsP:      number;

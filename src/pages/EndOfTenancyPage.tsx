@@ -7,7 +7,6 @@ import {
   EOT_TAILORED_START_PRICES_P,
   EOT_EXTRA_BATH_P,
   EOT_EXTRA_WC_P,
-  EOT_HOUSE_ADJUSTMENT_P,
   EOT_GUARANTEE_HOURS,
 } from '../data/pricing';
 
@@ -91,7 +90,7 @@ const SCHEMA = JSON.stringify({
           name: 'What is not included in the end of tenancy price?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: `Prices apply to normally maintained, vacant flats. Houses and maisonettes are +${pDisplay(EOT_HOUSE_ADJUSTMENT_P)}. Additional bathrooms beyond the first are +${pDisplay(EOT_EXTRA_BATH_P)} each; additional separate WCs are +${pDisplay(EOT_EXTRA_WC_P)} each. 5+ bedroom properties need a tailored quote rather than a fixed online price. Carpet steam cleaning, upholstery, exterior windows, balconies, full wall washing, rubbish removal, parking and the Congestion Charge are available as paid extras, always shown and confirmed with you before the booking is accepted — never an automatic flat-fee estimate. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and confirmed quote before work starts.`,
+            text: `Prices apply to normally maintained, vacant properties. Houses and maisonettes are priced separately from flats, not a flat surcharge — shown in the quote calculator. Additional bathrooms beyond the first are +${pDisplay(EOT_EXTRA_BATH_P)} each; additional separate WCs are +${pDisplay(EOT_EXTRA_WC_P)} each. 5+ bedroom properties need a tailored quote rather than a fixed online price. Carpet steam cleaning, upholstery, exterior windows, balconies, full wall washing, rubbish removal, parking and the Congestion Charge are available as paid extras, always shown and confirmed with you before the booking is accepted — never an automatic flat-fee estimate. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and confirmed quote before work starts.`,
           },
         },
       ],
@@ -170,7 +169,6 @@ const DATA: ServiceLandingData = {
     { label: '4 Bedrooms — Complete',               price: pDisplay(EOT_BASE_PRICES_P.bed4) },
     { label: 'Studio — Tailored (from)',            price: pDisplay(EOT_TAILORED_START_PRICES_P.studio) },
     { label: '4 Bedrooms — Tailored (from)',        price: pDisplay(EOT_TAILORED_START_PRICES_P.bed4) },
-    { label: 'House or maisonette adjustment',      price: `+${pDisplay(EOT_HOUSE_ADJUSTMENT_P)}` },
     { label: 'Each additional full bathroom',       price: `+${pDisplay(EOT_EXTRA_BATH_P)}` },
     { label: 'Each additional separate WC',         price: `+${pDisplay(EOT_EXTRA_WC_P)}` },
     { label: '5+ Bedrooms',                         price: 'Tailored quote' },
@@ -194,7 +192,7 @@ const DATA: ServiceLandingData = {
     },
     {
       q: 'What is the difference between Complete and Tailored?',
-      a: 'Complete Agency-Ready Clean is our recommended, fixed-price package covering the entire property to the full checklist — including oven, fridge/freezer, cupboards, dishwasher and washing machine. Tailored Checklist Clean starts lower and covers the core clean; you add back only the internal tasks you need at published prices. If your Tailored selections end up costing the same as Complete, the quote will offer to switch you over for the same price with the fuller guarantee.',
+      a: 'Complete Agency-Ready Clean is our recommended, fixed-price package covering the entire property to the full checklist — including microwave, fridge/freezer, cupboards, dishwasher and washing machine. Tailored Checklist Clean starts lower and covers the core clean plus a standard oven, hob, grill and extractor clean; you add back only the other internal tasks you need at published prices.',
     },
     {
       q: 'Do you work in occupied properties?',
@@ -202,7 +200,7 @@ const DATA: ServiceLandingData = {
     },
     {
       q: 'What is not included in the price?',
-      a: `Prices apply to normally maintained, vacant flats. Houses and maisonettes are +${pDisplay(EOT_HOUSE_ADJUSTMENT_P)}. Each additional bathroom beyond the first is +${pDisplay(EOT_EXTRA_BATH_P)}, and each additional separate WC is +${pDisplay(EOT_EXTRA_WC_P)}. Carpet steam cleaning, upholstery, exterior windows, balconies and rubbish removal are available as paid extras. Parking and the Congestion Charge are passed through at actual cost, confirmed with you before the booking is accepted. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and confirmed quote before work starts.`,
+      a: `Prices apply to normally maintained, vacant properties. Houses and maisonettes are priced separately from flats, shown in the quote calculator. Each additional bathroom beyond the first is +${pDisplay(EOT_EXTRA_BATH_P)}, and each additional separate WC is +${pDisplay(EOT_EXTRA_WC_P)}. Carpet steam cleaning, upholstery, exterior windows, balconies and rubbish removal are available as paid extras. Parking and the Congestion Charge are passed through at actual cost, confirmed with you before the booking is accepted. Heavy soiling, mould, biohazard contamination, pet accidents or extreme conditions require a photo review and confirmed quote before work starts.`,
     },
   ],
 
