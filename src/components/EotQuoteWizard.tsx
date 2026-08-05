@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CheckCircle2, ChevronLeft, ChevronRight, Info, Mail, MessageCircle, Minus, Plus, ShieldCheck, Sparkles, XCircle,
 } from 'lucide-react';
@@ -423,6 +423,29 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   const [step, setStep] = useState(1);
   const [bookError, setBookError] = useState('');
   const [upholsteryOpen, setUpholsteryOpen] = useState(false);
+  const wizardRootRef = useRef<HTMLDivElement>(null);
+  const hasMountedRef = useRef(false);
+
+  // Every Continue/Back step change must return the viewport to the wizard
+  // itself — never leave the customer at the previous step's scroll position
+  // (e.g. still down in the gallery). Skipped on first mount so opening the
+  // wizard doesn't itself trigger a jump. The fixed site header's live
+  // height is measured rather than hard-coded, so this works unchanged at
+  // 375/768/1280px without per-breakpoint branching.
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+    const el = wizardRootRef.current;
+    if (!el) return;
+    const headerEl = document.querySelector('header');
+    const headerOffset = headerEl ? headerEl.getBoundingClientRect().height : 0;
+    const top = Math.max(0, el.getBoundingClientRect().top + window.scrollY - headerOffset - 12);
+    const prefersReducedMotion = typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+  }, [step]);
 
   const availableSizeOptions = useMemo(
     () => SIZE_OPTIONS.filter((s) => eotPropertySizeValid(state.propertyType, s.key)),
@@ -593,8 +616,25 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
 
   const sizeLabel = SIZE_OPTIONS.find((s) => s.key === state.size)?.label ?? '';
 
+  // Step 4 already shows a full "Your quote" payment card (Total, deposit,
+  // balance) once the property doesn't need a photo review — the footer's
+  // own total would just be a repeated duplicate directly above it, so it is
+  // suppressed there while Back stays fully present and accessible.
+  const hideFooterTotal = step === TOTAL_STEPS && !isQuoteReviewCondition;
+  const footerPriceLabel = step === 1 ? 'Starting from' : isQuoteReviewCondition && step === 4 ? '' : 'Current total';
+  const footerPriceValue = step === 1 && state.is5Plus
+    ? 'Quote required'
+    : isQuoteReviewCondition && step === 4
+      ? 'Quote review'
+      : step === 1 ? penceToDisplay(cheapestStartingP) : penceToDisplay(totalP);
+  const footerSubtext = step === 1 && !state.is5Plus
+    ? 'Based on your property details — choose your package next'
+    : step >= 2 && !(isQuoteReviewCondition && step === 4)
+      ? `${state.pkg === 'complete' ? 'Complete Agency-Ready Clean' : 'Tailored Checklist Clean'} · based on your current selections`
+      : null;
+
   return (
-    <div className="rounded-2xl bg-white shadow-2xl overflow-hidden">
+    <div ref={wizardRootRef} className="rounded-2xl bg-white shadow-2xl overflow-hidden">
       {/* Header / progress */}
       <div className="navy-gradient px-4 sm:px-8 py-5">
         <h2 className="text-white font-display font-bold text-lg sm:text-xl mb-4">End of Tenancy Quote</h2>
@@ -615,9 +655,10 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
           <div className="space-y-6">
             <div>
               <h3 className="text-navy-900 font-bold text-base mb-3">What type of property is it?</h3>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Property type">
                 {(['flat', 'house'] as PropertyType[]).map((t) => (
                   <button key={t} type="button" onClick={() => changePropertyType(t)}
+                    aria-pressed={state.propertyType === t}
                     className={`py-3.5 rounded-xl border-2 text-sm font-bold transition-all duration-200 min-h-[44px] ${
                       state.propertyType === t ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-300 text-navy-700 hover:border-royal-300'
                     }`}>
@@ -629,9 +670,10 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
 
             <div>
               <h3 className="text-navy-900 font-bold text-base mb-3">Property size</h3>
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2" role="group" aria-label="Property size">
                 {availableSizeOptions.map((s) => (
                   <button key={s.key} type="button" onClick={() => changeSize(s.key)}
+                    aria-pressed={!state.is5Plus && state.size === s.key}
                     className={`py-3.5 rounded-xl border-2 text-center text-xs font-bold transition-all duration-200 min-h-[44px] ${
                       !state.is5Plus && state.size === s.key ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-300 text-navy-700 hover:border-royal-300'
                     }`}>
@@ -652,6 +694,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
 
             {/* 5+ bedrooms — an active, intentional choice, never disabled-looking */}
             <button type="button" onClick={select5Plus}
+              aria-pressed={state.is5Plus}
               className={`w-full text-left rounded-2xl border-2 px-4 py-3.5 transition-all duration-200 flex items-center justify-between gap-3 ${
                 state.is5Plus ? 'border-royal-500 bg-royal-50' : 'border-royal-200 bg-white hover:border-royal-400'
               }`}>
@@ -687,9 +730,10 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         {step === 2 && (
           <div className="space-y-4">
             <h3 className="text-navy-900 font-bold text-base">Choose your cleaning package</h3>
-            <div className="grid sm:grid-cols-2 gap-4 items-start">
+            <div className="grid sm:grid-cols-2 gap-4 items-start" role="group" aria-label="Cleaning package">
               {/* Complete */}
               <button type="button" onClick={() => setState((p) => ({ ...p, pkg: 'complete' }))}
+                aria-pressed={state.pkg === 'complete'}
                 className={`relative text-left rounded-2xl border-2 p-5 transition-all duration-200 flex flex-col ${
                   state.pkg === 'complete' ? 'border-royal-500 bg-royal-50 shadow-lg' : 'border-silver-300 hover:border-royal-300'
                 }`}>
@@ -733,6 +777,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
 
               {/* Tailored */}
               <button type="button" onClick={() => setState((p) => ({ ...p, pkg: 'tailored' }))}
+                aria-pressed={state.pkg === 'tailored'}
                 className={`text-left rounded-2xl border-2 p-5 transition-all duration-200 flex flex-col ${
                   state.pkg === 'tailored' ? 'border-royal-500 bg-royal-50 shadow-lg' : 'border-silver-300 hover:border-royal-300'
                 }`}>
@@ -781,9 +826,10 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         {step === 3 && (
           <div className="space-y-4">
             <h3 className="text-navy-900 font-bold text-base">What floor care do you need?</h3>
-            <div className="space-y-2.5">
+            <div className="space-y-2.5" role="group" aria-label="Floor care">
               {FLOOR_CARE_OPTIONS.map((opt) => (
                 <button key={opt.key} type="button" onClick={() => setFloorCareChoice(opt.key)}
+                  aria-pressed={state.floorCareChoice === opt.key}
                   className={`relative w-full text-left rounded-2xl border-2 px-4 py-3.5 transition-all duration-200 ${
                     state.floorCareChoice === opt.key ? 'border-royal-500 bg-royal-50 shadow-md' : 'border-silver-300 hover:border-royal-300'
                   }`}>
@@ -804,9 +850,10 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
 
             {state.floorCareChoice === 'professional' && (
               <div className="space-y-4 pt-2">
-                <div className="grid sm:grid-cols-2 gap-4">
+                <div className="grid sm:grid-cols-2 gap-4" role="group" aria-label="Carpet cleaning mode">
                   {/* Whole-property */}
                   <button type="button" onClick={enterWholePropertyCarpet}
+                    aria-pressed={state.carpetMode === 'whole'}
                     className={`text-left rounded-2xl border-2 p-4 transition-all duration-200 ${
                       state.carpetMode === 'whole' ? 'border-royal-500 bg-royal-50 shadow-md' : 'border-silver-300 hover:border-royal-300'
                     }`}>
@@ -826,6 +873,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
 
                   {/* Manual */}
                   <button type="button" onClick={enterManualCarpet}
+                    aria-pressed={state.carpetMode === 'manual'}
                     className={`text-left rounded-2xl border-2 p-4 transition-all duration-200 ${
                       state.carpetMode === 'manual' ? 'border-royal-500 bg-royal-50 shadow-md' : 'border-silver-300 hover:border-royal-300'
                     }`}>
@@ -1026,7 +1074,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
 
             <div>
               <h3 className="text-navy-900 font-bold text-base mb-3">Condition</h3>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Property condition">
                 {([
                   ['normal', 'Normal used condition'],
                   ['heavy', 'Heavy grease, scale or build-up'],
@@ -1034,6 +1082,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   ['biohazard', 'Mould, biohazard or specialist contamination'],
                 ] as [ConditionState, string][]).map(([k, l]) => (
                   <button key={k} type="button" onClick={() => setState((p) => ({ ...p, condition: k }))}
+                    aria-pressed={state.condition === k}
                     className={`py-3 px-3 rounded-xl border-2 text-left text-xs font-semibold leading-snug transition-all duration-200 min-h-[44px] ${
                       state.condition === k
                         ? k === 'normal' ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-amber-400 bg-amber-50 text-amber-900'
@@ -1181,40 +1230,39 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         )}
       </div>
 
-      {/* ── Sticky-ish footer nav ── */}
-      <div className="border-t border-silver-200 px-5 sm:px-8 py-4 flex items-center justify-between bg-white">
-        <button type="button" onClick={goBack} disabled={step === 1}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-navy-700 disabled:opacity-30 disabled:cursor-not-allowed min-h-[44px] px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 rounded-lg">
-          <ChevronLeft size={16} /> Back
-        </button>
-        <div className="text-right">
-          <div className="text-[10px] uppercase tracking-widest text-navy-500 font-bold">
-            {step === 1 ? 'Starting from' : isQuoteReviewCondition && step === 4 ? '' : 'Current total'}
-          </div>
-          <div data-testid="footer-total" className="text-navy-900 font-display font-bold text-lg">
-            {step === 1 && state.is5Plus
-              ? 'Quote required'
-              : isQuoteReviewCondition && step === 4
-                ? 'Quote review'
-                : step === 1 ? penceToDisplay(cheapestStartingP) : penceToDisplay(totalP)}
-          </div>
-          {step === 1 && !state.is5Plus && (
-            <div className="text-[10px] text-navy-500">Based on your property details — choose your package next</div>
-          )}
-          {step >= 2 && !(isQuoteReviewCondition && step === 4) && (
-            <div className="text-[10px] text-navy-500">
-              {state.pkg === 'complete' ? 'Complete Agency-Ready Clean' : 'Tailored Checklist Clean'} · based on your current selections
+      {/* ── Footer nav ──
+          Desktop/tablet (sm and up, ≥640px — covers both 768px and 1280px):
+          unchanged single row, Back | price | Continue.
+          Mobile (<640px): the price summary gets its own full-width row so
+          "Starting from £X" and its explanatory sentence are never squeezed
+          between the two buttons; Back and Continue share a second row. */}
+      <div className="border-t border-silver-200 bg-white">
+        <div
+          className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-y-3 px-5 sm:px-8 py-4"
+          data-testid="footer-nav"
+        >
+          <button type="button" onClick={goBack} disabled={step === 1}
+            className="order-2 sm:order-1 inline-flex items-center gap-1.5 text-sm font-semibold text-navy-700 disabled:opacity-30 disabled:cursor-not-allowed min-h-[44px] px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 rounded-lg">
+            <ChevronLeft size={16} /> Back
+          </button>
+
+          {!hideFooterTotal && (
+            <div className="order-1 sm:order-2 w-full sm:w-auto text-center sm:text-right" data-testid="footer-price-summary">
+              <div className="text-[10px] uppercase tracking-widest text-navy-500 font-bold">{footerPriceLabel}</div>
+              <div data-testid="footer-total" className="text-navy-900 font-display font-bold text-lg">{footerPriceValue}</div>
+              {footerSubtext && <div className="text-[10px] text-navy-500">{footerSubtext}</div>}
             </div>
           )}
+
+          {step < TOTAL_STEPS ? (
+            <button type="button" onClick={goNext} disabled={step === 1 && state.is5Plus}
+              className="order-3 inline-flex items-center gap-1.5 text-sm font-bold text-white bg-royal-500 hover:bg-royal-600 rounded-full px-5 py-2.5 min-h-[44px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7] disabled:opacity-40 disabled:cursor-not-allowed">
+              Continue <ChevronRight size={16} />
+            </button>
+          ) : (
+            <span className="order-3 w-16" aria-hidden="true" />
+          )}
         </div>
-        {step < TOTAL_STEPS ? (
-          <button type="button" onClick={goNext} disabled={step === 1 && state.is5Plus}
-            className="inline-flex items-center gap-1.5 text-sm font-bold text-white bg-royal-500 hover:bg-royal-600 rounded-full px-5 py-2.5 min-h-[44px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7] disabled:opacity-40 disabled:cursor-not-allowed">
-            Continue <ChevronRight size={16} />
-          </button>
-        ) : (
-          <span className="w-16" aria-hidden="true" />
-        )}
       </div>
     </div>
   );

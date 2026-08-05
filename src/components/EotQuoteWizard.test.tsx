@@ -253,15 +253,18 @@ describe('EotQuoteWizard — Step 4: Add-ons and final review', () => {
     const user = userEvent.setup();
     renderWizard();
     await toStep4(user);
-    const before = readFooterTotal();
+    // Step 4's footer total is intentionally hidden here — the "Your quote"
+    // payment card already shows the same figure, so read that instead.
+    const readTotal = () => Number(screen.getByTestId('final-total').textContent!.replace('£', '').replace(/,/g, ''));
+    const before = readTotal();
     await user.click(screen.getByText('Upholstery & mattress cleaning'));
     await user.click(screen.getByRole('button', { name: /Increase 2-seater sofa/ }));
-    expect(readFooterTotal()).toBe(before + CARPET_ITEM_PRICES_P.sofa_2 / 100);
+    expect(readTotal()).toBe(before + CARPET_ITEM_PRICES_P.sofa_2 / 100);
     // Still on Step 4 — no route change, no lost position.
     expect(screen.getByText('Review your quote')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Done' }));
     expect(screen.queryByRole('button', { name: /Increase 2-seater sofa/ })).not.toBeInTheDocument();
-    expect(readFooterTotal()).toBe(before + CARPET_ITEM_PRICES_P.sofa_2 / 100);
+    expect(readTotal()).toBe(before + CARPET_ITEM_PRICES_P.sofa_2 / 100);
   });
 
   it('rug cleaning stays WhatsApp/photo-assessment only, never auto-priced', async () => {
@@ -377,9 +380,15 @@ describe('EotQuoteWizard — totals never decrease when scope is added', () => {
     expect(readFooterTotal()).toBeGreaterThanOrEqual(prev);
     prev = readFooterTotal();
 
+    // On Step 4 the footer total is intentionally hidden (the full "Your
+    // quote" payment card already shows it) — read that card's total instead.
     await next(user);
+    const readFinalTotal = () => Number(screen.getByTestId('final-total').textContent!.replace('£', '').replace(/,/g, ''));
+    expect(readFinalTotal()).toBeGreaterThanOrEqual(prev);
+    prev = readFinalTotal();
+
     await user.click(screen.getByRole('button', { name: /Increase Rubbish removal/ }));
-    expect(readFooterTotal()).toBeGreaterThanOrEqual(prev);
+    expect(readFinalTotal()).toBeGreaterThanOrEqual(prev);
   });
 });
 
@@ -410,5 +419,174 @@ describe('EotQuoteWizard — restoring a previous session', () => {
     render(<EotQuoteWizard onBook={onBook} restoreConfig={restoreConfig} />);
     expect(screen.queryByRole('button', { name: 'Studio' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^1 bed/ })).toHaveClass('border-royal-500');
+  });
+});
+
+describe('EotQuoteWizard — Continue/Back return the viewport to the wizard', () => {
+  it('does not scroll on initial mount', () => {
+    const scrollSpy = vi.fn();
+    window.scrollTo = scrollSpy as typeof window.scrollTo;
+    renderWizard();
+    expect(scrollSpy).not.toHaveBeenCalled();
+  });
+
+  it('scrolls to the wizard when Continue advances the step', async () => {
+    const user = userEvent.setup();
+    const scrollSpy = vi.fn();
+    window.scrollTo = scrollSpy as typeof window.scrollTo;
+    renderWizard();
+    await next(user);
+    expect(scrollSpy).toHaveBeenCalledTimes(1);
+    expect(scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'smooth' }));
+  });
+
+  it('scrolls to the wizard when Back returns to the previous step, not the previous scroll position', async () => {
+    const user = userEvent.setup();
+    const scrollSpy = vi.fn();
+    window.scrollTo = scrollSpy as typeof window.scrollTo;
+    renderWizard();
+    await next(user); // step 1 → step 2, first scroll call
+    scrollSpy.mockClear();
+    await user.click(screen.getByRole('button', { name: /^Back$/ }));
+    expect(scrollSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('scrolls instantly rather than smoothly when the user prefers reduced motion', async () => {
+    const user = userEvent.setup();
+    const scrollSpy = vi.fn();
+    window.scrollTo = scrollSpy as typeof window.scrollTo;
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = (query: string) => ({
+      matches: query.includes('reduced-motion'), media: query, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {},
+      addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+    });
+    try {
+      renderWizard();
+      await next(user);
+      expect(scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'auto' }));
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
+});
+
+describe('EotQuoteWizard — mobile footer layout', () => {
+  it('lays out the price summary full-width and separately from Back/Continue on mobile, single-row from sm: up', () => {
+    renderWizard();
+    const nav = screen.getByTestId('footer-nav');
+    expect(nav).toHaveClass('flex-wrap');
+    expect(nav).toHaveClass('sm:flex-nowrap');
+
+    const priceSummary = screen.getByTestId('footer-price-summary');
+    expect(priceSummary).toHaveClass('w-full');
+    expect(priceSummary).toHaveClass('sm:w-auto');
+    expect(priceSummary).toHaveClass('order-1');
+    expect(priceSummary).toHaveClass('sm:order-2');
+
+    const backButton = screen.getByRole('button', { name: /^Back$/ });
+    expect(backButton).toHaveClass('order-2');
+    expect(backButton).toHaveClass('sm:order-1');
+
+    const continueButton = screen.getByRole('button', { name: /^Continue$/ });
+    expect(continueButton).toHaveClass('order-3');
+  });
+
+  it('hides the repeated footer total on Step 4 once the full quote/payment card is visible, keeping Back accessible', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await toStep4(user);
+    expect(screen.queryByTestId('footer-price-summary')).not.toBeInTheDocument();
+    expect(screen.getByText('Your quote')).toBeInTheDocument();
+    const backButton = screen.getByRole('button', { name: /^Back$/ });
+    expect(backButton).toBeInTheDocument();
+    expect(backButton).not.toBeDisabled();
+  });
+
+  it('keeps the footer summary on Step 4 when a photo-review condition applies, since no payment card is shown there', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await toStep4(user);
+    await user.click(screen.getByRole('button', { name: /Mould, biohazard or specialist contamination/ }));
+    expect(screen.getByTestId('footer-price-summary')).toBeInTheDocument();
+    expect(screen.getByTestId('footer-total')).toHaveTextContent('Quote review');
+  });
+});
+
+describe('EotQuoteWizard — selectable cards expose a programmatically determinable selected state', () => {
+  it('property type buttons maintain aria-pressed', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const flatBtn = screen.getByRole('button', { name: 'Flat' });
+    const houseBtn = screen.getByRole('button', { name: 'House / Maisonette' });
+    expect(flatBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(houseBtn).toHaveAttribute('aria-pressed', 'false');
+    await user.click(houseBtn);
+    expect(houseBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(flatBtn).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('property size buttons maintain aria-pressed', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const bed2 = screen.getByRole('button', { name: /^2 beds/ });
+    const bed3 = screen.getByRole('button', { name: /^3 beds/ });
+    expect(bed2).toHaveAttribute('aria-pressed', 'true');
+    expect(bed3).toHaveAttribute('aria-pressed', 'false');
+    await user.click(bed3);
+    expect(bed3).toHaveAttribute('aria-pressed', 'true');
+    expect(bed2).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('Complete/Tailored package cards maintain aria-pressed', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await toStep2(user);
+    const completeBtn = screen.getByText('Complete Agency-Ready Clean').closest('button')!;
+    const tailoredBtn = screen.getByText('Tailored Checklist Clean').closest('button')!;
+    expect(completeBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(tailoredBtn).toHaveAttribute('aria-pressed', 'false');
+    await user.click(tailoredBtn);
+    expect(tailoredBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(completeBtn).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('floor-care choice buttons maintain aria-pressed', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await toStep3(user);
+    const professional = screen.getByRole('button', { name: /^Professional carpet steam cleaning/ });
+    const none = screen.getByRole('button', { name: /^No carpeted areas/ });
+    expect(professional).toHaveAttribute('aria-pressed', 'false');
+    await user.click(none);
+    expect(none).toHaveAttribute('aria-pressed', 'true');
+    expect(professional).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('whole-property/manual carpet mode buttons maintain aria-pressed', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await toStep3(user);
+    await user.click(screen.getByRole('button', { name: /^Professional carpet steam cleaning/ }));
+    const whole = screen.getByText('Whole-property carpet cleaning').closest('button')!;
+    const manual = screen.getByText('Choose areas individually').closest('button')!;
+    expect(whole).toHaveAttribute('aria-pressed', 'false');
+    expect(manual).toHaveAttribute('aria-pressed', 'false');
+    await user.click(whole);
+    expect(whole).toHaveAttribute('aria-pressed', 'true');
+    expect(manual).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('condition buttons maintain aria-pressed', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await toStep4(user);
+    const normal = screen.getByRole('button', { name: /Normal used condition/ });
+    const heavy = screen.getByRole('button', { name: /Heavy grease, scale or build-up/ });
+    expect(normal).toHaveAttribute('aria-pressed', 'true');
+    expect(heavy).toHaveAttribute('aria-pressed', 'false');
+    await user.click(heavy);
+    expect(heavy).toHaveAttribute('aria-pressed', 'true');
+    expect(normal).toHaveAttribute('aria-pressed', 'false');
   });
 });
