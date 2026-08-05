@@ -674,10 +674,11 @@ export default function QuoteCalculator({
     // The EOT wizard manages its own multi-step state and book action — the
     // generic price/isReadyToBook computed above no longer reflects it once
     // isEot is true (deepBaths/isHouse/etc. here are frozen at their
-    // pre-wizard defaults), so the sticky footer just scrolls to the wizard
-    // instead of showing a stale price or calling a stale book handler.
+    // pre-wizard defaults). The wizard now owns a live, selection-aware sticky
+    // summary, so suppress the generic mobile booking bar rather than showing
+    // a second competing footer with stale state.
     setCtx({
-      state:  isEot ? 'none' : isManualQuote ? 'manual' : isReadyToBook ? 'bookable' : 'none',
+      state:  isEot ? 'hidden' : isManualQuote ? 'manual' : isReadyToBook ? 'bookable' : 'none',
       price:  Math.round(price),
       waLink,
       onBook: stableBook,

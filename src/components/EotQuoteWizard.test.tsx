@@ -68,11 +68,20 @@ describe('EotQuoteWizard — Step 1: Property (no pricing breakdown shown)', () 
     expect(screen.queryByText(/Tailored from/)).not.toBeInTheDocument();
   });
 
-  it('the single bottom bar reads "Starting from £X" with the correct explanatory subtext', () => {
+  it('the single bottom bar reads "Starting from £X" with a concise live property summary', () => {
     renderWizard();
     expect(screen.getByText('Starting from')).toBeInTheDocument();
     expect(footerTotal()).toHaveTextContent(`£${flatBed2Cheapest}`);
-    expect(screen.getByText('Based on your property details — choose your package next')).toBeInTheDocument();
+    expect(screen.getByText('2 beds flat · 1 bathroom')).toBeInTheDocument();
+  });
+
+  it('keeps 5+ bedrooms inside the property-size selector, before bathroom and WC controls', () => {
+    renderWizard();
+    const sizeOptions = screen.getByTestId('property-size-options');
+    const fivePlus = screen.getByRole('button', { name: /^5\+ bedrooms/ });
+    const bathroomHeading = screen.getByText('Full bathrooms');
+    expect(sizeOptions).toContainElement(fivePlus);
+    expect(sizeOptions.compareDocumentPosition(bathroomHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('bathroom/WC changes update the bottom bar even though nothing is itemised on this step', async () => {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CheckCircle2, ChevronLeft, ChevronRight, Info, Mail, MessageCircle, Minus, Plus, ShieldCheck, Sparkles, XCircle,
+  BadgeCheck, Bath, Building2, CheckCircle2, ChevronLeft, ChevronRight, CircleOff, Home, Info,
+  Layers3, ListChecks, Mail, MessageCircle, Minus, Plus, ShieldCheck, Sparkles, Waves, XCircle,
 } from 'lucide-react';
 import {
   EOT_PRICES_P,
@@ -295,7 +296,7 @@ function makeInitialState(restore?: EotBookingResult['quoteConfig'] | null): Eot
 // colour alone.
 function StepTracker({ step }: { step: number }) {
   return (
-    <div className="flex items-start w-full" role="list" aria-label={`Step ${step} of ${TOTAL_STEPS}: ${STEP_LABELS[step - 1]}`}>
+    <div className="flex items-start w-full max-w-2xl" role="list" aria-label={`Step ${step} of ${TOTAL_STEPS}: ${STEP_LABELS[step - 1]}`}>
       {STEP_LABELS.map((label, i) => {
         const n = i + 1;
         const state = n < step ? 'done' : n === step ? 'current' : 'upcoming';
@@ -305,20 +306,20 @@ function StepTracker({ step }: { step: number }) {
               <div
                 aria-current={state === 'current' ? 'step' : undefined}
                 className={[
-                  'w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[11px] sm:text-xs font-bold border-2 transition-colors duration-200',
-                  state === 'done' ? 'bg-royal-500 border-royal-500 text-white' : '',
-                  state === 'current' ? 'bg-white border-amber-400 text-navy-900 ring-2 ring-amber-300/70 ring-offset-1 ring-offset-navy-900' : '',
-                  state === 'upcoming' ? 'bg-white/10 border-white/40 text-white/80' : '',
+                  'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors duration-200',
+                  state === 'done' ? 'bg-royal-400 border-royal-400 text-navy-950' : '',
+                  state === 'current' ? 'bg-white border-white text-navy-900 ring-4 ring-royal-400/35' : '',
+                  state === 'upcoming' ? 'bg-white/[0.06] border-white/30 text-white/70' : '',
                 ].join(' ')}
               >
                 {state === 'done' ? <CheckCircle2 size={14} /> : n}
               </div>
-              <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wide whitespace-nowrap ${state === 'upcoming' ? 'text-white/60' : 'text-white'}`}>
+              <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] whitespace-nowrap ${state === 'upcoming' ? 'text-white/50' : 'text-white'}`}>
                 {label}
               </span>
             </div>
             {i < STEP_LABELS.length - 1 && (
-              <div className={`h-0.5 flex-1 min-w-[10px] mx-1 sm:mx-2 rounded-full self-start mt-3.5 sm:mt-4 ${n < step ? 'bg-royal-400' : 'bg-white/25'}`} />
+              <div className={`h-px flex-1 min-w-[10px] mx-1.5 sm:mx-3 rounded-full self-start mt-4 ${n < step ? 'bg-royal-400' : 'bg-white/20'}`} />
             )}
           </div>
         );
@@ -353,29 +354,29 @@ function Counter({ value, onChange, min = 0, max, label }: { value: number; onCh
 function CarpetPackageBreakdown({ carpetPackage }: { carpetPackage: ReturnType<typeof calculateEotCarpetPackage> }) {
   if (carpetPackage.itemCount === 0) return null;
   return (
-    <div className="rounded-xl bg-royal-50 border border-royal-200 px-4 py-3 space-y-1.5">
+    <div className="rounded-xl bg-royal-50 border border-sky-200 px-4 py-3 space-y-1.5">
       <div className="flex items-center justify-between text-sm">
-        <span className="text-royal-800">Standard carpet-cleaning value</span>
+        <span className="text-navy-700">Standard carpet-cleaning value</span>
         <span className="text-navy-900 font-semibold">{penceToDisplay(carpetPackage.standaloneSubtotalP)}</span>
       </div>
       {carpetPackage.eligible ? (
         <>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-royal-800">EOT carpet-package saving</span>
+            <span className="text-navy-700">EOT carpet-package saving</span>
             <span className="text-green-700 font-semibold">−{penceToDisplay(carpetPackage.savingP)}</span>
           </div>
-          <div className="flex items-center justify-between text-base border-t border-royal-200 pt-1.5 mt-1">
-            <span className="text-royal-800 font-semibold">Professional carpet cleaning today</span>
+          <div className="flex items-center justify-between text-base border-t border-sky-200 pt-1.5 mt-1">
+            <span className="text-navy-700 font-semibold">Professional carpet cleaning today</span>
             <span className="text-royal-700 font-display font-bold text-lg">{penceToDisplay(carpetPackage.chargedP)}</span>
           </div>
         </>
       ) : (
         <>
-          <div className="flex items-center justify-between text-base border-t border-royal-200 pt-1.5 mt-1">
-            <span className="text-royal-800 font-semibold">Professional carpet cleaning today</span>
+          <div className="flex items-center justify-between text-base border-t border-sky-200 pt-1.5 mt-1">
+            <span className="text-navy-700 font-semibold">Professional carpet cleaning today</span>
             <span className="text-royal-700 font-display font-bold text-lg">{penceToDisplay(carpetPackage.chargedP)}</span>
           </div>
-          <p className="text-royal-800 text-xs">
+          <p className="text-navy-700 text-xs">
             Add {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS - carpetPackage.itemCount} more qualifying area{EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS - carpetPackage.itemCount !== 1 ? 's' : ''} to unlock up to {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% off.
           </p>
         </>
@@ -627,261 +628,342 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
     : isQuoteReviewCondition && step === 4
       ? 'Quote review'
       : step === 1 ? penceToDisplay(cheapestStartingP) : penceToDisplay(totalP);
-  const footerSubtext = step === 1 && !state.is5Plus
-    ? 'Based on your property details — choose your package next'
-    : step >= 2 && !(isQuoteReviewCondition && step === 4)
-      ? `${state.pkg === 'complete' ? 'Complete Agency-Ready Clean' : 'Tailored Checklist Clean'} · based on your current selections`
-      : null;
+  const propertySummary = `${sizeLabel} ${state.propertyType === 'flat' ? 'flat' : 'house / maisonette'} · ${state.fullBathrooms} bathroom${state.fullBathrooms !== 1 ? 's' : ''}${state.extraWcs > 0 ? ` · ${state.extraWcs} WC${state.extraWcs !== 1 ? 's' : ''}` : ''}`;
+  const packageSummary = state.pkg === 'complete' ? 'Complete Agency-Ready' : 'Tailored Checklist';
+  const floorSummary = state.floorCareChoice === 'professional'
+    ? 'Professional carpet cleaning'
+    : state.floorCareChoice === 'none' ? 'Hard floors only' : state.floorCareChoice === 'standard' ? 'Standard floor care' : 'Floor care not selected';
+  const footerSubtext = step === 1
+    ? state.is5Plus ? `5+ bedroom ${state.propertyType === 'flat' ? 'flat' : 'house / maisonette'} · tailored quote` : propertySummary
+    : step === 2 ? `${propertySummary} · ${packageSummary}`
+      : step === 3 ? `${packageSummary} · ${floorSummary}`
+        : isQuoteReviewCondition ? 'Photo review required before a fixed price can be confirmed' : null;
 
   return (
-    <div ref={wizardRootRef} className="rounded-2xl bg-white shadow-2xl overflow-hidden">
+    <div ref={wizardRootRef} className="rounded-[28px] bg-white shadow-[0_28px_80px_rgba(2,11,36,0.28)] ring-1 ring-white/20">
       {/* Header / progress */}
-      <div className="navy-gradient px-4 sm:px-8 py-5">
-        <h2 className="text-white font-display font-bold text-lg sm:text-xl mb-4">End of Tenancy Quote</h2>
-        <StepTracker step={step} />
+      <div className="rounded-t-[28px] bg-navy-950 px-5 sm:px-8 lg:px-10 py-6 sm:py-7 relative overflow-hidden">
+        <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.24),transparent_42%)]" />
+        <div className="relative">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-5">
+            <div>
+              <p className="text-sky-300 text-[10px] font-bold uppercase tracking-[0.2em] mb-1.5">Instant online estimate</p>
+              <h2 className="text-white font-display font-bold text-xl sm:text-2xl tracking-tight">End of Tenancy Quote</h2>
+            </div>
+            <p className="text-white/60 text-xs">Step {step} of {TOTAL_STEPS} · about 2 minutes</p>
+          </div>
+          <StepTracker step={step} />
+        </div>
       </div>
 
       {onChangeService && (
-        <div className="px-5 sm:px-8 pt-4">
-          <button type="button" onClick={onChangeService} className="text-xs font-semibold text-royal-600 hover:text-royal-700 underline underline-offset-2">
+        <div className="px-5 sm:px-8 lg:px-10 pt-5 max-w-3xl mx-auto">
+          <button type="button" onClick={onChangeService} className="text-xs font-semibold text-royal-700 hover:text-navy-800 underline underline-offset-4 min-h-[44px]">
             Not an end of tenancy clean? Choose a different service
           </button>
         </div>
       )}
 
-      <div className="px-5 sm:px-8 py-6 max-w-2xl mx-auto w-full">
+      <div className="px-5 sm:px-8 lg:px-10 py-7 sm:py-9 max-w-3xl mx-auto w-full">
         {/* ══ Step 1: Property ══ */}
         {step === 1 && (
-          <div className="space-y-6">
+          <div className="space-y-7">
             <div>
-              <h3 className="text-navy-900 font-bold text-base mb-3">What type of property is it?</h3>
-              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Property type">
+              <p className="text-royal-700 text-[10px] font-bold uppercase tracking-[0.18em] mb-2">Your property</p>
+              <h3 className="font-display text-2xl sm:text-3xl font-bold text-navy-900 tracking-tight">Tell us what we’re cleaning</h3>
+              <p className="text-muted text-sm sm:text-base leading-relaxed mt-2 max-w-xl">Choose the closest match. Your live starting price updates as you go.</p>
+            </div>
+
+            <div>
+              <h4 className="text-navy-900 font-bold text-sm mb-3">What type of property is it?</h4>
+              <div className="grid grid-cols-2 gap-3" role="group" aria-label="Property type">
                 {(['flat', 'house'] as PropertyType[]).map((t) => (
                   <button key={t} type="button" onClick={() => changePropertyType(t)}
+                    aria-label={t === 'flat' ? 'Flat' : 'House / Maisonette'}
                     aria-pressed={state.propertyType === t}
-                    className={`py-3.5 rounded-xl border-2 text-sm font-bold transition-all duration-200 min-h-[44px] ${
-                      state.propertyType === t ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-300 text-navy-700 hover:border-royal-300'
+                    className={`relative p-4 sm:p-5 rounded-2xl border-2 text-left transition-all duration-200 min-h-[96px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 ${
+                      state.propertyType === t ? 'border-royal-500 bg-royal-50 text-royal-700 shadow-[0_10px_30px_rgba(14,165,233,0.12)]' : 'border-line bg-white text-navy-700 hover:border-sky-300 hover:bg-surface'
                     }`}>
-                    {t === 'flat' ? 'Flat' : 'House / Maisonette'}
+                    <span className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${state.propertyType === t ? 'bg-royal-500 text-white' : 'bg-surface text-navy-700'}`}>
+                      {t === 'flat' ? <Building2 size={20} /> : <Home size={20} />}
+                    </span>
+                    <span className="block text-sm font-bold">{t === 'flat' ? 'Flat' : 'House / Maisonette'}</span>
+                    <span className="block text-[11px] font-medium text-muted mt-0.5">{t === 'flat' ? 'Single-level or apartment' : 'House or split-level home'}</span>
+                    {state.propertyType === t && <CheckCircle2 size={18} className="absolute top-4 right-4 text-royal-600" aria-hidden="true" />}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div>
-              <h3 className="text-navy-900 font-bold text-base mb-3">Property size</h3>
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2" role="group" aria-label="Property size">
+            <div data-testid="property-size-section">
+              <div className="flex items-end justify-between gap-4 mb-3">
+                <h4 className="text-navy-900 font-bold text-sm">Property size</h4>
+                <span className="text-muted text-[11px]">Bedrooms, excluding reception rooms</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5" role="group" aria-label="Property size" data-testid="property-size-options">
                 {availableSizeOptions.map((s) => (
                   <button key={s.key} type="button" onClick={() => changeSize(s.key)}
                     aria-pressed={!state.is5Plus && state.size === s.key}
-                    className={`py-3.5 rounded-xl border-2 text-center text-xs font-bold transition-all duration-200 min-h-[44px] ${
-                      !state.is5Plus && state.size === s.key ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-300 text-navy-700 hover:border-royal-300'
+                    className={`relative px-2 py-4 rounded-xl border-2 text-center text-xs font-bold transition-all duration-200 min-h-[58px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 ${
+                      !state.is5Plus && state.size === s.key ? 'border-royal-500 bg-royal-50 text-royal-700 shadow-sm' : 'border-line bg-white text-navy-700 hover:border-sky-300 hover:bg-surface'
                     }`}>
                     {s.label}
                   </button>
                 ))}
+                <button type="button" onClick={select5Plus}
+                  aria-pressed={state.is5Plus}
+                  className={`relative px-2 py-3 rounded-xl border-2 text-center transition-all duration-200 min-h-[58px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 ${
+                    state.is5Plus ? 'border-amber-400 bg-amber-50 shadow-sm' : 'border-line bg-white hover:border-amber-300 hover:bg-amber-50/50'
+                  }`}>
+                  <span className="block text-navy-900 font-bold text-xs">5+ bedrooms</span>
+                  <span className="block text-amber-800 text-[9px] font-bold uppercase tracking-wide mt-0.5">Tailored quote</span>
+                </button>
               </div>
             </div>
-
-            <div>
-              <h3 className="text-navy-900 font-bold text-base mb-1">Full bathrooms</h3>
-              <Counter value={state.fullBathrooms} min={1} max={6} label="full bathrooms" onChange={(v) => setState((p) => ({ ...p, fullBathrooms: v }))} />
-            </div>
-            <div>
-              <h3 className="text-navy-900 font-bold text-base mb-1">Separate WCs</h3>
-              <Counter value={state.extraWcs} min={0} max={6} label="separate WCs" onChange={(v) => setState((p) => ({ ...p, extraWcs: v }))} />
-            </div>
-
-            {/* 5+ bedrooms — an active, intentional choice, never disabled-looking */}
-            <button type="button" onClick={select5Plus}
-              aria-pressed={state.is5Plus}
-              className={`w-full text-left rounded-2xl border-2 px-4 py-3.5 transition-all duration-200 flex items-center justify-between gap-3 ${
-                state.is5Plus ? 'border-royal-500 bg-royal-50' : 'border-royal-200 bg-white hover:border-royal-400'
-              }`}>
-              <div>
-                <div className="text-navy-900 font-bold text-sm">5+ bedrooms</div>
-                <div className="text-royal-700 text-xs font-semibold">Tailored quotation required</div>
-              </div>
-              <ChevronRight size={18} className="text-royal-500 flex-shrink-0" />
-            </button>
 
             {state.is5Plus && (
-              <div className="rounded-2xl bg-royal-50 border-2 border-royal-200 p-5 text-center space-y-3">
-                <p className="text-navy-900 font-bold text-sm">Large properties are quoted individually</p>
-                <p className="text-navy-700 text-xs leading-relaxed max-w-sm mx-auto">
+              <div className="rounded-2xl bg-amber-50 border border-amber-200 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-5">
+                <div className="w-11 h-11 rounded-2xl bg-amber-400 text-amber-950 flex items-center justify-center flex-shrink-0"><MessageCircle size={20} /></div>
+                <div className="flex-1">
+                  <p className="text-navy-900 font-bold text-base">Large properties are quoted individually</p>
+                  <p className="text-navy-700 text-xs leading-relaxed mt-1 max-w-lg">
                   5+ bedroom homes vary too much for a fixed instant price. Send us a few details and we'll confirm a fixed price, usually within the hour.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:min-w-[180px]">
                   <a href={WA_5PLUS_LINK} target="_blank" rel="noopener noreferrer"
-                    className="btn-whatsapp inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[44px] rounded-full font-bold text-sm">
+                    className="btn-whatsapp inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[44px] rounded-xl font-bold text-sm">
                     <MessageCircle size={16} /> WhatsApp us
                   </a>
                   <a href={EMAIL_5PLUS_LINK}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[44px] rounded-full font-bold text-sm border-2 border-royal-500 text-royal-700 hover:bg-royal-50">
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[44px] rounded-xl font-bold text-sm border border-amber-400 text-amber-900 hover:bg-amber-100">
                     <Mail size={16} /> Request a quote
                   </a>
                 </div>
               </div>
             )}
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-line bg-surface px-4 py-4 sm:px-5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="w-10 h-10 rounded-xl bg-white border border-line flex items-center justify-center text-navy-700"><Bath size={19} /></span>
+                  <div><h4 className="text-navy-900 font-bold text-sm">Full bathrooms</h4><p className="text-muted text-[11px]">Bath or shower rooms</p></div>
+                </div>
+                <Counter value={state.fullBathrooms} min={1} max={6} label="full bathrooms" onChange={(v) => setState((p) => ({ ...p, fullBathrooms: v }))} />
+              </div>
+              <div className="rounded-2xl border border-line bg-surface px-4 py-4 sm:px-5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="w-10 h-10 rounded-xl bg-white border border-line flex items-center justify-center text-navy-700"><Layers3 size={19} /></span>
+                  <div><h4 className="text-navy-900 font-bold text-sm">Separate WCs</h4><p className="text-muted text-[11px]">Toilet only, no bath</p></div>
+                </div>
+                <Counter value={state.extraWcs} min={0} max={6} label="separate WCs" onChange={(v) => setState((p) => ({ ...p, extraWcs: v }))} />
+              </div>
+            </div>
           </div>
         )}
 
         {/* ══ Step 2: Choose your cleaning package ══ */}
         {step === 2 && (
-          <div className="space-y-4">
-            <h3 className="text-navy-900 font-bold text-base">Choose your cleaning package</h3>
-            <div className="grid sm:grid-cols-2 gap-4 items-start" role="group" aria-label="Cleaning package">
+          <div className="space-y-6">
+            <div>
+              <p className="text-royal-700 text-[10px] font-bold uppercase tracking-[0.18em] mb-2">Your cleaning standard</p>
+              <h3 className="font-display text-2xl sm:text-3xl font-bold text-navy-900 tracking-tight">Choose your cleaning package</h3>
+              <p className="text-muted text-sm sm:text-base leading-relaxed mt-2 max-w-xl">Complete is the simplest route to a final inspection. Tailored starts lower and lets you add selected internal tasks later.</p>
+            </div>
+            <div className="grid lg:grid-cols-2 gap-5 items-start" role="group" aria-label="Cleaning package">
               {/* Complete */}
-              <button type="button" onClick={() => setState((p) => ({ ...p, pkg: 'complete' }))}
-                aria-pressed={state.pkg === 'complete'}
-                className={`relative text-left rounded-2xl border-2 p-5 transition-all duration-200 flex flex-col ${
-                  state.pkg === 'complete' ? 'border-royal-500 bg-royal-50 shadow-lg' : 'border-silver-300 hover:border-royal-300'
-                }`}>
-                <span className="absolute -top-3 left-4 bg-amber-400 text-amber-950 text-[10px] font-bold px-3 py-1 rounded-full tracking-widest uppercase shadow-sm">
-                  Recommended · Best value
-                </span>
-                <div className="mt-2 font-display font-bold text-navy-900 text-lg">Complete Agency-Ready Clean</div>
-                <div data-testid="complete-price" className="font-display font-bold text-3xl text-royal-600 mt-1">
-                  {penceToDisplay(quote.completeEquivalentP)}
+              <article className={`rounded-3xl border-2 overflow-hidden transition-all duration-200 ${state.pkg === 'complete' ? 'border-royal-500 shadow-[0_18px_50px_rgba(14,165,233,0.16)]' : 'border-line hover:border-sky-300'}`}>
+                <div className="bg-navy-950 text-white px-5 py-2.5 flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em]"><BadgeCheck size={14} className="text-amber-400" /> Recommended · Best value</span>
+                  <span className="text-[10px] font-semibold text-white/60">Most comprehensive</span>
                 </div>
-                <p className="text-navy-700 text-xs leading-relaxed mt-2">
-                  <strong>Best for:</strong> tenants, landlords and agents preparing for final inspection.
-                </p>
-                <div className="mt-3 flex items-center gap-1.5 text-green-700 text-xs font-semibold">
-                  <ShieldCheck size={14} /> Full {EOT_GUARANTEE_HOURS}-hour agency-ready guarantee
-                </div>
-                <div className="mt-3">
-                  <p className="text-navy-800 text-xs font-bold mb-1.5">Included</p>
-                  <div className="grid grid-cols-1 gap-1">
-                    {COMPLETE_KEY_BENEFITS.map((i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-navy-800"><CheckCircle2 size={12} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
-                    ))}
+                <button type="button" onClick={() => setState((p) => ({ ...p, pkg: 'complete' }))}
+                  aria-pressed={state.pkg === 'complete'}
+                  className={`relative w-full text-left p-5 sm:p-6 transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-royal-600 ${
+                    state.pkg === 'complete' ? 'border-royal-500 bg-royal-50' : 'border-transparent bg-white hover:bg-surface'
+                  }`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-display font-bold text-navy-900 text-xl">Complete Agency-Ready Clean</div>
+                      <p className="text-muted text-xs mt-1">One fixed package for your selected property</p>
+                    </div>
+                    <span className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${state.pkg === 'complete' ? 'bg-royal-500 border-royal-500 text-white' : 'border-line text-transparent'}`}><CheckCircle2 size={16} /></span>
                   </div>
-                </div>
-                <details className="mt-3 group">
-                  <summary className="text-royal-700 text-xs font-bold cursor-pointer list-none flex items-center gap-1">
-                    See full details <ChevronRight size={12} className="transition-transform group-open:rotate-90" />
+                  <div className="flex items-end gap-2 mt-5">
+                    <div data-testid="complete-price" className="font-display font-bold text-4xl text-navy-900 tracking-tight">{penceToDisplay(quote.completeEquivalentP)}</div>
+                    <span className="text-muted text-xs font-medium mb-1.5">fixed price</span>
+                  </div>
+                  <p className="text-navy-700 text-xs leading-relaxed mt-3"><strong>Best for:</strong> tenants, landlords and agents preparing for final inspection.</p>
+                  <div className="mt-4 rounded-xl bg-white border border-green-200 px-3 py-2.5 flex items-start gap-2 text-green-800 text-xs font-bold">
+                    <ShieldCheck size={16} className="flex-shrink-0" /> Full {EOT_GUARANTEE_HOURS}-hour agency-ready guarantee
+                  </div>
+                  <div className="mt-5">
+                    <p className="text-navy-800 text-xs font-bold uppercase tracking-[0.12em] mb-2.5">Included in your price</p>
+                    <div className="grid grid-cols-1 gap-2">
+                      {COMPLETE_KEY_BENEFITS.map((i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs text-navy-800 leading-snug"><CheckCircle2 size={14} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
+                      ))}
+                    </div>
+                  </div>
+                </button>
+                <details className="group border-t border-line bg-white">
+                  <summary className="text-royal-700 text-xs font-bold cursor-pointer list-none flex items-center justify-between gap-2 px-5 sm:px-6 py-4 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-royal-600">
+                    See full details <ChevronRight size={14} className="transition-transform group-open:rotate-90" />
                   </summary>
-                  <div className="mt-2 grid grid-cols-1 gap-1">
+                  <div className="px-5 sm:px-6 pb-5 grid grid-cols-1 gap-2">
                     {COMPLETE_MORE_INCLUDED.map((i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-navy-800"><CheckCircle2 size={12} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
+                      <div key={i} className="flex items-start gap-2 text-xs text-navy-800"><CheckCircle2 size={14} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
                     ))}
-                    <div className="h-px bg-silver-300 my-1.5" />
-                    <p className="text-silver-700 text-[11px] font-bold mb-0.5">Not included</p>
+                    <div className="h-px bg-line my-1.5" />
+                    <p className="text-muted text-[11px] font-bold uppercase tracking-[0.12em] mb-0.5">Not included</p>
                     {COMPLETE_NOT_INCLUDED.map((i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-silver-700"><XCircle size={12} className="text-silver-500 mt-0.5 flex-shrink-0" />{i}</div>
+                      <div key={i} className="flex items-start gap-2 text-xs text-muted"><XCircle size={14} className="text-silver-500 mt-0.5 flex-shrink-0" />{i}</div>
                     ))}
                   </div>
                 </details>
-              </button>
+              </article>
 
               {/* Tailored */}
-              <button type="button" onClick={() => setState((p) => ({ ...p, pkg: 'tailored' }))}
-                aria-pressed={state.pkg === 'tailored'}
-                className={`text-left rounded-2xl border-2 p-5 transition-all duration-200 flex flex-col ${
-                  state.pkg === 'tailored' ? 'border-royal-500 bg-royal-50 shadow-lg' : 'border-silver-300 hover:border-royal-300'
-                }`}>
-                <div className="font-display font-bold text-navy-900 text-lg">Tailored Checklist Clean</div>
-                <div data-testid="tailored-price" className="font-display font-bold text-3xl text-royal-600 mt-1">
-                  Starts at {penceToDisplay(tailoredAtConfigP)}
+              <article className={`rounded-3xl border-2 overflow-hidden transition-all duration-200 ${state.pkg === 'tailored' ? 'border-royal-500 shadow-[0_18px_50px_rgba(14,165,233,0.14)]' : 'border-line hover:border-sky-300'}`}>
+                <div className="bg-surface border-b border-line px-5 py-2.5 flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center gap-1.5 text-navy-800 text-[10px] font-bold uppercase tracking-[0.16em]"><ListChecks size={14} className="text-royal-600" /> Build your own</span>
+                  <span className="text-[10px] font-semibold text-muted">Core clean + choices</span>
                 </div>
-                <p className="text-navy-700 text-xs leading-relaxed mt-2">
-                  A core checklist clean you build up with only the internal tasks you actually need.
-                </p>
-                <div className="mt-3 flex items-center gap-1.5 text-amber-800 text-xs font-semibold">
-                  <Info size={14} /> Guarantee applies only to included and selected tasks
-                </div>
-                <p className="text-navy-700 text-xs leading-relaxed mt-2">
-                  Other appliance and storage interiors are not silently included — add exactly what you need in the next step.
-                </p>
-                <div className="mt-3">
-                  <p className="text-navy-800 text-xs font-bold mb-1.5">Included</p>
-                  <div className="grid grid-cols-1 gap-1">
-                    {TAILORED_CORE_INCLUDED.map((i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-navy-800"><CheckCircle2 size={12} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
-                    ))}
+                <button type="button" onClick={() => setState((p) => ({ ...p, pkg: 'tailored' }))}
+                  aria-pressed={state.pkg === 'tailored'}
+                  className={`relative w-full text-left p-5 sm:p-6 transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-royal-600 ${
+                    state.pkg === 'tailored' ? 'border-royal-500 bg-royal-50' : 'border-transparent bg-white hover:bg-surface'
+                  }`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-display font-bold text-navy-900 text-xl">Tailored Checklist Clean</div>
+                      <p className="text-muted text-xs mt-1">Core checklist with optional internal tasks</p>
+                    </div>
+                    <span className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${state.pkg === 'tailored' ? 'bg-royal-500 border-royal-500 text-white' : 'border-line text-transparent'}`}><CheckCircle2 size={16} /></span>
                   </div>
-                </div>
-                <details className="mt-3 group">
-                  <summary className="text-royal-700 text-xs font-bold cursor-pointer list-none flex items-center gap-1">
-                    See full details <ChevronRight size={12} className="transition-transform group-open:rotate-90" />
+                  <div className="flex items-end gap-2 mt-5">
+                    <div data-testid="tailored-price" className="font-display font-bold text-4xl text-navy-900 tracking-tight">Starts at {penceToDisplay(tailoredAtConfigP)}</div>
+                  </div>
+                  <p className="text-navy-700 text-xs leading-relaxed mt-3">A core checklist clean you build up with only the internal tasks you actually need.</p>
+                  <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2 text-amber-900 text-xs font-bold">
+                    <Info size={16} className="flex-shrink-0" /> Guarantee applies only to included and selected tasks
+                  </div>
+                  <p className="text-navy-700 text-xs leading-relaxed mt-3">Other appliance and storage interiors are not silently included — add exactly what you need in the next step.</p>
+                  <div className="mt-5">
+                    <p className="text-navy-800 text-xs font-bold uppercase tracking-[0.12em] mb-2.5">Included in the core clean</p>
+                    <div className="grid grid-cols-1 gap-2">
+                      {TAILORED_CORE_INCLUDED.map((i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs text-navy-800 leading-snug"><CheckCircle2 size={14} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
+                      ))}
+                    </div>
+                  </div>
+                </button>
+                <details className="group border-t border-line bg-white">
+                  <summary className="text-royal-700 text-xs font-bold cursor-pointer list-none flex items-center justify-between gap-2 px-5 sm:px-6 py-4 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-royal-600">
+                    See full details <ChevronRight size={14} className="transition-transform group-open:rotate-90" />
                   </summary>
-                  <div className="mt-2 grid grid-cols-1 gap-1">
+                  <div className="px-5 sm:px-6 pb-5 grid grid-cols-1 gap-2">
                     {TAILORED_MORE_INCLUDED.map((i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-navy-800"><CheckCircle2 size={12} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
+                      <div key={i} className="flex items-start gap-2 text-xs text-navy-800"><CheckCircle2 size={14} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
                     ))}
-                    <div className="h-px bg-silver-300 my-1.5" />
-                    <p className="text-silver-700 text-[11px] font-bold mb-0.5">Add back what you need next</p>
+                    <div className="h-px bg-line my-1.5" />
+                    <p className="text-muted text-[11px] font-bold uppercase tracking-[0.12em] mb-0.5">Add back what you need next</p>
                     {TAILORED_ADD_LATER.map((i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-silver-700"><XCircle size={12} className="text-silver-500 mt-0.5 flex-shrink-0" />{i}</div>
+                      <div key={i} className="flex items-start gap-2 text-xs text-muted"><XCircle size={14} className="text-silver-500 mt-0.5 flex-shrink-0" />{i}</div>
                     ))}
                   </div>
                 </details>
-              </button>
+              </article>
             </div>
           </div>
         )}
 
         {/* ══ Step 3: Floor care ══ */}
         {step === 3 && (
-          <div className="space-y-4">
-            <h3 className="text-navy-900 font-bold text-base">What floor care do you need?</h3>
-            <div className="space-y-2.5" role="group" aria-label="Floor care">
+          <div className="space-y-6">
+            <div>
+              <p className="text-royal-700 text-[10px] font-bold uppercase tracking-[0.18em] mb-2">Floors and carpets</p>
+              <h3 className="font-display text-2xl sm:text-3xl font-bold text-navy-900 tracking-tight">What floor care do you need?</h3>
+              <p className="text-muted text-sm sm:text-base leading-relaxed mt-2 max-w-xl">Standard vacuuming and suitable hard-floor mopping are already included. Upgrade only if you want professional carpet cleaning.</p>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3" role="group" aria-label="Floor care">
               {FLOOR_CARE_OPTIONS.map((opt) => (
                 <button key={opt.key} type="button" onClick={() => setFloorCareChoice(opt.key)}
                   aria-pressed={state.floorCareChoice === opt.key}
-                  className={`relative w-full text-left rounded-2xl border-2 px-4 py-3.5 transition-all duration-200 ${
-                    state.floorCareChoice === opt.key ? 'border-royal-500 bg-royal-50 shadow-md' : 'border-silver-300 hover:border-royal-300'
+                  className={`relative w-full text-left rounded-2xl border-2 p-4 sm:p-5 transition-all duration-200 min-h-[150px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 ${opt.key === 'professional' ? 'sm:col-span-2' : ''} ${
+                    state.floorCareChoice === opt.key
+                      ? 'border-royal-500 bg-royal-50 shadow-[0_12px_34px_rgba(14,165,233,0.14)]'
+                      : opt.key === 'professional' ? 'border-navy-800 bg-navy-950 hover:border-royal-400' : 'border-line bg-white hover:border-sky-300 hover:bg-surface'
                   }`}>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-navy-900 text-sm">{opt.title}</span>
-                    {opt.badge && (
-                      <span className="bg-amber-400 text-amber-950 text-[9px] font-bold px-2 py-0.5 rounded-full tracking-widest uppercase">{opt.badge}</span>
-                    )}
+                  <div className={`flex ${opt.key === 'professional' ? 'sm:items-center sm:justify-between' : 'items-start'} gap-4`}>
+                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 ${state.floorCareChoice === opt.key ? 'bg-royal-500 text-white' : opt.key === 'professional' ? 'bg-white/10 text-sky-300' : 'bg-surface text-navy-700'}`}>
+                      {opt.key === 'professional' ? <Waves size={21} /> : opt.key === 'standard' ? <Sparkles size={20} /> : <CircleOff size={20} />}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`font-display font-bold text-lg ${state.floorCareChoice === opt.key || opt.key !== 'professional' ? 'text-navy-900' : 'text-white'}`}>{opt.title}</span>
+                        {opt.badge && <span className="bg-amber-400 text-amber-950 text-[9px] font-bold px-2.5 py-1 rounded-full tracking-[0.12em] uppercase">{opt.badge}</span>}
+                      </div>
+                      <p className={`text-xs font-semibold mt-1 ${state.floorCareChoice === opt.key ? 'text-royal-700' : opt.key === 'professional' ? 'text-sky-300' : 'text-muted'}`}>
+                        {opt.key === 'professional' ? `Priced by confirmed area · save up to ${EOT_CARPET_PACKAGE_DISCOUNT_PCT}%` : opt.key === 'standard' ? 'Included · £0 extra' : 'Hard floors only · £0 extra'}
+                      </p>
+                      <ul className={`mt-3 grid ${opt.key === 'professional' ? 'sm:grid-cols-3' : 'grid-cols-1'} gap-1.5`}>
+                        {opt.bullets.map((b) => (
+                          <li key={b} className={`text-xs flex items-start gap-1.5 ${state.floorCareChoice === opt.key || opt.key !== 'professional' ? 'text-navy-700' : 'text-white/70'}`}><CheckCircle2 size={13} className={`${state.floorCareChoice === opt.key || opt.key !== 'professional' ? 'text-green-600' : 'text-sky-300'} mt-0.5 flex-shrink-0`} />{b}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <span className={`absolute top-4 right-4 sm:static w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${state.floorCareChoice === opt.key ? 'bg-royal-500 border-royal-500 text-white' : opt.key === 'professional' ? 'border-white/30 text-transparent' : 'border-line text-transparent'}`}><CheckCircle2 size={16} /></span>
                   </div>
-                  <ul className="mt-1.5 grid grid-cols-1 gap-0.5">
-                    {opt.bullets.map((b) => (
-                      <li key={b} className="text-navy-700 text-xs flex items-start gap-1.5"><CheckCircle2 size={12} className="text-green-600 mt-0.5 flex-shrink-0" />{b}</li>
-                    ))}
-                  </ul>
                 </button>
               ))}
             </div>
 
             {state.floorCareChoice === 'professional' && (
-              <div className="space-y-4 pt-2">
-                <div className="grid sm:grid-cols-2 gap-4" role="group" aria-label="Carpet cleaning mode">
+              <div className="space-y-5 pt-1">
+                <div className="rounded-2xl border border-sky-200 bg-royal-50/70 p-4 flex items-start gap-3">
+                  <Sparkles size={18} className="text-royal-600 flex-shrink-0 mt-0.5" />
+                  <div><p className="text-navy-900 font-bold text-sm">Now choose how to price your carpet areas</p><p className="text-muted text-xs leading-relaxed mt-1">Use our suggested layout for speed, or enter areas yourself. Only confirmed areas are charged.</p></div>
+                </div>
+                <div className="grid lg:grid-cols-2 gap-4" role="group" aria-label="Carpet cleaning mode">
                   {/* Whole-property */}
                   <button type="button" onClick={enterWholePropertyCarpet}
                     aria-pressed={state.carpetMode === 'whole'}
-                    className={`text-left rounded-2xl border-2 p-4 transition-all duration-200 ${
-                      state.carpetMode === 'whole' ? 'border-royal-500 bg-royal-50 shadow-md' : 'border-silver-300 hover:border-royal-300'
+                    className={`relative text-left rounded-2xl border-2 p-5 transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 ${
+                      state.carpetMode === 'whole' ? 'border-royal-500 bg-royal-50 shadow-[0_12px_34px_rgba(14,165,233,0.14)]' : 'border-line bg-white hover:border-sky-300'
                     }`}>
-                    <div className="flex items-center gap-1.5 text-royal-700 text-[10px] font-bold uppercase tracking-widest mb-1">
-                      <Sparkles size={12} /> Recommended for a quick quote
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-1.5 text-royal-700 text-[10px] font-bold uppercase tracking-[0.14em] mb-1">
+                        <Sparkles size={13} /> Recommended for a quick quote
+                      </div>
+                      <span className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${state.carpetMode === 'whole' ? 'bg-royal-500 border-royal-500 text-white' : 'border-line text-transparent'}`}><CheckCircle2 size={16} /></span>
                     </div>
-                    <div className="font-display font-bold text-navy-900 text-base">Whole-property carpet cleaning</div>
+                    <div className="font-display font-bold text-navy-900 text-lg mt-1">Whole-property carpet cleaning</div>
                     <p className="text-green-700 text-xs font-semibold leading-relaxed mt-1.5">
                       Clean all your carpeted areas during the same End of Tenancy visit and save up to {EOT_CARPET_PACKAGE_DISCOUNT_PCT}%.
                     </p>
-                    <div className="mt-3 text-xs space-y-1 bg-white/70 rounded-lg px-3 py-2">
-                      <div className="flex justify-between text-navy-700"><span>Normally</span><span>{penceToDisplay(wholePreview.standaloneSubtotalP)} separately</span></div>
-                      <div className="flex justify-between text-navy-900 font-semibold"><span>Add to this visit for</span><span>{penceToDisplay(wholePreview.chargedP)}</span></div>
-                      <div className="flex justify-between text-green-700 font-bold"><span>You save</span><span>{penceToDisplay(wholePreview.savingP)}</span></div>
+                    <div className="mt-4 text-xs space-y-2 bg-white rounded-xl border border-sky-200 px-4 py-3">
+                      <div className="flex justify-between gap-3 text-muted"><span>Standalone value</span><span className="line-through">{penceToDisplay(wholePreview.standaloneSubtotalP)}</span></div>
+                      <div className="flex justify-between gap-3 text-navy-900 font-bold text-sm"><span>Add to this visit</span><span>{penceToDisplay(wholePreview.chargedP)}</span></div>
+                      <div className="flex justify-between gap-3 text-green-700 font-bold"><span>Estimated saving</span><span>{penceToDisplay(wholePreview.savingP)}</span></div>
                     </div>
                   </button>
 
                   {/* Manual */}
                   <button type="button" onClick={enterManualCarpet}
                     aria-pressed={state.carpetMode === 'manual'}
-                    className={`text-left rounded-2xl border-2 p-4 transition-all duration-200 ${
-                      state.carpetMode === 'manual' ? 'border-royal-500 bg-royal-50 shadow-md' : 'border-silver-300 hover:border-royal-300'
+                    className={`relative text-left rounded-2xl border-2 p-5 transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 ${
+                      state.carpetMode === 'manual' ? 'border-royal-500 bg-royal-50 shadow-[0_12px_34px_rgba(14,165,233,0.14)]' : 'border-line bg-white hover:border-sky-300'
                     }`}>
-                    <div className="font-display font-bold text-navy-900 text-base">Choose areas individually</div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-1.5 text-navy-600 text-[10px] font-bold uppercase tracking-[0.14em] mb-1"><ListChecks size={13} /> Most flexible</div>
+                      <span className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${state.carpetMode === 'manual' ? 'bg-royal-500 border-royal-500 text-white' : 'border-line text-transparent'}`}><CheckCircle2 size={16} /></span>
+                    </div>
+                    <div className="font-display font-bold text-navy-900 text-lg mt-1">Choose areas individually</div>
                     <p className="text-navy-700 text-xs leading-relaxed mt-1.5">
                       Select only the carpeted areas that need professional cleaning.
                     </p>
-                    <p className="text-royal-700 text-xs font-semibold mt-3">
+                    <p className="text-royal-700 text-xs font-semibold mt-4 rounded-xl bg-royal-50 border border-royal-100 px-3 py-2.5">
                       {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS}+ qualifying areas unlock up to {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% off, calculated live as you add them.
                     </p>
                   </button>
@@ -923,9 +1005,9 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                       })}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => addWholeRoom('reception')} className="text-xs font-semibold text-royal-700 hover:text-royal-800 border border-royal-300 rounded-full px-3 py-1.5">+ Reception room</button>
-                      <button type="button" onClick={() => addWholeRoom('hallway')} className="text-xs font-semibold text-royal-700 hover:text-royal-800 border border-royal-300 rounded-full px-3 py-1.5">+ Hallway</button>
-                      <button type="button" onClick={() => addWholeRoom('landing')} className="text-xs font-semibold text-royal-700 hover:text-royal-800 border border-royal-300 rounded-full px-3 py-1.5">+ Landing</button>
+                      <button type="button" onClick={() => addWholeRoom('reception')} className="text-xs font-semibold text-royal-700 hover:text-navy-800 border border-sky-300 rounded-full px-3 py-1.5">+ Reception room</button>
+                      <button type="button" onClick={() => addWholeRoom('hallway')} className="text-xs font-semibold text-royal-700 hover:text-navy-800 border border-sky-300 rounded-full px-3 py-1.5">+ Hallway</button>
+                      <button type="button" onClick={() => addWholeRoom('landing')} className="text-xs font-semibold text-royal-700 hover:text-navy-800 border border-sky-300 rounded-full px-3 py-1.5">+ Landing</button>
                     </div>
                   </div>
                 )}
@@ -1086,7 +1168,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                     className={`py-3 px-3 rounded-xl border-2 text-left text-xs font-semibold leading-snug transition-all duration-200 min-h-[44px] ${
                       state.condition === k
                         ? k === 'normal' ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-amber-400 bg-amber-50 text-amber-900'
-                        : 'border-silver-300 text-navy-700 hover:border-royal-300'
+                        : 'border-silver-300 text-navy-700 hover:border-sky-300'
                     }`}>
                     {l}
                   </button>
@@ -1230,33 +1312,33 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         )}
       </div>
 
-      {/* ── Footer nav ──
-          Desktop/tablet (sm and up, ≥640px — covers both 768px and 1280px):
-          unchanged single row, Back | price | Continue.
-          Mobile (<640px): the price summary gets its own full-width row so
-          "Starting from £X" and its explanatory sentence are never squeezed
-          between the two buttons; Back and Continue share a second row. */}
-      <div className="border-t border-silver-200 bg-white">
+      {/* Sticky quote summary. It sits above the site's mobile booking bar and
+          cookie banner, then returns to bottom: 0 when that bar is hidden on
+          desktop. The content area remains in normal document flow, so no
+          selections are obscured behind it. */}
+      <div className="sticky bottom-[calc(var(--vve-cookie-banner-h,0px)+env(safe-area-inset-bottom,0px))] z-30 border-t border-line bg-white/95 backdrop-blur-xl rounded-b-[28px] shadow-[0_-14px_34px_rgba(2,11,36,0.10)]">
         <div
-          className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-y-3 px-5 sm:px-8 py-4"
+          className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-y-3 gap-x-4 px-5 sm:px-8 lg:px-10 py-4 max-w-3xl mx-auto"
           data-testid="footer-nav"
         >
           <button type="button" onClick={goBack} disabled={step === 1}
-            className="order-2 sm:order-1 inline-flex items-center gap-1.5 text-sm font-semibold text-navy-700 disabled:opacity-30 disabled:cursor-not-allowed min-h-[44px] px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 rounded-lg">
+            className="order-2 sm:order-1 inline-flex items-center justify-center gap-1.5 text-sm font-bold text-navy-700 border border-line bg-white hover:bg-surface disabled:opacity-30 disabled:cursor-not-allowed min-h-[46px] min-w-[106px] px-4 rounded-xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600">
             <ChevronLeft size={16} /> Back
           </button>
 
           {!hideFooterTotal && (
-            <div className="order-1 sm:order-2 w-full sm:w-auto text-center sm:text-right" data-testid="footer-price-summary">
-              <div className="text-[10px] uppercase tracking-widest text-navy-500 font-bold">{footerPriceLabel}</div>
-              <div data-testid="footer-total" className="text-navy-900 font-display font-bold text-lg">{footerPriceValue}</div>
-              {footerSubtext && <div className="text-[10px] text-navy-500">{footerSubtext}</div>}
+            <div className="order-1 sm:order-2 w-full sm:w-auto sm:flex-1 text-left sm:text-center" data-testid="footer-price-summary" aria-live="polite">
+              <div className="flex items-baseline justify-between sm:justify-center gap-3">
+                <div className="text-[10px] uppercase tracking-[0.16em] text-muted font-bold">{footerPriceLabel}</div>
+                <div data-testid="footer-total" className="text-navy-900 font-display font-bold text-2xl tabular-nums">{footerPriceValue}</div>
+              </div>
+              {footerSubtext && <div className="text-[11px] text-muted mt-0.5 truncate" title={footerSubtext}>{footerSubtext}</div>}
             </div>
           )}
 
           {step < TOTAL_STEPS ? (
             <button type="button" onClick={goNext} disabled={step === 1 && state.is5Plus}
-              className="order-3 inline-flex items-center gap-1.5 text-sm font-bold text-white bg-royal-500 hover:bg-royal-600 rounded-full px-5 py-2.5 min-h-[44px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7] disabled:opacity-40 disabled:cursor-not-allowed">
+              className="order-3 inline-flex items-center justify-center gap-1.5 text-sm font-bold text-white bg-royal-500 hover:bg-royal-600 rounded-xl px-5 min-h-[46px] min-w-[122px] shadow-[0_8px_20px_rgba(14,165,233,0.24)] transition-all duration-200 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none">
               Continue <ChevronRight size={16} />
             </button>
           ) : (
