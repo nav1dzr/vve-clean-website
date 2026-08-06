@@ -132,8 +132,43 @@ describe('InvoiceDetailPage — issued', () => {
     expect(screen.getByRole('button', { name: /^download$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^send$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /record payment/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^void$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /duplicate as corrected draft/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /void invoice/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /correct customer or address details/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /adjust services or price/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /create similar invoice/i })).toBeInTheDocument();
+  });
+
+  it('corrects an email typo in place and sends only contact fields to ?action=correctDetails', async () => {
+    mockRouteBasedFetch(issuedInvoice);
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: /correct customer or address details/i }));
+    const dialog = await screen.findByRole('dialog', { name: /correct customer or address details/i });
+    const email = within(dialog).getAllByLabelText(/^email$/i)[0];
+    await user.clear(email);
+    await user.type(email, 'jane@example.co.uk');
+    await user.click(within(dialog).getByRole('button', { name: /save correction.*regenerate pdf/i }));
+
+    await waitFor(() => {
+      const calls = authFetchMock.mock.calls.filter((call) => (call[0] as string).includes('action=correctDetails'));
+      expect(calls).toHaveLength(1);
+      const payload = JSON.parse((calls[0][1] as RequestInit).body as string);
+      expect(payload.customer.email).toBe('jane@example.co.uk');
+      expect(payload).not.toHaveProperty('items');
+      expect(payload).not.toHaveProperty('total');
+    });
+  });
+
+  it('explains that service or price changes use a preserved revised draft', async () => {
+    mockRouteBasedFetch(issuedInvoice);
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: /adjust services or price/i }));
+    const dialog = await screen.findByRole('dialog', { name: /adjust services or price/i });
+    expect(within(dialog).getByText(/original invoice will remain preserved/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/nothing will be sent/i)).toBeInTheDocument();
   });
 
   it('does not render the draft edit form for an issued invoice', async () => {

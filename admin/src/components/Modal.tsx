@@ -5,6 +5,7 @@ interface ModalProps {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  wide?: boolean;
 }
 
 // Compact modal/drawer: bottom sheet on mobile, centred card on desktop.
@@ -13,7 +14,7 @@ interface ModalProps {
 // ref to the trigger and call .focus() on it inside onClose) — this keeps
 // the modal itself simple and reusable rather than assuming one trigger
 // shape.
-export default function Modal({ titleId, title, onClose, children }: ModalProps) {
+export default function Modal({ titleId, title, onClose, children, wide = false }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   // Keep the latest onClose reachable from the mount-only effect below
   // without making it a dependency — onClose is a fresh function on every
@@ -71,7 +72,7 @@ export default function Modal({ titleId, title, onClose, children }: ModalProps)
         aria-labelledby={titleId}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 shadow-lg outline-none sm:max-w-md sm:rounded-2xl sm:p-6"
+        className={`max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 shadow-lg outline-none sm:rounded-2xl sm:p-6 ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'}`}
       >
         <div className="mb-3 flex items-center justify-between">
           <h2 id={titleId} className="font-semibold text-navy-950">

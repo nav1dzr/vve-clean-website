@@ -197,6 +197,32 @@ describe('/api/invoices/:id[?action=] dispatcher', () => {
     expect(body.invoiceId).not.toBe(invoiceId);
   });
 
+  it('POST ?action=correctDetails fixes contact details without changing the invoice number or total', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+    await issueInvoice(supabase, invoiceId, 'admin-1');
+    const original = { ...supabase._tables.invoices.find((row) => row.id === invoiceId) };
+
+    const res = makeRes();
+    await handler(makeReq({
+      url: `/api/invoices/${invoiceId}?action=correctDetails`,
+      method: 'POST',
+      bodyObj: {
+        customer: { name: 'Jane Doe', email: 'jane@example.co.uk', phone: '', address: '10 New Street\nLondon', postcode: 'E1 1AA' },
+        serviceContact: {}, invoiceRecipientEmail: '', receiptRecipientEmail: '',
+        total: 1,
+      },
+    }), res);
+
+    expect(res.statusCode).toBe(200);
+    const corrected = supabase._tables.invoices.find((row) => row.id === invoiceId);
+    expect(corrected.customer_email).toBe('jane@example.co.uk');
+    expect(corrected.invoice_number).toBe(original.invoice_number);
+    expect(corrected.total).toBe(original.total);
+    expect(corrected.document_version).toBe(2);
+  });
+
   it('POST ?action=payments records a payment and returns the recalculated balance (£310 total, £30 deposit applied, £280 due before this payment)', async () => {
     const supabase = createFakeSupabase();
     getServiceClientMock.mockReturnValue(supabase);

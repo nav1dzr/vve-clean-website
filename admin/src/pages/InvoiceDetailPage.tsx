@@ -11,6 +11,7 @@ import InvoiceItemsForm, { emptyFormValue } from '../components/InvoiceItemsForm
 import RecordPaymentModal from '../components/RecordPaymentModal';
 import VoidInvoiceModal from '../components/VoidInvoiceModal';
 import SendDocumentModal from '../components/SendDocumentModal';
+import CorrectInvoiceDetailsModal, { type InvoiceContactCorrectionInput } from '../components/CorrectInvoiceDetailsModal';
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import { CardListSkeleton } from '../components/Skeleton';
@@ -40,7 +41,7 @@ export default function InvoiceDetailPage() {
   const [receiptId, setReceiptId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [modal, setModal] = useState<null | 'payment' | 'void' | 'send' | 'remind' | 'revise'>(null);
+  const [modal, setModal] = useState<null | 'payment' | 'void' | 'send' | 'remind' | 'revise' | 'correctDetails'>(null);
   const [pendingAction, setPendingAction] = useState<null | 'issue' | 'delete'>(null);
 
   function load() {
@@ -129,6 +130,16 @@ export default function InvoiceDetailPage() {
       setActionError(err instanceof ApiError ? err.message : 'Could not create a revised draft.');
       setBusy(false);
     }
+  }
+
+  async function handleCorrectDetails(input: InvoiceContactCorrectionInput) {
+    if (!id) return;
+    await authFetch(`/api/invoices/${id}?action=correctDetails`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    setModal(null);
+    load();
   }
 
   async function handleVoid(reason: string) {
@@ -355,7 +366,7 @@ export default function InvoiceDetailPage() {
 
         {pendingAction === 'issue' && (
           <ConfirmBox
-            message="Issue this invoice? It will be allocated a permanent invoice number and can no longer be edited directly — corrections after this point use “Duplicate as corrected draft”."
+            message="Issue this invoice? It will receive a permanent invoice number. Contact typos can still be corrected safely; service or price changes will use a revised draft."
             confirmLabel="Issue invoice"
             onCancel={() => setPendingAction(null)}
             onConfirm={() => void handleIssue()}
@@ -398,7 +409,7 @@ export default function InvoiceDetailPage() {
       {hasUnrecordedZeroBalance && (
         <div role="alert" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
           <p className="font-semibold">Payment has not been recorded</p>
-          <p>This older invoice shows no balance because the full total was entered as a deposit. Use “Revise invoice” to correct the deposit, then record the real payment. Do not send it as a paid invoice.</p>
+          <p>This older invoice shows no balance because the full total was entered as a deposit. Use “Adjust services or price” to correct the deposit, then record the real payment. Do not send it as a paid invoice.</p>
         </div>
       )}
 
@@ -492,15 +503,16 @@ export default function InvoiceDetailPage() {
 
       {inv.documentStatus === 'issued' && (
         <Section title="Actions">
-          <div className="flex flex-wrap gap-2">
-            <ActionButton label="Preview" onClick={() => void handlePreview()} disabled={busy} />
-            <ActionButton label="Download" onClick={() => void handleDownload()} disabled={busy} />
+          <div className="space-y-4">
+            <ActionGroup title="Document">
+              <ActionButton label="Preview" onClick={() => void handlePreview()} disabled={busy} />
+              <ActionButton label="Download" onClick={() => void handleDownload()} disabled={busy} />
             {!isSuperseded && (
               inv.paymentStatus === 'paid' ? (
                 receiptId && (
                   <Link
                     to={`/receipts/${receiptId}`}
-                    className="min-h-11 flex items-center rounded-lg border border-silver-300 px-3.5 text-sm font-medium text-navy-900 hover:bg-silver-100"
+                    className="flex min-h-11 w-full items-center justify-center rounded-lg border border-silver-300 px-3.5 text-sm font-medium text-navy-900 hover:bg-silver-100 sm:w-auto"
                   >
                     View / send receipt
                   </Link>
@@ -509,27 +521,42 @@ export default function InvoiceDetailPage() {
                 <ActionButton label={inv.sentAt ? 'Resend' : 'Send'} onClick={() => setModal('send')} disabled={busy} />
               )
             )}
+            </ActionGroup>
+
+            {!isSuperseded && (
+              <ActionGroup title="Payment">
             {!isSuperseded && (
               <ActionButton label="Record payment" onClick={() => setModal('payment')} disabled={busy || inv.amountDue <= 0} primary />
             )}
             {!isSuperseded && inv.amountDue > 0 && (
               <ActionButton label="Send payment reminder" onClick={() => setModal('remind')} disabled={busy} />
             )}
-            <ActionButton label="Duplicate as corrected draft" onClick={() => void handleDuplicate()} disabled={busy} />
-            {!isSuperseded && inv.paymentStatus === 'unpaid' && (
-              <ActionButton label="Revise invoice" onClick={() => setModal('revise')} disabled={busy} />
+              </ActionGroup>
             )}
+
+            <ActionGroup title="Make a change">
+              {!isSuperseded && inv.paymentStatus === 'unpaid' && (
+                <>
+                  <ActionButton label="Correct customer or address details" onClick={() => setModal('correctDetails')} disabled={busy} />
+                  <ActionButton label="Adjust services or price" onClick={() => setModal('revise')} disabled={busy} />
+                </>
+              )}
+              <ActionButton label="Create similar invoice" onClick={() => void handleDuplicate()} disabled={busy} />
+            </ActionGroup>
+
             {isSuperseded && (
-              <p className="w-full text-xs text-slate-500 mt-1">
+              <p className="text-xs text-slate-500">
                 Payment recording, sending, and revision are disabled — this invoice has been superseded.
               </p>
             )}
             {!isSuperseded && inv.paymentStatus !== 'unpaid' && (
-              <p className="w-full text-xs text-navy-500 mt-1">
-                This invoice has payment activity and cannot be directly revised. A credit-note or accounting adjustment workflow is required.
+              <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">
+                This invoice has payment activity, so its saved document cannot be changed. You can still choose a different delivery email when sending. Financial corrections require an accounting adjustment.
               </p>
             )}
-            <ActionButton label="Void" onClick={() => setModal('void')} disabled={busy} danger />
+            <ActionGroup title="Other">
+              <ActionButton label="Void invoice" onClick={() => setModal('void')} disabled={busy} danger />
+            </ActionGroup>
           </div>
           {inv.sentAt && inv.paymentStatus !== 'paid' && !isSuperseded && <p className="mt-2 text-xs text-navy-500">Last sent {formatDateTime(inv.sentAt)}</p>}
         </Section>
@@ -592,6 +619,9 @@ export default function InvoiceDetailPage() {
           onConfirm={() => { setModal(null); void handleRevise(); }}
         />
       )}
+      {modal === 'correctDetails' && (
+        <CorrectInvoiceDetailsModal invoice={inv} onClose={() => setModal(null)} onConfirm={handleCorrectDetails} />
+      )}
       {modal === 'payment' && (
         <RecordPaymentModal amountDue={inv.amountDue} onClose={() => setModal(null)} onConfirm={handleRecordPayment} />
       )}
@@ -600,7 +630,7 @@ export default function InvoiceDetailPage() {
         <SendDocumentModal
           titleId="send-invoice-title"
           title={inv.sentAt ? 'Resend invoice' : 'Send invoice'}
-          defaultRecipient={inv.customer.email || ''}
+          defaultRecipient={inv.invoiceRecipientEmail || inv.customer.email || ''}
           onClose={() => setModal(null)}
           onSend={handleSend}
         />
@@ -609,7 +639,7 @@ export default function InvoiceDetailPage() {
         <SendDocumentModal
           titleId="remind-invoice-title"
           title="Send payment reminder"
-          defaultRecipient={inv.customer.email || ''}
+          defaultRecipient={inv.invoiceRecipientEmail || inv.customer.email || ''}
           onClose={() => setModal(null)}
           onSend={handleRemind}
           submitLabel="Send reminder"
@@ -646,10 +676,19 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
   );
 }
 
+function ActionGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-semibold text-navy-950">{title}</h3>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">{children}</div>
+    </div>
+  );
+}
+
 function ActionButton({
   label, onClick, disabled, primary, danger,
 }: { label: string; onClick: () => void; disabled?: boolean; primary?: boolean; danger?: boolean }) {
-  const base = 'min-h-11 rounded-lg px-3.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60';
+  const base = 'min-h-11 w-full rounded-lg px-3.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto';
   const style = primary
     ? 'bg-navy-950 text-white font-semibold hover:bg-navy-900'
     : danger
@@ -674,11 +713,11 @@ function ReviseConfirmModal({
     >
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
         <h2 id="revise-modal-title" className="mb-3 text-lg font-semibold text-navy-950">
-          Revise invoice {invoiceNumber}?
+          Adjust services or price for {invoiceNumber}?
         </h2>
         <ul className="mb-4 space-y-1.5 text-sm text-navy-700">
           <li>• The original invoice will remain preserved and viewable.</li>
-          <li>• A new editable draft will be created with the same line items and customer details.</li>
+          <li>• An editable updated draft will be created with the current services, prices and customer details.</li>
           <li>• The original will only be marked Superseded if you successfully issue the revised invoice.</li>
           <li>• If you abandon the draft, the original stays fully active.</li>
           <li>• Nothing will be sent to the customer automatically.</li>
@@ -696,7 +735,7 @@ function ReviseConfirmModal({
             onClick={onConfirm}
             className="min-h-11 flex-1 rounded-lg bg-navy-950 px-4 text-sm font-semibold text-white hover:bg-navy-900"
           >
-            Create revised draft
+            Open updated draft
           </button>
         </div>
       </div>
