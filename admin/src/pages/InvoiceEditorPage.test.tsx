@@ -107,6 +107,20 @@ describe('InvoiceEditorPage', () => {
     expect(authFetchMock).not.toHaveBeenCalled();
   });
 
+  it('does not let a full payment masquerade as a booking deposit', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await fillMinimalValidForm(user);
+
+    const deposit = screen.getByRole('spinbutton', { name: /booking deposit received/i });
+    await user.clear(deposit);
+    await user.type(deposit, '100');
+    await user.click(screen.getByRole('button', { name: /save draft/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/deposit must be less than the invoice total/i);
+    expect(authFetchMock).not.toHaveBeenCalled();
+  });
+
   it('defaults to bank_transfer and submits without a stripe link', async () => {
     const user = userEvent.setup();
     authFetchMock.mockResolvedValue({ id: 'new-invoice-id', documentStatus: 'draft' });
