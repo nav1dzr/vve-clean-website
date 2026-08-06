@@ -123,6 +123,12 @@ export function calculateInvoiceTotals({
   if (depositPence > totalPence) {
     return { ok: false, error: 'depositApplied cannot exceed the total' };
   }
+  if (totalPence > 0 && depositPence === totalPence) {
+    return {
+      ok: false,
+      error: 'depositApplied cannot equal the full invoice total - record a full payment after issuing, or create a standalone receipt',
+    };
+  }
 
   if (!Array.isArray(payments)) {
     return { ok: false, error: 'payments must be an array' };

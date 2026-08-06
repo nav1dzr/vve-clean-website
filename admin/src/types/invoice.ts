@@ -212,7 +212,9 @@ export type InvoiceSortValue = (typeof INVOICE_SORT_VALUES)[number];
 export interface ReceiptCard {
   id: string;
   receiptNumber: string | null;
+  source: 'invoice' | 'standalone';
   customerName: string;
+  serviceDescription: string | null;
   totalPaid: number;
   paymentDate: string | null;
   createdAt: string;
@@ -223,6 +225,8 @@ export interface ReceiptDetail {
   receiptNumber: string | null;
   invoiceId: string | null;
   bookingId: string | null;
+  source: 'invoice' | 'standalone';
+  serviceDescription: string | null;
   customer: InvoiceCustomer;
   invoiceNumberSnapshot: string | null;
   invoiceTotal: number | null;
@@ -242,4 +246,19 @@ export interface ReceiptListResponse {
   pageSize: number;
   totalCount: number;
   hasMore: boolean;
+}
+
+export interface StandaloneReceiptInput {
+  customer: InvoiceCustomer;
+  serviceDescription: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod: (typeof INVOICE_PAYMENT_METHOD_VALUES)[number];
+  paymentReference?: string | null;
+}
+
+export interface CreateReceiptResponse {
+  ok: true;
+  receiptId: string;
+  receiptNumber: string;
 }

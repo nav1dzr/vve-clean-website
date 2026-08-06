@@ -72,12 +72,37 @@ describe('GET /api/receipts (list)', () => {
     expect(res.statusCode).toBe(401);
   });
 
-  it('rejects non-GET methods (no POST — receipts are never created directly)', async () => {
+  it('creates a standalone receipt for an already-received payment', async () => {
     verifyAdminRequestMock.mockResolvedValue(ADMIN);
-    getServiceClientMock.mockReturnValue(createFakeSupabase());
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
     const res = makeRes();
-    await handler(makeReq({ url: '/api/receipts', method: 'POST' }), res);
-    expect(res.statusCode).toBe(405);
+    await handler(makeReq({
+      url: '/api/receipts',
+      method: 'POST',
+      bodyObj: {
+        customer: { name: 'Walk In', email: 'walkin@example.com' },
+        serviceDescription: 'Carpet steam cleaning',
+        amount: 149,
+        paymentDate: '2026-08-06',
+        paymentMethod: 'card',
+      },
+    }), res);
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.body);
+    expect(body.receiptNumber).toMatch(/^REC-\d{4}-000001$/);
+    expect(supabase._tables.receipts[0].source).toBe('standalone');
+    expect(supabase._tables.receipts[0].pdf_storage_path).toBeTruthy();
+  });
+
+  it('rejects an invalid standalone receipt without creating a record', async () => {
+    verifyAdminRequestMock.mockResolvedValue(ADMIN);
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const res = makeRes();
+    await handler(makeReq({ url: '/api/receipts', method: 'POST', bodyObj: {} }), res);
+    expect(res.statusCode).toBe(400);
+    expect(supabase._tables.receipts ?? []).toHaveLength(0);
   });
 
   it('lists receipts', async () => {

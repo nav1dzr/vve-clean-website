@@ -356,6 +356,13 @@ export async function issueInvoice(supabase, invoiceId, adminId, { generateAndSt
   if (invoice.document_status !== 'draft') {
     return { ok: false, error: 'Only a draft invoice can be issued', status: 409 };
   }
+  if (Number(invoice.amount_due) <= 0 && Number(invoice.amount_paid || 0) <= 0) {
+    return {
+      ok: false,
+      error: 'This draft shows a zero balance without a recorded payment. Enter only the real deposit, then record the payment after issuing, or create a standalone receipt.',
+      status: 409,
+    };
+  }
 
   const { data: items, error: itemsErr } = await supabase
     .from('invoice_items')

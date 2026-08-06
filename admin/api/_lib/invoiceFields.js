@@ -32,11 +32,12 @@ export const INVOICE_DETAIL_SELECT = [
 ].join(', ');
 
 export const RECEIPT_CARD_SELECT = [
-  'id', 'receipt_number', 'customer_name', 'total_paid', 'payment_date', 'created_at',
+  'id', 'receipt_number', 'source', 'customer_name', 'service_description', 'total_paid', 'payment_date', 'created_at',
 ].join(', ');
 
 export const RECEIPT_DETAIL_SELECT = [
   'id', 'receipt_number', 'invoice_id', 'booking_id',
+  'source', 'service_description',
   'customer_name', 'customer_email', 'customer_phone', 'customer_address', 'customer_postcode',
   'invoice_number_snapshot', 'invoice_total', 'total_paid', 'payment_date', 'payment_method', 'payment_reference',
   'business_snapshot', 'created_by_admin_id', 'pdf_storage_path', 'document_version',
@@ -159,7 +160,9 @@ export function toReceiptCard(row) {
   return {
     id: row.id,
     receiptNumber: row.receipt_number,
+    source: row.source || 'invoice',
     customerName: row.customer_name,
+    serviceDescription: row.service_description || null,
     totalPaid: row.total_paid,
     paymentDate: row.payment_date,
     createdAt: row.created_at,
@@ -172,6 +175,8 @@ export function toReceiptDetail(row) {
     receiptNumber: row.receipt_number,
     invoiceId: row.invoice_id,
     bookingId: row.booking_id,
+    source: row.source || 'invoice',
+    serviceDescription: row.service_description || null,
     customer: {
       name: row.customer_name,
       email: row.customer_email,

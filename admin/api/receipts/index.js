@@ -4,7 +4,7 @@ import { getServiceClient } from '../_lib/supabaseAdmin.js';
 import { readJsonBody } from '../_lib/body.js';
 import { isValidUuid, isValidEmail, sanitiseFreeTextFilter } from '../_lib/normalise.js';
 import { RECEIPT_CARD_SELECT, toReceiptCard, toReceiptDetail, toInvoiceEvent } from '../_lib/invoiceFields.js';
-import { loadReceiptPdfExtras } from '../_lib/receiptLifecycle.js';
+import { createStandaloneReceipt, loadReceiptPdfExtras } from '../_lib/receiptLifecycle.js';
 import { generateReceiptPdfBuffer } from '../_lib/invoicePdf.js';
 import { receiptPdfPath, uploadPdf, getSignedDownloadUrl, downloadPdfBuffer } from '../_lib/invoiceStorage.js';
 import { getBusinessSettings } from '../_lib/businessSettings.js';
@@ -72,7 +72,10 @@ export default async function handler(req, res) {
   const action = params.get('action');
 
   try {
-    if (!receiptId) return await handleList(req, res, headers, supabase);
+    if (!receiptId) {
+      if (req.method === 'POST') return await handleCreate(req, res, headers, supabase, auth);
+      return await handleList(req, res, headers, supabase);
+    }
 
     if (!isValidUuid(receiptId)) {
       res.writeHead(400, headers);
@@ -95,6 +98,31 @@ export default async function handler(req, res) {
 }
 
 // GET /api/receipts — filtered, sorted, paginated receipt list.
+async function handleCreate(req, res, headers, supabase, auth) {
+  let body;
+  try {
+    body = await readJsonBody(req, 32 * 1024);
+  } catch (err) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: err.message || 'Invalid request body' }));
+  }
+
+  const result = await createStandaloneReceipt(supabase, body, auth.admin.id, {
+    generateAndStorePdf: async (receipt) => {
+      const buffer = await generateReceiptPdfBuffer(receipt, receipt.business_snapshot || getBusinessSettings());
+      return uploadPdf(supabase, receiptPdfPath(receipt.id, 1), buffer);
+    },
+  });
+
+  if (!result.ok) {
+    res.writeHead(result.status || 400, headers);
+    return res.end(JSON.stringify({ error: result.error }));
+  }
+
+  res.writeHead(201, headers);
+  return res.end(JSON.stringify(result));
+}
+
 async function handleList(req, res, headers, supabase) {
   if (req.method !== 'GET') {
     res.writeHead(405, headers);
