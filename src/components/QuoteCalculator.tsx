@@ -847,7 +847,7 @@ export default function QuoteCalculator({
     };
 
     return (
-      <section id="quote" ref={ref} className={`${homepageMode ? 'bg-surface pb-20 pt-24 sm:pt-28' : 'bg-gradient-to-br from-navy-950 via-navy-900 to-navy-800 py-20'} scroll-mt-24`}>
+      <section id="quote" ref={ref} className={`${homepageMode ? 'bg-surface pb-20 pt-24 sm:pt-28' : 'bg-gradient-to-br from-sky-50 via-white to-royal-50 py-20'} scroll-mt-24`}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`text-center mb-8 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             {homepageMode ? (
@@ -857,12 +857,12 @@ export default function QuoteCalculator({
               </>
             ) : (
               <>
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full border-2 border-white/40 px-4 py-1.5 text-white">
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white px-4 py-1.5 text-royal-700 shadow-sm">
                   <Calculator size={14} />
                   <span className="text-xs font-semibold uppercase tracking-widest">Instant Pricing</span>
                 </div>
-                <h2 className="mb-3 font-display text-4xl font-bold text-white md:text-5xl">
-                  Get Your <span className="text-gradient-metallic">Instant Quote</span>
+                <h2 className="mb-3 font-display text-4xl font-bold text-navy-900 md:text-5xl">
+                  Get Your <span className="text-royal-700">Instant Quote</span>
                 </h2>
               </>
             )}

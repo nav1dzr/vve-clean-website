@@ -271,9 +271,9 @@ function makeInitialState(restore?: EotBookingResult['quoteConfig'] | null): Eot
     is5Plus: false,
     fullBathrooms: restore?.deepBaths ?? 1,
     extraWcs: restore?.deepWcs ?? 0,
-    pkg: restore?.eotPackage ?? 'complete',
+    pkg: restore?.eotPackage ?? 'tailored',
     tailoredAddOns: restore?.tailoredAddOns ? { ...defaultTailoredAddOns(), ...restore.tailoredAddOns } : defaultTailoredAddOns(),
-    floorCareChoice: hasCarpet ? 'professional' : 'unset',
+    floorCareChoice: hasCarpet ? 'professional' : 'standard',
     carpetMode: hasCarpet ? (isManualRestore ? 'manual' : 'whole') : 'unset',
     rooms,
     manualCarpetCounts,
@@ -377,7 +377,7 @@ function CarpetPackageBreakdown({ carpetPackage }: { carpetPackage: ReturnType<t
             <span className="text-royal-700 font-display font-bold text-lg">{penceToDisplay(carpetPackage.chargedP)}</span>
           </div>
           <p className="text-navy-700 text-xs">
-            Add {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS - carpetPackage.itemCount} more qualifying area{EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS - carpetPackage.itemCount !== 1 ? 's' : ''} to unlock up to {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% off.
+            Add {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS - carpetPackage.itemCount} more qualifying area{EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS - carpetPackage.itemCount !== 1 ? 's' : ''} to unlock the {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% carpet-package discount. Your exact saving is shown live.
           </p>
         </>
       )}
@@ -412,9 +412,9 @@ const TAILORED_ADD_LATER = [
 ];
 
 const FLOOR_CARE_OPTIONS: { key: 'professional' | 'standard' | 'none'; title: string; badge?: string; bullets: string[] }[] = [
-  { key: 'professional', title: 'Professional carpet steam cleaning', badge: 'Popular', bullets: ['Deep hot-water extraction cleaning', 'Added to the same End of Tenancy visit', 'Package savings on qualifying areas'] },
   { key: 'standard', title: 'Standard floor care', bullets: ['Vacuuming of carpets', 'Mopping of suitable hard floors', 'Included with the End of Tenancy clean', 'No additional charge'] },
   { key: 'none', title: 'No carpeted areas', bullets: ['Property has hard floors only', 'Standard suitable floor cleaning remains included'] },
+  { key: 'professional', title: 'Professional carpet steam cleaning', badge: 'Popular', bullets: ['Deep hot-water extraction cleaning', 'Added to the same End of Tenancy visit', '50% package discount for 3+ qualifying areas'] },
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -461,7 +461,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   const cheapestStartingP = Math.min(completeAtConfigP, tailoredAtConfigP);
 
   // Whole-property carpet preview — the exact same calculation the customer
-  // will get if they pick that card, shown up front so the "save up to 50%"
+  // will get if they pick that card, shown up front so the 50% package-offer
   // headline is always backed by a real, live number for their property.
   const wholePreviewRooms = useMemo(
     () => wholePropertyRooms(state.size, state.propertyType),
@@ -642,7 +642,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   return (
     <div ref={wizardRootRef} className="rounded-[28px] bg-white shadow-[0_28px_80px_rgba(2,11,36,0.28)] ring-1 ring-white/20">
       {/* Header / progress */}
-      <div className="rounded-t-[28px] bg-navy-950 px-5 sm:px-8 lg:px-10 py-6 sm:py-7 relative overflow-hidden">
+      <div className="rounded-t-[28px] bg-gradient-to-br from-sky-700 via-sky-700 to-royal-700 px-5 sm:px-8 lg:px-10 py-6 sm:py-7 relative overflow-hidden">
         <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.24),transparent_42%)]" />
         <div className="relative">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-5">
@@ -768,61 +768,9 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
             <div>
               <p className="text-royal-700 text-[10px] font-bold uppercase tracking-[0.18em] mb-2">Your cleaning standard</p>
               <h3 className="font-display text-2xl sm:text-3xl font-bold text-navy-900 tracking-tight">Choose your cleaning package</h3>
-              <p className="text-muted text-sm sm:text-base leading-relaxed mt-2 max-w-xl">Complete is the simplest route to a final inspection. Tailored starts lower and lets you add selected internal tasks later.</p>
+              <p className="text-muted text-sm sm:text-base leading-relaxed mt-2 max-w-xl">Start with the Tailored checklist, or choose Complete when you want every agency-ready internal task included.</p>
             </div>
-            <div className="grid lg:grid-cols-2 gap-5 items-start" role="group" aria-label="Cleaning package">
-              {/* Complete */}
-              <article className={`rounded-3xl border-2 overflow-hidden transition-all duration-200 ${state.pkg === 'complete' ? 'border-royal-500 shadow-[0_18px_50px_rgba(14,165,233,0.16)]' : 'border-line hover:border-sky-300'}`}>
-                <div className="bg-navy-950 text-white px-5 py-2.5 flex items-center justify-between gap-3">
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em]"><BadgeCheck size={14} className="text-amber-400" /> Recommended · Best value</span>
-                  <span className="text-[10px] font-semibold text-white/60">Most comprehensive</span>
-                </div>
-                <button type="button" onClick={() => setState((p) => ({ ...p, pkg: 'complete' }))}
-                  aria-pressed={state.pkg === 'complete'}
-                  className={`relative w-full text-left p-5 sm:p-6 transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-royal-600 ${
-                    state.pkg === 'complete' ? 'border-royal-500 bg-royal-50' : 'border-transparent bg-white hover:bg-surface'
-                  }`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-display font-bold text-navy-900 text-xl">Complete Agency-Ready Clean</div>
-                      <p className="text-muted text-xs mt-1">One fixed package for your selected property</p>
-                    </div>
-                    <span className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${state.pkg === 'complete' ? 'bg-royal-500 border-royal-500 text-white' : 'border-line text-transparent'}`}><CheckCircle2 size={16} /></span>
-                  </div>
-                  <div className="flex items-end gap-2 mt-5">
-                    <div data-testid="complete-price" className="font-display font-bold text-4xl text-navy-900 tracking-tight">{penceToDisplay(quote.completeEquivalentP)}</div>
-                    <span className="text-muted text-xs font-medium mb-1.5">fixed price</span>
-                  </div>
-                  <p className="text-navy-700 text-xs leading-relaxed mt-3"><strong>Best for:</strong> tenants, landlords and agents preparing for final inspection.</p>
-                  <div className="mt-4 rounded-xl bg-white border border-green-200 px-3 py-2.5 flex items-start gap-2 text-green-800 text-xs font-bold">
-                    <ShieldCheck size={16} className="flex-shrink-0" /> Full {EOT_GUARANTEE_HOURS}-hour agency-ready guarantee
-                  </div>
-                  <div className="mt-5">
-                    <p className="text-navy-800 text-xs font-bold uppercase tracking-[0.12em] mb-2.5">Included in your price</p>
-                    <div className="grid grid-cols-1 gap-2">
-                      {COMPLETE_KEY_BENEFITS.map((i) => (
-                        <div key={i} className="flex items-start gap-2 text-xs text-navy-800 leading-snug"><CheckCircle2 size={14} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
-                      ))}
-                    </div>
-                  </div>
-                </button>
-                <details className="group border-t border-line bg-white">
-                  <summary className="text-royal-700 text-xs font-bold cursor-pointer list-none flex items-center justify-between gap-2 px-5 sm:px-6 py-4 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-royal-600">
-                    See full details <ChevronRight size={14} className="transition-transform group-open:rotate-90" />
-                  </summary>
-                  <div className="px-5 sm:px-6 pb-5 grid grid-cols-1 gap-2">
-                    {COMPLETE_MORE_INCLUDED.map((i) => (
-                      <div key={i} className="flex items-start gap-2 text-xs text-navy-800"><CheckCircle2 size={14} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
-                    ))}
-                    <div className="h-px bg-line my-1.5" />
-                    <p className="text-muted text-[11px] font-bold uppercase tracking-[0.12em] mb-0.5">Not included</p>
-                    {COMPLETE_NOT_INCLUDED.map((i) => (
-                      <div key={i} className="flex items-start gap-2 text-xs text-muted"><XCircle size={14} className="text-silver-500 mt-0.5 flex-shrink-0" />{i}</div>
-                    ))}
-                  </div>
-                </details>
-              </article>
-
+            <div className="grid gap-5 items-start" role="group" aria-label="Cleaning package">
               {/* Tailored */}
               <article className={`rounded-3xl border-2 overflow-hidden transition-all duration-200 ${state.pkg === 'tailored' ? 'border-royal-500 shadow-[0_18px_50px_rgba(14,165,233,0.14)]' : 'border-line hover:border-sky-300'}`}>
                 <div className="bg-surface border-b border-line px-5 py-2.5 flex items-center justify-between gap-3">
@@ -874,6 +822,58 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   </div>
                 </details>
               </article>
+
+              {/* Complete */}
+              <article className={`rounded-3xl border-2 overflow-hidden transition-all duration-200 ${state.pkg === 'complete' ? 'border-royal-500 shadow-[0_18px_50px_rgba(14,165,233,0.16)]' : 'border-line hover:border-sky-300'}`}>
+                <div className="bg-sky-700 text-white px-5 py-2.5 flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em]"><BadgeCheck size={14} className="text-amber-300" /> Recommended · Best value</span>
+                  <span className="text-[10px] font-semibold text-white/80">Most comprehensive</span>
+                </div>
+                <button type="button" onClick={() => setState((p) => ({ ...p, pkg: 'complete' }))}
+                  aria-pressed={state.pkg === 'complete'}
+                  className={`relative w-full text-left p-5 sm:p-6 transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-royal-600 ${
+                    state.pkg === 'complete' ? 'border-royal-500 bg-royal-50' : 'border-transparent bg-white hover:bg-surface'
+                  }`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-display font-bold text-navy-900 text-xl">Complete Agency-Ready Clean</div>
+                      <p className="text-muted text-xs mt-1">One fixed package for your selected property</p>
+                    </div>
+                    <span className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${state.pkg === 'complete' ? 'bg-royal-500 border-royal-500 text-white' : 'border-line text-transparent'}`}><CheckCircle2 size={16} /></span>
+                  </div>
+                  <div className="flex items-end gap-2 mt-5">
+                    <div data-testid="complete-price" className="font-display font-bold text-4xl text-navy-900 tracking-tight">{penceToDisplay(quote.completeEquivalentP)}</div>
+                    <span className="text-muted text-xs font-medium mb-1.5">fixed price</span>
+                  </div>
+                  <p className="text-navy-700 text-xs leading-relaxed mt-3"><strong>Best for:</strong> tenants, landlords and agents preparing for final inspection.</p>
+                  <div className="mt-4 rounded-xl bg-white border border-green-200 px-3 py-2.5 flex items-start gap-2 text-green-800 text-xs font-bold">
+                    <ShieldCheck size={16} className="flex-shrink-0" /> Full {EOT_GUARANTEE_HOURS}-hour agency-ready guarantee
+                  </div>
+                  <div className="mt-5">
+                    <p className="text-navy-800 text-xs font-bold uppercase tracking-[0.12em] mb-2.5">Included in your price</p>
+                    <div className="grid grid-cols-1 gap-2">
+                      {COMPLETE_KEY_BENEFITS.map((i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs text-navy-800 leading-snug"><CheckCircle2 size={14} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
+                      ))}
+                    </div>
+                  </div>
+                </button>
+                <details className="group border-t border-line bg-white">
+                  <summary className="text-royal-700 text-xs font-bold cursor-pointer list-none flex items-center justify-between gap-2 px-5 sm:px-6 py-4 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-royal-600">
+                    See full details <ChevronRight size={14} className="transition-transform group-open:rotate-90" />
+                  </summary>
+                  <div className="px-5 sm:px-6 pb-5 grid grid-cols-1 gap-2">
+                    {COMPLETE_MORE_INCLUDED.map((i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs text-navy-800"><CheckCircle2 size={14} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
+                    ))}
+                    <div className="h-px bg-line my-1.5" />
+                    <p className="text-muted text-[11px] font-bold uppercase tracking-[0.12em] mb-0.5">Not included</p>
+                    {COMPLETE_NOT_INCLUDED.map((i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs text-muted"><XCircle size={14} className="text-silver-500 mt-0.5 flex-shrink-0" />{i}</div>
+                    ))}
+                  </div>
+                </details>
+              </article>
             </div>
           </div>
         )}
@@ -893,27 +893,27 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   className={`relative w-full text-left rounded-2xl border-2 p-4 sm:p-5 transition-all duration-200 min-h-[150px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 ${opt.key === 'professional' ? 'sm:col-span-2' : ''} ${
                     state.floorCareChoice === opt.key
                       ? 'border-royal-500 bg-royal-50 shadow-[0_12px_34px_rgba(14,165,233,0.14)]'
-                      : opt.key === 'professional' ? 'border-navy-800 bg-navy-950 hover:border-royal-400' : 'border-line bg-white hover:border-sky-300 hover:bg-surface'
+                      : opt.key === 'professional' ? 'border-sky-200 bg-sky-50 hover:border-royal-400 hover:bg-royal-50/60' : 'border-line bg-white hover:border-sky-300 hover:bg-surface'
                   }`}>
                   <div className={`flex ${opt.key === 'professional' ? 'sm:items-center sm:justify-between' : 'items-start'} gap-4`}>
-                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 ${state.floorCareChoice === opt.key ? 'bg-royal-500 text-white' : opt.key === 'professional' ? 'bg-white/10 text-sky-300' : 'bg-surface text-navy-700'}`}>
+                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 ${state.floorCareChoice === opt.key ? 'bg-royal-500 text-white' : opt.key === 'professional' ? 'bg-white text-royal-700 shadow-sm ring-1 ring-sky-200' : 'bg-surface text-navy-700'}`}>
                       {opt.key === 'professional' ? <Waves size={21} /> : opt.key === 'standard' ? <Sparkles size={20} /> : <CircleOff size={20} />}
                     </div>
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={`font-display font-bold text-lg ${state.floorCareChoice === opt.key || opt.key !== 'professional' ? 'text-navy-900' : 'text-white'}`}>{opt.title}</span>
+                        <span className="font-display font-bold text-lg text-navy-900">{opt.title}</span>
                         {opt.badge && <span className="bg-amber-400 text-amber-950 text-[9px] font-bold px-2.5 py-1 rounded-full tracking-[0.12em] uppercase">{opt.badge}</span>}
                       </div>
-                      <p className={`text-xs font-semibold mt-1 ${state.floorCareChoice === opt.key ? 'text-royal-700' : opt.key === 'professional' ? 'text-sky-300' : 'text-muted'}`}>
-                        {opt.key === 'professional' ? `Priced by confirmed area · save up to ${EOT_CARPET_PACKAGE_DISCOUNT_PCT}%` : opt.key === 'standard' ? 'Included · £0 extra' : 'Hard floors only · £0 extra'}
+                      <p className={`text-xs font-semibold mt-1 ${state.floorCareChoice === opt.key || opt.key === 'professional' ? 'text-royal-700' : 'text-muted'}`}>
+                        {opt.key === 'professional' ? `${EOT_CARPET_PACKAGE_DISCOUNT_PCT}% carpet-package discount with 3+ qualifying areas` : opt.key === 'standard' ? 'Included · £0 extra' : 'Hard floors only · £0 extra'}
                       </p>
                       <ul className={`mt-3 grid ${opt.key === 'professional' ? 'sm:grid-cols-3' : 'grid-cols-1'} gap-1.5`}>
                         {opt.bullets.map((b) => (
-                          <li key={b} className={`text-xs flex items-start gap-1.5 ${state.floorCareChoice === opt.key || opt.key !== 'professional' ? 'text-navy-700' : 'text-white/70'}`}><CheckCircle2 size={13} className={`${state.floorCareChoice === opt.key || opt.key !== 'professional' ? 'text-green-600' : 'text-sky-300'} mt-0.5 flex-shrink-0`} />{b}</li>
+                          <li key={b} className="text-xs flex items-start gap-1.5 text-navy-700"><CheckCircle2 size={13} className="text-green-600 mt-0.5 flex-shrink-0" />{b}</li>
                         ))}
                       </ul>
                     </div>
-                    <span className={`absolute top-4 right-4 sm:static w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${state.floorCareChoice === opt.key ? 'bg-royal-500 border-royal-500 text-white' : opt.key === 'professional' ? 'border-white/30 text-transparent' : 'border-line text-transparent'}`}><CheckCircle2 size={16} /></span>
+                    <span className={`absolute top-4 right-4 sm:static w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${state.floorCareChoice === opt.key ? 'bg-royal-500 border-royal-500 text-white' : 'border-line text-transparent'}`}><CheckCircle2 size={16} /></span>
                   </div>
                 </button>
               ))}
@@ -940,7 +940,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                     </div>
                     <div className="font-display font-bold text-navy-900 text-lg mt-1">Whole-property carpet cleaning</div>
                     <p className="text-green-700 text-xs font-semibold leading-relaxed mt-1.5">
-                      Clean all your carpeted areas during the same End of Tenancy visit and save up to {EOT_CARPET_PACKAGE_DISCOUNT_PCT}%.
+                      Add 3+ qualifying carpet areas to unlock the {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% package discount. Your exact saving is shown below.
                     </p>
                     <div className="mt-4 text-xs space-y-2 bg-white rounded-xl border border-sky-200 px-4 py-3">
                       <div className="flex justify-between gap-3 text-muted"><span>Standalone value</span><span className="line-through">{penceToDisplay(wholePreview.standaloneSubtotalP)}</span></div>
@@ -964,7 +964,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                       Select only the carpeted areas that need professional cleaning.
                     </p>
                     <p className="text-royal-700 text-xs font-semibold mt-4 rounded-xl bg-royal-50 border border-royal-100 px-3 py-2.5">
-                      {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS}+ qualifying areas unlock up to {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% off, calculated live as you add them.
+                      Add {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS}+ qualifying areas to unlock the {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% carpet-package discount. Your exact saving is calculated live.
                     </p>
                   </button>
                 </div>
