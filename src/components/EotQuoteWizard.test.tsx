@@ -68,11 +68,20 @@ describe('EotQuoteWizard — Step 1: Property (no pricing breakdown shown)', () 
     expect(screen.queryByText(/Tailored from/)).not.toBeInTheDocument();
   });
 
-  it('the single bottom bar reads "Starting from £X" with the correct explanatory subtext', () => {
+  it('the single bottom bar reads "Starting from £X" with a concise live property summary', () => {
     renderWizard();
     expect(screen.getByText('Starting from')).toBeInTheDocument();
     expect(footerTotal()).toHaveTextContent(`£${flatBed2Cheapest}`);
-    expect(screen.getByText('Based on your property details — choose your package next')).toBeInTheDocument();
+    expect(screen.getByText('2 beds flat · 1 bathroom')).toBeInTheDocument();
+  });
+
+  it('keeps 5+ bedrooms inside the property-size selector, before bathroom and WC controls', () => {
+    renderWizard();
+    const sizeOptions = screen.getByTestId('property-size-options');
+    const fivePlus = screen.getByRole('button', { name: /^5\+ bedrooms/ });
+    const bathroomHeading = screen.getByText('Full bathrooms');
+    expect(sizeOptions).toContainElement(fivePlus);
+    expect(sizeOptions.compareDocumentPosition(bathroomHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('bathroom/WC changes update the bottom bar even though nothing is itemised on this step', async () => {
@@ -126,6 +135,20 @@ describe('EotQuoteWizard — Step 2: Choose your cleaning package', () => {
     expect(screen.getByTestId('tailored-price')).toHaveTextContent(`£${EOT_PRICES_P.flat.bed2.tailored / 100}`);
   });
 
+  it('shows Tailored first and selects it by default, with Complete underneath', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await toStep2(user);
+    const group = screen.getByRole('group', { name: 'Cleaning package' });
+    const packageButtons = within(group).getAllByRole('button').filter((button) =>
+      /Tailored Checklist Clean|Complete Agency-Ready Clean/.test(button.textContent ?? ''),
+    );
+    expect(packageButtons[0]).toHaveTextContent('Tailored Checklist Clean');
+    expect(packageButtons[1]).toHaveTextContent('Complete Agency-Ready Clean');
+    expect(packageButtons[0]).toHaveAttribute('aria-pressed', 'true');
+    expect(packageButtons[1]).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('Complete mentions microwave, fridge/freezer, dishwasher and washing-machine interiors', async () => {
     const user = userEvent.setup();
     renderWizard();
@@ -148,7 +171,7 @@ describe('EotQuoteWizard — Step 2: Choose your cleaning package', () => {
     const detailsList = screen.getAllByText('See full details');
     expect(detailsList.length).toBe(2);
     expect(screen.getByText('Not included')).not.toBeVisible();
-    await user.click(detailsList[0]);
+    await user.click(detailsList[1]);
     expect(screen.getByText('Not included')).toBeVisible();
   });
 
@@ -156,31 +179,35 @@ describe('EotQuoteWizard — Step 2: Choose your cleaning package', () => {
     const user = userEvent.setup();
     renderWizard();
     await toStep2(user);
+    await user.click(screen.getByText('Complete Agency-Ready Clean'));
     await user.click(screen.getByText('Tailored Checklist Clean'));
     expect(screen.getByText('Tailored Checklist Clean').closest('button')).toHaveClass('border-royal-500');
     expect(footerTotal()).toHaveTextContent(`£${EOT_PRICES_P.flat.bed2.tailored / 100}`);
   });
 });
 
-describe('EotQuoteWizard — Step 3: Floor care (Professional first)', () => {
-  it('shows Professional carpet steam cleaning first, then Standard, then No carpeted areas', async () => {
+describe('EotQuoteWizard — Step 3: Floor care (standard choices first)', () => {
+  it('shows Standard and hard floors first, with Professional carpet steam cleaning underneath', async () => {
     const user = userEvent.setup();
     renderWizard();
     await toStep3(user);
     const buttons = screen.getAllByRole('button').filter((b) =>
       /Professional carpet steam cleaning|Standard floor care|No carpeted areas/.test(b.textContent ?? ''));
-    expect(buttons[0]).toHaveTextContent('Professional carpet steam cleaning');
-    expect(buttons[1]).toHaveTextContent('Standard floor care');
-    expect(buttons[2]).toHaveTextContent('No carpeted areas');
+    expect(buttons[0]).toHaveTextContent('Standard floor care');
+    expect(buttons[1]).toHaveTextContent('No carpeted areas');
+    expect(buttons[2]).toHaveTextContent('Professional carpet steam cleaning');
   });
 
-  it('Professional is visually prominent but never preselected', async () => {
+  it('Standard is selected by default while Professional remains an optional upgrade', async () => {
     const user = userEvent.setup();
     renderWizard();
     await toStep3(user);
     expect(screen.getByText('Popular')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Standard floor care/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: /^Professional carpet steam cleaning/ })).not.toHaveClass('border-royal-500');
-    expect(footerTotal()).toHaveTextContent(`£${EOT_PRICES_P.flat.bed2.complete / 100}`);
+    expect(footerTotal()).toHaveTextContent(`£${EOT_PRICES_P.flat.bed2.tailored / 100}`);
+    expect(screen.getByText(/50% carpet-package discount with 3\+ qualifying areas/i)).toBeInTheDocument();
+    expect(screen.queryByText(/up to 50%/i)).not.toBeInTheDocument();
   });
 
   it('choosing Professional still offers whole-property and manual carpet selection', async () => {
@@ -203,7 +230,7 @@ describe('EotQuoteWizard — Step 3: Floor care (Professional first)', () => {
     }
     const carpetSubtotal = CARPET_ITEM_PRICES_P.bedroom * 4;
     const expectedCarpetCharge = Math.round(carpetSubtotal * 0.5);
-    expect(readFooterTotal()).toBe(EOT_PRICES_P.flat.bed2.complete / 100 + expectedCarpetCharge / 100);
+    expect(readFooterTotal()).toBe(EOT_PRICES_P.flat.bed2.tailored / 100 + expectedCarpetCharge / 100);
   });
 
   it('exact .50 pence carpet totals are never rounded to a whole pound', async () => {
@@ -293,7 +320,7 @@ describe('EotQuoteWizard — Step 4: Add-ons and final review', () => {
     expect(screen.queryByText('Final total')).not.toBeInTheDocument();
     expect(screen.getByText('Deposit today')).toBeInTheDocument();
     expect(screen.getByText('Balance after cleaning')).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(`Full ${72}-hour agency-ready guarantee`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`${72}-hour guarantee on selected tasks`))).toBeInTheDocument();
   });
 
   it('calling onBook produces a quoteConfig with exact pence — never rounded to a whole pound', async () => {
@@ -312,8 +339,8 @@ describe('EotQuoteWizard — Step 4: Add-ons and final review', () => {
 
     expect(onBook).toHaveBeenCalledTimes(1);
     const result = onBook.mock.calls[0][0] as EotBookingResult;
-    // 18500 standalone → 9250 charged → 33900 + 9250 = 43150p = £431.50 exactly.
-    expect(result.price).toBe((EOT_PRICES_P.flat.bed2.complete + 9250) / 100);
+    // 18500 standalone → 9250 charged, added to the default Tailored package.
+    expect(result.price).toBe((EOT_PRICES_P.flat.bed2.tailored + 9250) / 100);
     expect(Number.isInteger(result.price * 100)).toBe(true);
   });
 
@@ -544,11 +571,11 @@ describe('EotQuoteWizard — selectable cards expose a programmatically determin
     await toStep2(user);
     const completeBtn = screen.getByText('Complete Agency-Ready Clean').closest('button')!;
     const tailoredBtn = screen.getByText('Tailored Checklist Clean').closest('button')!;
-    expect(completeBtn).toHaveAttribute('aria-pressed', 'true');
-    expect(tailoredBtn).toHaveAttribute('aria-pressed', 'false');
-    await user.click(tailoredBtn);
     expect(tailoredBtn).toHaveAttribute('aria-pressed', 'true');
     expect(completeBtn).toHaveAttribute('aria-pressed', 'false');
+    await user.click(completeBtn);
+    expect(completeBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(tailoredBtn).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('floor-care choice buttons maintain aria-pressed', async () => {
