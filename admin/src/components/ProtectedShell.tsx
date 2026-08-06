@@ -5,10 +5,13 @@ const navItems = [
   { to: '/', label: 'Home' },
   { to: '/bookings', label: 'Bookings' },
   { to: '/invoices', label: 'Invoices' },
+  { to: '/receipts', label: 'Receipts' },
   { to: '/catalogue', label: 'Catalogue' },
   { to: '/customers', label: 'Customers' },
   { to: '/search', label: 'Search' },
 ];
+
+const mobileNavItems = navItems.filter((item) => ['/', '/bookings', '/invoices', '/receipts', '/search'].includes(item.to));
 
 function navLinkClasses(isActive: boolean) {
   return `flex min-h-11 flex-1 items-center justify-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-inset ${
@@ -65,7 +68,7 @@ export default function ProtectedShell() {
         className="fixed inset-x-0 bottom-0 z-20 flex border-t border-silver-300 bg-white pb-[env(safe-area-inset-bottom)] sm:hidden"
         aria-label="Primary"
       >
-        {navItems.map((item) => (
+        {mobileNavItems.map((item) => (
           <NavLink key={item.to} to={item.to} end={item.to === '/'} className={({ isActive }) => navLinkClasses(isActive)}>
             {item.label}
           </NavLink>

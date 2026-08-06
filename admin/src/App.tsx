@@ -12,6 +12,7 @@ import InvoiceListPage from './pages/InvoiceListPage';
 import InvoiceEditorPage from './pages/InvoiceEditorPage';
 import InvoiceDetailPage from './pages/InvoiceDetailPage';
 import ReceiptListPage from './pages/ReceiptListPage';
+import ReceiptEditorPage from './pages/ReceiptEditorPage';
 import ReceiptDetailPage from './pages/ReceiptDetailPage';
 import CustomerListPage from './pages/CustomerListPage';
 import CustomerFormPage from './pages/CustomerFormPage';
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
             <Route path="/catalogue" element={<CatalogueListPage />} />
             <Route path="/receipts" element={<ReceiptListPage />} />
+            <Route path="/receipts/new" element={<ReceiptEditorPage />} />
             <Route path="/receipts/:id" element={<ReceiptDetailPage />} />
             <Route path="/customers" element={<CustomerListPage />} />
             <Route path="/customers/new" element={<CustomerFormPage />} />

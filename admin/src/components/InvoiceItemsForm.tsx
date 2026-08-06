@@ -8,6 +8,7 @@ import { buildBookingRefBase } from '../lib/bookingRef';
 import ServiceTemplateCombobox from './ServiceTemplateCombobox';
 import CatalogueItemCombobox from './CatalogueItemCombobox';
 import type { CatalogueItem } from '../types/catalogue';
+import StructuredAddressFields from './StructuredAddressFields';
 
 const PAYMENT_OPTION_LABELS: Record<PaymentOptionValue, string> = {
   bank_transfer: 'Bank transfer',
@@ -275,6 +276,10 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
       setValidationError('Every line item needs a quantity greater than zero.');
       return;
     }
+    if (totals.total > 0 && value.depositApplied >= totals.total) {
+      setValidationError('The booking deposit must be less than the invoice total. If the customer paid in full, issue the invoice and record the payment, or create a receipt instead.');
+      return;
+    }
     const requiresStripeLink = value.paymentOption === 'stripe_payment_link' || value.paymentOption === 'both';
     if (requiresStripeLink && !value.stripePaymentLinkUrl.trim()) {
       setValidationError('Enter a Stripe payment-link URL, or choose a different payment option.');
@@ -358,24 +363,14 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
               className={inputClass}
             />
           </label>
-          <label>
-            <span className={labelClass}>Postcode</span>
-            <input
-              type="text"
-              value={value.customer.postcode ?? ''}
-              onChange={(e) => setValue((v) => ({ ...v, customer: { ...v.customer, postcode: e.target.value } }))}
-              className={inputClass}
-            />
-          </label>
-          <label className="sm:col-span-2">
-            <span className={labelClass}>Address</span>
-            <input
-              type="text"
-              value={value.customer.address ?? ''}
-              onChange={(e) => setValue((v) => ({ ...v, customer: { ...v.customer, address: e.target.value } }))}
-              className={inputClass}
-            />
-          </label>
+          <StructuredAddressFields
+            idPrefix="invoice-customer"
+            address={value.customer.address ?? ''}
+            postcode={value.customer.postcode ?? ''}
+            onAddressChange={(address) => setValue((v) => ({ ...v, customer: { ...v.customer, address } }))}
+            onPostcodeChange={(postcode) => setValue((v) => ({ ...v, customer: { ...v.customer, postcode } }))}
+            legend="Billing address"
+          />
         </div>
       </section>
 
@@ -570,14 +565,14 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
               <span className={labelClass}>Service contact phone</span>
               <input type="tel" value={value.serviceContact.phone ?? ''} onChange={(e) => setValue((v) => ({ ...v, serviceContact: { ...v.serviceContact, phone: e.target.value } }))} className={inputClass} />
             </label>
-            <label>
-              <span className={labelClass}>Service postcode</span>
-              <input type="text" value={value.serviceContact.postcode ?? ''} onChange={(e) => setValue((v) => ({ ...v, serviceContact: { ...v.serviceContact, postcode: e.target.value } }))} className={inputClass} />
-            </label>
-            <label className="sm:col-span-2">
-              <span className={labelClass}>Service address</span>
-              <input type="text" value={value.serviceContact.address ?? ''} onChange={(e) => setValue((v) => ({ ...v, serviceContact: { ...v.serviceContact, address: e.target.value } }))} className={inputClass} />
-            </label>
+            <StructuredAddressFields
+              idPrefix="invoice-service"
+              address={value.serviceContact.address ?? ''}
+              postcode={value.serviceContact.postcode ?? ''}
+              onAddressChange={(address) => setValue((v) => ({ ...v, serviceContact: { ...v.serviceContact, address } }))}
+              onPostcodeChange={(postcode) => setValue((v) => ({ ...v, serviceContact: { ...v.serviceContact, postcode } }))}
+              legend="Service address"
+            />
           </div>
         )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -602,8 +597,9 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
             <input type="number" min="0" step="0.01" value={value.documentDiscount} onChange={(e) => setValue((v) => ({ ...v, documentDiscount: Number(e.target.value) }))} className={inputClass} />
           </label>
           <label>
-            <span className={labelClass}>Deposit already paid (£)</span>
-            <input type="number" min="0" step="0.01" value={value.depositApplied} onChange={(e) => setValue((v) => ({ ...v, depositApplied: Number(e.target.value) }))} className={inputClass} />
+            <span className={labelClass}>Booking deposit received (£)</span>
+            <input type="number" inputMode="decimal" min="0" step="0.01" value={value.depositApplied} onChange={(e) => setValue((v) => ({ ...v, depositApplied: Number(e.target.value) }))} className={inputClass} />
+            <span className="mt-1 block text-xs leading-5 text-navy-500">Enter only the deposit already taken (normally £30), not the full price. For a full payment, record it after issuing or <a href="/receipts/new" className="font-medium text-sky-600 hover:text-sky-700">create a receipt</a>.</span>
           </label>
           <label className="sm:col-span-2">
             <span className={labelClass}>Payment terms</span>

@@ -264,6 +264,10 @@ export default function InvoiceDetailPage() {
   const isSuperseded = !!(inv.supersededByInvoiceId);
   const isRevision = !!(inv.revisedFromInvoiceId);
   const overdue = isInvoiceOverdue(inv.documentStatus, inv.amountDue, inv.dueDate);
+  const hasUnrecordedZeroBalance = inv.documentStatus === 'issued'
+    && inv.paymentStatus !== 'paid'
+    && inv.amountDue <= 0
+    && inv.amountPaid <= 0;
 
   if (isDraft) {
     const initial = emptyFormValue({
@@ -391,6 +395,13 @@ export default function InvoiceDetailPage() {
         <p role="alert" className="mb-3 text-sm text-red-600">{actionError}</p>
       )}
 
+      {hasUnrecordedZeroBalance && (
+        <div role="alert" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+          <p className="font-semibold">Payment has not been recorded</p>
+          <p>This older invoice shows no balance because the full total was entered as a deposit. Use “Revise invoice” to correct the deposit, then record the real payment. Do not send it as a paid invoice.</p>
+        </div>
+      )}
+
       {isSuperseded && (
         <div className="mb-4 rounded-xl border border-slate-300 bg-slate-50 p-4 text-sm text-slate-700">
           <p className="font-semibold mb-1">This invoice has been superseded</p>
@@ -432,7 +443,7 @@ export default function InvoiceDetailPage() {
         <p className="font-medium text-navy-950">{inv.customer.name}</p>
         <p className="text-sm text-navy-700">{inv.customer.email || 'Email not recorded'}</p>
         <p className="text-sm text-navy-700">{inv.customer.phone || 'Phone not recorded'}</p>
-        <p className="text-sm text-navy-700">{[inv.customer.address, inv.customer.postcode].filter(Boolean).join(', ') || 'Address not recorded'}</p>
+        <p className="whitespace-pre-line text-sm text-navy-700">{[inv.customer.address, inv.customer.postcode].filter(Boolean).join('\n') || 'Address not recorded'}</p>
         {(inv.invoiceRecipientEmail || inv.receiptRecipientEmail) && (
           <dl className="mt-2 space-y-1 border-t border-silver-200 pt-2 text-sm">
             {inv.invoiceRecipientEmail && <Row label="Invoice sent to" value={inv.invoiceRecipientEmail} />}
@@ -446,7 +457,7 @@ export default function InvoiceDetailPage() {
           {inv.serviceContact.name && <p className="font-medium text-navy-950">{inv.serviceContact.name}</p>}
           {inv.serviceContact.email && <p className="text-sm text-navy-700">{inv.serviceContact.email}</p>}
           {inv.serviceContact.phone && <p className="text-sm text-navy-700">{inv.serviceContact.phone}</p>}
-          <p className="text-sm text-navy-700">{[inv.serviceContact.address, inv.serviceContact.postcode].filter(Boolean).join(', ') || 'Address not recorded'}</p>
+          <p className="whitespace-pre-line text-sm text-navy-700">{[inv.serviceContact.address, inv.serviceContact.postcode].filter(Boolean).join('\n') || 'Address not recorded'}</p>
         </Section>
       )}
 

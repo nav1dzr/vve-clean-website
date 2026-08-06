@@ -9,6 +9,7 @@ import { CUSTOMER_TYPE_VALUES, CUSTOMER_SOURCE_VALUES, CUSTOMER_CONTACT_METHOD_V
 import { customerTypeLabel } from '../lib/format';
 import ErrorState from '../components/ErrorState';
 import { CardListSkeleton } from '../components/Skeleton';
+import StructuredAddressFields from '../components/StructuredAddressFields';
 
 interface FormValue {
   name: string; email: string; phone: string; address: string; postcode: string;
@@ -163,14 +164,13 @@ export default function CustomerFormPage() {
               <span className={labelClass}>Phone</span>
               <input type="tel" value={value.phone} onChange={(e) => setValue((v) => ({ ...v, phone: e.target.value }))} className={inputClass} />
             </label>
-            <label>
-              <span className={labelClass}>Postcode</span>
-              <input type="text" value={value.postcode} onChange={(e) => setValue((v) => ({ ...v, postcode: e.target.value }))} className={inputClass} />
-            </label>
-            <label className="sm:col-span-2">
-              <span className={labelClass}>Address</span>
-              <input type="text" value={value.address} onChange={(e) => setValue((v) => ({ ...v, address: e.target.value }))} className={inputClass} />
-            </label>
+            <StructuredAddressFields
+              idPrefix="customer"
+              address={value.address}
+              postcode={value.postcode}
+              onAddressChange={(address) => setValue((v) => ({ ...v, address }))}
+              onPostcodeChange={(postcode) => setValue((v) => ({ ...v, postcode }))}
+            />
             <label>
               <span className={labelClass}>Customer type</span>
               <select value={value.customerType} onChange={(e) => setValue((v) => ({ ...v, customerType: e.target.value }))} className={inputClass}>

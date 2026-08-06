@@ -111,8 +111,14 @@ export default function ReceiptDetailPage() {
 
       <Section title="Payment">
         <dl className="space-y-1.5 text-sm">
-          <Row label="Invoice" value={r.invoiceNumberSnapshot || '—'} />
-          <Row label="Invoice total" value={formatMoney(r.invoiceTotal)} />
+          {r.source !== 'standalone' ? (
+            <>
+              <Row label="Invoice" value={r.invoiceNumberSnapshot || '—'} />
+              <Row label="Invoice total" value={formatMoney(r.invoiceTotal)} />
+            </>
+          ) : (
+            <Row label="Payment for" value={r.serviceDescription || 'Service not recorded'} />
+          )}
           <Row label="Amount received" value={formatMoney(r.totalPaid)} strong />
           <Row label="Payment date" value={r.paymentDate || '—'} />
           <Row label="Payment method" value={invoicePaymentMethodLabel(r.paymentMethod)} />
@@ -124,6 +130,7 @@ export default function ReceiptDetailPage() {
         <p className="font-medium text-navy-950">{r.customer.name}</p>
         <p className="text-sm text-navy-700">{r.customer.email || 'Email not recorded'}</p>
         <p className="text-sm text-navy-700">{r.customer.phone || 'Phone not recorded'}</p>
+        <p className="whitespace-pre-line text-sm text-navy-700">{[r.customer.address, r.customer.postcode].filter(Boolean).join('\n') || 'Address not recorded'}</p>
       </Section>
 
       <Section title="Actions">
