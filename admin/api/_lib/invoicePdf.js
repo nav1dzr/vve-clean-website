@@ -7,11 +7,10 @@
 // fixed-layout business document. See
 // INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §8.
 //
-// Only the built-in Helvetica family is used — no remote/embedded fonts,
-// so output is deterministic and has no network dependency at render time
-// (a Space Grotesk embed was tried during the visual-polish pass and then
-// deliberately reverted — kept to Helvetica per preference; the layout/
-// spacing/colour changes from that pass stay). All customer-controlled
+// Body copy uses the built-in Helvetica family. The wordmark embeds the
+// same Bricolage Grotesque font used on the website, stored locally with
+// its OFL licence so rendering stays deterministic and never needs the
+// network. All customer-controlled
 // text is rendered as literal PDF text via pdfkit's .text() calls, never
 // interpreted as markup, so there is no injection surface analogous to the
 // HTML-escaping needed in email templates (api/stripe-webhook.js's
@@ -19,6 +18,8 @@
 // with.
 
 import PDFDocument from 'pdfkit';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { buildPaymentInstructionsSnapshot } from './paymentOptions.js';
 import { hasBankDetails } from './businessSettings.js';
 import { smartTitleCase, formatPostcodeDisplay, formatEmailDisplay } from './textFormat.js';
@@ -33,6 +34,7 @@ const GREY = '#666666';
 const LIGHT_GREY = '#8a8a8a';
 const BORDER = '#dddddd';
 const TEXT = '#1c1c1c';
+const BRAND_FONT_BUFFER = readFileSync(join(process.cwd(), 'api', '_lib', 'assets', 'BricolageGrotesque.ttf'));
 
 // Reserve room for the footer + its rule on every page's page-break math.
 const FOOTER_RESERVE = 46;
@@ -43,12 +45,13 @@ const SAFE_BOTTOM = 841.89 - PAGE_MARGIN - FOOTER_RESERVE;
 // active typeface is a built-in standard font or an embedded one — kept as
 // the seam it was when Space Grotesk was embedded here, in case that's
 // revisited later.
-function loadFonts() {
+function loadFonts(doc) {
+  doc.registerFont('BricolageGrotesque', BRAND_FONT_BUFFER);
   return {
     regular: 'Helvetica',
     medium: 'Helvetica-Bold',
     bold: 'Helvetica-Bold',
-    logo: 'Helvetica-BoldOblique',
+    logo: 'BricolageGrotesque',
   };
 }
 
@@ -131,13 +134,21 @@ function drawWordmark(doc, fonts, x, y) {
   // so the two rows share the same left/right edges.
   const baseFontSize = 22;
   doc.font(fonts.logo).fontSize(baseFontSize);
-  const naturalWidth = doc.widthOfString('vve');
+  const naturalSpacing = baseFontSize * -0.105;
+  const naturalWidth = doc.widthOfString('vve', { characterSpacing: naturalSpacing });
   const wordmarkFontSize = baseFontSize * (totalWidth / naturalWidth);
   const scale = wordmarkFontSize / baseFontSize;
+  const wordmarkSpacing = wordmarkFontSize * -0.105;
 
   doc.font(fonts.logo).fontSize(wordmarkFontSize);
-  doc.fillColor(BRAND_BLUE).text('vve', x, y, { lineBreak: false });
-  const wordmarkWidth = doc.widthOfString('vve');
+  // The website applies an italic treatment to the upright font. This
+  // small shear recreates that exact branded lean without substituting a
+  // different typeface.
+  doc.save();
+  doc.transform(1, 0, -0.14, 1, y * 0.14, 0);
+  doc.fillColor(BRAND_BLUE).text('vve', x, y, { characterSpacing: wordmarkSpacing, lineBreak: false });
+  doc.restore();
+  const wordmarkWidth = doc.widthOfString('vve', { characterSpacing: wordmarkSpacing });
 
   let cx = x;
   const cleanY = y + 28 * scale;
@@ -151,6 +162,12 @@ function drawWordmark(doc, fonts, x, y) {
   doc.strokeColor(BRAND_BLUE).lineWidth(1).moveTo(cx, ruleY).lineTo(cx + ruleWidth, ruleY).stroke();
 
   return Math.max(wordmarkWidth, totalWidth);
+}
+
+function drawHeaderAccent(doc, y) {
+  const width = doc.page.width - PAGE_MARGIN * 2;
+  doc.moveTo(PAGE_MARGIN, y).lineTo(PAGE_MARGIN + width, y).lineWidth(1.2).strokeColor(NAVY).stroke();
+  doc.moveTo(PAGE_MARGIN, y).lineTo(PAGE_MARGIN + 72, y).lineWidth(3).strokeColor(GOLD).stroke();
 }
 
 // Returns the block's rendered height so callers can position content
@@ -462,15 +479,17 @@ function drawPaymentDetailsBox(doc, fonts, invoice, settings, startY) {
 export async function generateInvoicePdfBuffer(invoice, items, settings, { isDraft = false } = {}) {
   const doc = new PDFDocument({ size: 'A4', margin: PAGE_MARGIN, bufferPages: true, compress: false });
   const bufferPromise = streamToBuffer(doc);
-  const fonts = loadFonts();
+  const fonts = loadFonts(doc);
 
   if (isDraft) drawDraftWatermark(doc);
 
   drawWordmark(doc, fonts, PAGE_MARGIN, PAGE_MARGIN);
   const businessBlockHeight = drawBusinessBlock(doc, fonts, settings, doc.page.width - PAGE_MARGIN - 220, PAGE_MARGIN, 220);
+  const headerRuleY = Math.max(PAGE_MARGIN + 82, PAGE_MARGIN + businessBlockHeight + 12);
+  drawHeaderAccent(doc, headerRuleY);
 
   const isRevision = !!(invoice.revised_from_invoice_id || invoice.revised_from_invoice_number);
-  let y = Math.max(PAGE_MARGIN + 62, PAGE_MARGIN + businessBlockHeight + 20);
+  let y = headerRuleY + 16;
   doc.font(fonts.bold).fontSize(17).fillColor(NAVY);
   const titleText = isDraft
     ? (isRevision ? 'Revised invoice (draft)' : 'Invoice (draft)')
@@ -558,12 +577,14 @@ export async function generateInvoicePdfBuffer(invoice, items, settings, { isDra
 export async function generateReceiptPdfBuffer(receipt, settings) {
   const doc = new PDFDocument({ size: 'A4', margin: PAGE_MARGIN, bufferPages: true, compress: false });
   const bufferPromise = streamToBuffer(doc);
-  const fonts = loadFonts();
+  const fonts = loadFonts(doc);
 
   drawWordmark(doc, fonts, PAGE_MARGIN, PAGE_MARGIN);
   const businessBlockHeight = drawBusinessBlock(doc, fonts, settings, doc.page.width - PAGE_MARGIN - 220, PAGE_MARGIN, 220);
+  const headerRuleY = Math.max(PAGE_MARGIN + 82, PAGE_MARGIN + businessBlockHeight + 12);
+  drawHeaderAccent(doc, headerRuleY);
 
-  let y = Math.max(PAGE_MARGIN + 62, PAGE_MARGIN + businessBlockHeight + 20);
+  let y = headerRuleY + 16;
   doc.font(fonts.bold).fontSize(17).fillColor(NAVY).text('Receipt', PAGE_MARGIN, y);
   drawStatusBadge(doc, fonts, 'receipt', doc.page.width - PAGE_MARGIN, y - 2);
   y += 24;
@@ -581,8 +602,11 @@ export async function generateReceiptPdfBuffer(receipt, settings) {
   doc.font(fonts.regular).fontSize(9.5).fillColor(TEXT).text(paidByLines, paidByX, y + 14, { width: colWidth, lineGap: 1.5 });
 
   doc.font(fonts.bold).fontSize(9).fillColor(NAVY).text('Details', detailsX, y);
+  const isStandalone = receipt.source === 'standalone' || !receipt.invoice_id;
   const detailLines = [
-    ['Invoice Number', receipt.invoice_number_snapshot || '—'],
+    isStandalone
+      ? ['Payment For', receipt.service_description || 'Service provided']
+      : ['Invoice Number', receipt.invoice_number_snapshot || '—'],
     receipt.booking_ref_snapshot ? ['Booking Reference', receipt.booking_ref_snapshot] : null,
     ['Payment Date', formatDate(receipt.payment_date)],
     ['Payment Method', formatPaymentMethod(receipt.payment_method)],
@@ -604,10 +628,12 @@ export async function generateReceiptPdfBuffer(receipt, settings) {
   const totalPaid = Number(receipt.total_paid || 0);
   const finalBalance = Math.round((invoiceTotal - depositApplied - totalPaid) * 100) / 100;
 
-  const summaryRows = [
-    ['Invoice total', money(settings, invoiceTotal)],
-    depositApplied ? ['Deposit', negativeMoney(settings, depositApplied)] : null,
-  ].filter(Boolean);
+  const summaryRows = isStandalone
+    ? [['Payment total', money(settings, totalPaid)]]
+    : [
+      ['Invoice total', money(settings, invoiceTotal)],
+      depositApplied ? ['Deposit', negativeMoney(settings, depositApplied)] : null,
+    ].filter(Boolean);
 
   const width = doc.page.width - PAGE_MARGIN * 2;
   const receiptEmphasis = ['Amount Received', money(settings, totalPaid)];
@@ -626,7 +652,7 @@ export async function generateReceiptPdfBuffer(receipt, settings) {
   y = ensureSpace(doc, fonts, y, 40);
   doc.roundedRect(PAGE_MARGIN, y, doc.page.width - PAGE_MARGIN * 2, 40, 4).fillAndStroke('#eef7ee', '#8fc98f');
   doc.font(fonts.bold).fontSize(12).fillColor('#1e6b1e').text(
-    'PAID IN FULL — zero balance remaining',
+    isStandalone ? 'PAYMENT RECEIVED — receipt issued' : 'PAID IN FULL — zero balance remaining',
     PAGE_MARGIN, y + 13, { width: doc.page.width - PAGE_MARGIN * 2, align: 'center' },
   );
 

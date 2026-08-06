@@ -348,4 +348,21 @@ describe('generateReceiptPdfBuffer', () => {
     const buffer = await generateReceiptPdfBuffer(receipt(), settings);
     expect(extractPdfText(buffer)).not.toContain('Booking Reference');
   });
+
+  it('renders a standalone receipt without inventing an invoice reference or balance', async () => {
+    const buffer = await generateReceiptPdfBuffer(receipt({
+      source: 'standalone',
+      invoice_id: null,
+      invoice_number_snapshot: null,
+      service_description: 'End of tenancy cleaning — 2-bedroom flat',
+      invoice_total: 259,
+      total_paid: 259,
+    }), settings);
+    const text = extractPdfText(buffer);
+    expect(text).toContain('Payment For');
+    expect(text).toContain('End of tenancy cleaning');
+    expect(text).toContain('PAYMENT RECEIVED');
+    expect(text).not.toContain('Invoice Number');
+    expect(text).not.toContain('PAID IN FULL');
+  });
 });
