@@ -34,7 +34,13 @@ const GREY = '#666666';
 const LIGHT_GREY = '#8a8a8a';
 const BORDER = '#dddddd';
 const TEXT = '#1c1c1c';
-const BRAND_FONT_BUFFER = readFileSync(join(process.cwd(), 'api', '_lib', 'assets', 'BricolageGrotesque.ttf'));
+// Native serverless Node resolves from this module, not process.cwd(). The
+// static URL also lets Vercel trace and bundle the font. Vitest serves modules
+// through a non-file URL, so its admin-root working directory is the fallback.
+const BRAND_FONT_URL = new URL('./assets/BricolageGrotesque.ttf', import.meta.url);
+const BRAND_FONT_BUFFER = BRAND_FONT_URL.protocol === 'file:'
+  ? readFileSync(BRAND_FONT_URL)
+  : readFileSync(join(process.cwd(), 'api', '_lib', 'assets', 'BricolageGrotesque.ttf'));
 
 // Reserve room for the footer + its rule on every page's page-break math.
 const FOOTER_RESERVE = 46;
