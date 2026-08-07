@@ -2,8 +2,6 @@
 
 These rules apply permanently to all work in this repository.
 
-- Never deploy.
-- Never merge to `main`.
 - Never change Production data.
 - Never change DNS.
 - Never change Stripe behaviour.
