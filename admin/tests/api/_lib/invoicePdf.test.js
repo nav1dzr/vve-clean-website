@@ -1,9 +1,27 @@
 import { describe, it, expect } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { generateInvoicePdfBuffer, generateReceiptPdfBuffer } from '../../../api/_lib/invoicePdf.js';
 import { getBusinessSettings } from '../../../api/_lib/businessSettings.js';
 import { extractPdfText } from './pdfTextExtract.js';
 
 const settings = getBusinessSettings();
+
+const adminDirectory = process.cwd();
+
+describe('invoice PDF module loading', () => {
+  it('loads when the process starts outside the admin directory', () => {
+    const moduleUrl = pathToFileURL(resolve(adminDirectory, 'api/_lib/invoicePdf.js')).href;
+    const result = spawnSync(
+      process.execPath,
+      ['--input-type=module', '--eval', `await import(${JSON.stringify(moduleUrl)})`],
+      { cwd: resolve(adminDirectory, '..'), encoding: 'utf8' },
+    );
+
+    expect(result.status, result.stderr || result.stdout).toBe(0);
+  });
+});
 
 function invoice(overrides = {}) {
   return {
