@@ -79,3 +79,40 @@ change — they are content the business already has or can capture in a week:
 
 Building the pages is a few hours' work and is not the hard part. The content
 that makes them worth indexing is the hard part, and it is not code.
+
+## Addendum (2026-08-07) — 15 pages shipped, per explicit owner sign-off
+
+As part of a broader SEO growth request, Navid explicitly reviewed this
+assessment and instructed: build all 15 pages now (not just the original
+four), structured exactly as the "What would make them publishable" section
+above describes — real postcode(s), real neighbouring-area data, the one
+universally true pricing fact (no travel/postcode surcharge), and review/
+photo proof slots that render only when real data exists.
+
+This is not a reversal of the rule above. It is the honest implementation the
+rule was asking for, applied now rather than after collecting more reviews
+first:
+
+- Postcodes are drawn only from `COVERAGE_POSTCODES` in
+  `shared/pricingCatalogue.js` (the single canonical coverage list) — an area
+  whose real postcode isn't in that list (Highgate/N6) gets no postcode
+  claim rather than an invented one.
+- Neighbour lists are drawn only from names already published in
+  `Areas.tsx`/`AreaMarquee.tsx`.
+- `AreaProofSection` (`src/components/areas/AreaProofSection.tsx`) renders
+  nothing when an area has no real review, tagged photo, or job note —
+  exactly the "None requires a code change" bar this document set. Nothing
+  is fabricated to fill an empty slot.
+- Indexability is computed per area
+  (`src/lib/areaProof.ts:areaHasRealProof`), not asserted for all 15: a page
+  ships `noindex, follow` until it has real proof, then flips to
+  `index, follow` automatically once that proof exists — no redeploy needed
+  beyond adding the data. As of this addendum, that's Islington, Stratford
+  (the two the table above already flagged) and Angel (shares Islington's
+  N1 postcode district with a real tagged review).
+
+The residual risk this document raised — thin, duplicate-reading pages as a
+site-level quality signal — is managed by that `noindex` default, not
+eliminated by asserting all 15 are equally strong. See
+`src/data/areas.ts`, `src/data/areas.test.ts` (postcode/neighbour
+data-integrity guard) and `prerender.mjs` for the implementation.

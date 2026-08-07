@@ -165,3 +165,21 @@ describe('sitemap', () => {
     expect(prerender).not.toMatch(/<lastmod>20\d\d-\d\d-\d\d<\/lastmod>/);
   });
 });
+
+describe('GA4 wiring', () => {
+  it('adds a gtag config call after the Ads tag, sharing the same loader and Consent Mode gate', () => {
+    const adsIndex = indexHtml.indexOf("gtag('config', 'AW-18214693277')");
+    const ga4Index = indexHtml.indexOf("gtag('config', 'G-");
+    expect(adsIndex).toBeGreaterThan(-1);
+    expect(ga4Index).toBeGreaterThan(adsIndex);
+
+    // Must come after the Consent Mode v2 default-deny block, not before it —
+    // otherwise the GA4 config call would fire before consent state exists.
+    const consentDefaultIndex = indexHtml.indexOf("gtag('consent', 'default'");
+    expect(consentDefaultIndex).toBeGreaterThan(-1);
+    expect(ga4Index).toBeGreaterThan(consentDefaultIndex);
+
+    // No second gtag.js loader — GA4 shares the Ads tag's script src.
+    expect(indexHtml.match(/googletagmanager\.com\/gtag\/js/g)).toHaveLength(1);
+  });
+});
