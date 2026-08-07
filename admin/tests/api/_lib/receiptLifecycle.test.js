@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createFakeSupabase } from './fakeSupabase.js';
-import { createReceiptIfPaid, markReceiptSent, loadReceiptPdfExtras } from '../../../api/_lib/receiptLifecycle.js';
+import {
+  createReceiptIfPaid, createStandaloneReceipt, markReceiptSent, loadReceiptPdfExtras,
+} from '../../../api/_lib/receiptLifecycle.js';
 
 const ADMIN_ID = 'admin-1';
 
@@ -81,6 +83,69 @@ describe('createReceiptIfPaid', () => {
     const r2 = await createReceiptIfPaid(supabase, receiptInput({ invoiceId: 'invoice-2' }), ADMIN_ID);
     expect(r1.receiptNumber).toMatch(/-000001$/);
     expect(r2.receiptNumber).toMatch(/-000002$/);
+  });
+});
+
+describe('createStandaloneReceipt', () => {
+  function standaloneInput(overrides = {}) {
+    return {
+      customer: { name: 'Walk In Customer', email: 'walkin@example.com', address: '8 Kellett House', postcode: 'W2 3EL' },
+      serviceDescription: 'Professional carpet steam cleaning',
+      amount: 149,
+      paymentDate: '2026-08-06',
+      paymentMethod: 'card',
+      paymentReference: 'POS-4821',
+      ...overrides,
+    };
+  }
+
+  it('creates an immutable numbered receipt without an invoice', async () => {
+    const supabase = createFakeSupabase();
+    const result = await createStandaloneReceipt(supabase, standaloneInput(), ADMIN_ID);
+
+    expect(result.ok).toBe(true);
+    expect(result.receiptNumber).toMatch(/^REC-\d{4}-000001$/);
+    const receipt = supabase._tables.receipts.find((r) => r.id === result.receiptId);
+    expect(receipt.source).toBe('standalone');
+    expect(receipt.invoice_id).toBeNull();
+    expect(receipt.service_description).toBe('Professional carpet steam cleaning');
+    expect(receipt.invoice_total).toBe(149);
+    expect(receipt.total_paid).toBe(149);
+  });
+
+  it('validates the customer, service, amount, date, and method before allocating a number', async () => {
+    const cases = [
+      standaloneInput({ customer: { name: '', email: 'x@example.com' } }),
+      standaloneInput({ serviceDescription: '' }),
+      standaloneInput({ amount: 0 }),
+      standaloneInput({ paymentDate: 'tomorrow' }),
+      standaloneInput({ paymentMethod: 'crypto' }),
+    ];
+
+    for (const input of cases) {
+      const supabase = createFakeSupabase();
+      const result = await createStandaloneReceipt(supabase, input, ADMIN_ID);
+      expect(result.ok).toBe(false);
+      expect(supabase._tables.receipts ?? []).toHaveLength(0);
+    }
+  });
+
+  it('generates and stores a PDF while keeping the receipt valid if rendering fails', async () => {
+    const supabase = createFakeSupabase();
+    let received = null;
+    const success = await createStandaloneReceipt(supabase, standaloneInput(), ADMIN_ID, {
+      generateAndStorePdf: async (receipt) => {
+        received = receipt;
+        return { ok: true, path: `receipts/${receipt.id}/receipt-v1.pdf` };
+      },
+    });
+    expect(received.source).toBe('standalone');
+    expect(supabase._tables.receipts.find((r) => r.id === success.receiptId).pdf_storage_path).toBeTruthy();
+
+    const failed = await createStandaloneReceipt(createFakeSupabase(), standaloneInput(), ADMIN_ID, {
+      generateAndStorePdf: async () => { throw new Error('render failed'); },
+    });
+    expect(failed.ok).toBe(true);
   });
 });
 

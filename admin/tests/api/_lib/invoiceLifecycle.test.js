@@ -161,6 +161,21 @@ describe('issueInvoice', () => {
     expect(result.ok).toBe(false);
   });
 
+  it('refuses to issue a legacy zero-balance draft with no recorded payment', async () => {
+    const supabase = createFakeSupabase();
+    const { invoiceId } = await createDraftInvoice(supabase, draftInput(), ADMIN_ID);
+    const invoice = supabase._tables.invoices.find((i) => i.id === invoiceId);
+    invoice.deposit_applied = invoice.total;
+    invoice.amount_due = 0;
+
+    const result = await issueInvoice(supabase, invoiceId, ADMIN_ID);
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(409);
+    expect(result.error).toMatch(/zero balance without a recorded payment/);
+    expect(invoice.document_status).toBe('draft');
+    expect(invoice.invoice_number).toBeUndefined();
+  });
+
   it('returns 409 if the invoice status flips away from draft between the fetch and the guarded update (simulated race)', async () => {
     const supabase = createFakeSupabase();
     const { invoiceId } = await createDraftInvoice(supabase, draftInput(), ADMIN_ID);

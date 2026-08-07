@@ -248,6 +248,7 @@ const INVOICE_EVENT_LABELS: Record<string, string> = {
   cancelled: 'Cancelled',
   revision_created: 'Revision draft created',
   superseded: 'Superseded by revised invoice',
+  details_corrected: 'Customer or address details corrected',
 };
 
 export function invoiceEventLabel(eventType: string): string {

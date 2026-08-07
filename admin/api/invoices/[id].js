@@ -9,7 +9,7 @@ import {
 } from '../_lib/invoiceFields.js';
 import {
   updateDraftInvoice, deleteDraftInvoice, issueInvoice, voidInvoice,
-  duplicateInvoiceAsDraft, reviseIssuedInvoice, recordPayment, reversePayment,
+  duplicateInvoiceAsDraft, reviseIssuedInvoice, correctIssuedInvoiceDetails, recordPayment, reversePayment,
 } from '../_lib/invoiceLifecycle.js';
 import { createReceiptIfPaid, loadReceiptPdfExtras } from '../_lib/receiptLifecycle.js';
 import { generateInvoicePdfBuffer, generateReceiptPdfBuffer } from '../_lib/invoicePdf.js';
@@ -75,7 +75,7 @@ function makeReceiptPdfGenerator(supabase) {
 //
 // Actions implemented (all as ?action=<name>, alongside the plain
 // GET/PATCH/DELETE with no action for detail/update/delete): issue, void,
-// duplicate, payments (record), paymentsReverse (+ &paymentId=), events,
+// duplicate, revise, correctDetails, payments (record), paymentsReverse (+ &paymentId=), events,
 // preview (draft PDF, generated on demand, never stored), download (issued
 // invoice — short-lived signed URL to the stored PDF, generating it on the
 // fly first if a pre-existing invoice somehow doesn't have one yet), send
@@ -134,6 +134,7 @@ export default async function handler(req, res) {
     if (action === 'void') return await handleVoid(req, res, headers, supabase, invoiceId, auth);
     if (action === 'duplicate') return await handleDuplicate(req, res, headers, supabase, invoiceId, auth);
     if (action === 'revise') return await handleRevise(req, res, headers, supabase, invoiceId, auth);
+    if (action === 'correctDetails') return await handleCorrectDetails(req, res, headers, supabase, invoiceId, auth);
     if (action === 'payments') return await handleRecordPayment(req, res, headers, supabase, invoiceId, auth);
     if (action === 'paymentsReverse') {
       const paymentId = params.get('paymentId') || '';
@@ -289,6 +290,29 @@ async function handleRevise(req, res, headers, supabase, invoiceId, auth) {
   }
   res.writeHead(201, headers);
   return res.end(JSON.stringify({ ok: true, invoiceId: result.invoiceId }));
+}
+
+async function handleCorrectDetails(req, res, headers, supabase, invoiceId, auth) {
+  if (req.method !== 'POST') {
+    res.writeHead(405, headers);
+    return res.end(JSON.stringify({ error: 'Method not allowed' }));
+  }
+  let body;
+  try {
+    body = await readJsonBody(req, 32 * 1024);
+  } catch (err) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: err.message || 'Invalid request body' }));
+  }
+  const result = await correctIssuedInvoiceDetails(supabase, invoiceId, body, auth.admin.id, {
+    generateAndStorePdf: makeInvoicePdfGenerator(supabase),
+  });
+  if (!result.ok) {
+    res.writeHead(result.status || 400, headers);
+    return res.end(JSON.stringify({ error: result.error }));
+  }
+  res.writeHead(200, headers);
+  return res.end(JSON.stringify({ ok: true, documentVersion: result.documentVersion }));
 }
 
 async function handleRecordPayment(req, res, headers, supabase, invoiceId, auth) {

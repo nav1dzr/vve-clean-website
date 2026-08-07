@@ -6,6 +6,11 @@
 // INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §6.
 
 import { getBusinessSettings } from './businessSettings.js';
+import { isValidDateString, isValidEmail } from './normalise.js';
+
+const PAYMENT_METHODS = new Set(['bank_transfer', 'card', 'stripe', 'cash', 'other']);
+const MAX_RECEIPT_AMOUNT = 500000;
+const MAX_DESCRIPTION_LENGTH = 500;
 
 function nowIso() {
   return new Date().toISOString();
@@ -49,6 +54,7 @@ export async function createReceiptIfPaid(supabase, input, adminId, { generateAn
     .from('receipts')
     .insert({
       receipt_number: numberResult,
+      source: 'invoice',
       invoice_id: input.invoiceId,
       invoice_number_snapshot: input.invoiceNumber || null,
       booking_id: input.bookingId || null,
@@ -126,6 +132,133 @@ export async function createReceiptIfPaid(supabase, input, adminId, { generateAn
       }
     } catch (err) {
       console.error('[admin/api] PDF generation after receipt creation failed:', err?.message);
+    }
+  }
+
+  return { ok: true, receiptId: receiptRow.id, receiptNumber: receiptRow.receipt_number };
+}
+
+function validateStandaloneReceiptInput(input) {
+  if (!input?.customer || typeof input.customer.name !== 'string' || !input.customer.name.trim()) {
+    return { ok: false, error: 'customer.name is required' };
+  }
+  if (!input.customer.email && !input.customer.phone) {
+    return { ok: false, error: 'at least one of customer.email or customer.phone is required' };
+  }
+  if (input.customer.email && !isValidEmail(input.customer.email)) {
+    return { ok: false, error: 'customer.email must be a valid email address' };
+  }
+  if (typeof input.serviceDescription !== 'string' || !input.serviceDescription.trim()) {
+    return { ok: false, error: 'serviceDescription is required' };
+  }
+  if (input.serviceDescription.trim().length > MAX_DESCRIPTION_LENGTH) {
+    return { ok: false, error: `serviceDescription must be ${MAX_DESCRIPTION_LENGTH} characters or fewer` };
+  }
+  if (typeof input.amount !== 'number' || !Number.isFinite(input.amount) || input.amount <= 0 || input.amount > MAX_RECEIPT_AMOUNT) {
+    return { ok: false, error: `amount must be greater than zero and no more than £${MAX_RECEIPT_AMOUNT}` };
+  }
+  if (!isValidDateString(input.paymentDate)) {
+    return { ok: false, error: 'paymentDate must be YYYY-MM-DD' };
+  }
+  if (!PAYMENT_METHODS.has(input.paymentMethod)) {
+    return { ok: false, error: 'paymentMethod is invalid' };
+  }
+  return { ok: true };
+}
+
+// Creates a final receipt directly for an already-received payment. This is
+// intentionally not an invoice shortcut: there is no amount due, draft, or
+// payment collection step. All printed facts are snapshotted immediately.
+export async function createStandaloneReceipt(supabase, input, adminId, { generateAndStorePdf } = {}) {
+  const validation = validateStandaloneReceiptInput(input);
+  if (!validation.ok) return validation;
+
+  const { data: numberResult, error: numberErr } = await supabase.rpc('next_document_number', { p_doc_type: 'receipt' });
+  if (numberErr || !numberResult) {
+    console.error('[admin/api] standalone receipt number allocation failed:', numberErr?.code, numberErr?.message);
+    return { ok: false, error: 'Failed to allocate a receipt number' };
+  }
+
+  const businessSnapshot = getBusinessSettings();
+  const amount = Math.round(input.amount * 100) / 100;
+  const customer = {
+    name: input.customer.name.trim(),
+    email: input.customer.email?.trim() || null,
+    phone: input.customer.phone?.trim() || null,
+    address: input.customer.address?.trim() || null,
+    postcode: input.customer.postcode?.trim() || null,
+  };
+  const serviceDescription = input.serviceDescription.trim();
+
+  const { data: receiptRow, error: insertErr } = await supabase
+    .from('receipts')
+    .insert({
+      receipt_number: numberResult,
+      source: 'standalone',
+      service_description: serviceDescription,
+      invoice_id: null,
+      booking_id: null,
+      customer_name: customer.name,
+      customer_email: customer.email,
+      customer_phone: customer.phone,
+      customer_address: customer.address,
+      customer_postcode: customer.postcode,
+      invoice_number_snapshot: null,
+      invoice_total: amount,
+      total_paid: amount,
+      payment_date: input.paymentDate,
+      payment_method: input.paymentMethod,
+      payment_reference: input.paymentReference?.trim() || null,
+      business_snapshot: businessSnapshot,
+      created_by_admin_id: adminId,
+    })
+    .select('id, receipt_number')
+    .single();
+
+  if (insertErr) {
+    console.error('[admin/api] standalone receipt insert failed:', insertErr.code, insertErr.message);
+    return { ok: false, error: 'Failed to create receipt' };
+  }
+
+  await logEvent(supabase, {
+    documentId: receiptRow.id,
+    eventType: 'receipt_created',
+    adminId,
+    metadata: { receiptNumber: receiptRow.receipt_number, source: 'standalone' },
+  });
+
+  if (typeof generateAndStorePdf === 'function') {
+    try {
+      const pdfResult = await generateAndStorePdf({
+        id: receiptRow.id,
+        receipt_number: receiptRow.receipt_number,
+        source: 'standalone',
+        service_description: serviceDescription,
+        invoice_id: null,
+        invoice_number_snapshot: null,
+        customer_name: customer.name,
+        customer_email: customer.email,
+        customer_phone: customer.phone,
+        customer_address: customer.address,
+        customer_postcode: customer.postcode,
+        invoice_total: amount,
+        total_paid: amount,
+        payment_date: input.paymentDate,
+        payment_method: input.paymentMethod,
+        payment_reference: input.paymentReference?.trim() || null,
+        business_snapshot: businessSnapshot,
+      });
+      if (pdfResult?.ok) {
+        await supabase.from('receipts').update({ pdf_storage_path: pdfResult.path }).eq('id', receiptRow.id);
+        await logEvent(supabase, {
+          documentId: receiptRow.id,
+          eventType: 'pdf_generated',
+          adminId,
+          metadata: { path: pdfResult.path },
+        });
+      }
+    } catch (err) {
+      console.error('[admin/api] PDF generation after standalone receipt creation failed:', err?.message);
     }
   }
 

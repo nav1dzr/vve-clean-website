@@ -87,6 +87,12 @@ describe('calculateInvoiceTotals', () => {
     expect(result.ok).toBe(false);
   });
 
+  it('rejects using the full invoice total as a deposit', () => {
+    const result = calculateInvoiceTotals({ items: baseItems, depositApplied: 125 });
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/full invoice total/);
+  });
+
   it('subtracts recorded payments from amountDue and marks partially paid via derivePaymentStatus', () => {
     const { totals } = calculateInvoiceTotals({
       items: baseItems,

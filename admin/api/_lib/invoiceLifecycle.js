@@ -356,6 +356,13 @@ export async function issueInvoice(supabase, invoiceId, adminId, { generateAndSt
   if (invoice.document_status !== 'draft') {
     return { ok: false, error: 'Only a draft invoice can be issued', status: 409 };
   }
+  if (Number(invoice.amount_due) <= 0 && Number(invoice.amount_paid || 0) <= 0) {
+    return {
+      ok: false,
+      error: 'This draft shows a zero balance without a recorded payment. Enter only the real deposit, then record the payment after issuing, or create a standalone receipt.',
+      status: 409,
+    };
+  }
 
   const { data: items, error: itemsErr } = await supabase
     .from('invoice_items')
@@ -650,9 +657,118 @@ export async function reviseIssuedInvoice(supabase, originalInvoiceId, adminId) 
   return { ok: true, invoiceId: newInvoice.id };
 }
 
-// "Duplicate as corrected draft" — the only way to change an issued
-// invoice's data. The original stays untouched and remains visible;
-// duplicated_from_id links the new draft back to it for the UI to surface.
+// Corrects contact/address mistakes on an issued, unpaid invoice without
+// changing its commercial content. The invoice number stays the same, while
+// document_version advances so the previous PDF remains preserved in
+// versioned storage. Services, prices, discounts, deposits, dates and totals
+// are deliberately not accepted here; those belong in the revision workflow.
+export async function correctIssuedInvoiceDetails(
+  supabase,
+  invoiceId,
+  input,
+  adminId,
+  { generateAndStorePdf } = {},
+) {
+  const { data: original, error: fetchErr } = await supabase
+    .from('invoices').select('*').eq('id', invoiceId).maybeSingle();
+
+  if (fetchErr) return { ok: false, error: 'Failed to load invoice' };
+  if (!original) return { ok: false, error: 'Invoice not found', status: 404 };
+  if (original.document_status !== 'issued') {
+    return { ok: false, error: 'Only an issued invoice can have its contact details corrected', status: 409 };
+  }
+  if (original.payment_status !== 'unpaid') {
+    return { ok: false, error: 'Contact details cannot be changed after payment activity. Use the delivery email when sending, or use an accounting adjustment for financial changes.', status: 409 };
+  }
+  if (original.superseded_by_invoice_id) {
+    return { ok: false, error: 'A superseded invoice cannot be corrected', status: 409 };
+  }
+
+  const customer = input?.customer || {};
+  const customerCheck = validateCustomer(customer);
+  if (!customerCheck.ok) return { ok: false, error: customerCheck.error };
+  if (customer.email && !isValidEmail(customer.email)) {
+    return { ok: false, error: 'customer.email must be a valid email address' };
+  }
+
+  const serviceContact = input?.serviceContact || {};
+  if (serviceContact.email && !isValidEmail(serviceContact.email)) {
+    return { ok: false, error: 'serviceContact.email must be a valid email address' };
+  }
+  if (input?.invoiceRecipientEmail && !isValidEmail(input.invoiceRecipientEmail)) {
+    return { ok: false, error: 'invoiceRecipientEmail must be a valid email address' };
+  }
+  if (input?.receiptRecipientEmail && !isValidEmail(input.receiptRecipientEmail)) {
+    return { ok: false, error: 'receiptRecipientEmail must be a valid email address' };
+  }
+
+  const contactPatch = {
+    customer_name: customer.name.trim(),
+    customer_email: customer.email || null,
+    customer_phone: customer.phone || null,
+    customer_address: customer.address || null,
+    customer_postcode: customer.postcode || null,
+    service_contact_name: serviceContact.name || null,
+    service_contact_email: serviceContact.email || null,
+    service_contact_phone: serviceContact.phone || null,
+    service_address: serviceContact.address || null,
+    service_contact_postcode: serviceContact.postcode || null,
+    invoice_recipient_email: input.invoiceRecipientEmail || null,
+    receipt_recipient_email: input.receiptRecipientEmail || null,
+  };
+  const changedFields = Object.keys(contactPatch).filter((key) => (original[key] ?? null) !== contactPatch[key]);
+  if (changedFields.length === 0) return { ok: false, error: 'No contact detail changes were made' };
+
+  const nextVersion = Number(original.document_version || 1) + 1;
+  const { data: corrected, error: updateErr } = await supabase
+    .from('invoices')
+    .update({ ...contactPatch, document_version: nextVersion, pdf_storage_path: null, updated_at: nowIso() })
+    .eq('id', invoiceId)
+    .eq('document_status', 'issued')
+    .eq('payment_status', 'unpaid')
+    .is('superseded_by_invoice_id', null)
+    .select('*')
+    .maybeSingle();
+
+  if (updateErr) return { ok: false, error: 'Failed to correct invoice details' };
+  if (!corrected) return { ok: false, error: 'Invoice changed while the correction was being saved. Reload and try again.', status: 409 };
+
+  await logEvent(supabase, {
+    documentType: 'invoice', documentId: invoiceId, eventType: 'details_corrected', adminId,
+    metadata: { version: nextVersion, changedFields },
+  });
+
+  if (typeof generateAndStorePdf === 'function') {
+    const { data: items, error: itemsErr } = await supabase
+      .from('invoice_items')
+      .select('description, quantity, unit_price, line_discount, line_total, sort_order')
+      .eq('invoice_id', invoiceId)
+      .order('sort_order', { ascending: true });
+    if (!itemsErr) {
+      try {
+        const pdfResult = await generateAndStorePdf(corrected, items || []);
+        if (pdfResult?.ok) {
+          await supabase.from('invoices')
+            .update({ pdf_storage_path: pdfResult.path })
+            .eq('id', invoiceId)
+            .eq('document_version', nextVersion);
+          await logEvent(supabase, {
+            documentType: 'invoice', documentId: invoiceId, eventType: 'pdf_generated', adminId,
+            metadata: { path: pdfResult.path, version: nextVersion },
+          });
+        }
+      } catch (err) {
+        console.error('[admin/api] PDF regeneration after contact correction failed:', err?.message);
+      }
+    }
+  }
+
+  return { ok: true, documentVersion: nextVersion };
+}
+
+// Creates a similar draft while leaving the source invoice untouched.
+// Commercial corrections use reviseIssuedInvoice; contact-only mistakes use
+// correctIssuedInvoiceDetails. duplicated_from_id retains the relationship.
 export async function duplicateInvoiceAsDraft(supabase, invoiceId, adminId) {
   const { data: original, error: fetchErr } = await supabase
     .from('invoices')

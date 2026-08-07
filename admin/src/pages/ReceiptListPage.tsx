@@ -54,7 +54,15 @@ export default function ReceiptListPage() {
 
   return (
     <div className="px-4 py-6 sm:px-6">
-      <h1 className="mb-4 font-semibold text-xl text-navy-950">Receipts</h1>
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-semibold text-xl text-navy-950">Receipts</h1>
+          <p className="mt-1 text-sm text-navy-600">Proof of payment for invoice and direct customers.</p>
+        </div>
+        <Link to="/receipts/new" className="flex min-h-11 shrink-0 items-center rounded-xl bg-navy-950 px-4 text-sm font-semibold text-white hover:bg-navy-900">
+          New receipt
+        </Link>
+      </div>
 
       <div className="mb-6 flex gap-2">
         <input
@@ -73,7 +81,11 @@ export default function ReceiptListPage() {
       {state.status === 'loading' && <CardListSkeleton count={5} />}
       {state.status === 'error' && <ErrorState message={state.message} onRetry={load} />}
       {state.status === 'success' && state.data.results.length === 0 && (
-        <EmptyState title="No receipts yet" description="Receipts are created automatically once an invoice is paid in full." />
+        <EmptyState
+          title="No receipts yet"
+          description="Receipts appear here when an invoice is paid, or you can create one for a payment already received."
+          action={<Link to="/receipts/new" className="text-sm font-medium text-sky-600 hover:text-sky-700">Create a receipt</Link>}
+        />
       )}
       {state.status === 'success' && state.data.results.length > 0 && (
         <>
