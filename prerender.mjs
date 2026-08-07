@@ -220,8 +220,32 @@ const notFoundRoute = {
   robots: 'noindex, follow',
 };
 
-const { render } = await import('./dist/server/entry-server.js');
+const { render, AREAS, areaHasRealProof } = await import('./dist/server/entry-server.js');
 const template = readFileSync(resolve(distDir, 'index.html'), 'utf-8');
+
+// ── Area landing pages — generated from src/data/areas.ts ───────────────────
+// Indexability is computed, not hardcoded: an area is `index, follow` once it
+// has real proof (a matching review, a tagged job photo/clip, or a true job
+// note — areaHasRealProof, shared with AreaProofSection so both agree), and
+// `noindex, follow` otherwise. Today that's Islington and Stratford, the only
+// two with a real tagged review; the rest flip over automatically the moment
+// real proof is added to src/data/areas.ts or a manifest, no code change
+// needed. See docs/LOCATION_PAGES_ASSESSMENT.md.
+for (const area of AREAS) {
+  const indexable = areaHasRealProof(area);
+  const postcodeLabel = area.postcodes.length > 0 ? ` (${area.postcodes.join(', ')})` : '';
+  routes.push({
+    path: `/cleaning-${area.slug}`,
+    title: `Cleaning in ${area.name}${postcodeLabel} | VVE Clean London`,
+    description: `End of tenancy, carpet and sofa & upholstery cleaning for ${area.name}. Fixed prices — the same as everywhere else we cover, no travel surcharge.`,
+    ogTitle: `Cleaning in ${area.name} | VVE Clean`,
+    ogDescription: `End of tenancy, carpet and sofa & upholstery cleaning for ${area.name}. Fixed prices, no travel surcharge.`,
+    robots: indexable ? 'index, follow' : 'noindex, follow',
+    changefreq: 'monthly',
+    priority: '0.6',
+    sources: ['src/pages/AreaPage.tsx', 'src/data/areas.ts'],
+  });
+}
 
 /** Replaces a meta tag's content, or inserts the tag if the template lacks it. */
 function setMeta(html, matcher, replacement, insertAfter) {

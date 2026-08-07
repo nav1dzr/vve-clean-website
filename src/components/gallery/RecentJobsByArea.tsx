@@ -2,6 +2,7 @@ import BeforeAfterTile from './BeforeAfterTile';
 import VideoTile from './VideoTile';
 import { GALLERY_MEDIA, type GalleryItem, type GalleryVideoItem } from '../../data/galleryMedia';
 import { CARPET_RESULT_VIDEOS, CARPET_PROCESS_VIDEO, type CarpetVideo } from '../../data/carpetMedia';
+import { matchesArea } from '../../lib/areaMatch';
 
 const DEFAULT_MEDIA: GalleryItem[] = Object.values(GALLERY_MEDIA).flat();
 const DEFAULT_CARPET_CLIPS: CarpetVideo[] = [
@@ -20,12 +21,6 @@ function carpetVideoToGalleryItem(clip: CarpetVideo): GalleryVideoItem {
   };
 }
 
-function matchesArea(location: string | undefined, needles: string[]): boolean {
-  if (!location) return false;
-  const haystack = location.toLowerCase();
-  return needles.some((needle) => haystack.includes(needle.toLowerCase()));
-}
-
 /**
  * Collects every gallery item and carpet clip whose real `location` matches
  * this area's name or one of its postcodes. `media`/`carpetClips` default to
@@ -41,10 +36,9 @@ export function collectAreaJobs(
   media: GalleryItem[] = DEFAULT_MEDIA,
   carpetClips: CarpetVideo[] = DEFAULT_CARPET_CLIPS,
 ): GalleryItem[] {
-  const needles = [areaName, ...postcodes];
-  const galleryMatches = media.filter((item) => matchesArea(item.location, needles));
+  const galleryMatches = media.filter((item) => matchesArea(item.location, areaName, postcodes));
   const carpetMatches = carpetClips
-    .filter((clip) => matchesArea(clip.location, needles))
+    .filter((clip) => matchesArea(clip.location, areaName, postcodes))
     .map(carpetVideoToGalleryItem);
   return [...galleryMatches, ...carpetMatches];
 }

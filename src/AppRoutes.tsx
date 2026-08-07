@@ -12,7 +12,9 @@ import CommercialCarpetPage from './pages/CommercialCarpetPage';
 import EndOfTenancyPage from './pages/EndOfTenancyPage';
 import AfterBuildersPage from './pages/AfterBuildersPage';
 import GalleryPage from './pages/GalleryPage';
+import AreaPage from './pages/AreaPage';
 import NotFoundPage from './pages/NotFoundPage';
+import { AREAS } from './data/areas';
 
 export default function AppRoutes() {
   return (
@@ -30,6 +32,11 @@ export default function AppRoutes() {
       <Route path="/end-of-tenancy-cleaning-london" element={<EndOfTenancyPage />} />
       <Route path="/after-builders-cleaning-london" element={<AfterBuildersPage />} />
       <Route path="/gallery" element={<GalleryPage />} />
+      {/* Generated from src/data/areas.ts so a route can never drift from the
+          area's slug used by prerender.mjs and the sitemap. */}
+      {AREAS.map((area) => (
+        <Route key={area.slug} path={`/cleaning-${area.slug}`} element={<AreaPage area={area} />} />
+      ))}
       {/* Client-side catch-all. This only covers in-app navigation to a bad
           link — the HTTP status for a cold request is decided by the server,
           via dist/404.html (prerender.mjs) and the absence of a catch-all
