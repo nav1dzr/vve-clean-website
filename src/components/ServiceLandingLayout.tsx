@@ -535,7 +535,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
                 <p className={`max-w-2xl text-silver-200 text-base sm:text-lg ${data.heroCompactMobile ? 'mb-4 sm:mb-6' : 'mb-6'}`}>{data.heroSubtitle}</p>
               )}
 
-              <div className={`flex flex-wrap gap-x-6 gap-y-2 ${data.heroAside ? 'justify-start' : 'justify-center'} ${data.heroCompactMobile ? 'mb-5 sm:mb-8' : 'mb-8'} text-silver-400 text-sm`}>
+              <div className={`flex flex-wrap gap-x-6 gap-y-2 ${data.heroAside ? 'justify-start' : 'justify-center'} ${data.heroCompactMobile ? 'mb-5 sm:mb-8' : 'mb-8'} text-sky-100 text-sm`}>
                 {data.heroBadges.map((badge) => (
                   <span key={badge} className="flex items-center gap-1.5">
                     <span className="text-sky-400 font-bold">✓</span> {badge}
@@ -591,7 +591,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
             <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-4 leading-tight">
               {data.ctaH2}
             </h2>
-            <p className="text-silver-300 text-base mb-10 leading-relaxed">{data.ctaBody}</p>
+            <p className="text-sky-100 text-base mb-10 leading-relaxed">{data.ctaBody}</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               {data.ctaPrimary.isWa ? (
                 <a

@@ -46,10 +46,10 @@
 }
 
 @layer utilities {
-  /* Kept for hero/navbar — dark backgrounds only. No shimmer animation
-     (feat/visual-polish removes decorative motion from heading text). */
+  /* Fresh pale-blue hero accent. It stays readable on the deeper blue hero
+     while avoiding the flat grey/metallic look the previous version had. */
   .text-gradient-metallic {
-    background: linear-gradient(135deg, #c8cdd6 0%, #ffffff 30%, #b8bec8 50%, #e8eaed 70%, #c0c6d0 100%);
+    background: linear-gradient(120deg, #cffafe 0%, #ffffff 42%, #bae6fd 72%, #d1fae5 100%);
     background-size: 200% auto;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -82,7 +82,9 @@
     border: 1px solid rgba(255, 255, 255, 0.15);
   }
   .navy-gradient {
-    background: linear-gradient(135deg, #0c4a6e 0%, #0369a1 52%, #075985 100%);
+    background:
+      radial-gradient(circle at 12% 18%, rgba(165, 243, 252, 0.22), transparent 34%),
+      linear-gradient(135deg, #0f766e 0%, #0369a1 52%, #0b7199 100%);
   }
   .cyan-gradient {
     background: linear-gradient(135deg, #ecfeff 0%, #cffafe 50%, #a5f3fc 100%);
@@ -199,8 +201,15 @@ html::-webkit-scrollbar-thumb {
   list-style: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  transition: background-color 180ms ease;
 }
 .faq-summary::-webkit-details-marker { display: none; }
+.faq-summary:hover {
+  background: #f0fdfa;
+}
+details[open] > .faq-summary {
+  background: #ecfeff;
+}
 
 .faq-question {
   font-family: 'Inter', system-ui, sans-serif;

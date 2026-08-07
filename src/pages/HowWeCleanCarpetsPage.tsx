@@ -4,6 +4,37 @@ import CarpetProcessSection from '../components/carpet/CarpetProcessSection';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20a%20carpet%20clean%20quote.';
 
+const FAQS = [
+  {
+    q: 'What method do you use to clean carpets?',
+    a: 'We inspect the carpet first, apply a suitable cleaning solution and extract the loosened soil and moisture. We use hot-water extraction only when the carpet fibre and construction are suitable.',
+  },
+  {
+    q: 'How long does carpet cleaning take?',
+    a: 'A bedroom typically takes 20 to 30 minutes. A full three-bedroom flat with hallways and a living room usually takes two to three hours. We provide an estimated duration when the booking is confirmed.',
+  },
+  {
+    q: 'How long before the carpet is dry?',
+    a: 'Carpets are usually dry within two to four hours. Ventilation, room temperature, carpet thickness and the amount of treatment needed can affect the drying time.',
+  },
+  {
+    q: 'Can every stain be removed?',
+    a: 'No cleaner can promise that every stain will disappear. We inspect and treat stains individually, but the result depends on what caused the mark, how long it has been there and whether it has changed the carpet fibre or colour.',
+  },
+  {
+    q: 'Do I need to move the furniture?',
+    a: 'Please remove small items and anything fragile before we arrive. Tell us about larger furniture when requesting the quote so access and the cleaning scope can be agreed in advance.',
+  },
+  {
+    q: 'Do you clean rugs as well as fitted carpets?',
+    a: 'Yes, when the rug material and construction are suitable for the available cleaning method. We inspect it first and will not continue if the test suggests a risk of damage or colour movement.',
+  },
+  {
+    q: 'Do you bring the cleaning equipment and products?',
+    a: 'Yes. We bring the equipment and cleaning products needed for the confirmed service. We only need the access arrangements and any parking information agreed before arrival.',
+  },
+];
+
 const SCHEMA = JSON.stringify({
   '@context': 'https://schema.org',
   '@graph': [
@@ -24,24 +55,11 @@ const SCHEMA = JSON.stringify({
     },
     {
       '@type': 'FAQPage',
-      mainEntity: [
-        {
-          '@type': 'Question',
-          name: 'What method do you use to clean carpets?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'After checking the carpet, cleaning solution is applied through the pile and extracted with loosened soil and moisture. Hot-water extraction is used only where the fibre and construction are suitable.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'How long does the whole process take?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'A bedroom typically takes 20–30 minutes; a full 3-bedroom flat including hallways and living room usually takes 2–3 hours. We give you an estimated time when you book.',
-          },
-        },
-      ],
+      mainEntity: FAQS.map((faq) => ({
+        '@type': 'Question',
+        name: faq.q,
+        acceptedAnswer: { '@type': 'Answer', text: faq.a },
+      })),
     },
   ],
 });
@@ -73,20 +91,7 @@ const DATA: ServiceLandingData = {
   processSection: <CarpetProcessSection />,
   sectionOrder: ['intro', 'proof', 'process', 'faq', 'related'],
 
-  faqs: [
-    {
-      q: 'What method do you use to clean carpets?',
-      a: 'After checking the carpet, cleaning solution is applied through the pile and extracted with loosened soil and moisture. Hot-water extraction is used only where the fibre and construction are suitable.',
-    },
-    {
-      q: 'How long does the whole process take?',
-      a: 'A bedroom typically takes 20–30 minutes; a full 3-bedroom flat including hallways and living room usually takes 2–3 hours. We give you an estimated time when you book.',
-    },
-    {
-      q: 'How long before the carpet is dry?',
-      a: 'Carpets are usually dry within 2–4 hours. Our high-powered extraction equipment removes most of the moisture at the end of the clean, so drying is much faster than older steam methods.',
-    },
-  ],
+  faqs: FAQS,
 
   relatedLinks: [
     { href: '/carpet-cleaning-london', label: 'Carpet Cleaning Prices' },

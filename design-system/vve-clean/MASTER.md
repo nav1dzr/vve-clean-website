@@ -1,7 +1,7 @@
 # VVE Clean design system
 
 **Project:** VVE Clean  
-**Updated:** 7 August 2026  
+**Updated:** 8 August 2026
 **Product:** Mobile-first local cleaning and booking website
 
 ## Experience principles
@@ -21,6 +21,8 @@
 | Action | `#0369A1` | Primary button and link |
 | Action hover | `#075985` | Hover/pressed |
 | Action dark | `#0C4A6E` | Gradient and emphasis |
+| Fresh teal | `#0F766E` | Hero-gradient lift and cleaning accent |
+| Fresh blue | `#0B7199` | Hero-gradient finish |
 | Sky | `#38BDF8` | Decorative accent only |
 | Surface | `#F7FAFC` | Alternating section |
 | Muted | `#5B6B7C` | Secondary text |
@@ -79,6 +81,7 @@ White text on the Action and WhatsApp tokens must pass WCAG AA for normal text. 
 
 - Visible accordion text and FAQ structured data must match exactly.
 - Add FAQ schema only to pages with useful, visible questions.
+- Aim for five to nine service-specific questions when the page has enough useful customer information. Do not pad a page with repeated or invented answers.
 
 ## Motion
 

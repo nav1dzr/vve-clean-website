@@ -4,6 +4,41 @@ import { EOT_GUARANTEE_HOURS } from '../data/pricing';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20an%20end%20of%20tenancy%20clean%20quote.';
 
+const FAQS = [
+  {
+    q: 'Does your clean meet letting agent standards?',
+    a: 'Yes, on our Complete Agency-Ready package. We follow a 67-point checklist based on standard letting agency inventory requirements and provide a photographic cleaning receipt you can share with your agent.',
+  },
+  {
+    q: `What is the ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee?`,
+    a: `If your letting agent or landlord flags an area of the clean within ${EOT_GUARANTEE_HOURS} hours of completion, send us their written feedback. We will return to address the relevant cleaning points for free.`,
+  },
+  {
+    q: 'What is included in the Complete package?',
+    a: 'The Complete package covers the full property checklist, including the oven, hob, extractor, emptied fridge and defrosted freezer, accessible appliance compartments, cupboards, internal windows, bathrooms, skirting boards and living areas.',
+  },
+  {
+    q: 'What is the difference between Complete and Tailored?',
+    a: 'Complete covers the full 67-point checklist for one fixed price. Tailored starts with the core clean and lets you add the internal appliance and storage tasks you need. The quote shows every selected task and price before you send the booking request.',
+  },
+  {
+    q: 'Is oven cleaning included?',
+    a: 'Yes. The oven, hob, grill and extractor clean are included in both end of tenancy packages. The Complete package also includes the other listed appliance and storage interiors.',
+  },
+  {
+    q: 'Does the property need to be empty?',
+    a: 'Yes. We currently carry out end of tenancy cleaning in vacant properties so the team can reach the full checklist without furniture, belongings or occupants blocking access.',
+  },
+  {
+    q: 'Do you include professional carpet cleaning?',
+    a: 'Professional carpet cleaning is an optional extra. You can add the carpeted rooms you need to the quote, and the price is shown before you submit the booking request.',
+  },
+  {
+    q: 'Do I need to be at the property?',
+    a: 'You do not need to stay during the clean if access and key arrangements have been agreed in advance. The property must be empty and the team must be able to reach every area included in the quote.',
+  },
+];
+
 const SCHEMA = JSON.stringify({
   '@context': 'https://schema.org',
   '@graph': [
@@ -24,24 +59,11 @@ const SCHEMA = JSON.stringify({
     },
     {
       '@type': 'FAQPage',
-      mainEntity: [
-        {
-          '@type': 'Question',
-          name: 'Does your clean meet letting agent standards?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Yes, on our Complete Agency-Ready package. We follow a 67-point checklist based on standard letting agency inventory requirements, and provide a photographic cleaning receipt you can share with your agent.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: `What is the ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee?`,
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: `If your letting agent or landlord flags any area of the clean within ${EOT_GUARANTEE_HOURS} hours of completion, we return to address it for free.`,
-          },
-        },
-      ],
+      mainEntity: FAQS.map((faq) => ({
+        '@type': 'Question',
+        name: faq.q,
+        acceptedAnswer: { '@type': 'Answer', text: faq.a },
+      })),
     },
   ],
 });
@@ -72,20 +94,7 @@ const DATA: ServiceLandingData = {
   processSection: <EotProcessSection />,
   sectionOrder: ['intro', 'process', 'faq', 'related'],
 
-  faqs: [
-    {
-      q: 'Does your clean meet letting agent standards?',
-      a: 'Yes, on our Complete Agency-Ready package. We follow a 67-point checklist based on standard letting agency inventory requirements, and provide a photographic cleaning receipt you can share with your agent.',
-    },
-    {
-      q: `What is the ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee?`,
-      a: `If your letting agent or landlord flags any area of the clean within ${EOT_GUARANTEE_HOURS} hours of completion, we return to address it for free. We ask that you send us a copy of the agent's feedback so we can prioritise the right areas.`,
-    },
-    {
-      q: 'Do you work in occupied properties?',
-      a: 'Not currently. We specialise in vacant properties — the property needs to be empty to allow us to clean to the full 67-point standard.',
-    },
-  ],
+  faqs: FAQS,
 
   relatedLinks: [
     { href: '/end-of-tenancy-cleaning-london', label: 'End of Tenancy Prices' },

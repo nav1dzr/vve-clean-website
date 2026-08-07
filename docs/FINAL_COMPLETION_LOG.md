@@ -29,7 +29,9 @@ This is the working record for the mobile-first completion branch. Items remain 
 | Blog | Legal guidance lacked sources and current review | Added GOV.UK sources and kept post noindex pending editorial sign-off | Fixed pending sign-off |
 | Media | Owner unsure how many photos can be uploaded | Added an asset workflow and size targets | Fixed |
 | Dependencies | Production and development advisories were present | Applied compatible targeted upgrades; `npm audit` now reports zero known vulnerabilities | Fixed and verified |
-| QA | Mobile, schema, metadata, content, test and build sweeps | 1,206 tests pass; typecheck, lint and production prerender pass | Fixed and verified |
+| QA | Mobile, schema, metadata, content, test and build sweeps | 1,209 tests pass; typecheck, lint and production prerender pass | Fixed and verified |
+| Visual feedback | The accessible dark-blue treatment felt too heavy and flat | Rebalanced heroes to a fresh teal-blue palette with a pale aqua accent; retained AA contrast | Fixed and verified |
+| Process FAQs | “How we clean” pages had only two or three useful questions and duplicated schema manually | Expanded each page to seven or eight questions and generate visible accordions and schema from one source | Fixed and verified |
 | Performance | Main client bundle remains a single 178.98 kB gzip chunk | Route splitting requires a separate SSR/client routing refactor; current bundle is usable but can be improved later | Optional follow-up |
 
 ## Owner inputs before deployment

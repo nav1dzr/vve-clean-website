@@ -25,6 +25,7 @@ VVE Clean should feel local, capable and easy to contact. The website is a booki
 - Body: Inter, 400 to 600 weight.
 - Primary ink: `#10243E`.
 - Action blue: `#0369A1`; hover `#075985`; dark `#0C4A6E`.
+- Hero gradient: fresh teal `#0F766E` through action blue to `#0B7199`.
 - Navy: `#020B24`.
 - Muted text: `#5B6B7C`.
 - Surface: `#F7FAFC`; line: `#DCE5EC`.
@@ -44,4 +45,3 @@ Use genuine VVE Clean work, team and equipment photos. Crop for the page subject
 - Put price qualifiers next to the price, not in distant small print.
 - Do not use fake booking notifications, countdowns or unverified "slots left" messages.
 - Show FAQ text visibly whenever FAQ structured data is present.
-

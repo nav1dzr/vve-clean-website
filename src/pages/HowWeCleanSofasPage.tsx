@@ -3,6 +3,37 @@ import SofaProofSection from '../components/sofa/SofaProofSection';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20a%20sofa%20cleaning%20quote.';
 
+const FAQS = [
+  {
+    q: 'How do I know if my sofa is safe to clean?',
+    a: 'We inspect the fabric and carry out a dye-stability test before applying cleaning solution. If the upholstery is not suitable for hot-water extraction, we explain the risk and do not continue without your agreement.',
+  },
+  {
+    q: 'Will the colours run or fade?',
+    a: 'The pre-clean test checks for colour movement. If there is a risk of bleeding or fading, we stop and discuss it with you before any full cleaning begins.',
+  },
+  {
+    q: 'How long does a sofa take to dry?',
+    a: 'Most fabric sofas dry within three to six hours. Thick fabrics may take longer. Good ventilation and a comfortably warm room help the upholstery dry more quickly.',
+  },
+  {
+    q: 'Can you guarantee every stain will come out?',
+    a: 'No. Fresh marks often respond better than older or previously treated stains. We inspect the fabric first and explain the likely result before cleaning, but permanent colour change or fibre damage cannot be cleaned away.',
+  },
+  {
+    q: 'Do you clean leather sofas?',
+    a: 'Not currently. This service is for fabric sofas, armchairs and suitable upholstery. Leather needs a specialist cleaning and conditioning process that we do not offer.',
+  },
+  {
+    q: 'How should I prepare the sofa?',
+    a: 'Please remove personal items, loose covers and anything fragile from around the sofa. Make sure there is clear access to the upholstery and tell us about any particular stains before the appointment.',
+  },
+  {
+    q: 'Do you bring the equipment and products?',
+    a: 'Yes. We bring the equipment and cleaning products needed for the confirmed upholstery service. Please provide any access or parking information before arrival.',
+  },
+];
+
 const SCHEMA = JSON.stringify({
   '@context': 'https://schema.org',
   '@graph': [
@@ -23,24 +54,11 @@ const SCHEMA = JSON.stringify({
     },
     {
       '@type': 'FAQPage',
-      mainEntity: [
-        {
-          '@type': 'Question',
-          name: 'How do I know if my sofa is safe to clean?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Before we start, we carry out a quick fabric and dye-stability test to confirm the upholstery is suitable for hot-water extraction. Most modern fabric sofas are compatible, and we will tell you honestly if a different method would give a better result.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Will the colours run or fade?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'We test for dye stability on every sofa before using any cleaning solution. If there is a risk of colour bleed, we let you know before starting and do not proceed without your agreement.',
-          },
-        },
-      ],
+      mainEntity: FAQS.map((faq) => ({
+        '@type': 'Question',
+        name: faq.q,
+        acceptedAnswer: { '@type': 'Answer', text: faq.a },
+      })),
     },
   ],
 });
@@ -71,16 +89,7 @@ const DATA: ServiceLandingData = {
   proofSection: <SofaProofSection />,
   sectionOrder: ['intro', 'proof', 'faq', 'related'],
 
-  faqs: [
-    {
-      q: 'How do I know if my sofa is safe to clean?',
-      a: 'Before we start, we carry out a quick fabric and dye-stability test to confirm the upholstery is suitable for hot-water extraction. Most modern fabric sofas are compatible, and we will tell you honestly if a different method would give a better result.',
-    },
-    {
-      q: 'Will the colours run or fade?',
-      a: 'We test for dye stability on every sofa before using any cleaning solution. If there is a risk of colour bleed, we let you know before starting and do not proceed without your agreement.',
-    },
-  ],
+  faqs: FAQS,
 
   relatedLinks: [
     { href: '/sofa-cleaning-london', label: 'Sofa & Upholstery Prices' },
