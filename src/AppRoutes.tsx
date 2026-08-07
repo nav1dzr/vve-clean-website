@@ -15,6 +15,9 @@ import GalleryPage from './pages/GalleryPage';
 import AreaPage from './pages/AreaPage';
 import BlogIndexPage from './pages/BlogIndexPage';
 import BlogPostPage from './pages/BlogPostPage';
+import HowWeCleanCarpetsPage from './pages/HowWeCleanCarpetsPage';
+import HowWeCleanSofasPage from './pages/HowWeCleanSofasPage';
+import HowWeCleanEndOfTenancyPage from './pages/HowWeCleanEndOfTenancyPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AREAS } from './data/areas';
 
@@ -41,6 +44,9 @@ export default function AppRoutes() {
       ))}
       <Route path="/blog" element={<BlogIndexPage />} />
       <Route path="/blog/:slug" element={<BlogPostPage />} />
+      <Route path="/how-we-clean-carpets" element={<HowWeCleanCarpetsPage />} />
+      <Route path="/how-we-clean-sofas-upholstery" element={<HowWeCleanSofasPage />} />
+      <Route path="/how-we-clean-end-of-tenancy" element={<HowWeCleanEndOfTenancyPage />} />
       {/* Client-side catch-all. This only covers in-app navigation to a bad
           link — the HTTP status for a cold request is decided by the server,
           via dist/404.html (prerender.mjs) and the absence of a catch-all
