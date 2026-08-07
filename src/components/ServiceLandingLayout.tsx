@@ -102,12 +102,15 @@ export interface ServiceLandingData {
   whyH2: string;
   whyPoints: string[];
 
-  // Pricing
-  pricingH2: string;
-  pricingIntro: string;
+  // Pricing. Optional as a group: a page with no pricing to show (e.g. a
+  // process/explainer page) omits 'pricing' from sectionOrder and leaves all
+  // three unset — the section then renders nothing rather than a heading
+  // with no content under it.
+  pricingH2?: string;
+  pricingIntro?: string;
   pricingRows?: { label: string; price: string }[];
   pricingNote?: string;
-  pricingCta: { href: string; label: string; isWa?: boolean };
+  pricingCta?: { href: string; label: string; isWa?: boolean };
 
   // Content for the optional 'media' section (e.g. page-specific proof
   // gallery). Rendered wherever 'media' falls in sectionOrder — between
@@ -337,7 +340,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
       </section>
     ),
 
-    pricing: (
+    pricing: !data.pricingH2 || !data.pricingCta ? null : (
       <section className="max-w-3xl mx-auto px-4 py-20">
         <div
           ref={pricingReveal.ref}

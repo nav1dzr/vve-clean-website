@@ -191,6 +191,37 @@ const routes = [
     priority: '0.8',
     sources: ['src/pages/AfterBuildersPage.tsx'],
   },
+  // ── Process pages ───────────────────────────────────────────────────────────
+  {
+    path: '/how-we-clean-carpets',
+    title: 'How We Clean Carpets in London | VVE Clean',
+    description: 'How VVE Clean cleans carpets in London — the inspection, pre-treatment and hot-water extraction process, step by step.',
+    ogTitle: 'How We Clean Carpets in London | VVE Clean',
+    ogDescription: 'The hot-water extraction process behind every VVE Clean carpet clean, step by step.',
+    changefreq: 'monthly',
+    priority: '0.6',
+    sources: ['src/pages/HowWeCleanCarpetsPage.tsx'],
+  },
+  {
+    path: '/how-we-clean-sofas-upholstery',
+    title: 'How We Clean Sofas & Upholstery in London | VVE Clean',
+    description: 'How VVE Clean cleans sofas and upholstery in London — the fabric test and hot-water extraction process, step by step.',
+    ogTitle: 'How We Clean Sofas & Upholstery in London | VVE Clean',
+    ogDescription: 'The fabric-test-then-extraction process behind every VVE Clean sofa clean, step by step.',
+    changefreq: 'monthly',
+    priority: '0.6',
+    sources: ['src/pages/HowWeCleanSofasPage.tsx'],
+  },
+  {
+    path: '/how-we-clean-end-of-tenancy',
+    title: 'How We Clean End of Tenancy in London | VVE Clean',
+    description: 'How VVE Clean carries out an end of tenancy clean — the 67-point checklist, free oven clean, photographic receipt and re-clean guarantee.',
+    ogTitle: 'How We Clean End of Tenancy in London | VVE Clean',
+    ogDescription: 'The 67-point checklist behind every VVE Clean end of tenancy clean, step by step.',
+    changefreq: 'monthly',
+    priority: '0.6',
+    sources: ['src/pages/HowWeCleanEndOfTenancyPage.tsx'],
+  },
   {
     path: '/gallery',
     title: 'Gallery | Real Cleaning Results | VVE Clean',
@@ -220,8 +251,56 @@ const notFoundRoute = {
   robots: 'noindex, follow',
 };
 
-const { render } = await import('./dist/server/entry-server.js');
+const { render, AREAS, areaHasRealProof, BLOG_POSTS } = await import('./dist/server/entry-server.js');
 const template = readFileSync(resolve(distDir, 'index.html'), 'utf-8');
+
+// ── Area landing pages — generated from src/data/areas.ts ───────────────────
+// Indexability is computed, not hardcoded: an area is `index, follow` once it
+// has real proof (a matching review, a tagged job photo/clip, or a true job
+// note — areaHasRealProof, shared with AreaProofSection so both agree), and
+// `noindex, follow` otherwise. Today that's Islington and Stratford, the only
+// two with a real tagged review; the rest flip over automatically the moment
+// real proof is added to src/data/areas.ts or a manifest, no code change
+// needed. See docs/LOCATION_PAGES_ASSESSMENT.md.
+for (const area of AREAS) {
+  const indexable = areaHasRealProof(area);
+  const postcodeLabel = area.postcodes.length > 0 ? ` (${area.postcodes.join(', ')})` : '';
+  routes.push({
+    path: `/cleaning-${area.slug}`,
+    title: `Cleaning in ${area.name}${postcodeLabel} | VVE Clean London`,
+    description: `End of tenancy, carpet and sofa & upholstery cleaning for ${area.name}. Fixed prices — the same as everywhere else we cover, no travel surcharge.`,
+    ogTitle: `Cleaning in ${area.name} | VVE Clean`,
+    ogDescription: `End of tenancy, carpet and sofa & upholstery cleaning for ${area.name}. Fixed prices, no travel surcharge.`,
+    robots: indexable ? 'index, follow' : 'noindex, follow',
+    changefreq: 'monthly',
+    priority: '0.6',
+    sources: ['src/pages/AreaPage.tsx', 'src/data/areas.ts'],
+  });
+}
+
+// ── Blog — generated from src/data/blog ─────────────────────────────────────
+routes.push({
+  path: '/blog',
+  title: 'Blog | Cleaning & Moving Guides | VVE Clean London',
+  description: 'Practical guides on cleaning, tenancy deposits and moving home in London, from VVE Clean.',
+  ogTitle: 'VVE Clean Blog',
+  ogDescription: 'Practical guides on cleaning, tenancy deposits and moving home in London.',
+  changefreq: 'weekly',
+  priority: '0.6',
+  sources: ['src/pages/BlogIndexPage.tsx', 'src/data/blog/index.ts'],
+});
+for (const post of BLOG_POSTS) {
+  routes.push({
+    path: `/blog/${post.slug}`,
+    title: `${post.title} | VVE Clean Blog`,
+    description: post.excerpt,
+    ogTitle: post.title,
+    ogDescription: post.excerpt,
+    changefreq: 'monthly',
+    priority: '0.5',
+    sources: ['src/pages/BlogPostPage.tsx', `src/data/blog/posts/${post.slug}.ts`],
+  });
+}
 
 /** Replaces a meta tag's content, or inserts the tag if the template lacks it. */
 function setMeta(html, matcher, replacement, insertAfter) {
