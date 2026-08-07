@@ -13,6 +13,8 @@ import EndOfTenancyPage from './pages/EndOfTenancyPage';
 import AfterBuildersPage from './pages/AfterBuildersPage';
 import GalleryPage from './pages/GalleryPage';
 import AreaPage from './pages/AreaPage';
+import BlogIndexPage from './pages/BlogIndexPage';
+import BlogPostPage from './pages/BlogPostPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AREAS } from './data/areas';
 
@@ -37,6 +39,8 @@ export default function AppRoutes() {
       {AREAS.map((area) => (
         <Route key={area.slug} path={`/cleaning-${area.slug}`} element={<AreaPage area={area} />} />
       ))}
+      <Route path="/blog" element={<BlogIndexPage />} />
+      <Route path="/blog/:slug" element={<BlogPostPage />} />
       {/* Client-side catch-all. This only covers in-app navigation to a bad
           link — the HTTP status for a cold request is decided by the server,
           via dist/404.html (prerender.mjs) and the absence of a catch-all

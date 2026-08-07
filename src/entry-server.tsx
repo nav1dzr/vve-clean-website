@@ -10,6 +10,7 @@ import { CookieConsentProvider } from './context/CookieConsentContext';
 // new build plumbing is needed.
 export { AREAS } from './data/areas';
 export { areaHasRealProof } from './lib/areaProof';
+export { BLOG_POSTS } from './data/blog';
 
 export function render(url: string): string {
   return renderToString(

@@ -220,7 +220,7 @@ const notFoundRoute = {
   robots: 'noindex, follow',
 };
 
-const { render, AREAS, areaHasRealProof } = await import('./dist/server/entry-server.js');
+const { render, AREAS, areaHasRealProof, BLOG_POSTS } = await import('./dist/server/entry-server.js');
 const template = readFileSync(resolve(distDir, 'index.html'), 'utf-8');
 
 // ── Area landing pages — generated from src/data/areas.ts ───────────────────
@@ -244,6 +244,30 @@ for (const area of AREAS) {
     changefreq: 'monthly',
     priority: '0.6',
     sources: ['src/pages/AreaPage.tsx', 'src/data/areas.ts'],
+  });
+}
+
+// ── Blog — generated from src/data/blog ─────────────────────────────────────
+routes.push({
+  path: '/blog',
+  title: 'Blog | Cleaning & Moving Guides | VVE Clean London',
+  description: 'Practical guides on cleaning, tenancy deposits and moving home in London, from VVE Clean.',
+  ogTitle: 'VVE Clean Blog',
+  ogDescription: 'Practical guides on cleaning, tenancy deposits and moving home in London.',
+  changefreq: 'weekly',
+  priority: '0.6',
+  sources: ['src/pages/BlogIndexPage.tsx', 'src/data/blog/index.ts'],
+});
+for (const post of BLOG_POSTS) {
+  routes.push({
+    path: `/blog/${post.slug}`,
+    title: `${post.title} | VVE Clean Blog`,
+    description: post.excerpt,
+    ogTitle: post.title,
+    ogDescription: post.excerpt,
+    changefreq: 'monthly',
+    priority: '0.5',
+    sources: ['src/pages/BlogPostPage.tsx', `src/data/blog/posts/${post.slug}.ts`],
   });
 }
 
