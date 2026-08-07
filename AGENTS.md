@@ -2,8 +2,11 @@
 
 These rules apply permanently to all work in this repository.
 
-- Never deploy.
-- Never merge to `main`.
+- Never push, merge to `main`, or deploy without Navid’s explicit written approval for that specific release.
+- After approval, merge only when every required check passes.
+- Never bypass branch protection, required checks, or GitHub’s normal merge process.
+- After an approved merge, monitor production deployment and verify the live website.
+- If deployment fails, stop and report the failure. Do not make speculative production changes.
 - Never change Production data.
 - Never change DNS.
 - Never change Stripe behaviour.
