@@ -142,7 +142,7 @@ describe('BookingPage — booking request wording', () => {
     renderBookingPage();
     expect(
       screen.getByText(
-        /Choose your preferred date, add your details and pay the £30 deposit\. We will confirm availability within one business hour\. Your deposit comes off the final total\./,
+        /Choose your preferred date, add your details and pay the £30 deposit\. We will confirm availability separately\. Your deposit comes off the final total\./,
       ),
     ).toBeInTheDocument();
   });
@@ -150,7 +150,7 @@ describe('BookingPage — booking request wording', () => {
   it('shows the required supporting text near the date fields', () => {
     renderBookingPage();
     expect(
-      screen.getByText(/Choose your preferred date and arrival window\. We will confirm availability within one business hour\./),
+      screen.getByText(/Choose your preferred date and arrival window\. We will confirm availability separately\./),
     ).toBeInTheDocument();
   });
 
@@ -199,6 +199,21 @@ describe('BookingPage — accessible labels on property/contact fields', () => {
     const describedBy = fullNameInput.getAttribute('aria-describedby');
     expect(describedBy).toBeTruthy();
     expect(document.getElementById(describedBy!)).toHaveAttribute('role', 'alert');
+  });
+
+  it('focuses the first invalid control and exposes native required semantics', async () => {
+    const user = userEvent.setup();
+    renderBookingPage();
+
+    const fullName = screen.getByLabelText(/full name/i);
+    expect(fullName).toBeRequired();
+    expect(screen.getByLabelText(/^address/i)).toBeRequired();
+    expect(screen.getByLabelText(/postcode/i)).toBeRequired();
+    expect(screen.getByLabelText(/preferred date/i)).toBeRequired();
+    expect(screen.getByLabelText(/preferred arrival window/i)).toBeRequired();
+
+    await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
+    await waitFor(() => expect(fullName).toHaveFocus());
   });
 });
 

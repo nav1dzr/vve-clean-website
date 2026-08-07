@@ -9,8 +9,8 @@ const SCHEMA = JSON.stringify({
     {
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://vveclean.co.uk' },
-        { '@type': 'ListItem', position: 2, name: 'Commercial Carpet Cleaning London', item: 'https://vveclean.co.uk/commercial-carpet-cleaning-london' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.vveclean.co.uk' },
+        { '@type': 'ListItem', position: 2, name: 'Commercial Carpet Cleaning London', item: 'https://www.vveclean.co.uk/commercial-carpet-cleaning-london' },
       ],
     },
     {
@@ -18,9 +18,9 @@ const SCHEMA = JSON.stringify({
       name: 'Commercial Carpet Cleaning London',
       description:
         'Professional commercial carpet cleaning for offices, hotels and retail units across London. Out-of-hours visits, RAMS available, fast drying times — priced per area with a written quote.',
-      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://vveclean.co.uk', telephone: '+442080502233' },
+      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
-      url: 'https://vveclean.co.uk/commercial-carpet-cleaning-london',
+      url: 'https://www.vveclean.co.uk/commercial-carpet-cleaning-london',
     },
     {
       '@type': 'FAQPage',
@@ -38,7 +38,7 @@ const SCHEMA = JSON.stringify({
           name: 'How is commercial carpet cleaning priced?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'We price per area (square metres) with a minimum visit charge. We visit your site, measure the areas to clean, and provide a fixed written quote the same day — no obligation.',
+            text: 'We price from the area, access, condition and agreed scope. After reviewing the site, VVE Clean provides a written quote before work is agreed.',
           },
         },
         {
@@ -90,7 +90,7 @@ const DATA: ServiceLandingData = {
 
   introH2: 'Professional carpet cleaning that fits around your business',
   introText:
-    'A clean, well-maintained carpet makes an immediate impression on clients and staff. Our commercial carpet cleaning service uses the same hot-water extraction method used in premium hotels and corporate offices — powerful enough for heavy traffic, fast enough to minimise business disruption. We provide a free site visit, measure your areas, and give you a fixed written quote the same day. We operate across East London and North London and cover sites up to 5,000 sq ft on a single visit.',
+    'Commercial carpet cleaning is planned around the carpet type, traffic, access and the hours your site can accommodate. We inspect the areas, agree the scope and provide a written quote before work starts. Send the address and approximate floor area to begin.',
 
   benefitsH2: 'Why facilities managers choose VVE Clean',
   benefits: [
@@ -122,17 +122,17 @@ const DATA: ServiceLandingData = {
     'Pre-inspection of traffic patterns and stain types',
     'Pre-treatment on high-traffic zones and stains',
     'Hot-water extraction with commercial-grade equipment',
-    'RAMS and insurance certificates on request',
-    'Out-of-hours and weekend visits available',
-    'Monthly invoicing on 14-day payment terms (contract clients)',
-    'No long lock-ins — 30 days’ notice, that’s it',
+    'Insurance certificate available on request',
+    'Required site documents confirmed in the written scope',
+    'Visit timing agreed around site access',
+    'Billing and notice terms confirmed before a contract starts',
   ],
 
   pricingH2: 'Commercial carpet cleaning pricing',
   pricingIntro:
-    'Commercial pricing is based on area, access and soiling level. We visit, measure and provide a fixed written quote the same day. No obligation.',
+    'Commercial pricing is based on area, access, carpet construction, condition and the agreed task list. A written quote is supplied before work is agreed.',
   pricingNote:
-    'Send us your site address via WhatsApp and we will book a free survey within 48 hours. Every quote is fixed in writing before we start.',
+    'Send the site address, approximate floor area and preferred visit window on WhatsApp. VVE Clean will reply with the next steps for reviewing the site.',
   pricingCta: {
     href: WA,
     label: 'Request a site visit',
@@ -146,7 +146,7 @@ const DATA: ServiceLandingData = {
     },
     {
       q: 'How is commercial carpet cleaning priced?',
-      a: 'We price per area (square metres) with a minimum visit charge. We visit your site, measure the areas to clean, and provide a fixed written quote the same day — no obligation.',
+      a: 'We price from the area, access, carpet construction, condition and agreed scope. After reviewing the site, VVE Clean provides a written quote before work is agreed.',
     },
     {
       q: 'What carpet types can you clean commercially?',
@@ -158,7 +158,7 @@ const DATA: ServiceLandingData = {
     },
     {
       q: 'Can you set up a regular maintenance contract?',
-      a: 'Yes. Many offices and landlords book us for quarterly or biannual deep cleans on a rolling contract. Regular clients get priority scheduling and consolidated monthly invoicing on 14-day terms.',
+      a: 'A maintenance schedule can be included in the quote. Visit frequency, invoicing and notice terms are agreed in writing before the contract starts.',
     },
   ],
 
@@ -170,9 +170,9 @@ const DATA: ServiceLandingData = {
     { href: '/pricing', label: 'Pricing' },
   ],
 
-  ctaH2: 'Get a fixed quote this week.',
+  ctaH2: 'Request a written commercial quote.',
   ctaBody:
-    'We visit your site within 48 hours and deliver a written quote the same day. No obligation — and no surprises once work starts.',
+    'Send the address, approximate floor area and access requirements. VVE Clean will confirm the review process and provide a written quote before work starts.',
   ctaPrimary: {
     href: WA,
     label: 'WhatsApp your site address',

@@ -10,17 +10,17 @@ const SCHEMA = JSON.stringify({
     {
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://vveclean.co.uk' },
-        { '@type': 'ListItem', position: 2, name: 'How We Clean for End of Tenancy', item: 'https://vveclean.co.uk/how-we-clean-end-of-tenancy' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.vveclean.co.uk' },
+        { '@type': 'ListItem', position: 2, name: 'How We Clean for End of Tenancy', item: 'https://www.vveclean.co.uk/how-we-clean-end-of-tenancy' },
       ],
     },
     {
       '@type': 'Service',
       name: 'How We Clean for End of Tenancy',
       description: `How VVE Clean carries out an end of tenancy clean in London — the 67-point checklist, free oven clean, photographic receipt and ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee.`,
-      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://vveclean.co.uk', telephone: '+442080502233' },
+      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
-      url: 'https://vveclean.co.uk/how-we-clean-end-of-tenancy',
+      url: 'https://www.vveclean.co.uk/how-we-clean-end-of-tenancy',
     },
     {
       '@type': 'FAQPage',
@@ -95,7 +95,7 @@ const DATA: ServiceLandingData = {
   ],
 
   ctaH2: 'Ready to book your end of tenancy clean?',
-  ctaBody: 'Book online in 2 minutes and pay a £30 deposit to reserve your requested appointment. It comes off the final balance, and we confirm availability within one business hour.',
+  ctaBody: 'Send your booking request online. The £30 deposit is deducted from the final total, and availability is confirmed separately.',
   ctaPrimary: { href: '/booking', label: 'Book online now' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };

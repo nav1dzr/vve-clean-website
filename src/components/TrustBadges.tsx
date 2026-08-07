@@ -5,7 +5,7 @@ import { useReveal } from '../hooks/useReveal';
 // trust row; other sections should not repeat these same claims.
 const badges = [
   { icon: Shield,      label: '£5m Public Liability',  sub: 'Fully insured' },
-  { icon: CheckCircle, label: 'DBS Checked',            sub: 'Every cleaner vetted' },
+  { icon: CheckCircle, label: 'Direct Contact',         sub: 'Speak with VVE Clean' },
   // sub was "5.0 average rating". A fourth unsubstantiated copy of the rating
   // claim — see src/data/googleRating.ts. The reviews themselves are real and
   // public, which is what this badge now says.

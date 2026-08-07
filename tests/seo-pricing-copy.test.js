@@ -1,9 +1,8 @@
 // Customer-visible price claims outside React must match the canonical
 // catalogue.
 //
-// Neither the no-JavaScript fallback in index.html nor the prerendered meta
-// descriptions import pricing.ts, so nothing stops them drifting on their
-// own. This reads the real files and compares against the real constants
+// Prerendered meta descriptions do not import pricing.ts, so nothing stops
+// them drifting on their own. This reads the real files and compares against the real constants
 // (EOT_BASE_PRICES_P.studio is the approved £199 Complete starting price),
 // so the next edit that invents a price fails here rather than reaching a
 // customer.
@@ -17,7 +16,6 @@ import {
   MOVEIN_BASE_PRICES_P,
   AFTER_BUILDERS_START_FROM_P,
   CARPET_ITEM_PRICES_P,
-  CARPET_MIN_BOOKING_P,
 } from '../src/data/pricing.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -33,30 +31,11 @@ const FROM = {
   moveIn: gbp(MOVEIN_BASE_PRICES_P.studio),    // £179
   afterBuilders: gbp(AFTER_BUILDERS_START_FROM_P), // £249
   carpetRoom: gbp(CARPET_ITEM_PRICES_P.bedroom),   // £50
-  sofa: gbp(CARPET_ITEM_PRICES_P.sofa_2),          // £75
-  carpetMinimum: gbp(CARPET_MIN_BOOKING_P),        // £85
 };
 
-describe('no-JavaScript fallback quotes the catalogue', () => {
-  const noscript = indexHtml.match(/<noscript>([\s\S]*?)<\/noscript>/)[1];
-
-  it.each([
-    ['end of tenancy', FROM.eot],
-    ['move-in deep clean', FROM.moveIn],
-    ['after builders', FROM.afterBuilders],
-  ])('states the correct %s price (%s)', (_label, price) => {
-    expect(noscript).toContain(price);
-  });
-
-  it('describes carpet by its real per-item pricing and minimum', () => {
-    expect(noscript).toContain(FROM.carpetRoom);
-    expect(noscript).toContain(FROM.sofa);
-    expect(noscript).toContain(FROM.carpetMinimum);
-  });
-
-  it('no longer carries the superseded figures', () => {
-    expect(noscript).not.toContain('£229');
-    expect(noscript).not.toMatch(/upholstery — from £90/);
+describe('server-rendered pages remain the no-JavaScript source of truth', () => {
+  it('does not duplicate a separate, manually maintained price list in noscript', () => {
+    expect(indexHtml).not.toContain('<noscript>');
   });
 });
 

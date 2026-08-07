@@ -7,6 +7,12 @@ import { CookieConsentProvider } from './context/CookieConsentContext';
 export default function App() {
   return (
     <BrowserRouter>
+      <a
+        href="#main-content"
+        className="fixed left-3 top-3 z-[100] -translate-y-24 rounded-lg bg-navy-950 px-4 py-3 font-semibold text-white shadow-xl transition-transform focus:translate-y-0"
+      >
+        Skip to main content
+      </a>
       <ScrollToTop />
       <CookieConsentProvider>
         {/* Records utm_* / gclid on entry to ANY public route, not just

@@ -77,6 +77,13 @@ describe('social share image', () => {
 });
 
 describe('indexing', () => {
+  it('does not duplicate stale homepage content in a noscript block', () => {
+    // Every route is server-rendered during the production build. A global
+    // noscript fallback would therefore add a second H1 and stale homepage
+    // pricing to every prerendered page.
+    expect(indexHtml).not.toContain('<noscript>');
+  });
+
   it('defaults the template to indexable', () => {
     expect(indexHtml).toContain('<meta name="robots" content="index, follow" />');
   });
@@ -167,17 +174,16 @@ describe('sitemap', () => {
 });
 
 describe('GA4 wiring', () => {
-  it('adds a gtag config call after the Ads tag, sharing the same loader and Consent Mode gate', () => {
+  it('keeps the Ads tag consent-gated without sending a placeholder GA4 request', () => {
     const adsIndex = indexHtml.indexOf("gtag('config', 'AW-18214693277')");
-    const ga4Index = indexHtml.indexOf("gtag('config', 'G-");
     expect(adsIndex).toBeGreaterThan(-1);
-    expect(ga4Index).toBeGreaterThan(adsIndex);
+    expect(indexHtml).not.toContain('G-XXXXXXXXXX');
 
     // Must come after the Consent Mode v2 default-deny block, not before it —
     // otherwise the GA4 config call would fire before consent state exists.
     const consentDefaultIndex = indexHtml.indexOf("gtag('consent', 'default'");
     expect(consentDefaultIndex).toBeGreaterThan(-1);
-    expect(ga4Index).toBeGreaterThan(consentDefaultIndex);
+    expect(adsIndex).toBeGreaterThan(consentDefaultIndex);
 
     // No second gtag.js loader — GA4 shares the Ads tag's script src.
     expect(indexHtml.match(/googletagmanager\.com\/gtag\/js/g)).toHaveLength(1);

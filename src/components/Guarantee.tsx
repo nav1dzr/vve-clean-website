@@ -119,8 +119,8 @@ export default function Guarantee() {
             <Shield size={16} className="flex-shrink-0" />
             Book with confidence
           </a>
-          <p className="text-silver-500 text-xs mt-3">
-            Questions? WhatsApp us before you book — we reply within minutes.
+          <p className="text-silver-300 text-xs mt-3">
+            Questions? WhatsApp us before you book.
           </p>
         </div>
 

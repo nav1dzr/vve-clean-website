@@ -144,9 +144,9 @@ describe('Carpet page order', () => {
     expect(container.querySelectorAll('video')).toHaveLength(4);
   });
 
-  it('still mentions DBS exactly once', () => {
+  it('does not publish an unverified universal DBS claim', () => {
     const { container } = renderPage(<CarpetCleaningPage />, '/carpet-cleaning-london');
-    expect((container.textContent ?? '').match(/DBS/g) ?? []).toHaveLength(1);
+    expect(container.textContent ?? '').not.toMatch(/DBS/);
   });
 
   it('keeps the carpet quote reachable and working', () => {

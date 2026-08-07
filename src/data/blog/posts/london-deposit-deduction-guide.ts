@@ -9,7 +9,7 @@ export const londonDepositDeductionGuide: BlogPost = {
   slug: 'london-deposit-deduction-guide',
   title: 'London Deposit Deduction Guide: What Landlords Can and Can’t Claim',
   excerpt:
-    'A plain-English guide to tenancy deposit protection, common deduction reasons, wear and tear vs. damage, and how to dispute an unfair deduction in England and Wales.',
+    'A plain-English guide to tenancy deposit protection, common deduction reasons, wear and tear and disputes for renters in England.',
   publishedDate: '2026-08-07',
   category: 'End of Tenancy',
   relatedServiceHref: '/end-of-tenancy-cleaning-london',
@@ -18,13 +18,13 @@ export const londonDepositDeductionGuide: BlogPost = {
     {
       type: 'paragraph',
       content:
-        'If you’re moving out of a rented home in London, your deposit is very likely your biggest single incentive to get the handover right. This guide covers how deposit protection works, what a landlord can and can’t legitimately deduct for, and what to do if you disagree with a deduction.',
+        'If you are moving out of a rented home in London, compare the check-in record with the condition at check-out and keep your evidence. This guide gives general information about deposit protection and disputes in England. It is not legal advice.',
     },
     { type: 'heading', text: 'Your deposit has to be protected by law', id: 'protection' },
     {
       type: 'paragraph',
       content:
-        'Since 2007, any landlord in England or Wales taking a deposit on an assured shorthold tenancy must protect it in one of three government-approved schemes within 30 days of receiving it:',
+        'For deposits covered by the tenancy deposit protection rules in England, the landlord or agent must use a government-approved scheme and normally protect the money within 30 days of receiving it:',
     },
     {
       type: 'list',
@@ -37,7 +37,7 @@ export const londonDepositDeductionGuide: BlogPost = {
     {
       type: 'paragraph',
       content:
-        'You should be given the scheme’s name, contact details and the "prescribed information" explaining how the protection works. If a landlord hasn’t protected your deposit correctly, you can raise this with the scheme directly.',
+        'You should receive information about the scheme, how the deposit is protected and how disputes are handled. GOV.UK explains the options if you believe the deposit was not protected correctly; a court claim may be involved, so get advice before taking that step.',
     },
     { type: 'heading', text: 'What landlords can legitimately deduct for', id: 'legitimate-deductions' },
     {
@@ -70,7 +70,7 @@ export const londonDepositDeductionGuide: BlogPost = {
     {
       type: 'paragraph',
       content:
-        'The tenancy agreement usually requires the property to be returned in a similar standard of cleanliness to check-in — not necessarily "professionally cleaned" unless the check-in inventory shows it was professionally cleaned beforehand. Ovens, extractor fans, bathroom grout and inside of appliances are the areas most often flagged, because everyday cleaning routines tend to skip them. A dated, itemised cleaning receipt from the move-out clean is one of the simplest pieces of evidence you can hold onto if a cleanliness deduction is raised later.',
+        'The check-in inventory, tenancy terms and check-out evidence are important when cleanliness is disputed. A receipt can show that cleaning took place, but it does not by itself decide whether a deduction is valid. Keep dated photos, the inventory, the cleaning scope and any written comments from the agent or landlord.',
     },
     { type: 'heading', text: 'What to do if you disagree with a deduction', id: 'disputes' },
     {
@@ -79,13 +79,13 @@ export const londonDepositDeductionGuide: BlogPost = {
         'Compare the check-in and check-out inventories side by side — photos with dates are the strongest evidence',
         'Ask the landlord or agent for an itemised breakdown and evidence of the actual cost (invoices, quotes)',
         'Reply in writing, explaining which items you dispute and why',
-        'If you can’t agree, use the deposit scheme’s free alternative dispute resolution (ADR) service — this is available whenever the deposit was protected in a custodial or insured scheme, and doesn’t require going to court',
+        'If you cannot agree, check the dispute service and deadlines published by the scheme protecting the deposit',
       ],
     },
     {
       type: 'paragraph',
       content:
-        'The ADR adjudicator looks at the evidence both sides submit — photos, the inventory, receipts and correspondence — and their decision is binding on both parties for that dispute.',
+        'A deposit dispute is evidence-led. Keep the inventory, dated photos, receipts, quotes and written correspondence together so you can submit the records requested by the scheme.',
     },
     { type: 'heading', text: 'Reducing the risk of a deduction', id: 'reducing-risk' },
     {
@@ -93,5 +93,10 @@ export const londonDepositDeductionGuide: BlogPost = {
       content:
         'Most disputes come down to a mismatch between the check-in and check-out condition, and cleanliness is one of the easiest parts of that to control. Photographing the property room by room before you hand back the keys, checking your tenancy agreement for what’s specifically expected, and keeping a dated receipt for any move-out cleaning all reduce the room for disagreement later.',
     },
+  ],
+  sources: [
+    { label: 'GOV.UK: Tenancy deposit protection overview', href: 'https://www.gov.uk/tenancy-deposit-protection' },
+    { label: 'GOV.UK: Information landlords must give tenants', href: 'https://www.gov.uk/tenancy-deposit-protection/information-landlords-must-give-tenants' },
+    { label: 'GOV.UK: Deposit disputes and problems', href: 'https://www.gov.uk/tenancy-deposit-protection/disputes-and-problems' },
   ],
 };

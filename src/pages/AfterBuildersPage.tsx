@@ -10,8 +10,8 @@ const SCHEMA = JSON.stringify({
     {
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://vveclean.co.uk' },
-        { '@type': 'ListItem', position: 2, name: 'After Builders Cleaning London', item: 'https://vveclean.co.uk/after-builders-cleaning-london' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.vveclean.co.uk' },
+        { '@type': 'ListItem', position: 2, name: 'After Builders Cleaning London', item: 'https://www.vveclean.co.uk/after-builders-cleaning-london' },
       ],
     },
     {
@@ -19,9 +19,9 @@ const SCHEMA = JSON.stringify({
       name: 'After Builders Cleaning London',
       description:
         `Post-construction cleaning in London from £${AFTER_BUILDERS_START_FROM_P / 100}. We remove fine dust, paint specks, sticker residue and construction debris — leaving your space spotless and move-in ready.`,
-      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://vveclean.co.uk', telephone: '+442080502233' },
+      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
-      url: 'https://vveclean.co.uk/after-builders-cleaning-london',
+      url: 'https://www.vveclean.co.uk/after-builders-cleaning-london',
       offers: [
         { '@type': 'Offer', name: 'After Builders Clean', price: String(AFTER_BUILDERS_START_FROM_P / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_START_FROM_P / 100} — estimated price confirmed by photo before work starts.` },
         { '@type': 'Offer', name: 'After Builders — Studio', price: String(AFTER_BUILDERS_FROM_PRICES_P.studio / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_FROM_PRICES_P.studio / 100} — studio flat.` },
@@ -149,7 +149,7 @@ const DATA: ServiceLandingData = {
     { label: '5+ bedrooms / large commercial',    price: 'Site survey — manual quote' },
   ],
   pricingNote:
-    'Send us photos of the space via WhatsApp and we will confirm your fixed price within the hour. The extent of dust, paint and debris varies enormously from job to job — a photo lets us quote accurately so there are no surprises on the day.',
+    'Send us photos of the space via WhatsApp. The extent of dust, paint and debris varies enormously from job to job, so photos help us review the scope and confirm a useful price before work starts.',
   pricingCta: {
     href: WA_PHOTO,
     label: 'WhatsApp photos for a quote',
@@ -189,7 +189,7 @@ const DATA: ServiceLandingData = {
 
   ctaH2: 'Ready to see your space properly clean?',
   ctaBody:
-    'WhatsApp us a few photos and we will confirm your fixed price within the hour. No obligation, no surprises.',
+    'WhatsApp us a few photos and the property details so we can review the scope and confirm a price before work starts.',
   ctaPrimary: {
     href: WA_PHOTO,
     label: 'WhatsApp photos now',

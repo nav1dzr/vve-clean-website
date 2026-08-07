@@ -44,7 +44,7 @@ const services = [
     price: `FROM £${AFTER_BUILDERS_START_FROM_P / 100}`,
     priceFixed: false,
     description:
-      'Fine dust, paint specks, sticker residue and debris. Final price confirmed after a quick photo via WhatsApp — we\'ll reply within the hour.',
+      'Fine dust, paint specks, sticker residue and debris. Send photos on WhatsApp so we can review the scope.',
     cta: 'WhatsApp a photo →',
     ctaHref: WA_LINK,
     ctaExternal: true,
@@ -56,7 +56,7 @@ const services = [
     price: `FROM £${CARPET_MIN_BOOKING_P / 100}`,
     priceFixed: false,
     description:
-      'Professional hot-water extraction for carpets, rugs and sofas. Removes stains, odours and allergens. Dry in hours, not days.',
+      'Hot-water extraction for suitable carpets, rugs and upholstery, with fabric or fibre checks where needed.',
     cta: 'Get your price →',
     ctaHref: '#quote',
     featured: false,
@@ -101,7 +101,7 @@ const services = [
     price: `FROM £${GARDEN_SERVICES_FROM_P / 100}`,
     priceFixed: false,
     description:
-      'Lawn mowing, hedge trimming, weeding and garden tidy-ups with green-waste removal. Send a photo of your garden — priced in minutes.',
+      'Lawn mowing, hedge trimming, weeding and garden tidy-ups with green-waste removal. Send a photo so we can review the work.',
     cta: 'WhatsApp a photo →',
     ctaHref: WA_LINK,
     ctaExternal: true,

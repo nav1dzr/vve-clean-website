@@ -13,7 +13,7 @@ function WhatsAppIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-export default function Contact() {
+export default function Contact({ standalone = false }: { standalone?: boolean }) {
   const { ref, visible } = useReveal();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -80,9 +80,13 @@ export default function Contact() {
             <Mail size={12} className="text-royal-600" />
             <span className="text-royal-600 text-xs tracking-widest font-semibold uppercase">Get in Touch</span>
           </div>
-          <h2 className="section-heading mb-4">Contact VVE Clean</h2>
+          {standalone ? (
+            <h1 className="section-heading mb-4">Contact VVE Clean</h1>
+          ) : (
+            <h2 className="section-heading mb-4">Contact VVE Clean</h2>
+          )}
           <p className="section-subheading mx-auto">
-            We usually reply within the hour — message us anytime on WhatsApp.
+            Tell us what you need and your preferred date. For a quick question, use WhatsApp.
           </p>
         </div>
 
@@ -94,7 +98,7 @@ export default function Contact() {
             <div>
               <h3 className="font-display text-2xl font-bold text-white mb-2">Get in Touch</h3>
               <p className="text-silver-300 text-sm mb-8 leading-relaxed">
-                Our team is ready to help. Contact us today for a free consultation or instant quote.
+                Send the property postcode, service and preferred date so we can give you a useful answer.
               </p>
 
               <div className="space-y-5">
@@ -195,7 +199,7 @@ export default function Contact() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="John Smith"
-                      className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-royal-400 transition-colors"
+                      className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:border-royal-500 transition-colors"
                       required
                       aria-required="true"
                       {...(error ? { 'aria-describedby': 'contact-error' } : {})}
@@ -210,7 +214,7 @@ export default function Contact() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="john@example.com"
-                      className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-royal-400 transition-colors"
+                      className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:border-royal-500 transition-colors"
                       required
                       aria-required="true"
                       {...(error ? { 'aria-describedby': 'contact-error' } : {})}
@@ -228,7 +232,7 @@ export default function Contact() {
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="07845 451111"
                     aria-describedby="contact-phone-hint"
-                    className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-royal-400 transition-colors"
+                    className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:border-royal-500 transition-colors"
                   />
                   <p id="contact-phone-hint" className="sr-only">Optional</p>
                 </div>
@@ -242,7 +246,7 @@ export default function Contact() {
                     onChange={(e) => setMessage(e.target.value)}
                     rows={5}
                     placeholder="Tell us about the service you need, your property, preferred dates..."
-                    className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-royal-400 transition-colors resize-none"
+                    className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:border-royal-500 transition-colors resize-none"
                     required
                     aria-required="true"
                     {...(error ? { 'aria-describedby': 'contact-error' } : {})}
@@ -286,7 +290,7 @@ export default function Contact() {
                   <a href={WA_LINK} target="_blank" rel="noopener noreferrer" className="text-green-600 font-medium hover:underline">
                     chat with us on WhatsApp
                   </a>{' '}
-                  for an instant reply.
+                  if you would rather message.
                 </p>
               </form>
             )}

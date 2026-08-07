@@ -296,20 +296,12 @@ function CarpetItemRows({
   );
 }
 
-// Trust strip beside the price. The DBS line is singled out because the Carpet
-// landing page already states the same credential in its hero, directly under
-// the Google rating ("Fully insured · DBS-checked technicians"). Repeating it a
-// few hundred pixels below reads as padding rather than reassurance, so carpet
-// mode drops this one line — and only this one line, on only that mode. The
-// homepage, /leaflet and every other service page still show all five.
-const DBS_TRUST_ITEM = 'DBS-checked, vetted cleaners';
-
 const TRUST_ITEMS = [
   '£5m public liability insurance',
-  DBS_TRUST_ITEM,
-  '72hr re-clean guarantee',
-  'No hidden fees — fixed prices',
+  'Clear scope before work starts',
+  'Published prices for standard services',
   'Secure Stripe checkout',
+  'Direct contact with VVE Clean',
 ];
 
 // ─── Session-restore helper ───────────────────────────────────────────────────
@@ -361,7 +353,11 @@ export default function QuoteCalculator({
   // Any locked mode forces a single deep-service branch and hides the
   // Service Type switcher — only 'all-services' lets the visitor choose.
   const focusGroup: 'Carpets' | 'Sofas & Upholstery' | null =
-    isCarpetFocused ? 'Carpets' : isUpholsteryFocused ? 'Sofas & Upholstery' : null;
+    isCarpetFocused || homepageService === 'carpet'
+      ? 'Carpets'
+      : isUpholsteryFocused || homepageService === 'upholstery'
+        ? 'Sofas & Upholstery'
+        : null;
   const [deepService,   setDeepService]   = useState<DeepServiceType>(
     () => isEotFocused
       ? 'end_of_tenancy'
@@ -370,7 +366,9 @@ export default function QuoteCalculator({
         // A restored quote wins over the homepage card selection, so coming
         // back from BookingPage via "Back to quote" reopens what the customer
         // actually had rather than resetting them to the card they first hit.
-        : ((_restore?.deepService as DeepServiceType | undefined) ?? homepageService ?? 'carpet_upholstery'),
+        : ((_restore?.deepService as DeepServiceType | undefined)
+          ?? (homepageService === 'carpet' || homepageService === 'upholstery' ? 'carpet_upholstery' : homepageService)
+          ?? 'carpet_upholstery'),
   );
   const [deepSize,      setDeepSize]      = useState<SizeKey>(
     () => (_restore?.deepSize as SizeKey | undefined) ?? 'bed2',
@@ -714,7 +712,8 @@ export default function QuoteCalculator({
   // without showing this step first.
   if (homepageMode && !homepageService && !_restore) {
     const homepageOptions: Array<{ value: HomepageQuoteService; label: string }> = [
-      { value: 'carpet_upholstery', label: 'Carpet or upholstery cleaning' },
+      { value: 'carpet', label: 'Carpet cleaning' },
+      { value: 'upholstery', label: 'Sofa or upholstery cleaning' },
       { value: 'end_of_tenancy', label: 'End of tenancy cleaning' },
       { value: 'move_in', label: 'Move-in deep cleaning' },
       { value: 'after_builders', label: 'After-builders cleaning' },
@@ -961,8 +960,8 @@ export default function QuoteCalculator({
               {service === 'deep' && (
                 <>
                   {/* Service Type selector — carpet is first */}
-                  {mode === 'all-services' && <div>
-                    <label className="block text-navy-900 font-semibold text-sm mb-2">Service Type</label>
+                  {mode === 'all-services' && <fieldset>
+                    <legend className="block text-navy-900 font-semibold text-sm mb-2">Service Type</legend>
                     <div className="grid grid-cols-2 gap-1.5">
                       {(Object.keys(DEEP_SERVICE_LABELS) as DeepServiceType[]).map((k) => (
                         <button key={k} type="button"
@@ -976,7 +975,8 @@ export default function QuoteCalculator({
                             // clicked.
                             onHomepageServiceChange?.(k as HomepageQuoteService);
                           }}
-                          className={`py-2.5 px-3 rounded-xl border-2 text-xs font-semibold text-left transition-all duration-200 ${
+                          aria-pressed={deepService === k}
+                          className={`min-h-[44px] py-2.5 px-3 rounded-xl border-2 text-xs font-semibold text-left transition-all duration-200 ${
                             deepService === k
                               ? 'border-royal-500 bg-royal-50 text-royal-700'
                               : 'border-silver-200 text-navy-700 hover:border-royal-300'
@@ -985,7 +985,7 @@ export default function QuoteCalculator({
                         </button>
                       ))}
                     </div>
-                  </div>}
+                  </fieldset>}
 
                   {/* ── After builders: photo-quote callout ── */}
                   {isAfterBuilders && (
@@ -1002,8 +1002,8 @@ export default function QuoteCalculator({
                   {isCarpet && (
                     <>
                       {/* Condition selector */}
-                      <div>
-                        <label className="block text-navy-900 font-semibold text-sm mb-2">Condition</label>
+                      <fieldset>
+                        <legend className="block text-navy-900 font-semibold text-sm mb-2">Condition</legend>
                         <div className="grid grid-cols-3 gap-1.5">
                           {([
                             ['normal',   'Normal'],
@@ -1011,7 +1011,8 @@ export default function QuoteCalculator({
                             ['delicate', 'Delicate (wool, silk, velvet)'],
                           ] as [CarpetCondition, string][]).map(([k, l]) => (
                             <button key={k} type="button" onClick={() => setCarpetCondition(k)}
-                              className={`py-2 px-1.5 rounded-xl border-2 text-[11px] font-semibold text-center leading-tight transition-all duration-200 ${
+                              aria-pressed={carpetCondition === k}
+                              className={`min-h-[44px] py-2 px-1.5 rounded-xl border-2 text-[11px] font-semibold text-center leading-tight transition-all duration-200 ${
                                 carpetCondition === k
                                   ? k === 'heavy'   ? 'border-amber-400 bg-amber-50 text-amber-800'
                                   : k === 'delicate' ? 'border-purple-400 bg-purple-50 text-purple-700'
@@ -1038,7 +1039,7 @@ export default function QuoteCalculator({
                             </p>
                           </div>
                         )}
-                      </div>
+                      </fieldset>
 
                       {/* Item groups.
                           - 'all-services' (homepage, /leaflet): both groups
@@ -1194,12 +1195,13 @@ export default function QuoteCalculator({
                       )}
 
                       {/* Property size */}
-                      <div>
-                        <label className="block text-navy-900 font-semibold text-sm mb-2">Property Size</label>
+                      <fieldset>
+                        <legend className="block text-navy-900 font-semibold text-sm mb-2">Property Size</legend>
                         <div className={`grid gap-1.5 ${isEot ? 'grid-cols-3' : 'grid-cols-5'}`}>
                           {([['studio','Studio'],['bed1','1 Bed'],['bed2','2 Bed'],['bed3','3 Bed'],['bed4', isEot ? '4 Bed' : '4+ Bed']] as [SizeKey, string][]).map(([k, l]) => (
                             <button key={k} type="button" onClick={() => { setDeepSize(k); setEotTailoredQuote(false); }}
-                              className={`py-2.5 rounded-xl border-2 text-xs font-bold transition-all duration-200 ${
+                              aria-pressed={!eotTailoredQuote && deepSize === k}
+                              className={`min-h-[44px] py-2.5 rounded-xl border-2 text-xs font-bold transition-all duration-200 ${
                                 !eotTailoredQuote && deepSize === k ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-navy-700 hover:border-royal-300'
                               }`}>
                               {l}
@@ -1208,7 +1210,7 @@ export default function QuoteCalculator({
                           {isEot && (
                             <button type="button" onClick={() => setEotTailoredQuote(true)}
                               aria-pressed={eotTailoredQuote}
-                              className={`py-2.5 rounded-xl border-2 text-xs font-bold transition-all duration-200 ${
+                              className={`min-h-[44px] py-2.5 rounded-xl border-2 text-xs font-bold transition-all duration-200 ${
                                 eotTailoredQuote ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-navy-700 hover:border-royal-300'
                               }`}>
                               5+ Bedrooms
@@ -1220,17 +1222,18 @@ export default function QuoteCalculator({
                             5+ bedroom properties need a tailored quote — send us a few details on WhatsApp and we'll confirm your price. No fixed total is shown because it would not reflect the real scope.
                           </p>
                         )}
-                      </div>
+                      </fieldset>
 
                       {!eotTailoredQuote && (
                       <>
                       {/* Bathrooms */}
-                      <div>
-                        <label className="block text-navy-900 font-semibold text-sm mb-2">Bathrooms / WCs</label>
+                      <fieldset>
+                        <legend className="block text-navy-900 font-semibold text-sm mb-2">Bathrooms / WCs</legend>
                         <div className="flex gap-2">
                           {([1, 2, 3] as const).map((n) => (
                             <button key={n} type="button" onClick={() => setDeepBaths(n)}
-                              className={`w-11 h-11 rounded-full border-2 text-sm font-bold transition-all duration-200 ${
+                              aria-pressed={deepBaths === n}
+                              className={`w-11 h-11 min-h-[44px] min-w-[44px] rounded-full border-2 text-sm font-bold transition-all duration-200 ${
                                 deepBaths === n ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-navy-700 hover:border-royal-300'
                               }`}>
                               {n === 3 ? '3+' : n}
@@ -1242,7 +1245,7 @@ export default function QuoteCalculator({
                             +£{(deepBaths - 1) * BATH_SURCHARGE[deepService]} for {deepBaths - 1} extra bathroom{deepBaths > 2 ? 's' : ''} included in price
                           </p>
                         )}
-                      </div>
+                      </fieldset>
 
                       {isEot ? (
                         <>
@@ -1444,7 +1447,7 @@ export default function QuoteCalculator({
                       <div className="text-purple-700 text-[10px] font-bold tracking-widest uppercase">Photo Quote Required</div>
                       <div className="font-display font-bold text-2xl text-purple-900">Delicate fabric clean</div>
                       <p className="text-purple-700 text-sm leading-relaxed max-w-xs mx-auto">
-                        Wool, silk and velvet require assessment before we can give a fixed price. Send us a photo on WhatsApp and we'll confirm within the hour.
+                        Wool, silk and velvet require assessment before we can give a fixed price. Send us a photo on WhatsApp so we can review the fabric and method.
                       </p>
                     </div>
                   ) : isCarpet && (carpetResult?.totalItems ?? 0) === 0 ? (
@@ -1540,11 +1543,7 @@ export default function QuoteCalculator({
 
                       {/* Non-carpet subtitle — end_of_tenancy never reaches this render path;
                           isEot routes to EotQuoteWizard via the early return above. */}
-                      {!isCarpet && service === 'deep' && (
-                        <div className="text-center mt-3 text-sm" style={{ color: '#4a7a62' }}>
-                          72hr re-clean guarantee
-                        </div>
-                      )}
+                      {isEot && <div className="mt-3 text-center text-sm text-royal-700">72-hour re-clean terms shown with the selected package</div>}
                     </div>
                   )}
                 </>
@@ -1739,7 +1738,7 @@ export default function QuoteCalculator({
               )}
 
               <div className="space-y-3 mb-4">
-                {TRUST_ITEMS.filter((item) => !(isCarpetFocused && item === DBS_TRUST_ITEM)).map((item) => (
+                {TRUST_ITEMS.map((item) => (
                   <div key={item} className="flex items-center gap-2 text-silver-300 text-sm">
                     <CheckCircle2 size={13} className="text-royal-400 flex-shrink-0" />
                     {item}
@@ -1886,7 +1885,7 @@ export default function QuoteCalculator({
           {' · '}
           <span className="text-silver-300">Garden services from £45</span>
           {' · '}
-          <span className="text-silver-300">Commercial &amp; communal spaces: contact us for a tailored monthly quote after a free site visit.</span>
+          <span className="text-silver-300">Commercial &amp; communal spaces: contact us for a tailored quote after we review the scope.</span>
         </p>
       </div>
     </section>

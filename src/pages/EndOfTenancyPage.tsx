@@ -21,8 +21,8 @@ const SCHEMA = JSON.stringify({
     {
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://vveclean.co.uk' },
-        { '@type': 'ListItem', position: 2, name: 'End of Tenancy Cleaning London', item: 'https://vveclean.co.uk/end-of-tenancy-cleaning-london' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.vveclean.co.uk' },
+        { '@type': 'ListItem', position: 2, name: 'End of Tenancy Cleaning London', item: 'https://www.vveclean.co.uk/end-of-tenancy-cleaning-london' },
       ],
     },
     {
@@ -30,9 +30,9 @@ const SCHEMA = JSON.stringify({
       name: 'End of Tenancy Cleaning London',
       description:
         `Inventory-grade end of tenancy cleaning across East and North London. 67-point agency checklist, free oven clean, ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee and photographic receipt included as standard. Complete Agency-Ready and Tailored Checklist packages available.`,
-      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://vveclean.co.uk', telephone: '+442080502233' },
+      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
-      url: 'https://vveclean.co.uk/end-of-tenancy-cleaning-london',
+      url: 'https://www.vveclean.co.uk/end-of-tenancy-cleaning-london',
       offers: [
         { '@type': 'Offer', name: 'Studio — Complete', price: p(EOT_BASE_PRICES_P.studio), priceCurrency: 'GBP' },
         { '@type': 'Offer', name: '1 Bedroom — Complete', price: p(EOT_BASE_PRICES_P.bed1), priceCurrency: 'GBP' },
@@ -226,7 +226,7 @@ const DATA: ServiceLandingData = {
 
   ctaH2: 'Book your end of tenancy clean today.',
   ctaBody:
-    'Book online in 2 minutes. Pay a £30 deposit to secure your slot — balance due after you check the work.',
+    'Send your booking request online. The £30 deposit is deducted from the final total, and availability is confirmed separately.',
   ctaPrimary: { href: '/booking', label: 'Book online now' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };

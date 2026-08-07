@@ -73,10 +73,10 @@ const routes = [
     path: '/booking',
     title: 'Book Your Clean — VVE Clean London',
     description:
-      'Book a professional cleaning service online with VVE Clean. Choose your service, fill in your details and pay a £30 deposit to secure your slot.',
+      'Submit a cleaning booking request with VVE Clean. Choose your service, add your details and pay a £30 deposit that is deducted from the final total.',
     ogTitle: 'Book a Clean Online | VVE Clean London',
     ogDescription:
-      'Book a professional cleaning service online with VVE Clean. Pay a £30 deposit to secure your slot.',
+      'Submit a cleaning booking request online. The £30 deposit is deducted from the final total and availability is confirmed separately.',
     changefreq: 'monthly',
     priority: '0.6',
     sources: ['src/pages/BookingPage.tsx'],
@@ -85,7 +85,7 @@ const routes = [
     path: '/commercial',
     title: 'Commercial & Communal Cleaning London | VVE Clean',
     description:
-      'Contract cleaning for offices, shops, cafés and communal areas across East & North London. Free site visit within 48 hours, fixed written quote, monthly invoicing.',
+      'Commercial cleaning for offices, shops, cafés and communal areas across East and North London. Request a site review and a written scope and quote.',
     ogTitle: 'Commercial Cleaning London | VVE Clean',
     ogDescription:
       'Contract cleaning for offices, shops, cafés and communal areas across East & North London. Free site visit, fixed quote, monthly invoicing.',
@@ -135,10 +135,10 @@ const routes = [
     path: '/carpet-cleaning-london',
     title: 'Carpet Cleaning London | Steam-Clean & Stain Removal | VVE Clean',
     description:
-      'Professional carpet cleaning in London from £50 per room. Hot-water extraction lifts stains, allergens and pet odours, and carpets dry in 2–4 hours.',
+      'Professional carpet cleaning in London from £50 per room. Fibre checks, stain assessment and hot-water extraction where suitable.',
     ogTitle: 'Carpet Cleaning London | VVE Clean',
     ogDescription:
-      'Professional carpet cleaning from £50 per room. Hot-water extraction removes stains, allergens and pet odours across East and North London.',
+      'Professional carpet cleaning from £50 per room, with fibre checks and hot-water extraction where suitable.',
     changefreq: 'monthly',
     priority: '0.9',
     sources: ['src/pages/CarpetCleaningPage.tsx'],
@@ -147,7 +147,7 @@ const routes = [
     path: '/sofa-cleaning-london',
     title: 'Sofa & Upholstery Cleaning London | VVE Clean',
     description:
-      'Professional sofa and upholstery cleaning in London from £75. Hot-water extraction lifts stains, pet hair, odours and allergens from sofas, armchairs and mattresses.',
+      'Professional sofa and upholstery cleaning in London from £75, with fabric checks and hot-water extraction where suitable.',
     ogTitle: 'Sofa & Upholstery Cleaning London | VVE Clean',
     ogDescription:
       'Professional sofa cleaning from £75. Hot-water extraction removes stains, pet hair and odours across East and North London.',
@@ -186,7 +186,7 @@ const routes = [
       'Post-construction cleaning in London from £249. Fine dust, paint splashes, sticker residue and debris removed, leaving the space move-in ready.',
     ogTitle: 'After Builders Cleaning London | VVE Clean',
     ogDescription:
-      'Post-construction cleaning from £249. Fine dust, paint splashes and debris removed. Quote by photo within the hour across East and North London.',
+      'Post-construction cleaning from £249. Send photos of the dust, paint splashes and debris so VVE Clean can review the scope and confirm a price.',
     changefreq: 'monthly',
     priority: '0.8',
     sources: ['src/pages/AfterBuildersPage.tsx'],
@@ -234,6 +234,39 @@ const routes = [
     priority: '0.7',
     sources: ['src/pages/GalleryPage.tsx', 'src/data/galleryMedia.ts'],
   },
+  {
+    path: '/about',
+    title: 'About VVE Clean | London Cleaning Company',
+    description: 'Learn how VVE Clean handles end of tenancy, carpet, upholstery, after-builders and commercial cleaning across London.',
+    ogTitle: 'About VVE Clean',
+    ogDescription: 'A clear, owner-led cleaning service with visible pricing and direct contact.',
+    changefreq: 'monthly',
+    priority: '0.6',
+    // Keep the page out of search until the clearly labelled team-photo
+    // placeholder is replaced with owner-approved real media.
+    robots: 'noindex, follow',
+    sources: ['src/pages/AboutPage.tsx'],
+  },
+  {
+    path: '/contact',
+    title: 'Contact VVE Clean | Call, WhatsApp or Email',
+    description: 'Contact VVE Clean about cleaning availability, property access or a quote. Call 020 8050 2233, use WhatsApp or send a message.',
+    ogTitle: 'Contact VVE Clean',
+    ogDescription: 'Call, WhatsApp or email VVE Clean about a London cleaning booking.',
+    changefreq: 'monthly',
+    priority: '0.7',
+    sources: ['src/pages/ContactPage.tsx', 'src/components/Contact.tsx'],
+  },
+  {
+    path: '/faq',
+    title: 'Cleaning Questions | VVE Clean FAQ',
+    description: 'Answers about VVE Clean prices, booking requests, payment, rescheduling, coverage and the end of tenancy re-clean guarantee.',
+    ogTitle: 'VVE Clean Frequently Asked Questions',
+    ogDescription: 'Clear answers about booking, payment, coverage and cleaning services.',
+    changefreq: 'monthly',
+    priority: '0.7',
+    sources: ['src/pages/FaqPage.tsx', 'src/components/FAQ.tsx'],
+  },
 ];
 
 // The 404 page is rendered like any other route, but it is written to
@@ -264,13 +297,14 @@ const template = readFileSync(resolve(distDir, 'index.html'), 'utf-8');
 // needed. See docs/LOCATION_PAGES_ASSESSMENT.md.
 for (const area of AREAS) {
   const indexable = areaHasRealProof(area);
+  const covered = area.coverageConfirmed !== false;
   const postcodeLabel = area.postcodes.length > 0 ? ` (${area.postcodes.join(', ')})` : '';
   routes.push({
     path: `/cleaning-${area.slug}`,
-    title: `Cleaning in ${area.name}${postcodeLabel} | VVE Clean London`,
-    description: `End of tenancy, carpet and sofa & upholstery cleaning for ${area.name}. Fixed prices — the same as everywhere else we cover, no travel surcharge.`,
-    ogTitle: `Cleaning in ${area.name} | VVE Clean`,
-    ogDescription: `End of tenancy, carpet and sofa & upholstery cleaning for ${area.name}. Fixed prices, no travel surcharge.`,
+    title: covered ? `Cleaning in ${area.name}${postcodeLabel} | VVE Clean London` : `Check Cleaning Coverage in ${area.name} | VVE Clean`,
+    description: covered ? `End of tenancy, carpet and sofa & upholstery cleaning for ${area.name}. Fixed prices — the same as everywhere else we cover, no travel surcharge.` : `Ask VVE Clean to check cleaning availability for ${area.name}. Send the full postcode before making a booking request.`,
+    ogTitle: covered ? `Cleaning in ${area.name} | VVE Clean` : `Check Cleaning Coverage in ${area.name} | VVE Clean`,
+    ogDescription: covered ? `End of tenancy, carpet and sofa & upholstery cleaning for ${area.name}. Fixed prices, no travel surcharge.` : `Send your full ${area.name} postcode so VVE Clean can check service availability before you book.`,
     robots: indexable ? 'index, follow' : 'noindex, follow',
     changefreq: 'monthly',
     priority: '0.6',
@@ -296,6 +330,8 @@ for (const post of BLOG_POSTS) {
     description: post.excerpt,
     ogTitle: post.title,
     ogDescription: post.excerpt,
+    // Editorial review is required before legal guidance enters search.
+    robots: 'noindex, follow',
     changefreq: 'monthly',
     priority: '0.5',
     sources: ['src/pages/BlogPostPage.tsx', `src/data/blog/posts/${post.slug}.ts`],
@@ -317,6 +353,12 @@ function buildHtml(route, canonical) {
     /<meta name="description" content="[^"]*"/,
     `<meta name="description" content="${route.description}"`,
   );
+
+  // The homepage photo is useful only on the homepage. Removing its preload
+  // elsewhere avoids downloading a 300KB image that the route never shows.
+  if (route.path !== '/') {
+    output = output.replace(/\s*<link rel="preload" as="image" href="\/hero-cleaning-1280\.avif"[^>]*>/, '');
+  }
   output = output.replace(
     /<meta name="robots" content="[^"]*"/,
     `<meta name="robots" content="${route.robots ?? 'index, follow'}"`,

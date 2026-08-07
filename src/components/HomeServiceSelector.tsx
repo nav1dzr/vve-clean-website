@@ -11,6 +11,8 @@ import { Link } from 'react-router-dom';
 
 export type HomepageQuoteService =
   | 'carpet_upholstery'
+  | 'carpet'
+  | 'upholstery'
   | 'end_of_tenancy'
   | 'move_in'
   | 'after_builders';
@@ -29,7 +31,7 @@ const services: ServiceCard[] = [
   {
     title: 'Carpet Cleaning',
     description: 'Deep cleaning for carpets, rugs and stubborn stains.',
-    quoteService: 'carpet_upholstery',
+    quoteService: 'carpet',
     icon: Waves,
     colour: 'text-blue-600',
     background: 'bg-blue-50',
@@ -38,7 +40,7 @@ const services: ServiceCard[] = [
   {
     title: 'Sofa & Upholstery',
     description: 'Refresh sofas, chairs, mattresses and soft furnishings.',
-    quoteService: 'carpet_upholstery',
+    quoteService: 'upholstery',
     icon: Armchair,
     colour: 'text-emerald-600',
     background: 'bg-emerald-50',
@@ -92,27 +94,27 @@ export default function HomeServiceSelector({ onChoose }: Props) {
           <p className="mt-3 text-base text-muted">Start with a service, then build your quote using our existing live calculator.</p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
           {services.map(({ title, description, quoteService, icon: Icon, colour, background, pageHref }) => (
             <article
               key={title}
-              className="group flex min-h-[255px] flex-col rounded-2xl border border-line bg-white p-5 text-left shadow-[0_10px_35px_rgba(16,36,62,0.06)] transition duration-300 hover:-translate-y-1 hover:border-sky-300 hover:shadow-[0_18px_45px_rgba(16,36,62,0.11)] motion-reduce:transform-none"
+              className={`group flex flex-col rounded-2xl border border-line bg-white p-4 text-left shadow-[0_10px_35px_rgba(16,36,62,0.06)] transition duration-300 hover:-translate-y-1 hover:border-sky-300 hover:shadow-[0_18px_45px_rgba(16,36,62,0.11)] motion-reduce:transform-none sm:min-h-[235px] sm:p-5 ${title === 'After Builders' ? 'col-span-2 sm:col-span-1' : ''}`}
             >
-              <span className={`mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl ${background} ${colour}`}>
-                <Icon size={28} strokeWidth={1.8} />
+              <span className={`mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl sm:mb-5 sm:h-14 sm:w-14 sm:rounded-2xl ${background} ${colour}`}>
+                <Icon size={24} strokeWidth={1.8} />
               </span>
               {pageHref ? (
                 <Link
                   to={pageHref}
-                  className="font-display text-lg font-bold text-navy-900 transition-colors hover:text-royal-700 focus-visible:rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
+                  className="font-display text-base font-bold leading-tight text-navy-900 transition-colors hover:text-royal-700 focus-visible:rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 sm:text-lg"
                 >
                   {title}
                 </Link>
               ) : (
                 <h3 className="font-display text-lg font-bold text-navy-900">{title}</h3>
               )}
-              <p className="mt-2 flex-1 text-sm leading-6 text-muted">{description}</p>
-              <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+              <p className="mt-2 flex-1 text-[13px] leading-5 text-muted sm:text-sm sm:leading-6">{description}</p>
+              <div className="mt-3 flex flex-col items-start gap-1 sm:mt-5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
                 <button
                   type="button"
                   onClick={() => onChoose(quoteService)}

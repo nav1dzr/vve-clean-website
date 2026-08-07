@@ -1,9 +1,10 @@
 import { useReveal } from '../hooks/useReveal';
+import { Check } from 'lucide-react';
 
 const ticks = [
   'Commercial hot-water carpet extraction',
   'Professional pressure washing equipment',
-  'Fully stocked van — nothing for you to provide',
+  'Equipment and products brought to the job',
 ];
 
 export default function OurKit() {
@@ -12,8 +13,7 @@ export default function OurKit() {
   return (
     <section
       ref={ref}
-      className="py-20 px-4"
-      style={{ background: 'linear-gradient(135deg, #0d1f2d 0%, #1a3347 50%, #0f2236 100%)' }}
+      className="navy-gradient px-4 py-20"
     >
       <div className="max-w-6xl mx-auto">
         <div
@@ -23,7 +23,7 @@ export default function OurKit() {
         >
           {/* Image */}
           <div className="relative">
-            <div className="absolute -inset-3 rounded-3xl opacity-20" style={{ background: 'radial-gradient(circle, #c9a84c 0%, transparent 70%)' }} />
+            <div className="absolute -inset-3 rounded-3xl bg-sky-300/10" />
             <img
               src="/gallery/van-equipment.webp"
               alt="VVE Clean van and professional cleaning equipment"
@@ -37,28 +37,24 @@ export default function OurKit() {
 
           {/* Text */}
           <div>
-            <div className="inline-flex items-center gap-2 border border-amber-400/40 rounded-full px-4 py-1 mb-5">
-              <span className="text-amber-400 text-xs tracking-widest font-bold uppercase">Our Kit</span>
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-sky-200/40 px-4 py-1">
+              <span className="text-xs font-bold uppercase tracking-widest text-sky-200">Our equipment</span>
             </div>
 
             <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-5 leading-tight">
-              Professional machines,<br className="hidden sm:block" /> not household gear
+              The equipment we bring
             </h2>
 
             <p className="text-slate-300 text-base leading-relaxed mb-8">
-              We turn up with commercial-grade equipment — carpet extraction, pressure washers and
-              professional-grade products. The same kit the big agencies use, run by someone who
-              actually shows up: the founder, on every job.
+              The equipment is chosen for the service booked, including hot-water extraction for
+              suitable carpets and upholstery, plus pressure-washing equipment for exterior work.
             </p>
 
             <ul className="space-y-3">
               {ticks.map((tick) => (
                 <li key={tick} className="flex items-start gap-3">
-                  <span
-                    className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
-                    style={{ background: '#c9a84c', color: '#0d1f2d' }}
-                  >
-                    ✓
+                  <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-sky-100 text-royal-700">
+                    <Check size={13} aria-hidden="true" />
                   </span>
                   <span className="text-slate-200 text-sm leading-snug">{tick}</span>
                 </li>

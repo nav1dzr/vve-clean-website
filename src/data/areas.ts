@@ -25,6 +25,7 @@ export interface AreaInfo {
   postcodes: string[];
   neighbourAreas: string[];
   jobNotes?: string[];
+  coverageConfirmed?: boolean;
 }
 
 export const AREAS: AreaInfo[] = [
@@ -108,6 +109,7 @@ export const AREAS: AreaInfo[] = [
     // hasn't actually been confirmed. The page still stands on its real
     // neighbouring covered areas below.
     postcodes: [],
+    coverageConfirmed: false,
     neighbourAreas: ['Crouch End', 'Camden', 'Holloway'],
   },
   {

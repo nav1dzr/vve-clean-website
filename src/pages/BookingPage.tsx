@@ -212,15 +212,15 @@ function ServiceCard({ selection, onChangeService }: {
                 <span className="font-bold" style={{ color: '#16a34a', fontSize: '1.1rem' }}>{money(selection.price)}</span>
               </div>
             ) : (
-              <div className="font-bold mt-0.5" style={{ color: '#0ea5e9', fontSize: '1.1rem' }}>
+              <div className="font-bold mt-0.5" style={{ color: '#0369a1', fontSize: '1.1rem' }}>
                 {money(selection.price)}
               </div>
             )}
           </div>
         </div>
         <button type="button" onClick={onChangeService}
-          className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border border-[#0ea5e9] transition-colors hover:bg-[#f0f9ff]"
-          style={{ color: '#0ea5e9' }}>
+          className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border border-[#0369a1] transition-colors hover:bg-[#f0f9ff]"
+          style={{ color: '#0369a1' }}>
           Change service
         </button>
       </div>
@@ -440,9 +440,13 @@ export default function BookingPage() {
     setTermsError(termsValid ? '' : REQUIRED_TERMS_ERROR);
 
     if (!fieldsValid || !termsValid || !selection) {
-      // Scroll to first error
-      const el = formTopRef.current?.querySelector('[data-error="true"]');
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // State updates are rendered on the next frame. Then move both the
+      // viewport and keyboard focus to the first invalid control.
+      requestAnimationFrame(() => {
+        const el = formTopRef.current?.querySelector<HTMLElement>('[data-error="true"]');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el?.querySelector<HTMLElement>('input, select, textarea, button')?.focus();
+      });
       return;
     }
 
@@ -531,7 +535,7 @@ export default function BookingPage() {
     `w-full rounded-xl border-[1.5px] px-3.5 py-3 text-[16px] outline-none transition-colors font-sans ${
       errors[field]
         ? 'border-[#D14343] bg-red-50 text-navy-900'
-        : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0ea5e9]'
+        : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0369a1]'
     }`;
 
   // ─── Show quote selector (no selection yet, or user clicked Change service) ─
@@ -541,6 +545,7 @@ export default function BookingPage() {
         <BookingHeader isLeaflet={selection?.offerCode === 'LEAFLET20'} />
         <StepIndicator current={1} />
         <main id="main-content">
+          <h1 className="sr-only">Choose a cleaning service and see your price</h1>
           {showSelector && selection && (
             <div className="max-w-5xl mx-auto px-4 pt-5 pb-1 text-center">
               <p className="text-sm text-silver-600">
@@ -560,13 +565,13 @@ export default function BookingPage() {
       <BookingHeader isLeaflet={selection?.offerCode === 'LEAFLET20'} />
       <StepIndicator current={2} />
 
-      <main className="max-w-xl mx-auto px-4 py-7 pb-24" ref={formTopRef}>
+      <main id="main-content" className="max-w-xl mx-auto px-4 py-7 pb-24" ref={formTopRef}>
         {/* Page title */}
         <div className="mb-5">
           <h1 className="font-display text-2xl font-bold text-navy-900 mb-1">Complete your booking request</h1>
           <p className="text-silver-600 text-sm">
             Choose your preferred date, add your details and pay the £{DEPOSIT} deposit. We will confirm
-            availability within one business hour. Your deposit comes off the final total.
+            availability separately. Your deposit comes off the final total.
           </p>
         </div>
 
@@ -578,7 +583,7 @@ export default function BookingPage() {
           {/* ── Step 1: Property details ────────────────────────────────────── */}
           <div className="bg-white border border-[#E3E7EE] rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-[#0ea5e9] text-white text-xs font-bold flex items-center justify-center">1</span>
+              <span className="w-6 h-6 rounded-full bg-[#0369a1] text-white text-xs font-bold flex items-center justify-center">1</span>
               <span className="text-navy-900 text-sm font-semibold">Property details</span>
             </div>
 
@@ -588,6 +593,7 @@ export default function BookingPage() {
               </label>
               <input id="booking-fullName" type="text" value={form.fullName} onChange={setField('fullName')}
                 placeholder="Jane Smith" autoComplete="name"
+                required aria-required="true"
                 aria-invalid={!!errors.fullName}
                 aria-describedby={errors.fullName ? 'fullName-error' : undefined}
                 className={inputCls('fullName')} />
@@ -600,6 +606,7 @@ export default function BookingPage() {
               </label>
               <input id="booking-address" type="text" value={form.address} onChange={setField('address')}
                 placeholder="12 High Street, London" autoComplete="street-address"
+                required aria-required="true"
                 aria-invalid={!!errors.address}
                 aria-describedby={errors.address ? 'address-error' : undefined}
                 className={inputCls('address')} />
@@ -612,6 +619,7 @@ export default function BookingPage() {
               </label>
               <input id="booking-postcode" type="text" value={form.postcode} onChange={setField('postcode')}
                 placeholder="E8 1AA" autoComplete="postal-code" inputMode="text"
+                required aria-required="true"
                 style={{ textTransform: 'uppercase' }}
                 aria-invalid={!!errors.postcode}
                 aria-describedby={errors.postcode ? 'postcode-error' : undefined}
@@ -621,14 +629,14 @@ export default function BookingPage() {
           </div>
 
           {/* ── Step 2: Contact ─────────────────────────────────────────────── */}
-          <div className="bg-white border border-[#E3E7EE] rounded-2xl p-5 shadow-sm space-y-4">
+          <div data-error={!!errors.contact} className="bg-white border border-[#E3E7EE] rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-[#0ea5e9] text-white text-xs font-bold flex items-center justify-center">2</span>
+              <span className="w-6 h-6 rounded-full bg-[#0369a1] text-white text-xs font-bold flex items-center justify-center">2</span>
               <span className="text-navy-900 text-sm font-semibold">Contact</span>
             </div>
 
             {errors.contact && (
-              <div role="alert" className="rounded-xl px-3.5 py-2.5 text-sm border"
+              <div id="contact-error" role="alert" className="rounded-xl px-3.5 py-2.5 text-sm border"
                 style={{ background: '#EBF5FE', borderColor: '#BDE0FB', color: '#1e4d7b' }}>
                 {errors.contact}
               </div>
@@ -639,7 +647,7 @@ export default function BookingPage() {
               <input id="booking-phone" type="tel" value={form.phone} onChange={setField('phone')}
                 placeholder="07700 900000" autoComplete="tel" inputMode="tel"
                 aria-invalid={!!errors.phone}
-                aria-describedby={errors.phone ? 'phone-error' : undefined}
+                aria-describedby={errors.phone ? 'phone-error' : errors.contact ? 'contact-error' : undefined}
                 className={inputCls('phone')} />
               {errors.phone && <p id="phone-error" role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.phone}</p>}
             </div>
@@ -649,7 +657,7 @@ export default function BookingPage() {
               <input id="booking-email" type="email" value={form.email} onChange={setField('email')}
                 placeholder="you@example.com" autoComplete="email" inputMode="email"
                 aria-invalid={!!errors.email}
-                aria-describedby={errors.email ? 'email-error' : undefined}
+                aria-describedby={errors.email ? 'email-error' : errors.contact ? 'contact-error' : undefined}
                 className={inputCls('email')} />
               {errors.email && <p id="email-error" role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.email}</p>}
             </div>
@@ -658,12 +666,12 @@ export default function BookingPage() {
           {/* ── Step 3: When ────────────────────────────────────────────────── */}
           <div className="bg-white border border-[#E3E7EE] rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-[#0ea5e9] text-white text-xs font-bold flex items-center justify-center">3</span>
+              <span className="w-6 h-6 rounded-full bg-[#0369a1] text-white text-xs font-bold flex items-center justify-center">3</span>
               <span className="text-navy-900 text-sm font-semibold">When?</span>
             </div>
 
             <p className="text-silver-600 text-xs -mt-2">
-              Choose your preferred date and arrival window. We will confirm availability within one business hour.
+              Choose your preferred date and arrival window. We will confirm availability separately.
             </p>
 
             <div data-testid="booking-schedule-fields" className="grid min-w-0 grid-cols-1 sm:grid-cols-2 gap-3">
@@ -673,33 +681,35 @@ export default function BookingPage() {
                 </label>
                 <input id="booking-date" type="date" value={form.date} onChange={setField('date')}
                   min={todayIsoDate()}
+                  required aria-required="true"
                   aria-invalid={!!errors.date}
                   aria-describedby={errors.date ? 'date-error' : undefined}
                   className={`block h-12 w-full min-w-0 max-w-full box-border rounded-xl border-[1.5px] px-3.5 text-[16px] outline-none transition-colors font-sans ${
                     errors.date
                       ? 'border-[#D14343] bg-red-50 text-navy-900'
-                      : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0ea5e9]'
+                      : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0369a1]'
                   }`} />
-                {errors.date && <p id="date-error" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.date}</p>}
+                {errors.date && <p id="date-error" role="alert" aria-live="assertive" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.date}</p>}
               </div>
               <div className="min-w-0" data-error={!!errors.time}>
                 <label htmlFor="booking-time" className="block text-navy-900 font-semibold text-sm mb-1.5">
                   Preferred arrival window <span style={{ color: '#D14343' }}>*</span>
                 </label>
                 <select id="booking-time" value={form.time} onChange={setField('time')}
+                  required aria-required="true"
                   aria-invalid={!!errors.time}
                   aria-describedby={errors.time ? 'time-error' : undefined}
                   className={`block h-12 w-full min-w-0 max-w-full box-border rounded-xl border-[1.5px] pl-3.5 pr-10 text-[16px] outline-none transition-colors font-sans ${
                     errors.time
                       ? 'border-[#D14343] bg-red-50 text-navy-900'
-                      : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0ea5e9]'
+                      : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0369a1]'
                   }`}>
                   <option value="">Select a window</option>
                   <option value="Morning (8am–12pm)">Morning (8am–12pm)</option>
                   <option value="Afternoon (12pm–5pm)">Afternoon (12pm–5pm)</option>
                   <option value="Flexible">Flexible</option>
                 </select>
-                {errors.time && <p id="time-error" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.time}</p>}
+                {errors.time && <p id="time-error" role="alert" aria-live="assertive" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.time}</p>}
               </div>
             </div>
 
@@ -710,7 +720,7 @@ export default function BookingPage() {
               <textarea id="booking-notes" value={form.message} onChange={setField('message')} rows={3}
                 maxLength={500}
                 placeholder="Access notes, number of rooms, pets, parking, anything we should know…"
-                className="block w-full min-w-0 max-w-full box-border rounded-xl border-[1.5px] border-[#E3E7EE] bg-white px-3.5 py-3 text-[16px] text-navy-900 outline-none focus:border-[#0ea5e9] transition-colors font-sans resize-none" />
+                className="block w-full min-w-0 max-w-full box-border rounded-xl border-[1.5px] border-[#E3E7EE] bg-white px-3.5 py-3 text-[16px] text-navy-900 outline-none focus:border-[#0369a1] transition-colors font-sans resize-none" />
               <div className="flex justify-end mt-1">
                 <span className="text-xs text-silver-400">{form.message.length}/500</span>
               </div>
@@ -720,7 +730,7 @@ export default function BookingPage() {
           {/* ── Step 4: Parking & Congestion Charge ─────────────────────────── */}
           <div className="bg-white border border-[#E3E7EE] rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-[#0ea5e9] text-white text-xs font-bold flex items-center justify-center">4</span>
+              <span className="w-6 h-6 rounded-full bg-[#0369a1] text-white text-xs font-bold flex items-center justify-center">4</span>
               <span className="text-navy-900 text-sm font-semibold">Parking &amp; Congestion Charge</span>
             </div>
 
@@ -741,7 +751,7 @@ export default function BookingPage() {
                     aria-pressed={form.parkingAvailable === value}
                     className={`min-h-[44px] py-2.5 px-3 rounded-xl border-[1.5px] text-sm font-semibold transition-colors ${
                       form.parkingAvailable === value
-                        ? 'border-[#0ea5e9] bg-[#f0f9ff] text-[#0ea5e9]'
+                        ? 'border-[#0369a1] bg-[#f0f9ff] text-[#0369a1]'
                         : 'border-[#E3E7EE] text-navy-800 hover:border-navy-300'
                     }`}
                   >
@@ -751,7 +761,7 @@ export default function BookingPage() {
               </div>
               <p className="text-silver-600 text-xs mt-1.5">{PARKING_CHARGED_AT_ACTUAL_COST_NOTE}</p>
               {parkingCharge > 0 && (
-                <p className="text-xs font-semibold mt-1" style={{ color: '#0ea5e9' }}>
+                <p className="text-xs font-semibold mt-1" style={{ color: '#0369a1' }}>
                   +{money(parkingCharge)} estimated parking allowance
                 </p>
               )}
@@ -775,7 +785,7 @@ export default function BookingPage() {
                     aria-pressed={form.congestionZone === value}
                     className={`min-h-[44px] py-2.5 px-3 rounded-xl border-[1.5px] text-sm font-semibold transition-colors ${
                       form.congestionZone === value
-                        ? 'border-[#0ea5e9] bg-[#f0f9ff] text-[#0ea5e9]'
+                        ? 'border-[#0369a1] bg-[#f0f9ff] text-[#0369a1]'
                         : 'border-[#E3E7EE] text-navy-800 hover:border-navy-300'
                     }`}
                   >
@@ -787,7 +797,7 @@ export default function BookingPage() {
                 This is a pass-through Congestion Charge, not a cleaning-service fee.
               </p>
               {congestionCharge > 0 && (
-                <p className="text-xs font-semibold mt-1" style={{ color: '#0ea5e9' }}>
+                <p className="text-xs font-semibold mt-1" style={{ color: '#0369a1' }}>
                   +{money(congestionCharge)} {form.congestionZone === 'not_sure' ? 'estimated pending address confirmation' : 'Congestion Charge'}
                 </p>
               )}
@@ -856,7 +866,7 @@ export default function BookingPage() {
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
               <span className="text-xs" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                Secured by Stripe · Bank-level encryption · We never store card details
+                Payment handled by Stripe · VVE Clean does not store your card details
               </span>
             </div>
           </div>
@@ -871,24 +881,25 @@ export default function BookingPage() {
                 id="terms-checkbox"
                 type="checkbox"
                 checked={termsAccepted}
+                required aria-required="true"
                 onChange={(e) => {
                   setTermsAccepted(e.target.checked);
                   if (e.target.checked) setTermsError('');
                 }}
                 aria-invalid={!!termsError}
                 aria-describedby={termsError ? 'terms-error' : undefined}
-                className="mt-0.5 h-5 w-5 flex-shrink-0 rounded border-[1.5px] border-[#E3E7EE] text-[#0ea5e9] focus:ring-2 focus:ring-[#0ea5e9]"
+                className="mt-0.5 h-5 w-5 flex-shrink-0 rounded border-[1.5px] border-[#E3E7EE] text-[#0369a1] focus:ring-2 focus:ring-[#0369a1]"
               />
               <span className="text-navy-800 text-sm leading-relaxed">
                 I agree to the{' '}
                 <Link to="/terms-of-service" target="_blank" rel="noopener noreferrer"
-                  className="font-semibold text-[#0ea5e9] hover:underline">
+                  className="font-semibold text-[#0369a1] hover:underline">
                   Terms of Service
                 </Link>{' '}
                 and cancellation policy. I understand that the £{DEPOSIT} deposit is deducted from the final
                 total and may be retained for late cancellation or failed access as explained in the terms.
                 {' '}(<Link to="/privacy-policy" target="_blank" rel="noopener noreferrer"
-                  className="font-semibold text-[#0ea5e9] hover:underline">
+                  className="font-semibold text-[#0369a1] hover:underline">
                   Privacy Policy
                 </Link>)
               </span>
@@ -911,7 +922,7 @@ export default function BookingPage() {
           {/* ── Submit button ───────────────────────────────────────────────── */}
           <button type="submit" disabled={submitting}
             className="w-full py-4 min-h-[44px] rounded-full font-bold text-white text-base transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
-            style={{ backgroundColor: '#0ea5e9' }}>
+            style={{ backgroundColor: '#0369a1' }}>
             {submitting ? (
               'Taking you to secure payment…'
             ) : (

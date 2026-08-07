@@ -18,14 +18,16 @@ export default {
           950: '#020b24',
           secondary: '#0B1F3A',
         },
-        // Fresh sky-blue brand palette
+        // Accessible action-blue palette. `royal-500` is intentionally dark
+        // enough for white button text (WCAG AA at normal text sizes).
         royal: {
           50:  '#f0f9ff',
           100: '#e0f2fe',
           400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
+          500: '#0369a1',
+          600: '#075985',
+          700: '#0c4a6e',
+          800: '#082f49',
         },
         sky: {
           50:  '#f0f9ff',
@@ -42,7 +44,7 @@ export default {
           200: '#e9ecef',
           300: '#dee2e6',
           400: '#ced4da',
-          500: '#adb5bd',
+          500: '#64748b',
           600: '#8d97a0',
           700: '#6c757d',
         },

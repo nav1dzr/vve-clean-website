@@ -93,9 +93,8 @@ const sections: Section[] = [
         </p>
         <p className="mt-3">
           Paying the deposit submits a <strong>booking request</strong> for your preferred date and arrival
-          window. It does not, by itself, guarantee that date or time. We aim to confirm availability within
-          one business hour of receiving your request, and will contact you to confirm the appointment
-          separately. Until we have confirmed your appointment, please treat your requested date and time as
+          window. It does not, by itself, guarantee that date or time. We will review the request and confirm the
+          appointment separately. Until we have confirmed your appointment, please treat your requested date and time as
           provisional rather than fixed.
         </p>
         <p className="mt-3">

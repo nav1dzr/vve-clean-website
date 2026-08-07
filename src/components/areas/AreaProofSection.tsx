@@ -1,7 +1,6 @@
-import { Star } from 'lucide-react';
 import type { AreaInfo } from '../../data/areas';
 import { REVIEWS } from '../../data/reviews';
-import { matchesArea } from '../../lib/areaMatch';
+import { matchesNamedArea } from '../../lib/areaMatch';
 import { areaHasRealProof } from '../../lib/areaProof';
 import { GoogleIcon } from '../Reviews';
 import RecentJobsByArea from '../gallery/RecentJobsByArea';
@@ -15,14 +14,14 @@ import RecentJobsByArea from '../gallery/RecentJobsByArea';
 export default function AreaProofSection({ area }: { area: AreaInfo }) {
   if (!areaHasRealProof(area)) return null;
 
-  const review = REVIEWS.find((r) => matchesArea(r.location, area.name, area.postcodes));
+  const review = REVIEWS.find((r) => matchesNamedArea(r.location, area.name));
   const jobNotes = area.jobNotes ?? [];
 
   return (
     <section className="max-w-4xl mx-auto px-4 py-16">
       <div className="text-center mb-10">
         <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 leading-tight">
-          {area.name}, in their own words
+          Review from a customer in {area.name}
         </h2>
       </div>
 
@@ -33,11 +32,9 @@ export default function AreaProofSection({ area }: { area: AreaInfo }) {
             <GoogleIcon size={17} />
           </div>
           <p className="text-navy-800 text-sm leading-relaxed mb-4">&ldquo;{review.text}&rdquo;</p>
-          <div className="flex items-center justify-between text-silver-500 text-[11px]">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-slate-600 text-xs">
             <span>{review.location} · {review.date}</span>
-            <span className="inline-flex items-center gap-1 text-royal-600 font-semibold">
-              <Star size={12} className="fill-current" /> {review.service}
-            </span>
+            <span className="font-semibold text-royal-600">{review.service}</span>
           </div>
         </div>
       )}

@@ -19,6 +19,9 @@ import HowWeCleanCarpetsPage from './pages/HowWeCleanCarpetsPage';
 import HowWeCleanSofasPage from './pages/HowWeCleanSofasPage';
 import HowWeCleanEndOfTenancyPage from './pages/HowWeCleanEndOfTenancyPage';
 import NotFoundPage from './pages/NotFoundPage';
+import AboutPage from './pages/AboutPage';
+import ContactPage from './pages/ContactPage';
+import FaqPage from './pages/FaqPage';
 import { AREAS } from './data/areas';
 
 export default function AppRoutes() {
@@ -37,6 +40,9 @@ export default function AppRoutes() {
       <Route path="/end-of-tenancy-cleaning-london" element={<EndOfTenancyPage />} />
       <Route path="/after-builders-cleaning-london" element={<AfterBuildersPage />} />
       <Route path="/gallery" element={<GalleryPage />} />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/contact" element={<ContactPage />} />
+      <Route path="/faq" element={<FaqPage />} />
       {/* Generated from src/data/areas.ts so a route can never drift from the
           area's slug used by prerender.mjs and the sitemap. */}
       {AREAS.map((area) => (

@@ -10,17 +10,17 @@ const SCHEMA = JSON.stringify({
     {
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://vveclean.co.uk' },
-        { '@type': 'ListItem', position: 2, name: 'How We Clean Carpets', item: 'https://vveclean.co.uk/how-we-clean-carpets' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.vveclean.co.uk' },
+        { '@type': 'ListItem', position: 2, name: 'How We Clean Carpets', item: 'https://www.vveclean.co.uk/how-we-clean-carpets' },
       ],
     },
     {
       '@type': 'Service',
       name: 'How We Clean Carpets',
       description: 'How VVE Clean cleans carpets in London using hot-water extraction — the equipment, the process, and what to expect.',
-      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://vveclean.co.uk', telephone: '+442080502233' },
+      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
-      url: 'https://vveclean.co.uk/how-we-clean-carpets',
+      url: 'https://www.vveclean.co.uk/how-we-clean-carpets',
     },
     {
       '@type': 'FAQPage',
@@ -30,7 +30,7 @@ const SCHEMA = JSON.stringify({
           name: 'What method do you use to clean carpets?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Hot-water extraction — the method recommended by most carpet manufacturers. Hot water and cleaning solution are injected deep into the carpet pile, breaking up stains and bacteria, then extracted straight back out along with the dirt.',
+            text: 'After checking the carpet, cleaning solution is applied through the pile and extracted with loosened soil and moisture. Hot-water extraction is used only where the fibre and construction are suitable.',
           },
         },
         {
@@ -76,7 +76,7 @@ const DATA: ServiceLandingData = {
   faqs: [
     {
       q: 'What method do you use to clean carpets?',
-      a: 'Hot-water extraction — the method recommended by most carpet manufacturers. Hot water and cleaning solution are injected deep into the carpet pile, breaking up stains and bacteria, then extracted straight back out along with the dirt.',
+      a: 'After checking the carpet, cleaning solution is applied through the pile and extracted with loosened soil and moisture. Hot-water extraction is used only where the fibre and construction are suitable.',
     },
     {
       q: 'How long does the whole process take?',
@@ -96,7 +96,7 @@ const DATA: ServiceLandingData = {
   ],
 
   ctaH2: 'Ready to book your carpet clean?',
-  ctaBody: 'Book online in 2 minutes and pay a £30 deposit to reserve your requested appointment. It comes off the final balance, and we confirm availability within one business hour.',
+  ctaBody: 'Send your booking request online. The £30 deposit is deducted from the final total, and availability is confirmed separately.',
   ctaPrimary: { href: '/booking', label: 'Book online now' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };

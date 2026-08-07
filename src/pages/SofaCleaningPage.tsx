@@ -20,18 +20,18 @@ const SCHEMA = JSON.stringify({
     {
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://vveclean.co.uk' },
-        { '@type': 'ListItem', position: 2, name: 'Sofa Cleaning London', item: 'https://vveclean.co.uk/sofa-cleaning-london' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.vveclean.co.uk' },
+        { '@type': 'ListItem', position: 2, name: 'Sofa Cleaning London', item: 'https://www.vveclean.co.uk/sofa-cleaning-london' },
       ],
     },
     {
       '@type': 'Service',
       name: 'Sofa & Upholstery Cleaning London',
       description:
-        'Professional sofa and upholstery cleaning in London. Hot-water extraction removes stains, pet hair, odours and allergens from sofas, armchairs and mattresses.',
-      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://vveclean.co.uk', telephone: '+442080502233' },
+        'Professional sofa and upholstery cleaning in London, with a fabric check and hot-water extraction where the material is suitable.',
+      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
-      url: 'https://vveclean.co.uk/sofa-cleaning-london',
+      url: 'https://www.vveclean.co.uk/sofa-cleaning-london',
       offers: [
         { '@type': 'Offer', name: 'Armchair', price: p(CARPET_ITEM_PRICES_P.armchair), priceCurrency: 'GBP' },
         { '@type': 'Offer', name: '2-seater sofa', price: p(CARPET_ITEM_PRICES_P.sofa_2), priceCurrency: 'GBP' },
@@ -102,7 +102,7 @@ const DATA: ServiceLandingData = {
   heroBadges: [
     'Hot-water extraction',
     'Colour-safe on most fabrics',
-    'Removes pet odours & allergens',
+    'Fabric checked before treatment',
   ],
   primaryHref: '/sofa-cleaning-london#quote',
   primaryLabel: 'Build my upholstery quote',
@@ -114,19 +114,19 @@ const DATA: ServiceLandingData = {
 
   introH2: 'Sofa cleaning that goes deeper than vacuuming',
   introText:
-    'Vacuuming removes surface debris, but embedded pet hair, dust mites, food particles and odour-causing bacteria stay locked in the fibres. Our hot-water extraction process injects a cleaning solution deep into the upholstery, then extracts it along with the dirt — leaving your sofa visibly refreshed and genuinely hygienic. We cover East London (E1–E17) and North London (N1–N19), and we carry out a fabric-safety check on every sofa before we start.',
+    'We inspect the upholstery, check the care label and test an inconspicuous area before choosing a cleaning method. Hot-water extraction is used where the fabric is suitable, followed by controlled extraction of loosened soil and moisture. Drying time and stain response vary by fabric and condition.',
 
   benefitsH2: 'Why customers book sofa cleaning with us',
   benefits: [
     {
       icon: <PawPrint size={28} />,
-      title: 'Removes pet odours & hair',
-      body: 'Embedded pet dander and odour-causing bacteria are extracted at source — not just masked with fragrance. Works on dog, cat and other pet allergens.',
+      title: 'Pet hair and odour assessment',
+      body: 'Loose pet hair is removed before treatment. We assess odour sources and explain what the chosen process can reasonably improve.',
     },
     {
       icon: <Shield size={28} />,
-      title: 'Reduces allergens',
-      body: 'Dust mites, pollen and pet dander trapped deep in upholstery fibres are significantly reduced — important for allergy and asthma sufferers.',
+      title: 'Fabric-first method',
+      body: 'The care label, colour stability and material guide the method. Delicate or unsuitable fabrics are not treated with hot-water extraction.',
     },
     {
       icon: <Palette size={28} />,
@@ -220,7 +220,7 @@ const DATA: ServiceLandingData = {
 
   ctaH2: 'Ready to book your sofa clean?',
   ctaBody:
-    'Book online in 2 minutes and pay a £30 deposit to secure your slot. We confirm within 1 hour during business hours.',
+    'Send your booking request online. The £30 deposit is deducted from the final total, and availability is confirmed separately.',
   ctaPrimary: { href: '/booking', label: 'Book online now' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };

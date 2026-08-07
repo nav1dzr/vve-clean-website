@@ -22,4 +22,5 @@ export interface BlogPost {
   body: BlogPostBlock[];
   relatedServiceHref?: string;
   relatedServiceLabel?: string;
+  sources?: { label: string; href: string }[];
 }

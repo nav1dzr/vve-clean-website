@@ -5,7 +5,7 @@ import MobileStickyFooter from './MobileStickyFooter';
 import { BookingProvider } from '../context/BookingContext';
 import type { BlogPost, BlogPostBlock } from '../data/blog';
 
-const BASE_URL = 'https://vveclean.co.uk';
+const BASE_URL = 'https://www.vveclean.co.uk';
 
 function buildArticleSchema(post: BlogPost): string {
   return JSON.stringify({
@@ -18,6 +18,7 @@ function buildArticleSchema(post: BlogPost): string {
     author: { '@type': 'Organization', name: 'VVE Clean' },
     publisher: { '@type': 'Organization', name: 'VVE Clean', url: BASE_URL },
     mainEntityOfPage: `${BASE_URL}/blog/${post.slug}`,
+    citation: post.sources?.map((source) => source.href),
   });
 }
 
@@ -89,6 +90,20 @@ export default function BlogPostLayout({ post }: { post: BlogPost }) {
             <div>
               {post.body.map((block, i) => <Block key={i} block={block} />)}
             </div>
+
+            {post.sources && post.sources.length > 0 && (
+              <section className="mt-10 border-t border-line pt-7" aria-labelledby="article-sources">
+                <h2 id="article-sources" className="font-display text-xl font-bold text-navy-900">Official sources</h2>
+                <ul className="mt-4 space-y-3">
+                  {post.sources.map((source) => (
+                    <li key={source.href}>
+                      <a className="font-semibold text-royal-700 underline underline-offset-4 hover:text-royal-600" href={source.href} target="_blank" rel="noopener noreferrer">{source.label}</a>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-5 text-sm leading-6 text-muted">General information only. Check your tenancy documents and get advice from the deposit scheme or a qualified adviser for your circumstances.</p>
+              </section>
+            )}
 
             {post.relatedServiceHref && post.relatedServiceLabel && (
               <div className="mt-10 bg-[#f0f7ff] border border-royal-100 rounded-2xl p-6 text-center">

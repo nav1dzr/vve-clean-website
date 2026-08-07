@@ -9,17 +9,17 @@ const SCHEMA = JSON.stringify({
     {
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://vveclean.co.uk' },
-        { '@type': 'ListItem', position: 2, name: 'How We Clean Sofas & Upholstery', item: 'https://vveclean.co.uk/how-we-clean-sofas-upholstery' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.vveclean.co.uk' },
+        { '@type': 'ListItem', position: 2, name: 'How We Clean Sofas & Upholstery', item: 'https://www.vveclean.co.uk/how-we-clean-sofas-upholstery' },
       ],
     },
     {
       '@type': 'Service',
       name: 'How We Clean Sofas & Upholstery',
       description: 'How VVE Clean cleans sofas and upholstery in London — the fabric test, hot-water extraction, and what to expect.',
-      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://vveclean.co.uk', telephone: '+442080502233' },
+      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
-      url: 'https://vveclean.co.uk/how-we-clean-sofas-upholstery',
+      url: 'https://www.vveclean.co.uk/how-we-clean-sofas-upholstery',
     },
     {
       '@type': 'FAQPage',
@@ -90,7 +90,7 @@ const DATA: ServiceLandingData = {
   ],
 
   ctaH2: 'Ready to book your sofa clean?',
-  ctaBody: 'Book online in 2 minutes and pay a £30 deposit to reserve your requested appointment. It comes off the final balance, and we confirm availability within one business hour.',
+  ctaBody: 'Send your booking request online. The £30 deposit is deducted from the final total, and availability is confirmed separately.',
   ctaPrimary: { href: '/booking', label: 'Book online now' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };

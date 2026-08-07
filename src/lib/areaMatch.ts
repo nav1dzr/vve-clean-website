@@ -24,3 +24,11 @@ export function matchesArea(
   const needles = [areaName, ...postcodes];
   return needles.some((needle) => new RegExp(`\\b${escapeRegExp(needle)}\\b`, 'i').test(location));
 }
+
+/** Reviews are location-labelled by a human-readable area. A shared postcode
+ * can belong to several neighbourhoods, so review proof must match the area
+ * name itself and never a postcode alone. */
+export function matchesNamedArea(location: string | undefined, areaName: string): boolean {
+  if (!location) return false;
+  return new RegExp(`\\b${escapeRegExp(areaName)}\\b`, 'i').test(location);
+}

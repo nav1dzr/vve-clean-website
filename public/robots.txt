@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://vveclean.co.uk/sitemap.xml
+Sitemap: https://www.vveclean.co.uk/sitemap.xml

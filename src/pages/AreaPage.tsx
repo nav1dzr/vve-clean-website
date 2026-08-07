@@ -6,51 +6,54 @@ import { COVERAGE_SUMMARY } from '../data/pricing';
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20a%20quote.';
 
 function buildAreaSchema(area: AreaInfo): string {
-  const postcodeLabel = area.postcodes.length > 0 ? area.postcodes.join(', ') : COVERAGE_SUMMARY;
+  const covered = area.coverageConfirmed !== false;
+  const postcodeLabel = area.postcodes.length > 0 ? area.postcodes.join(', ') : 'Check postcode before booking';
+  const faqItems = covered ? [
+    {
+      '@type': 'Question',
+      name: `Do you charge more to clean in ${area.name}?`,
+      acceptedAnswer: { '@type': 'Answer', text: `No. Our published prices are the same across our confirmed coverage area. Congestion Charge and parking may be added only where they apply and are shown separately.` },
+    },
+    {
+      '@type': 'Question',
+      name: `What areas near ${area.name} do you also cover?`,
+      acceptedAnswer: { '@type': 'Answer', text: `Nearby published areas include ${area.neighbourAreas.join(', ')}. Check the postcode list or ask VVE Clean before booking.` },
+    },
+  ] : [
+    {
+      '@type': 'Question',
+      name: `Do you currently cover ${area.name}?`,
+      acceptedAnswer: { '@type': 'Answer', text: `${area.name} is outside the currently published postcode list. Contact VVE Clean with the full postcode so availability and any travel requirements can be confirmed before booking.` },
+    },
+  ];
   return JSON.stringify({
     '@context': 'https://schema.org',
     '@graph': [
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://vveclean.co.uk' },
-          { '@type': 'ListItem', position: 2, name: `Cleaning in ${area.name}`, item: `https://vveclean.co.uk/cleaning-${area.slug}` },
+          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.vveclean.co.uk' },
+          { '@type': 'ListItem', position: 2, name: `Cleaning in ${area.name}`, item: `https://www.vveclean.co.uk/cleaning-${area.slug}` },
         ],
       },
       {
         '@type': 'Service',
         name: `Cleaning Services in ${area.name}, London`,
-        description: `End of tenancy, carpet and sofa & upholstery cleaning for ${area.name} and the surrounding area. Fixed prices, the same as everywhere else we cover — no travel surcharge.`,
-        provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://vveclean.co.uk', telephone: '+442080502233' },
+        description: covered ? `End of tenancy, carpet and upholstery cleaning in ${area.name}, subject to booking availability.` : `Check cleaning service availability for ${area.name} with VVE Clean before booking.`,
+        provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
         areaServed: postcodeLabel,
-        url: `https://vveclean.co.uk/cleaning-${area.slug}`,
+        url: `https://www.vveclean.co.uk/cleaning-${area.slug}`,
       },
       {
         '@type': 'FAQPage',
-        mainEntity: [
-          {
-            '@type': 'Question',
-            name: `Do you charge more to clean in ${area.name}?`,
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: `No. Our published prices are fixed across every area we cover — ${area.name} pays the same rate as anywhere else in East or North London. The only extras that can apply to any booking, anywhere, are the same disclosed ones every customer sees: a Congestion Charge zone pass-through and a parking estimate, added only when they genuinely apply.`,
-            },
-          },
-          {
-            '@type': 'Question',
-            name: `What areas near ${area.name} do you also cover?`,
-            acceptedAnswer: {
-              '@type': 'Answer',
-              text: `We also cover ${area.neighbourAreas.join(', ')}, along with the rest of our ${COVERAGE_SUMMARY} coverage area.`,
-            },
-          },
-        ],
+        mainEntity: faqItems,
       },
     ],
   });
 }
 
 function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
+  const covered = area.coverageConfirmed !== false;
   const postcodeLabel = area.postcodes.length > 0 ? ` (${area.postcodes.join(', ')})` : '';
 
   return {
@@ -60,17 +63,18 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
     eyebrow: 'East & North London Cleaning',
     h1: `Cleaning in ${area.name}`,
     h1Highlight: ' — end of tenancy, carpet & sofa.',
-    heroBadges: ['Fixed prices, no travel surcharge', 'Fully insured', 'DBS-checked technicians'],
+    heroBadges: covered ? ['Published prices', 'Fully insured', 'Check your preferred date'] : ['Check your postcode first', 'Fully insured', 'Direct confirmation'],
     heroGoogleBadge: true,
-    heroTrustLine: 'Fully insured · DBS-checked technicians',
-    primaryHref: '/booking',
-    primaryLabel: 'Book online',
+    heroTrustLine: '£5m public liability insurance · direct contact',
+    primaryHref: covered ? '/booking' : WA,
+    primaryLabel: covered ? 'Send booking request' : 'Check my postcode',
+    primaryIsWa: !covered,
     secondaryHref: WA,
     secondaryLabel: 'WhatsApp for a quote',
     secondaryIsWa: true,
 
-    introH2: `Cleaning cover for ${area.name}${postcodeLabel}`,
-    introText: `We cover ${area.name} as part of our ${COVERAGE_SUMMARY} service area, alongside neighbouring areas including ${area.neighbourAreas.join(', ')}. Whichever service you need — end of tenancy, carpet, or sofa & upholstery cleaning — the price list and process are exactly the same as everywhere else we work.`,
+    introH2: covered ? `Cleaning cover for ${area.name}${postcodeLabel}` : `Check service availability for ${area.name}`,
+    introText: covered ? `VVE Clean serves ${area.name} within its published ${COVERAGE_SUMMARY} coverage area. Choose end of tenancy, carpet or upholstery cleaning, then send your preferred date for confirmation.` : `${area.name} is not in the currently published postcode list. Send the full postcode and service you need before booking so VVE Clean can confirm whether the visit is possible.`,
 
     // Required by ServiceLandingData but unused: 'benefits' is deliberately
     // omitted from sectionOrder below (see docs/LOCATION_PAGES_ASSESSMENT.md —
@@ -80,23 +84,27 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
     benefits: [],
 
     whyH2: `Why book VVE Clean in ${area.name}`,
-    whyPoints: [
-      'The same fixed prices as every other area we cover — no travel or postcode surcharge',
-      'Fully insured, DBS-checked technicians',
-      '£15 off if we arrive more than an hour late',
-      'Free reschedule until 12pm the day before',
+    whyPoints: covered ? [
+      'The published service price does not change by postcode within the confirmed coverage area',
+      '£5m public liability insurance',
+      'Direct contact if access details or your preferred date changes',
+      'Reschedule without charge until 12pm the day before a confirmed appointment',
+    ] : [
+      'A clear answer on coverage before you submit a booking request',
+      '£5m public liability insurance',
+      'Direct contact to discuss the property and service needed',
     ],
 
     pricingH2: 'Fixed prices, wherever you are in our coverage area',
-    pricingIntro: `Our published prices don't change by postcode. ${area.name} pays the same rate as any other area we cover.`,
+    pricingIntro: covered ? `Our published service prices do not change by postcode within the confirmed coverage area.` : 'The service price can be reviewed once the full postcode and visit availability are confirmed.',
     pricingNote: `See the full, itemised price list for every service on our pricing page. The only extras that can apply to any booking are the same disclosed ones every customer sees — a Congestion Charge zone pass-through and a parking estimate — added only when they genuinely apply, never because of where you live.`,
     pricingCta: { href: '/pricing', label: 'See all prices' },
 
     proofSection: <AreaProofSection area={area} />,
 
-    sectionOrder: ['intro', 'proof', 'why', 'pricing', 'faq', 'related'],
+    sectionOrder: covered ? ['intro', 'proof', 'why', 'pricing', 'faq', 'related'] : ['intro', 'why', 'faq', 'related'],
 
-    faqs: [
+    faqs: covered ? [
       {
         q: `Do you charge more to clean in ${area.name}?`,
         a: `No. Our published prices are fixed across every area we cover — ${area.name} pays the same rate as anywhere else in East or North London. The only extras that can apply to any booking, anywhere, are the same disclosed ones every customer sees: a Congestion Charge zone pass-through and a parking estimate, added only when they genuinely apply.`,
@@ -105,7 +113,7 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
         q: `What areas near ${area.name} do you also cover?`,
         a: `We also cover ${area.neighbourAreas.join(', ')}, along with the rest of our ${COVERAGE_SUMMARY} coverage area.`,
       },
-    ],
+    ] : [{ q: `Do you currently cover ${area.name}?`, a: `${area.name} is outside the currently published postcode list. Contact VVE Clean with the full postcode so availability and any travel requirements can be confirmed before booking.` }],
 
     relatedLinks: [
       { href: '/end-of-tenancy-cleaning-london', label: 'End of Tenancy Cleaning' },
@@ -115,9 +123,9 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
       { href: '/booking', label: 'Book Online' },
     ],
 
-    ctaH2: `Ready to book in ${area.name}?`,
-    ctaBody: 'Book online in 2 minutes and pay a £30 deposit to reserve your requested appointment. It comes off the final balance, and we confirm availability within one business hour.',
-    ctaPrimary: { href: '/booking', label: 'Book online now' },
+    ctaH2: covered ? `Ready to send a booking request in ${area.name}?` : `Need cleaning in ${area.name}?`,
+    ctaBody: covered ? 'Send your details and preferred date online. The £30 booking request deposit is deducted from the final total, and availability is confirmed separately.' : 'Send your full postcode on WhatsApp before booking so VVE Clean can confirm whether the visit is possible.',
+    ctaPrimary: covered ? { href: '/booking', label: 'Send booking request' } : { href: WA, label: 'Check my postcode' },
     ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
   };
 }

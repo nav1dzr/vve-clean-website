@@ -1,6 +1,6 @@
 import type { AreaInfo } from '../data/areas';
 import { REVIEWS } from '../data/reviews';
-import { matchesArea } from './areaMatch';
+import { matchesNamedArea } from './areaMatch';
 import { collectAreaJobs } from '../components/gallery/RecentJobsByArea';
 
 /**
@@ -13,7 +13,7 @@ import { collectAreaJobs } from '../components/gallery/RecentJobsByArea';
  * needed.
  */
 export function areaHasRealProof(area: AreaInfo): boolean {
-  const hasReview = REVIEWS.some((r) => matchesArea(r.location, area.name, area.postcodes));
+  const hasReview = REVIEWS.some((r) => matchesNamedArea(r.location, area.name));
   const hasJobItems = collectAreaJobs(area.name, area.postcodes).length > 0;
   const hasNotes = (area.jobNotes ?? []).length > 0;
   return hasReview || hasJobItems || hasNotes;

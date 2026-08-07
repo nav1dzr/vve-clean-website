@@ -17,6 +17,7 @@ import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import MobileStickyFooter from '../components/MobileStickyFooter';
+import FaqSchema from '../components/FaqSchema';
 import {
   COMMERCIAL_REGULAR_HOURLY_P,
   COMMERCIAL_REGULAR_MIN_CHARGE_P,
@@ -37,7 +38,7 @@ const SECTORS = [
   {
     icon: Building2,
     title: 'Offices & studios',
-    body: 'Daily or weekly cleaning planned around your working hours, with the same team learning the site.',
+    body: 'Daily or weekly cleaning planned around your working hours, using a documented task list for the site.',
     detail: 'Desks · kitchens · washrooms · floors',
   },
   {
@@ -61,12 +62,12 @@ const SECTORS = [
 ];
 
 const INCLUDED = [
-  'Same cleaner or team on regular visits',
-  'Out-of-hours and keyholding available',
+  'Visit schedule and task list agreed in writing',
+  'Access arrangements confirmed before the first visit',
   'All cleaning equipment and products supplied',
-  'RAMS, method statements and insurance documents on request',
-  'Monthly invoicing with 14-day payment terms',
-  'No long lock-ins — 30 days’ notice',
+  'Insurance documents available on request',
+  'Billing terms shown in the written quote',
+  'Contract notice period agreed before work starts',
 ];
 
 const RATES = [
@@ -87,19 +88,19 @@ const STEPS = [
 const FAQS = [
   {
     q: 'Do you have insurance and RAMS?',
-    a: 'Yes — £5m public liability as standard. All staff are DBS-checked. We supply RAMS, method statements and insurance certificates before any contract starts, at no extra cost.',
+    a: 'VVE Clean carries £5m public liability insurance and can provide the insurance certificate on request. If your site requires RAMS or another document, include that in the enquiry so it can be confirmed in the written scope.',
   },
   {
     q: 'Can you clean outside opening hours?',
-    a: 'Yes. Early mornings, evenings and weekends are available. Keyholding and alarm management can be arranged for regular clients.',
+    a: 'Tell us the access window your site needs. Any out-of-hours visit, keyholding or alarm arrangement must be confirmed in the written scope before work starts.',
   },
   {
     q: 'How does billing work?',
-    a: 'One monthly invoice with 14-day payment terms. No deposits are required for contract clients.',
+    a: 'The quote states the invoice schedule, payment deadline and whether a deposit applies. Those terms are agreed before the first visit.',
   },
   {
     q: 'Is there a minimum contract length?',
-    a: 'There are no long lock-ins. You can cancel with 30 days’ notice.',
+    a: 'The minimum term and notice period are shown in the written quote so both sides can review them before agreeing a contract.',
   },
 ];
 
@@ -135,6 +136,7 @@ export default function CommercialPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: SCHEMA }} />
+      <FaqSchema items={FAQS} />
       <div className="min-h-screen bg-[#fafbfd] pb-[56px] lg:pb-0">
         <Navbar />
         <main id="main-content">
@@ -152,7 +154,7 @@ export default function CommercialPage() {
                 <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-300">
                   <span className="inline-flex items-center gap-2"><ShieldCheck size={18} className="text-sky-300" /> £5m public liability</span>
                   <span className="inline-flex items-center gap-2"><Clock3 size={18} className="text-sky-300" /> Out-of-hours available</span>
-                  <span className="inline-flex items-center gap-2"><FileCheck2 size={18} className="text-sky-300" /> RAMS available</span>
+                  <span className="inline-flex items-center gap-2"><FileCheck2 size={18} className="text-sky-300" /> Written specification</span>
                 </div>
                 <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                   <a href={WA_COMMERCIAL} target="_blank" rel="noopener noreferrer" className="btn-whatsapp inline-flex min-h-[48px] items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">

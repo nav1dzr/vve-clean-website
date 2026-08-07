@@ -27,4 +27,20 @@ describe('Navbar service navigation', () => {
     expect(screen.getByRole('link', { name: /After Builders Fine dust and post-work cleaning/i })).toHaveAttribute('href', '/after-builders-cleaning-london');
     expect(screen.getByRole('link', { name: /Commercial Cleaning Offices, retail and communal areas/i })).toHaveAttribute('href', '/commercial');
   });
+
+  it('removes the closed mobile menu from the DOM and restores trigger focus on Escape', async () => {
+    const user = userEvent.setup();
+    renderNavbar();
+
+    const trigger = screen.getByRole('button', { name: 'Open menu' });
+    expect(document.getElementById('mobile-nav-menu')).toBeNull();
+
+    await user.click(trigger);
+    expect(document.getElementById('mobile-nav-menu')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Close menu' })).toHaveAttribute('aria-expanded', 'true');
+
+    await user.keyboard('{Escape}');
+    expect(document.getElementById('mobile-nav-menu')).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
 });

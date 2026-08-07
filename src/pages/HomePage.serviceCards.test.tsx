@@ -62,7 +62,8 @@ async function chooseCard(user: ReturnType<typeof userEvent.setup>, title: strin
 
 /** Copy unique to each branch of the detailed calculator. */
 const DETAIL_MARKER: Record<string, RegExp> = {
-  carpet_upholstery: /Bedroom/i,
+  carpet: /Living \/ dining room/i,
+  upholstery: /Armchair/i,
   move_in: /Property Size/i,
   after_builders: /Property Size/i,
 };
@@ -136,7 +137,8 @@ describe('HomePage — fresh visit', () => {
 
 describe('HomePage — choosing from the dropdown', () => {
   const cases: Array<{ label: string; service: string }> = [
-    { label: 'Carpet or upholstery cleaning', service: 'carpet_upholstery' },
+    { label: 'Carpet cleaning', service: 'carpet' },
+    { label: 'Sofa or upholstery cleaning', service: 'upholstery' },
     // 'End of tenancy cleaning' is deliberately absent: it now opens the shared
     // premium quote instead of this calculator. See HomePage.premiumEot.test.tsx.
     { label: 'Move-in deep cleaning', service: 'move_in' },
@@ -163,8 +165,8 @@ describe('HomePage — choosing from the dropdown', () => {
 
 describe('HomePage — choosing from a service card', () => {
   const cases: Array<{ card: string; service: string }> = [
-    { card: 'Carpet Cleaning', service: 'carpet_upholstery' },
-    { card: 'Sofa & Upholstery', service: 'carpet_upholstery' },
+    { card: 'Carpet Cleaning', service: 'carpet' },
+    { card: 'Sofa & Upholstery', service: 'upholstery' },
     // 'End of Tenancy' is deliberately absent — see the note above.
     { card: 'Deep Cleaning', service: 'move_in' },
     { card: 'After Builders', service: 'after_builders' },
