@@ -39,6 +39,14 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Vitest's 5s default is too tight for this suite. Several specs render a
+    // whole page (ServiceLandingLayout + QuoteCalculator + galleries) and then
+    // drive it with userEvent; on a loaded machine or a slow CI runner those
+    // exceed 5s and fail as timeouts with no underlying defect — two
+    // consecutive local runs produced 9 and then 11 spurious failures from
+    // *different* files, while the same suite passed 1209/1209 at a higher
+    // timeout. A genuinely hung test still fails, just 20s later.
+    testTimeout: 20000,
     // Named vitestSetup.ts, NOT setupTests.ts — admin/ has its own
     // vite.config.ts with setupFiles: ['./src/setupTests.ts'], and giving
     // this file the identical relative path (src/setupTests.ts) causes

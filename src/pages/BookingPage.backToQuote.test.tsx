@@ -126,7 +126,7 @@ describe('it returns to the quote the customer actually built', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Increase Bedroom quantity' }));
-    await user.click(screen.getAllByRole('button', { name: /Book online/i })[0]);
+    await user.click(screen.getAllByRole('button', { name: /Request booking/i })[0]);
 
     expect(onBook).toHaveBeenCalled();
     expect(sessionStorage.getItem('vve_quote_origin')).toBe('/leaflet');

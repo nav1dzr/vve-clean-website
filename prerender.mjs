@@ -242,9 +242,12 @@ const routes = [
     ogDescription: 'A clear, owner-led cleaning service with visible pricing and direct contact.',
     changefreq: 'monthly',
     priority: '0.6',
-    // Keep the page out of search until the clearly labelled team-photo
-    // placeholder is replaced with owner-approved real media.
-    robots: 'noindex, follow',
+    // Previously `noindex, follow` because the page carried a visible
+    // team-photo placeholder addressed to whoever was editing the site. That
+    // block is gone: the page now states only verifiable facts (services,
+    // coverage, insurance, company registration) and makes no team claim, so
+    // there is nothing left to withhold from search. Adding an owner-approved
+    // photograph later does not change indexability.
     sources: ['src/pages/AboutPage.tsx'],
   },
   {
@@ -423,7 +426,10 @@ function buildHtml(route, canonical) {
 
 // ── Prerender every real route ───────────────────────────────────────────────
 for (const route of routes) {
-  const canonical = `${BASE_URL}${route.path === '/' ? '' : route.path}`;
+  // Homepage canonical is `${BASE_URL}/`, matching its <loc> in the sitemap
+  // below. It used to be the bare origin with no trailing slash while the
+  // sitemap advertised the slash form — the same page described two ways.
+  const canonical = `${BASE_URL}${route.path === '/' ? '/' : route.path}`;
   const output = buildHtml(route, canonical);
 
   const outPath =

@@ -14,6 +14,32 @@ const pd = (pence: number) => `£${pence / 100}`;
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20a%20sofa%20cleaning%20quote.';
 
+// Single source for the visible accordion and the FAQPage schema — see the
+// same note in EndOfTenancyPage.tsx. The stain answer keeps the explicit
+// "we never guarantee complete removal" wording in both places.
+const FAQS = [
+  {
+    q: 'How do I know if my sofa is safe to clean?',
+    a: 'Before we start, we carry out a quick fabric and dye-stability test to confirm the upholstery is suitable for hot-water extraction. Most modern fabric sofas are compatible. We will tell you honestly if we think a different approach would give a better result.',
+  },
+  {
+    q: 'Will the colours run or fade?',
+    a: 'We test for dye stability on every sofa before applying any cleaning solution. If there is a risk of colour bleed, we let you know before we start. We do not proceed without your agreement.',
+  },
+  {
+    q: 'How long before the sofa dries?',
+    a: 'Most fabric sofas are dry within 3–6 hours. Thicker fabrics like velvet or chenille may take a little longer. Opening windows and keeping the room warm speeds up drying.',
+  },
+  {
+    q: 'Do you clean leather sofas?',
+    a: 'Not currently. Our upholstery service is for fabric sofas and chairs. Leather requires a specialist conditioning treatment that we do not offer at this time.',
+  },
+  {
+    q: 'Can you remove wine or food stains?',
+    a: 'In most cases, yes. Fresh stains respond very well. Older, set-in stains may leave a faint residual mark — we will tell you the likely outcome during the pre-inspection, never after the clean. We never guarantee complete stain removal on old marks.',
+  },
+];
+
 const SCHEMA = JSON.stringify({
   '@context': 'https://schema.org',
   '@graph': [
@@ -42,48 +68,11 @@ const SCHEMA = JSON.stringify({
     },
     {
       '@type': 'FAQPage',
-      mainEntity: [
-        {
-          '@type': 'Question',
-          name: 'How do I know if my sofa is safe to clean?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Before we start, we carry out a quick fabric and dye-stability test to confirm the upholstery is suitable for hot-water extraction. Most modern fabric sofas are compatible. We will tell you honestly if we think a different method would give a better result.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Will the colours run or fade?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'We test for dye stability on every sofa before using any cleaning solution. If there is a risk of colour bleed, we will let you know before we start. We do not proceed without your agreement.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'How long before the sofa dries?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Most fabric sofas are dry within 3–6 hours. Thicker fabrics like velvet or chenille may take a little longer. Opening windows and keeping the room warm speeds up drying. We extract as much moisture as possible at the end of the clean.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Do you clean leather sofas?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Not currently. Our upholstery cleaning service is for fabric sofas and chairs. Leather requires a specialist conditioning treatment that we do not offer at this time.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Can you remove wine or food stains from a sofa?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'In most cases, yes. Fresh stains respond very well to hot-water extraction. Older, set-in stains may leave a faint residual mark — we will tell you the likely outcome during the pre-inspection. We never guarantee complete stain removal on old marks.',
-          },
-        },
-      ],
+      mainEntity: FAQS.map((faq) => ({
+        '@type': 'Question',
+        name: faq.q,
+        acceptedAnswer: { '@type': 'Answer', text: faq.a },
+      })),
     },
   ],
 });
@@ -177,28 +166,7 @@ const DATA: ServiceLandingData = {
   processSection: <SofaCareGuide />,
   afterPricingSection: <SofaGallerySection />,
 
-  faqs: [
-    {
-      q: 'How do I know if my sofa is safe to clean?',
-      a: 'Before we start, we carry out a quick fabric and dye-stability test to confirm the upholstery is suitable for hot-water extraction. Most modern fabric sofas are compatible. We will tell you honestly if we think a different approach would give a better result.',
-    },
-    {
-      q: 'Will the colours run or fade?',
-      a: 'We test for dye stability on every sofa before applying any cleaning solution. If there is a risk of colour bleed, we let you know before we start. We do not proceed without your agreement.',
-    },
-    {
-      q: 'How long before the sofa dries?',
-      a: 'Most fabric sofas are dry within 3–6 hours. Thicker fabrics like velvet or chenille may take a little longer. Opening windows and keeping the room warm speeds up drying.',
-    },
-    {
-      q: 'Do you clean leather sofas?',
-      a: 'Not currently. Our upholstery service is for fabric sofas and chairs. Leather requires a specialist conditioning treatment that we do not offer at this time.',
-    },
-    {
-      q: 'Can you remove wine or food stains?',
-      a: 'In most cases, yes. Fresh stains respond very well. Older, set-in stains may leave a faint residual mark — we will tell you the likely outcome during the pre-inspection, never after the clean.',
-    },
-  ],
+  faqs: FAQS,
 
   relatedLinks: [
     { href: '/carpet-cleaning-london', label: 'Carpet Cleaning' },
@@ -206,7 +174,7 @@ const DATA: ServiceLandingData = {
     { href: '/after-builders-cleaning-london', label: 'After Builders Cleaning' },
     { href: '/commercial-carpet-cleaning-london', label: 'Commercial Cleaning' },
     { href: '/pricing', label: 'All Prices' },
-    { href: '/booking', label: 'Book Online' },
+    { href: '/booking', label: 'Request booking' },
   ],
 
   // Conversion order: quote (afterHeroSection, always directly under the hero)
@@ -221,7 +189,7 @@ const DATA: ServiceLandingData = {
   ctaH2: 'Ready to book your sofa clean?',
   ctaBody:
     'Send your booking request online. The £30 deposit is deducted from the final total, and availability is confirmed separately.',
-  ctaPrimary: { href: '/booking', label: 'Book online now' },
+  ctaPrimary: { href: '/booking', label: 'Request booking online' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };
 

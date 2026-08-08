@@ -78,7 +78,10 @@ export default function Navbar() {
               className="mx-2 h-8 w-px bg-slate-300 sm:mx-3"
             />
 
-            <span className="max-w-[62px] text-[7px] font-bold uppercase leading-[1.35] tracking-[0.08em] text-navy-700 sm:max-w-[86px] sm:text-[9px]">
+            {/* 7px was unreadable on a phone. At 10px/11px the two-word wrap
+                still fits the header without pushing the call, WhatsApp and
+                menu controls, which keep their 44px targets. */}
+            <span className="max-w-[76px] text-[10px] font-bold uppercase leading-[1.3] tracking-[0.06em] text-navy-700 sm:max-w-[96px] sm:text-[11px]">
               Cleaning &amp; Property Services
             </span>
           </Link>

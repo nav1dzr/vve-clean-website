@@ -15,6 +15,31 @@ const pd = (pence: number) => `£${pence / 100}`;
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20a%20carpet%20clean%20quote.';
 
+// Single source for the visible accordion and the FAQPage schema — see the
+// same note in EndOfTenancyPage.tsx.
+const FAQS = [
+  {
+    q: 'How long does carpet cleaning take?',
+    a: 'A bedroom typically takes 20–30 minutes. A full 3-bedroom flat including hallways and living room usually takes 2–3 hours. We give you an estimated time when you book.',
+  },
+  {
+    q: 'How long before the carpet is dry?',
+    a: 'Carpets are usually dry within 2–4 hours. We use powerful extraction equipment that removes most of the moisture at the end of the clean, so drying is much faster than older steam methods.',
+  },
+  {
+    q: 'Will you remove all stains?',
+    a: 'Some coffee, wine, pet, mud and general-soiling marks can respond to treatment, but the result depends on the fibre, stain and products already used. Bleach, dye and permanent ink can leave a lasting mark. Complete removal cannot be guaranteed.',
+  },
+  {
+    q: 'Do I need to move furniture before you arrive?',
+    a: 'We ask that you move small items, toys and breakables off the carpet before we arrive. For large furniture like sofas and beds, we use furniture slides or clean around them where it makes sense. Let us know what you need when booking.',
+  },
+  {
+    q: 'Do you clean rugs?',
+    a: `Yes. Standard rugs start at ${pd(CARPET_ITEM_PRICES_P.rug)}. Larger, wool or specialist rugs may need a photo review first so the construction and a suitable cleaning method can be checked and the price confirmed before booking.`,
+  },
+];
+
 const SCHEMA = JSON.stringify({
   '@context': 'https://schema.org',
   '@graph': [
@@ -43,48 +68,11 @@ const SCHEMA = JSON.stringify({
     },
     {
       '@type': 'FAQPage',
-      mainEntity: [
-        {
-          '@type': 'Question',
-          name: 'How long does carpet cleaning take?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'A bedroom typically takes 20–30 minutes. A full 3-bedroom flat including hallways and living room usually takes 2–3 hours. We give you an estimated time when you book.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'How long before the carpet is dry?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Carpets are usually dry within 2–4 hours. We use powerful extraction equipment that removes most of the moisture at the end of the clean, so drying is much faster than older steam methods.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Will you remove all stains?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Some coffee, wine, pet, mud and general-soiling marks can respond to treatment, but the result depends on the fibre, stain and products already used. Bleach, dye and permanent ink can leave a lasting mark. Complete removal cannot be guaranteed.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Do I need to move furniture before you arrive?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'We ask that you move small items, toys and breakables off the carpet before we arrive. For large furniture like sofas and beds, we use furniture slides or clean around them where it makes sense. Let us know what you need when booking.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Do you clean rugs?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Standard rugs start at £40. Larger, wool or specialist rugs may need a photo review first so the construction and suitable cleaning method can be checked.',
-          },
-        },
-      ],
+      mainEntity: FAQS.map((faq) => ({
+        '@type': 'Question',
+        name: faq.q,
+        acceptedAnswer: { '@type': 'Answer', text: faq.a },
+      })),
     },
   ],
 });
@@ -224,28 +212,7 @@ const DATA: ServiceLandingData = {
     'intro', 'why', 'pricing', 'faq', 'related',
   ],
 
-  faqs: [
-    {
-      q: 'How long does carpet cleaning take?',
-      a: 'A bedroom typically takes 20–30 minutes. A full 3-bedroom flat including hallways and living room usually takes 2–3 hours. We give you an estimated time when you book.',
-    },
-    {
-      q: 'How long before the carpet is dry?',
-      a: 'Carpets are usually dry within 2–4 hours. We use powerful extraction equipment that removes most of the moisture at the end of the clean, so drying is much faster than older steam methods.',
-    },
-    {
-      q: 'Will you remove all stains?',
-      a: 'Some coffee, wine, pet, mud and general-soiling marks can respond to treatment, but the result depends on the fibre, stain and products already used. Bleach, dye and permanent ink can leave a lasting mark. Complete removal cannot be guaranteed.',
-    },
-    {
-      q: 'Do I need to move furniture before you arrive?',
-      a: 'We ask that you move small items, toys and breakables off the carpet before we arrive. For large furniture like sofas and beds, we use furniture slides or clean around them where it makes sense.',
-    },
-    {
-      q: 'Do you clean rugs?',
-      a: 'Yes. Standard rugs start at £40. Larger or wool rugs may need a photo review so we can confirm a suitable method and price before booking.',
-    },
-  ],
+  faqs: FAQS,
 
   relatedLinks: [
     { href: '/sofa-cleaning-london', label: 'Sofa & Upholstery Cleaning' },
@@ -253,13 +220,13 @@ const DATA: ServiceLandingData = {
     { href: '/after-builders-cleaning-london', label: 'After Builders Cleaning' },
     { href: '/commercial-carpet-cleaning-london', label: 'Commercial Carpet Cleaning' },
     { href: '/pricing', label: 'All Prices' },
-    { href: '/booking', label: 'Book Online' },
+    { href: '/booking', label: 'Request booking' },
   ],
 
   ctaH2: 'Ready to book your carpet clean?',
   ctaBody:
     'Send your booking request online. The £30 deposit is deducted from the final total, and availability is confirmed separately.',
-  ctaPrimary: { href: '/booking', label: 'Book online now' },
+  ctaPrimary: { href: '/booking', label: 'Request booking online' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };
 

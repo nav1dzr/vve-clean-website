@@ -1,5 +1,7 @@
 <!doctype html>
-<html lang="en">
+<!-- en-GB: every customer-facing string on this site is British English, and
+     public/confirmation.html already declared en-GB. -->
+<html lang="en-GB">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
@@ -84,6 +86,16 @@
          — nothing references it any more. -->
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
+    <!-- Sitewide business schema. Inherited by every prerendered route, so
+         hasOfferCatalog below lists only services the site actually sells:
+         each has a published price in shared/pricingCatalogue.js, a landing
+         page, or both. Carpet, sofa & upholstery and after-builders were
+         added; they are the three services with their own indexable landing
+         pages and priced Offers, and had been missing. The bare "Deep
+         Cleaning" entry became "Move-in Deep Clean", which is what the
+         pricing table calls it and what the homepage selector books
+         (quoteService 'move_in'); the old name matched no published price
+         or page. -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -132,28 +144,56 @@
             "@type": "Offer",
             "itemOffered": {
               "@type": "Service",
-              "name": "End of Tenancy Cleaning"
+              "name": "End of Tenancy Cleaning",
+              "url": "https://www.vveclean.co.uk/end-of-tenancy-cleaning-london"
             }
           },
           {
             "@type": "Offer",
             "itemOffered": {
               "@type": "Service",
-              "name": "Deep Cleaning"
+              "name": "Carpet Cleaning",
+              "url": "https://www.vveclean.co.uk/carpet-cleaning-london"
             }
           },
           {
             "@type": "Offer",
             "itemOffered": {
               "@type": "Service",
-              "name": "Window Cleaning"
+              "name": "Sofa & Upholstery Cleaning",
+              "url": "https://www.vveclean.co.uk/sofa-cleaning-london"
             }
           },
           {
             "@type": "Offer",
             "itemOffered": {
               "@type": "Service",
-              "name": "Commercial Cleaning"
+              "name": "After Builders Cleaning",
+              "url": "https://www.vveclean.co.uk/after-builders-cleaning-london"
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Move-in Deep Clean",
+              "url": "https://www.vveclean.co.uk/pricing"
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Commercial Cleaning",
+              "url": "https://www.vveclean.co.uk/commercial"
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Window Cleaning",
+              "url": "https://www.vveclean.co.uk/pricing"
             }
           }
         ]

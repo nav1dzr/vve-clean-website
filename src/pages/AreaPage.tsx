@@ -5,27 +5,37 @@ import { COVERAGE_SUMMARY } from '../data/pricing';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20a%20quote.';
 
-function buildAreaSchema(area: AreaInfo): string {
+// Single source for the visible accordion and the FAQPage schema on every
+// area page. These were previously two separate literals whose answers had
+// drifted apart on all 14 covered areas — see docs/FINAL_COMPLETION_LOG.md.
+function buildAreaFaqs(area: AreaInfo): { q: string; a: string }[] {
   const covered = area.coverageConfirmed !== false;
-  const postcodeLabel = area.postcodes.length > 0 ? area.postcodes.join(', ') : 'Check postcode before booking';
-  const faqItems = covered ? [
+  if (!covered) {
+    return [{
+      q: `Do you currently cover ${area.name}?`,
+      a: `${area.name} is outside the currently published postcode list. Contact VVE Clean with the full postcode so availability and any travel requirements can be confirmed before booking.`,
+    }];
+  }
+  return [
     {
-      '@type': 'Question',
-      name: `Do you charge more to clean in ${area.name}?`,
-      acceptedAnswer: { '@type': 'Answer', text: `No. Our published prices are the same across our confirmed coverage area. Congestion Charge and parking may be added only where they apply and are shown separately.` },
+      q: `Do you charge more to clean in ${area.name}?`,
+      a: `No. We use the same published prices throughout our confirmed coverage area, including ${area.name}. Parking and the Congestion Charge are added only when they apply and are confirmed before booking.`,
     },
     {
-      '@type': 'Question',
-      name: `What areas near ${area.name} do you also cover?`,
-      acceptedAnswer: { '@type': 'Answer', text: `Nearby published areas include ${area.neighbourAreas.join(', ')}. Check the postcode list or ask VVE Clean before booking.` },
-    },
-  ] : [
-    {
-      '@type': 'Question',
-      name: `Do you currently cover ${area.name}?`,
-      acceptedAnswer: { '@type': 'Answer', text: `${area.name} is outside the currently published postcode list. Contact VVE Clean with the full postcode so availability and any travel requirements can be confirmed before booking.` },
+      q: `What areas near ${area.name} do you also cover?`,
+      a: `Nearby published areas include ${area.neighbourAreas.join(', ')}, along with the rest of our ${COVERAGE_SUMMARY} coverage area. Check the postcode list or ask VVE Clean before booking if your postcode is not shown.`,
     },
   ];
+}
+
+function buildAreaSchema(area: AreaInfo): string {
+  const postcodeLabel = area.postcodes.length > 0 ? area.postcodes.join(', ') : 'Check postcode before booking';
+  const covered = area.coverageConfirmed !== false;
+  const faqItems = buildAreaFaqs(area).map((faq) => ({
+    '@type': 'Question',
+    name: faq.q,
+    acceptedAnswer: { '@type': 'Answer', text: faq.a },
+  }));
   return JSON.stringify({
     '@context': 'https://schema.org',
     '@graph': [
@@ -104,23 +114,14 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
 
     sectionOrder: covered ? ['intro', 'proof', 'why', 'pricing', 'faq', 'related'] : ['intro', 'why', 'faq', 'related'],
 
-    faqs: covered ? [
-      {
-        q: `Do you charge more to clean in ${area.name}?`,
-        a: `No. Our published prices are fixed across every area we cover — ${area.name} pays the same rate as anywhere else in East or North London. The only extras that can apply to any booking, anywhere, are the same disclosed ones every customer sees: a Congestion Charge zone pass-through and a parking estimate, added only when they genuinely apply.`,
-      },
-      {
-        q: `What areas near ${area.name} do you also cover?`,
-        a: `We also cover ${area.neighbourAreas.join(', ')}, along with the rest of our ${COVERAGE_SUMMARY} coverage area.`,
-      },
-    ] : [{ q: `Do you currently cover ${area.name}?`, a: `${area.name} is outside the currently published postcode list. Contact VVE Clean with the full postcode so availability and any travel requirements can be confirmed before booking.` }],
+    faqs: buildAreaFaqs(area),
 
     relatedLinks: [
       { href: '/end-of-tenancy-cleaning-london', label: 'End of Tenancy Cleaning' },
       { href: '/carpet-cleaning-london', label: 'Carpet Cleaning' },
       { href: '/sofa-cleaning-london', label: 'Sofa & Upholstery Cleaning' },
       { href: '/pricing', label: 'All Prices' },
-      { href: '/booking', label: 'Book Online' },
+      { href: '/booking', label: 'Request booking' },
     ],
 
     ctaH2: covered ? `Ready to send a booking request in ${area.name}?` : `Need cleaning in ${area.name}?`,

@@ -258,7 +258,14 @@ function HeroBackground({ mobile, desktop }: { mobile: string; desktop: string }
 }
 
 export default function ServiceLandingLayout({ data }: { data: ServiceLandingData }) {
-  const heroReveal    = useReveal();
+  // No reveal on the hero. useReveal starts at `visible: false` and only flips
+  // inside an effect, so every prerendered service, process and area page used
+  // to ship its H1, badges and both CTAs inside `opacity-0` — an empty navy
+  // panel until the client bundle downloaded, hydrated and IntersectionObserver
+  // fired. That handed back the whole point of prerendering on exactly the
+  // pages built to receive search traffic, and pushed LCP to time-to-hydrate on
+  // mobile. The hero now paints straight from the HTML; every section below the
+  // fold keeps its reveal animation.
   const introReveal   = useReveal();
   const benefitsReveal = useReveal();
   const whyReveal     = useReveal();
@@ -483,7 +490,11 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
         dangerouslySetInnerHTML={{ __html: data.schema }}
       />
 
-      <div className="min-h-screen bg-[#fafbfd] pb-[56px] lg:pb-0">
+      {/* mobile-page-bottom, not a bare pb-[56px]: MobileStickyFooter adds
+          env(safe-area-inset-bottom) to its own height, so on a phone with a
+          home indicator the bar is ~90px tall and a flat 56px reserve left the
+          end of the page underneath it. */}
+      <div className="min-h-screen bg-[#fafbfd] mobile-page-bottom lg:pb-0">
         <Navbar />
         <main id="main-content">
 
@@ -517,8 +528,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
             <div className="absolute inset-0 bg-gradient-to-b from-navy-900/90 via-navy-900/80 to-navy-900/88" aria-hidden="true" />
           )}
           <div
-            ref={heroReveal.ref}
-            className={`relative z-10 mx-auto transition-all duration-700 ${data.heroAside ? 'grid max-w-7xl items-center gap-10 text-left lg:grid-cols-[1.08fr_0.92fr]' : 'max-w-4xl text-center'} ${heroReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+            className={`relative z-10 mx-auto ${data.heroAside ? 'grid max-w-7xl items-center gap-10 text-left lg:grid-cols-[1.08fr_0.92fr]' : 'max-w-4xl text-center'}`}
           >
             <div>
               <Eyebrow dark align={data.heroAside ? 'start' : 'center'}>{data.eyebrow}</Eyebrow>

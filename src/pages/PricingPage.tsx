@@ -65,7 +65,7 @@ const PRICING_FAQS = [
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen bg-[#f5f6f8] pb-[56px] lg:pb-0">
+    <div className="min-h-screen bg-[#f5f6f8] mobile-page-bottom lg:pb-0">
       <FaqSchema items={PRICING_FAQS} />
       <Navbar />
       <main id="main-content">
@@ -76,17 +76,21 @@ export default function PricingPage() {
           <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-5">
             <span className="text-silver-300 text-xs tracking-widest font-medium uppercase">Transparent Pricing</span>
           </div>
+          {/* "Zero Surprises" promised something the FAQ below then qualifies
+              ("Can the price change?" — yes, if condition or scope differs on
+              arrival). The heading now says what is actually true: the prices
+              are published, and anything on top is shown before you commit. */}
           <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight">
-            Clear Prices,<br />
-            <span className="text-white">Zero Surprises</span>
+            Published Prices,<br />
+            <span className="text-white">Shown Before You Book</span>
           </h1>
           <p className="text-white text-lg max-w-xl mx-auto">
-            Professional cleaning with clear, upfront pricing. Prices shown apply to normally maintained properties.
+            Professional cleaning with clear, upfront pricing. Prices shown apply to normally maintained properties, and any extra is confirmed with you before the booking is accepted.
           </p>
           <div className="mt-6">
             <Link to="/booking"
               className="inline-flex items-center justify-center gap-2 bg-royal-500 hover:bg-royal-600 text-white font-semibold text-sm sm:text-base px-6 py-3 min-h-[44px] rounded-lg transition-all duration-200 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-              Get my price — book online
+              Get my price — request booking
             </Link>
           </div>
         </div>
@@ -337,7 +341,7 @@ export default function PricingPage() {
                 </div>
                 <div className="font-display font-bold text-2xl text-amber-400">{card.from}</div>
                 {card.minNote > 0 && (
-                  <p className="text-silver-500 text-[10px] leading-snug -mt-1">Minimum call-out £{card.minNote} on standalone visits</p>
+                  <p className="text-silver-400 text-[10px] leading-snug -mt-1">Minimum call-out £{card.minNote} on standalone visits</p>
                 )}
                 <a href={WA_PHOTO} target="_blank" rel="noopener noreferrer"
                   className="mt-auto inline-flex items-center gap-1.5 text-xs font-semibold text-green-400 hover:text-green-300 transition-colors">
@@ -387,7 +391,7 @@ export default function PricingPage() {
                 className="group bg-silver-100 rounded-2xl border border-silver-200 overflow-hidden">
                 <summary className="flex items-center justify-between px-5 py-4 cursor-pointer list-none font-semibold text-navy-900 text-sm select-none">
                   {faq.q}
-                  <span className="text-silver-400 group-open:rotate-45 transition-transform duration-200 text-xl leading-none">+</span>
+                  <span aria-hidden="true" className="text-silver-500 group-open:rotate-45 transition-transform duration-200 text-xl leading-none">+</span>
                 </summary>
                 <div className="px-5 pb-4 text-silver-600 text-sm leading-relaxed border-t border-silver-200 pt-3">
                   {faq.a}

@@ -46,6 +46,14 @@ describe('canonical host', () => {
     expect(indexHtml).toContain(`"url": "${WWW}"`);
     expect(indexHtml).toContain(`"image": "${WWW}/og-image.jpg"`);
   });
+
+  it('describes the homepage the same way in its canonical and in the sitemap', () => {
+    // These used to disagree: the canonical was the bare origin and the
+    // sitemap <loc> had a trailing slash, i.e. one page advertised under two
+    // URL forms. Both are now `${WWW}/`.
+    expect(prerender).toContain("route.path === '/' ? '/' : route.path}`");
+    expect(prerender).not.toContain("route.path === '/' ? '' : route.path}`");
+  });
 });
 
 describe('social share image', () => {

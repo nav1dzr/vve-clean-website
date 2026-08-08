@@ -152,7 +152,7 @@ describe('Carpet page — optional upholstery disclosure', () => {
     await add(u, 'Corner / L-shaped sofa');     // + £130
     await u.click(noBtn());                     // …then changes their mind
 
-    await u.click(screen.getAllByRole('button', { name: /Book online/i })[0]);
+    await u.click(screen.getAllByRole('button', { name: /Request booking/i })[0]);
 
     const sel = onBook.mock.calls[0][0] as {
       price: number;
@@ -228,7 +228,7 @@ describe('Sofa page — optional carpet disclosure', () => {
     await add(u, 'Bedroom', 3);          // + £150
     await u.click(noBtn());
 
-    await u.click(screen.getAllByRole('button', { name: /Book online/i })[0]);
+    await u.click(screen.getAllByRole('button', { name: /Request booking/i })[0]);
 
     const sel = onBook.mock.calls[0][0] as {
       price: number;

@@ -118,7 +118,7 @@ describe('HomePage — fresh visit', () => {
     expect(q.queryByText('Service Type')).not.toBeInTheDocument();
     expect(q.queryByText('Property Size')).not.toBeInTheDocument();
     expect(q.queryByText('Condition')).not.toBeInTheDocument();
-    expect(q.queryByText(/Book online/i)).not.toBeInTheDocument();
+    expect(q.queryByText(/Request booking/i)).not.toBeInTheDocument();
   });
 
   it('still shows all five service cards above the quote', () => {

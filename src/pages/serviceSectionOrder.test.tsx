@@ -108,7 +108,7 @@ describe('Sofa & Upholstery page order', () => {
   it('keeps the upholstery quote reachable and working', () => {
     renderPage(<SofaCleaningPage />, '/sofa-cleaning-london');
     expect(screen.getAllByText('3-seater sofa').length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button', { name: /Book online/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /Request booking/i }).length).toBeGreaterThan(0);
   });
 
   it('uses no duplicate element ids anywhere on the page', () => {
@@ -152,7 +152,7 @@ describe('Carpet page order', () => {
   it('keeps the carpet quote reachable and working', () => {
     renderPage(<CarpetCleaningPage />, '/carpet-cleaning-london');
     expect(screen.getAllByText('Living / dining room').length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button', { name: /Book online/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /Request booking/i }).length).toBeGreaterThan(0);
   });
 
   it('uses no duplicate element ids anywhere on the page', () => {

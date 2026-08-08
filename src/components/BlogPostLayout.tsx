@@ -60,7 +60,7 @@ export default function BlogPostLayout({ post }: { post: BlogPost }) {
     <BookingProvider>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: buildArticleSchema(post) }} />
 
-      <div className="min-h-screen bg-[#fafbfd] pb-[56px] lg:pb-0">
+      <div className="min-h-screen bg-[#fafbfd] mobile-page-bottom lg:pb-0">
         <Navbar />
         <main id="main-content">
           <nav aria-label="Breadcrumb" className="pt-24 pb-2 px-4 max-w-3xl mx-auto">

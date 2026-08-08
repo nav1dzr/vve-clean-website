@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -54,6 +54,31 @@ describe('public site vercel.json — response headers (F3)', () => {
     expect(headerValue(block, 'Cache-Control')).toBeUndefined();
   });
 
+  // Vite writes content-hashed filenames into dist/assets (index-<hash>.js,
+  // index-<hash>.css), so their contents can never change under a given URL.
+  // Vercel's static default is `public, max-age=0, must-revalidate`, which made
+  // the browser revalidate ~765KB of immutable bundle on every navigation. The
+  // rule is deliberately scoped to /assets/ — HTML must keep revalidating, or a
+  // deploy would not reach visitors who already have the page cached.
+  describe('hashed build assets are cached immutably', () => {
+    const assetBlock = findHeaderBlock(config, '/assets/(.*)');
+
+    it('has a header rule for /assets/(.*)', () => {
+      expect(assetBlock).toBeDefined();
+    });
+
+    it('marks them immutable for a year', () => {
+      const value = headerValue(assetBlock, 'Cache-Control');
+      expect(value).toBe('public, max-age=31536000, immutable');
+    });
+
+    it('does not apply the immutable rule to HTML routes', () => {
+      // The catch-all block must stay free of Cache-Control so a new deploy is
+      // picked up immediately.
+      expect(headerValue(block, 'Cache-Control')).toBeUndefined();
+    });
+  });
+
   it('does NOT rewrite unmatched paths to index.html', () => {
     // This used to assert the opposite: rewrites: [{ source: '/(.*)',
     // destination: '/index.html' }]. That rule was written for SPA routing, but
@@ -72,10 +97,17 @@ describe('public site vercel.json — response headers (F3)', () => {
   });
 
   it('pins clean-URL and trailing-slash behaviour rather than relying on defaults', () => {
-    // cleanUrls: true would let Vercel resolve /booking to the legacy
-    // public/booking.html redirect shim, which redirects to /booking — a loop.
     expect(config.cleanUrls).toBe(false);
     expect(config.trailingSlash).toBe(false);
+  });
+
+  it('redirects the retired legacy booking file without shadowing /booking', () => {
+    expect(config.redirects).toContainEqual({
+      source: '/booking.html',
+      destination: '/booking',
+      permanent: true,
+    });
+    expect(existsSync(resolve(__dirname, '..', 'public', 'booking.html'))).toBe(false);
   });
 
   it('does not add a Content-Security-Policy header (deferred — see CSP_IMPLEMENTATION_NOTES.md)', () => {

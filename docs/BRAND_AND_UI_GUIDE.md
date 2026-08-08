@@ -13,7 +13,8 @@ VVE Clean should feel local, capable and easy to contact. The website is a booki
 
 - Use plain British English and short sentences.
 - State the scope, price and next action directly.
-- Say "booking request" until availability is confirmed.
+- Say "booking request" until availability is confirmed. This applies to button labels too, not only body copy — the mobile sticky bar, the quote calculator and every page CTA say "Request booking", never "Book".
+- Only promise what is settled in writing before work starts. Timing, document turnaround, drying times, scheduling priority and invoicing arrangements are agreed per job; do not state them as standing commitments.
 - Say "re-clean guarantee" only where the relevant package includes it.
 - Avoid hype such as "best", "premium", "perfect", fake scarcity or guessed response times.
 - Avoid medical, hygiene or stain-removal outcomes unless evidence supports the exact claim.
@@ -44,4 +45,6 @@ Use genuine VVE Clean work, team and equipment photos. Crop for the page subject
 - Keep Call and WhatsApp available without competing with the main quote action.
 - Put price qualifiers next to the price, not in distant small print.
 - Do not use fake booking notifications, countdowns or unverified "slots left" messages.
-- Show FAQ text visibly whenever FAQ structured data is present.
+- Show FAQ text visibly whenever FAQ structured data is present, and generate both from the same array so they cannot drift.
+- Structured data is customer-facing copy. A claim that is not allowed on the page is not allowed in JSON-LD either.
+- One dominant action per section applies to the mobile sticky bar: the primary action is Action blue, WhatsApp stays secondary green.

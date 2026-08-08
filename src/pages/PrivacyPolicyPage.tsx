@@ -332,7 +332,7 @@ const sections: Section[] = [
 
 export default function PrivacyPolicyPage() {
   return (
-    <div className="min-h-screen bg-[#f5f6f8] pb-[56px] lg:pb-0">
+    <div className="min-h-screen bg-[#f5f6f8] mobile-page-bottom lg:pb-0">
       <Navbar />
       <main id="main-content">
 

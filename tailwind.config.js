@@ -39,14 +39,29 @@ export default {
           600: '#0284c7',
           700: '#0369a1',
         },
+        // Monotonic: every step is darker than the one before it, so a
+        // developer reaching for a higher number always gets more contrast.
+        //
+        // The scale used to break at the dark end — 600 was #8d97a0 (2.97:1 on
+        // white, well under the 4.5:1 AA floor for normal text) and 700 was
+        // #6c757d, *lighter* than 500. Because 600 read as "darker than 500"
+        // it had been used for helper text in the quote calculator, the
+        // cookie-settings descriptions and the contact confirmation, all of
+        // which failed contrast. 600 and 700 are now the two darkest steps and
+        // both clear AA on white, on Surface (#F7FAFC) and on amber-50.
+        //
+        //   400 #ced4da  1.49:1 — borders, dividers and disabled state only
+        //   500 #64748b  4.76:1 — AA for normal text
+        //   600 #566274  6.19:1
+        //   700 #47505e  8.15:1
         silver: {
           100: '#f8f9fa',
           200: '#e9ecef',
           300: '#dee2e6',
           400: '#ced4da',
           500: '#64748b',
-          600: '#8d97a0',
-          700: '#6c757d',
+          600: '#566274',
+          700: '#47505e',
         },
         // VVE brand tokens (feat/visual-polish) — exact hex values from the
         // design spec. Additive only: existing navy/royal/silver scales above

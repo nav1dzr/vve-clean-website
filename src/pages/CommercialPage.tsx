@@ -137,7 +137,7 @@ export default function CommercialPage() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: SCHEMA }} />
       <FaqSchema items={FAQS} />
-      <div className="min-h-screen bg-[#fafbfd] pb-[56px] lg:pb-0">
+      <div className="min-h-screen bg-[#fafbfd] mobile-page-bottom lg:pb-0">
         <Navbar />
         <main id="main-content">
           <section className="relative overflow-hidden bg-navy-950 px-4 pb-20 pt-28">

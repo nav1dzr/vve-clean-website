@@ -27,11 +27,16 @@
 | Surface | `#F7FAFC` | Alternating section |
 | Muted | `#5B6B7C` | Secondary text |
 | Line | `#DCE5EC` | Border and divider |
+| Silver 500 | `#64748b` | Secondary UI text (4.76:1 on white) |
+| Silver 600 | `#566274` | Secondary UI text needing more weight (6.19:1) |
+| Silver 700 | `#47505e` | Body text on light surfaces (8.15:1) |
 | Success | `#15803D` | Confirmed status |
 | Error | `#B42318` | Validation and destructive state |
 | WhatsApp | `#075E54` | WhatsApp action with white text |
 
 White text on the Action and WhatsApp tokens must pass WCAG AA for normal text. Sky blue is not a white-text button background.
+
+The Silver scale is monotonic: a higher number is always darker. Steps 500 to 700 all clear AA for normal text on white, on Surface and on `amber-50`. Silver 400 (`#ced4da`) is a border, divider and disabled-state colour only — never text on a light background. This matters because the scale used to break here: 600 was `#8d97a0` at 2.97:1, lighter than both 500 and 700, and reading as "darker than 500" it had been used for quote-calculator helper text and cookie-consent descriptions that consequently failed contrast.
 
 ## Typography
 
@@ -80,8 +85,14 @@ White text on the Action and WhatsApp tokens must pass WCAG AA for normal text. 
 ### FAQ
 
 - Visible accordion text and FAQ structured data must match exactly.
+- Generate both from one array per page. Never hand-write a second copy for the schema — six pages did, and every one of them drifted, including a re-clean guarantee that lost its exclusions in the schema only. `src/pages/faqSchemaParity.test.tsx` enforces question and answer parity.
 - Add FAQ schema only to pages with useful, visible questions.
 - Aim for five to nine service-specific questions when the page has enough useful customer information. Do not pad a page with repeated or invented answers.
+
+### Prerendered heroes
+
+- Anything above the fold must render from the server HTML. Scroll-reveal animation is for sections the visitor has to scroll to reach.
+- `useReveal` starts hidden and only becomes visible in an effect, so a hero wrapped in it ships as `opacity-0` and stays blank until the client bundle hydrates. `ServiceLandingLayout.heroVisible.test.tsx` asserts this against the server render.
 
 ## Motion
 

@@ -69,6 +69,6 @@ describe('SofaCleaningPage — quote placement and premium service guidance', ()
     renderPage();
 
     expect(screen.getByRole('link', { name: 'Carpet Cleaning' })).toHaveAttribute('href', '/carpet-cleaning-london');
-    expect(screen.getAllByRole('link', { name: 'Book online now' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: 'Request booking online' }).length).toBeGreaterThan(0);
   });
 });
