@@ -112,30 +112,44 @@
     background-color: #052e3d;
   }
 
-  /* The fixed mobile actions deliberately use the brighter launch palette.
-     Dark navy copy keeps both colours comfortably readable without muting the
-     bar to the deeper shades used by standard inline CTAs. */
+  /* The fixed mobile actions sit on a light floating tray. The primary button
+     echoes the hero's sky/cyan blend; WhatsApp stays recognisably green but is
+     quieter, so the two actions no longer read as a hard split traffic-light
+     strip. Dark copy keeps both soft surfaces comfortably accessible. */
+  .mobile-sticky-tray {
+    background: rgba(255, 255, 255, 0.94);
+    border-top: 1px solid rgba(186, 230, 253, 0.9);
+    box-shadow: 0 -10px 30px rgba(2, 11, 36, 0.12);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    backdrop-filter: blur(16px) saturate(140%);
+  }
   .mobile-sticky-primary {
-    background-color: #0ea5e9;
-    color: #020b24;
+    background: linear-gradient(135deg, #7dd3fc 0%, #38bdf8 52%, #22d3ee 100%);
+    border: 1px solid #38bdf8;
+    box-shadow: 0 6px 16px rgba(14, 165, 233, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    color: #082f49;
   }
   .mobile-sticky-primary:hover,
   .mobile-sticky-primary:focus-visible {
-    background-color: #38bdf8;
+    background: linear-gradient(135deg, #bae6fd 0%, #7dd3fc 52%, #67e8f9 100%);
+    border-color: #0ea5e9;
   }
   .mobile-sticky-primary:active {
-    background-color: #0284c7;
+    background: #38bdf8;
   }
   .mobile-sticky-whatsapp {
-    background-color: #25d366;
-    color: #020b24;
+    background: linear-gradient(135deg, #ecfdf5 0%, #dcfce7 100%);
+    border: 1px solid #86efac;
+    box-shadow: 0 6px 16px rgba(22, 163, 74, 0.1), inset 0 1px 0 #ffffff;
+    color: #166534;
   }
   .mobile-sticky-whatsapp:hover,
   .mobile-sticky-whatsapp:focus-visible {
-    background-color: #4ade80;
+    background: #dcfce7;
+    border-color: #4ade80;
   }
   .mobile-sticky-whatsapp:active {
-    background-color: #1ebe5d;
+    background: #bbf7d0;
   }
 }
 
@@ -198,7 +212,7 @@ html::-webkit-scrollbar-thumb {
    Overridden to 0 by lg:pb-0 via Tailwind (class wins over this at >= lg). */
 @media (max-width: 1023px) {
   .mobile-page-bottom {
-    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
   }
 }
 
