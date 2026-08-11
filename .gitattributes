@@ -1,0 +1,9 @@
+# admin/api/_lib/pricingCatalogue.generated.js is written by
+# scripts/sync-admin-pricing.mjs, which always produces pure-LF content
+# (see buildGeneratedContent). Under core.autocrlf=true on Windows, without
+# this pin, git checks the committed (LF) blob out as CRLF, so the file the
+# script writes (LF) never matches what git expects the worktree copy to
+# look like — `git status` reports it modified even when the content is
+# byte-identical to HEAD. Pinning eol=lf makes checkout match the script's
+# output on every platform.
+admin/api/_lib/pricingCatalogue.generated.js text eol=lf

@@ -208,10 +208,10 @@ const routes = [
     path: '/about',
     title: 'About Us | VVE Clean London',
     description:
-      'VVE Clean was started by three friends who had worked for different cleaning companies across London and wanted a fairer, more accountable way to work.',
+      'VVE Clean was started by three friends who brought experience from different cleaning companies together to build a fairer, more accountable team.',
     ogTitle: 'About VVE Clean',
     ogDescription:
-      'The story behind VVE Clean — fixed pricing, a real guarantee, and a vetted, insured team.',
+      'The story behind VVE Clean — a team, not a single owner-operator, backed by fixed pricing and a real guarantee.',
     changefreq: 'yearly',
     priority: '0.5',
     sources: ['src/pages/AboutPage.tsx'],
@@ -222,8 +222,7 @@ const routes = [
     description:
       'Call, WhatsApp, email or message VVE Clean. 23-25 Queensway, London W2 4QP. Monday to Saturday, 8am to 6pm.',
     ogTitle: 'Contact VVE Clean',
-    ogDescription:
-      'Call, WhatsApp, email or send us a message — we usually reply within the hour.',
+    ogDescription: 'Call, WhatsApp, email or send us a message.',
     changefreq: 'yearly',
     priority: '0.6',
     sources: ['src/pages/ContactPage.tsx', 'src/data/contactDetails.ts'],
@@ -244,7 +243,7 @@ const routes = [
     path: '/team',
     title: 'Our Team | VVE Clean London',
     description:
-      'Meet the people behind VVE Clean — founder and team profiles, coming soon.',
+      'Meet the people behind VVE Clean — a real team, not a single owner-operator. Founding team and wider team profiles are on their way.',
     ogTitle: 'Our Team | VVE Clean',
     ogDescription: 'The people behind VVE Clean — profiles coming soon.',
     changefreq: 'monthly',

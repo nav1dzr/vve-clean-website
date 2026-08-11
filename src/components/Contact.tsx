@@ -2,8 +2,18 @@ import { useState } from 'react';
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle2 } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
 import { trackPhoneClick, trackWhatsAppClick, trackContactFormSubmitted } from '../lib/analytics';
+import {
+  CONTACT_PHONE_DISPLAY,
+  CONTACT_PHONE_TEL,
+  CONTACT_EMAIL,
+  CONTACT_ADDRESS_LINE1,
+  CONTACT_ADDRESS_LINE2,
+  CONTACT_HOURS,
+  WA_NUMBER_DISPLAY,
+  WA_BASE,
+} from '../data/contactDetails';
 
-const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
+const WA_LINK = `${WA_BASE}?text=${encodeURIComponent("Hi VVE Clean, I'd like to get a quote.")}`;
 
 function WhatsAppIcon({ size = 16 }: { size?: number }) {
   return (
@@ -105,8 +115,8 @@ export default function Contact() {
                   </div>
                   <div>
                     <div className="text-silver-300 text-xs mb-0.5">Phone</div>
-                    <a href="tel:02080502233" onClick={() => trackPhoneClick('contact')} className="text-white font-semibold hover:text-silver-200 transition-colors block">
-                      020 8050 2233
+                    <a href={CONTACT_PHONE_TEL} onClick={() => trackPhoneClick('contact')} className="text-white font-semibold hover:text-silver-200 transition-colors block">
+                      {CONTACT_PHONE_DISPLAY}
                     </a>
                   </div>
                 </div>
@@ -120,7 +130,7 @@ export default function Contact() {
                   className="inline-flex items-center gap-2 btn-whatsapp text-sm font-semibold px-4 py-2.5 rounded-lg transition-all duration-200 w-full justify-center"
                 >
                   <WhatsAppIcon size={15} />
-                  Open WhatsApp Chat · 07845 451111
+                  Open WhatsApp Chat · {WA_NUMBER_DISPLAY}
                 </a>
 
                 <div className="flex items-start gap-4">
@@ -129,8 +139,8 @@ export default function Contact() {
                   </div>
                   <div>
                     <div className="text-silver-300 text-xs mb-0.5">Email</div>
-                    <a href="mailto:contact@vveclean.co.uk" className="text-white font-semibold hover:text-silver-200 transition-colors">
-                      contact@vveclean.co.uk
+                    <a href={`mailto:${CONTACT_EMAIL}`} className="text-white font-semibold hover:text-silver-200 transition-colors">
+                      {CONTACT_EMAIL}
                     </a>
                   </div>
                 </div>
@@ -141,8 +151,8 @@ export default function Contact() {
                   </div>
                   <div>
                     <div className="text-silver-300 text-xs mb-0.5">Address</div>
-                    <span className="text-white font-semibold text-sm block">23-25 Queensway</span>
-                    <span className="text-silver-400 text-xs block">London, W2 4QP</span>
+                    <span className="text-white font-semibold text-sm block">{CONTACT_ADDRESS_LINE1}</span>
+                    <span className="text-silver-400 text-xs block">{CONTACT_ADDRESS_LINE2}</span>
                     <span className="text-silver-300 text-xs mt-1 block">Serving East &amp; North London</span>
                   </div>
                 </div>
@@ -153,9 +163,7 @@ export default function Contact() {
                   </div>
                   <div>
                     <div className="text-silver-300 text-xs mb-0.5">Hours</div>
-                    <div className="text-white font-semibold text-sm">Mon – Fri: 9:00 AM – 6:00 PM</div>
-                    <div className="text-silver-400 text-xs">Sat: 10:00 AM – 3:00 PM</div>
-                    <div className="text-silver-400 text-xs">Sun: Closed</div>
+                    <div className="text-white font-semibold text-sm">{CONTACT_HOURS}</div>
                   </div>
                 </div>
               </div>

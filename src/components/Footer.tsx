@@ -3,8 +3,17 @@ import { Link } from 'react-router-dom';
 import BrandLogo from './BrandLogo';
 import { useCookieConsent } from '../context/CookieConsentContext';
 import { COVERAGE_POSTCODE_LIST } from '../data/pricing';
+import {
+  CONTACT_PHONE_DISPLAY,
+  CONTACT_PHONE_TEL,
+  CONTACT_EMAIL,
+  CONTACT_ADDRESS_LINE1,
+  CONTACT_ADDRESS_LINE2,
+  WA_NUMBER_DISPLAY,
+  WA_BASE,
+} from '../data/contactDetails';
 
-const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
+const WA_LINK = `${WA_BASE}?text=${encodeURIComponent("Hi VVE Clean, I'd like to get a quote.")}`;
 
 // Only the useful links per the design spec — Services/Pricing/Commercial/
 // Contact/Privacy/Terms/Cookie settings — rather than a longer grab-bag of
@@ -101,8 +110,8 @@ export default function Footer() {
                 </div>
                 <div>
                   <div className="text-silver-500 text-[10px] uppercase tracking-widest mb-0.5">Call Us</div>
-                  <a href="tel:02080502233" className="text-silver-200 text-sm font-semibold hover:text-white transition-colors">
-                    020 8050 2233
+                  <a href={CONTACT_PHONE_TEL} className="text-silver-200 text-sm font-semibold hover:text-white transition-colors">
+                    {CONTACT_PHONE_DISPLAY}
                   </a>
                 </div>
               </li>
@@ -115,7 +124,7 @@ export default function Footer() {
                   <div className="text-silver-500 text-[10px] uppercase tracking-widest mb-0.5">WhatsApp</div>
                   <a href={WA_LINK} target="_blank" rel="noopener noreferrer"
                     className="text-green-400 text-sm font-semibold hover:text-green-300 transition-colors">
-                    07845 451111
+                    {WA_NUMBER_DISPLAY}
                   </a>
                 </div>
               </li>
@@ -130,16 +139,15 @@ export default function Footer() {
             <ul className="space-y-4 mt-4">
               <li className="flex items-start gap-3">
                 <Mail className="text-royal-400 flex-shrink-0 mt-0.5" size={15} />
-                <a href="mailto:contact@vveclean.co.uk" className="text-silver-300 text-sm hover:text-white transition-colors">
-                  contact@vveclean.co.uk
+                <a href={`mailto:${CONTACT_EMAIL}`} className="text-silver-300 text-sm hover:text-white transition-colors">
+                  {CONTACT_EMAIL}
                 </a>
               </li>
               <li className="flex items-start gap-3">
                 <MapPin className="text-royal-400 flex-shrink-0 mt-0.5" size={15} />
                 <div>
-                  <span className="text-silver-300 text-sm block">23-25 Queensway</span>
-                  <span className="text-silver-300 text-sm block">London, W2 4QP</span>
-                  <span className="text-silver-600 text-xs italic mt-1 block">Visits by appointment only. Please book before visiting.</span>
+                  <span className="text-silver-300 text-sm block">{CONTACT_ADDRESS_LINE1}</span>
+                  <span className="text-silver-300 text-sm block">{CONTACT_ADDRESS_LINE2}</span>
                 </div>
               </li>
             </ul>

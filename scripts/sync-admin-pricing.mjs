@@ -56,7 +56,16 @@ const BANNER_LINES = [
 const BANNER = BANNER_LINES.join('\n');
 
 export function buildGeneratedContent() {
-  const source = readFileSync(SOURCE_PATH, 'utf8');
+  // Normalize the source's line endings to LF before concatenating. On a
+  // Windows checkout (core.autocrlf=true), shared/pricingCatalogue.js is
+  // checked out with CRLF while BANNER above is authored in-memory with LF
+  // (`.join('\n')` never goes through git's checkout conversion). Writing
+  // that mismatch straight to disk produced a file with a mixed banner/body
+  // line ending that never matched the pure-LF committed blob — so this
+  // script left the generated file "modified" every time it ran, even with
+  // no real change. Stripping CR here makes the output pure LF regardless of
+  // platform, matching what git stores.
+  const source = readFileSync(SOURCE_PATH, 'utf8').replace(/\r\n?/g, '\n');
   return BANNER + source;
 }
 

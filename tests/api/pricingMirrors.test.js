@@ -87,6 +87,29 @@ describe('admin generated pricing copy stays in sync with the canonical source',
     const content = readFileSync(GENERATED_PATH, 'utf8');
     expect(buildGeneratedContent()).toBe(content);
   });
+
+  it('the generated file is pure LF — no carriage returns — regardless of the host checkout line ending', () => {
+    // On a Windows checkout (core.autocrlf=true), shared/pricingCatalogue.js
+    // is read back with CRLF while the script's in-memory banner is authored
+    // with LF. Without normalizing the source, the written file mixed LF
+    // (banner) and CRLF (body), which git's autocrlf handling could not
+    // reconcile against the pure-LF committed blob — `git status` reported
+    // the file "modified" immediately after every regeneration, with no
+    // actual content change. buildGeneratedContent() must strip all CR bytes
+    // so the output is always pure LF, matching what git stores.
+    const content = buildGeneratedContent();
+    expect(content).not.toMatch(/\r/);
+  });
+
+  it('regenerating leaves the git worktree clean for this path (proves the fix, not just the byte comparison)', () => {
+    buildGeneratedContent(); // regenerates admin/api/_lib/pricingCatalogue.generated.js on disk
+    const relPath = path.relative(REPO_ROOT, GENERATED_PATH).split(path.sep).join('/');
+    const worktreeOid = execFileSync('git', ['hash-object', GENERATED_PATH], { cwd: REPO_ROOT })
+      .toString().trim();
+    const headOid = execFileSync('git', ['rev-parse', `HEAD:${relPath}`], { cwd: REPO_ROOT })
+      .toString().trim();
+    expect(worktreeOid).toBe(headOid);
+  });
 });
 
 describe('mirror/shim files contain no local price data (structural anti-duplication guard)', () => {

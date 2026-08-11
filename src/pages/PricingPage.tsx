@@ -18,7 +18,6 @@ import {
   CARPET_MIN_BOOKING_P,
   ADDON_PRICES_P,
   CARPET_BUNDLE_BANDS,
-  SAME_DAY_POLICY_SHORT,
   WINDOW_CLEANING_FROM_P,
   WINDOW_CLEANING_MIN_P,
   WINDOW_CLEANING_SCOPE,
@@ -28,6 +27,7 @@ import {
   EOT_GUARANTEE_HOURS,
   EOT_TAILORED_START_PRICES_P,
 } from '../data/pricing';
+import { PRICING_FAQ_ITEMS } from '../data/faq';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -373,28 +373,7 @@ export default function PricingPage() {
             <h2 className="font-display text-3xl font-bold text-navy-900 mb-2">Common Questions</h2>
           </div>
           <div className="space-y-3">
-            {[
-              {
-                q: 'When do I pay?',
-                a: "£30 deposit by secure card link at booking. Balance is due after you've checked the work. Businesses are invoiced monthly.",
-              },
-              {
-                q: 'Are prices really fixed?',
-                a: 'Yes, for normally maintained properties. The only additions are extras you choose to add.',
-              },
-              {
-                q: 'Can the price change?',
-                a: 'Our prices are fixed for normal condition properties based on the details provided. For heavier conditions, we will review photos and confirm the price before you book. No hidden fees — any additional work is explained and agreed first.',
-              },
-              {
-                q: 'Can I book same-day or next-day?',
-                a: SAME_DAY_POLICY_SHORT,
-              },
-              {
-                q: 'Do you clean occupied homes?',
-                a: 'Not yet. We specialise in vacant properties, commercial spaces, and outdoor work.',
-              },
-            ].map((faq) => (
+            {PRICING_FAQ_ITEMS.map((faq) => (
               <details key={faq.q}
                 className="group bg-silver-100 rounded-2xl border border-silver-200 overflow-hidden">
                 <summary className="flex items-center justify-between px-5 py-4 cursor-pointer list-none font-semibold text-navy-900 text-sm select-none">

@@ -1,7 +1,8 @@
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle2 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import TrustPageMobileBar from '../components/TrustPageMobileBar';
 import { trackPhoneClick, trackWhatsAppClick, trackContactFormSubmitted } from '../lib/analytics';
 import {
   CONTACT_PHONE_DISPLAY,
@@ -13,8 +14,10 @@ import {
   WA_NUMBER_DISPLAY,
   WA_BASE,
 } from '../data/contactDetails';
+import { usePageMeta } from '../hooks/usePageMeta';
 
-const WA_LINK = `${WA_BASE}?text=${encodeURIComponent("Hi VVE Clean, I'd like to get a quote.")}`;
+const WA_TEXT = "Hi VVE Clean, I'd like to get a quote.";
+const WA_LINK = `${WA_BASE}?text=${encodeURIComponent(WA_TEXT)}`;
 
 const SERVICE_OPTIONS = [
   'End of Tenancy Cleaning',
@@ -25,6 +28,32 @@ const SERVICE_OPTIONS = [
   'Something else',
 ];
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+type FieldName = 'name' | 'email' | 'phone' | 'service' | 'message';
+// Order matters — this is the order fields appear in the DOM, so the first
+// key with an error is also the first invalid field to focus.
+const FIELD_ORDER: FieldName[] = ['name', 'email', 'phone', 'service', 'message'];
+
+const SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'ContactPage',
+  name: 'Contact VVE Clean',
+  url: 'https://www.vveclean.co.uk/contact',
+  mainEntity: {
+    '@type': 'Organization',
+    name: 'VVE Clean',
+    url: 'https://www.vveclean.co.uk',
+    contactPoint: {
+      '@type': 'ContactPoint',
+      telephone: '+44-20-8050-2233',
+      email: CONTACT_EMAIL,
+      contactType: 'customer service',
+      areaServed: 'GB',
+    },
+  },
+};
+
 function WhatsAppIcon({ size = 16 }: { size?: number }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: size, height: size }} aria-hidden="true">
@@ -34,7 +63,36 @@ function WhatsAppIcon({ size = 16 }: { size?: number }) {
 }
 
 export default function ContactPage() {
-  const errorId = useId();
+  usePageMeta(
+    'Contact Us | VVE Clean London',
+    'Call, WhatsApp, email or message VVE Clean. 23-25 Queensway, London W2 4QP. Monday to Saturday, 8am to 6pm.',
+    '/contact',
+  );
+
+  const errorSummaryId = useId();
+  const nameErrorId = useId();
+  const emailErrorId = useId();
+  const phoneErrorId = useId();
+  const serviceErrorId = useId();
+  const messageErrorId = useId();
+
+  const nameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const serviceRef = useRef<HTMLSelectElement>(null);
+  const messageRef = useRef<HTMLTextAreaElement>(null);
+
+  // Not a Record<FieldName, RefObject<...>> — RefObject is invariant in its
+  // element type, so a single map couldn't hold input/select/textarea refs
+  // without widening every ref's type. A focus-by-name function sidesteps
+  // that entirely.
+  const focusField = (field: FieldName) => {
+    if (field === 'name') nameRef.current?.focus();
+    else if (field === 'email') emailRef.current?.focus();
+    else if (field === 'phone') phoneRef.current?.focus();
+    else if (field === 'service') serviceRef.current?.focus();
+    else messageRef.current?.focus();
+  };
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -44,19 +102,36 @@ export default function ContactPage() {
   const [honeypot, setHoneypot] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, string>>>({});
+  const [formError, setFormError] = useState('');
+
+  const validate = (): Partial<Record<FieldName, string>> => {
+    const errors: Partial<Record<FieldName, string>> = {};
+    if (!name.trim()) errors.name = 'Enter your full name.';
+    if (!email.trim()) errors.email = 'Enter your email address.';
+    else if (!EMAIL_RE.test(email.trim())) errors.email = 'Enter a valid email address.';
+    if (!phone.trim()) errors.phone = 'Enter a phone number.';
+    if (!service) errors.service = 'Select a service.';
+    if (!message.trim()) errors.message = 'Enter a message.';
+    return errors;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (honeypot) return; // bot filled the hidden field — silently drop
 
-    if (!name || !email || !phone || !service || !message) {
-      setError('Please fill in all required fields.');
+    const errors = validate();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setFormError('Please fix the highlighted fields.');
+      const firstInvalid = FIELD_ORDER.find((field) => errors[field]);
+      if (firstInvalid) focusField(firstInvalid);
       return;
     }
 
+    setFieldErrors({});
+    setFormError('');
     setLoading(true);
-    setError('');
 
     // The shared /api/contact endpoint only has a free-text `message` field —
     // the Service selection is prefixed onto it here rather than adding a new
@@ -91,16 +166,21 @@ export default function ContactPage() {
         setSubmitted(true);
       } else {
         const data = await res.json().catch(() => ({}));
-        setError((data as { error?: string })?.error ?? 'Sorry, something went wrong. Please try again or contact us on WhatsApp.');
+        setFormError((data as { error?: string })?.error ?? 'Sorry, something went wrong. Please try again or contact us on WhatsApp.');
       }
     } catch {
       setLoading(false);
-      setError('Sorry, something went wrong. Please try again or contact us on WhatsApp.');
+      setFormError('Sorry, something went wrong. Please try again or contact us on WhatsApp.');
     }
   };
 
   return (
     <div className="min-h-screen bg-[#f5f6f8] pb-[56px] lg:pb-0">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(SCHEMA) }}
+      />
+
       <Navbar />
       <main id="main-content">
 
@@ -114,7 +194,7 @@ export default function ContactPage() {
             Contact VVE Clean
           </h1>
           <p className="text-silver-300 text-base md:text-lg max-w-xl mx-auto leading-relaxed">
-            Call, WhatsApp, email or send a message below — we usually reply within the hour.
+            Call, WhatsApp, email or send a message below.
           </p>
         </div>
       </div>
@@ -177,7 +257,6 @@ export default function ContactPage() {
                   <div className="text-silver-300 text-xs mb-0.5">Address</div>
                   <span className="text-white font-semibold text-sm block">{CONTACT_ADDRESS_LINE1}</span>
                   <span className="text-silver-400 text-xs block">{CONTACT_ADDRESS_LINE2}</span>
-                  <span className="text-silver-300 text-xs mt-1 block">Visits by appointment only.</span>
                 </div>
               </div>
 
@@ -201,7 +280,7 @@ export default function ContactPage() {
                 <CheckCircle2 className="text-green-500 mb-4" size={56} aria-hidden="true" />
                 <h2 className="text-2xl font-bold text-navy-900 mb-2">Message sent</h2>
                 <p className="text-silver-600">
-                  Thank you — we've received your message and will get back to you shortly.
+                  Thank you — we've received your message and will get back to you.
                 </p>
               </div>
             ) : (
@@ -220,6 +299,16 @@ export default function ContactPage() {
                   style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px', opacity: 0 }}
                 />
 
+                {/* Form-level summary — announced once on submit failure. */}
+                <p
+                  id={errorSummaryId}
+                  role="alert"
+                  aria-live="assertive"
+                  className={formError ? 'text-red-500 text-sm font-semibold' : 'sr-only'}
+                >
+                  {formError}
+                </p>
+
                 <div className="grid sm:grid-cols-2 gap-5">
                   <div>
                     <label htmlFor="contact-page-name" className="block text-navy-900 font-semibold text-sm mb-1.5">
@@ -227,6 +316,7 @@ export default function ContactPage() {
                       <span className="sr-only">(required)</span>
                     </label>
                     <input
+                      ref={nameRef}
                       id="contact-page-name"
                       type="text"
                       name="name"
@@ -234,11 +324,15 @@ export default function ContactPage() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Jane Smith"
-                      className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-royal-400 transition-colors min-h-[44px]"
+                      className={`w-full border-2 rounded-lg px-4 py-3 text-sm focus:outline-none transition-colors min-h-[44px] ${fieldErrors.name ? 'border-red-400 focus:border-red-500' : 'border-silver-200 focus:border-royal-400'}`}
                       required
                       aria-required="true"
-                      {...(error ? { 'aria-describedby': errorId } : {})}
+                      aria-invalid={fieldErrors.name ? 'true' : undefined}
+                      aria-describedby={fieldErrors.name ? nameErrorId : undefined}
                     />
+                    <p id={nameErrorId} role="alert" className={fieldErrors.name ? 'mt-1 text-red-500 text-xs' : 'sr-only'}>
+                      {fieldErrors.name}
+                    </p>
                   </div>
                   <div>
                     <label htmlFor="contact-page-phone" className="block text-navy-900 font-semibold text-sm mb-1.5">
@@ -246,6 +340,7 @@ export default function ContactPage() {
                       <span className="sr-only">(required)</span>
                     </label>
                     <input
+                      ref={phoneRef}
                       id="contact-page-phone"
                       type="tel"
                       name="phone"
@@ -253,11 +348,15 @@ export default function ContactPage() {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="07845 451111"
-                      className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-royal-400 transition-colors min-h-[44px]"
+                      className={`w-full border-2 rounded-lg px-4 py-3 text-sm focus:outline-none transition-colors min-h-[44px] ${fieldErrors.phone ? 'border-red-400 focus:border-red-500' : 'border-silver-200 focus:border-royal-400'}`}
                       required
                       aria-required="true"
-                      {...(error ? { 'aria-describedby': errorId } : {})}
+                      aria-invalid={fieldErrors.phone ? 'true' : undefined}
+                      aria-describedby={fieldErrors.phone ? phoneErrorId : undefined}
                     />
+                    <p id={phoneErrorId} role="alert" className={fieldErrors.phone ? 'mt-1 text-red-500 text-xs' : 'sr-only'}>
+                      {fieldErrors.phone}
+                    </p>
                   </div>
                 </div>
 
@@ -267,6 +366,7 @@ export default function ContactPage() {
                     <span className="sr-only">(required)</span>
                   </label>
                   <input
+                    ref={emailRef}
                     id="contact-page-email"
                     type="email"
                     name="email"
@@ -274,11 +374,15 @@ export default function ContactPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="jane@example.com"
-                    className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-royal-400 transition-colors min-h-[44px]"
+                    className={`w-full border-2 rounded-lg px-4 py-3 text-sm focus:outline-none transition-colors min-h-[44px] ${fieldErrors.email ? 'border-red-400 focus:border-red-500' : 'border-silver-200 focus:border-royal-400'}`}
                     required
                     aria-required="true"
-                    {...(error ? { 'aria-describedby': errorId } : {})}
+                    aria-invalid={fieldErrors.email ? 'true' : undefined}
+                    aria-describedby={fieldErrors.email ? emailErrorId : undefined}
                   />
+                  <p id={emailErrorId} role="alert" className={fieldErrors.email ? 'mt-1 text-red-500 text-xs' : 'sr-only'}>
+                    {fieldErrors.email}
+                  </p>
                 </div>
 
                 <div>
@@ -287,20 +391,25 @@ export default function ContactPage() {
                     <span className="sr-only">(required)</span>
                   </label>
                   <select
+                    ref={serviceRef}
                     id="contact-page-service"
                     name="service"
                     value={service}
                     onChange={(e) => setService(e.target.value)}
-                    className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-royal-400 transition-colors min-h-[44px] bg-white"
+                    className={`w-full border-2 rounded-lg px-4 py-3 text-sm focus:outline-none transition-colors min-h-[44px] bg-white ${fieldErrors.service ? 'border-red-400 focus:border-red-500' : 'border-silver-200 focus:border-royal-400'}`}
                     required
                     aria-required="true"
-                    {...(error ? { 'aria-describedby': errorId } : {})}
+                    aria-invalid={fieldErrors.service ? 'true' : undefined}
+                    aria-describedby={fieldErrors.service ? serviceErrorId : undefined}
                   >
                     <option value="" disabled>Select a service</option>
                     {SERVICE_OPTIONS.map((option) => (
                       <option key={option} value={option}>{option}</option>
                     ))}
                   </select>
+                  <p id={serviceErrorId} role="alert" className={fieldErrors.service ? 'mt-1 text-red-500 text-xs' : 'sr-only'}>
+                    {fieldErrors.service}
+                  </p>
                 </div>
 
                 <div>
@@ -309,29 +418,23 @@ export default function ContactPage() {
                     <span className="sr-only">(required)</span>
                   </label>
                   <textarea
+                    ref={messageRef}
                     id="contact-page-message"
                     name="message"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     rows={5}
                     placeholder="Tell us about the property, preferred dates and anything else useful..."
-                    className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-royal-400 transition-colors resize-none"
+                    className={`w-full border-2 rounded-lg px-4 py-3 text-sm focus:outline-none transition-colors resize-none ${fieldErrors.message ? 'border-red-400 focus:border-red-500' : 'border-silver-200 focus:border-royal-400'}`}
                     required
                     aria-required="true"
-                    {...(error ? { 'aria-describedby': errorId } : {})}
+                    aria-invalid={fieldErrors.message ? 'true' : undefined}
+                    aria-describedby={fieldErrors.message ? messageErrorId : undefined}
                   />
+                  <p id={messageErrorId} role="alert" className={fieldErrors.message ? 'mt-1 text-red-500 text-xs' : 'sr-only'}>
+                    {fieldErrors.message}
+                  </p>
                 </div>
-
-                {/* Always present so assistive tech announces the error when
-                    it appears, rather than only discovering it on re-navigation. */}
-                <p
-                  id={errorId}
-                  role="alert"
-                  aria-live="assertive"
-                  className={error ? 'text-red-500 text-sm' : 'sr-only'}
-                >
-                  {error}
-                </p>
 
                 <button
                   type="submit"
@@ -346,8 +449,7 @@ export default function ContactPage() {
                   Or{' '}
                   <a href={WA_LINK} target="_blank" rel="noopener noreferrer" className="text-green-600 font-medium hover:underline">
                     chat with us on WhatsApp
-                  </a>{' '}
-                  for an instant reply.
+                  </a>.
                 </p>
               </form>
             )}
@@ -358,25 +460,7 @@ export default function ContactPage() {
       </main>
       <Footer />
 
-      {/* Mobile sticky bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-silver-200 shadow-xl"
-        style={{ bottom: 'var(--vve-cookie-banner-h, 0px)' }}>
-        <div className="grid grid-cols-2 divide-x divide-silver-200">
-          <a href={CONTACT_PHONE_TEL} onClick={() => trackPhoneClick('contact_page_sticky')}
-            className="flex items-center justify-center gap-2 py-4 font-bold text-navy-900 text-sm active:bg-silver-100 transition-colors">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
-            </svg>
-            Call us
-          </a>
-          <a href={WA_LINK} onClick={() => trackWhatsAppClick('contact_page_sticky')}
-            target="_blank" rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 py-4 font-bold text-white text-sm btn-whatsapp transition-colors">
-            <WhatsAppIcon size={20} />
-            WhatsApp
-          </a>
-        </div>
-      </div>
+      <TrustPageMobileBar analyticsLocation="contact_page_sticky" whatsappText={WA_TEXT} />
     </div>
   );
 }

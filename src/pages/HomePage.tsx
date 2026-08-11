@@ -7,6 +7,7 @@ import TrustBadges from '../components/TrustBadges';
 import HomeServiceSelector, { type HomepageQuoteService } from '../components/HomeServiceSelector';
 import QuoteCalculator from '../components/QuoteCalculator';
 import Reviews from '../components/Reviews';
+import TeamTrust from '../components/TeamTrust';
 import Gallery from '../components/Gallery';
 import Guarantee from '../components/Guarantee';
 import OurKit from '../components/OurKit';
@@ -62,6 +63,7 @@ export default function HomePage() {
         onHomepageServiceChange={setSelectedQuoteService}
       />
       <Reviews />
+      <TeamTrust />
       <Gallery />
       <Guarantee />
       <OurKit />

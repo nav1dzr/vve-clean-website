@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import TeamPage from './TeamPage';
 import { CookieConsentProvider } from '../context/CookieConsentContext';
 import { TEAM_SLOTS } from '../data/team';
+import { CHECKATRADE_URL } from '../data/contactDetails';
 
 function renderPage() {
   render(
@@ -23,22 +24,28 @@ describe('TeamPage', () => {
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
   });
 
-  it('shows exactly six placeholder slots — three founder, three team', () => {
+  it('shows exactly six placeholder slots — three founding team, three team', () => {
     renderPage();
     expect(TEAM_SLOTS).toHaveLength(6);
-    expect(screen.getAllByText('Founder profile pending')).toHaveLength(3);
-    expect(screen.getAllByText('Team profile pending')).toHaveLength(3);
+    expect(screen.getAllByText('Founding team')).toHaveLength(3);
+    expect(screen.getAllByText('Team member')).toHaveLength(3);
   });
 
-  it('does not use fake portraits, invented names or initials', () => {
+  it('uses a tasteful "Photo and profile coming soon" headline, not raw "pending" status text', () => {
     renderPage();
-    const text = document.body.textContent || '';
-    // No slot currently has a real name — only the status placeholder text.
+    expect(screen.getAllByText('Photo and profile coming soon')).toHaveLength(6);
+    expect(screen.queryByText(/profile pending/i)).not.toBeInTheDocument();
+  });
+
+  it('does not use fake portraits, invented names, initials or roles', () => {
+    renderPage();
     for (const slot of TEAM_SLOTS) {
       expect(slot.name).toBeNull();
+      expect(slot.role).toBeNull();
       expect(slot.photoUrl).toBeNull();
     }
     expect(document.querySelectorAll('img').length).toBe(0);
+    const text = document.body.textContent || '';
     expect(text).not.toMatch(/\b[A-Z]\.[A-Z]\.\b/); // no "J.D." style initials
   });
 
@@ -52,5 +59,25 @@ describe('TeamPage', () => {
     );
     const slots = container.querySelectorAll('.aspect-\\[4\\/5\\]');
     expect(slots).toHaveLength(6);
+  });
+
+  it('states only supported team trust facts (DBS-checked, insured, guarantee)', () => {
+    renderPage();
+    const text = document.body.textContent || '';
+    expect(text).toMatch(/DBS-checked/);
+    expect(text).toMatch(/£5m public liability insurance/);
+    expect(text).toMatch(/re-clean guarantee/);
+    // Must NOT claim staff selection, subcontractor policy, uniforms/ID,
+    // individual training or "who normally attends" until the owner supplies
+    // those facts.
+    expect(text.toLowerCase()).not.toMatch(/subcontractor|uniform|id badge|normally attends|hand-picked|hire only/);
+  });
+
+  it('links prominently to the external Checkatrade profile without a hardcoded rating', () => {
+    renderPage();
+    const link = screen.getByRole('link', { name: /view our checkatrade profile/i });
+    expect(link).toHaveAttribute('href', CHECKATRADE_URL);
+    const text = document.body.textContent || '';
+    expect(text).not.toMatch(/\d(\.\d)?\s*(out of|\/)\s*5|\d+\s*reviews/i);
   });
 });

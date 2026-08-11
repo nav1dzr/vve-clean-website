@@ -44,6 +44,14 @@ describe('ContactPage', () => {
     expect(text).toContain('Monday – Saturday, 8am – 6pm');
   });
 
+  it('does not claim an unsupported response time, instant reply or appointment-only policy', () => {
+    renderPage();
+    const text = (document.body.textContent || '').toLowerCase();
+    expect(text).not.toMatch(/usually reply within the hour|instant reply|visits by appointment only/);
+    // Owner supplied Monday-Saturday only — must not invent Sunday hours.
+    expect(text).not.toMatch(/sunday/);
+  });
+
   it('has a labelled, accessible form with Name, Email, Phone, Service and Message', () => {
     renderPage();
     expect(screen.getByLabelText(/full name/i)).toHaveAttribute('required');
@@ -55,7 +63,7 @@ describe('ContactPage', () => {
     expect(screen.getByRole('textbox', { name: /^message/i })).toHaveAttribute('required');
   });
 
-  it('shows an inline error instead of submitting when required fields are empty', async () => {
+  it('shows a form-level summary and moves focus to the first invalid field on empty submit', async () => {
     const user = userEvent.setup();
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);
@@ -63,8 +71,48 @@ describe('ContactPage', () => {
 
     await user.click(screen.getByRole('button', { name: /send message/i }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/please fill in all required fields/i);
+    expect(await screen.findByText(/please fix the highlighted fields/i)).toBeInTheDocument();
     expect(fetchSpy).not.toHaveBeenCalled();
+    // "Full name" is first in DOM order, so it should receive focus.
+    expect(screen.getByLabelText(/full name/i)).toHaveFocus();
+  });
+
+  it('reports a field-level error and focuses that field when only one field is invalid', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('fetch', vi.fn());
+    renderPage();
+
+    await user.type(screen.getByLabelText(/full name/i), 'Jane Smith');
+    await user.type(screen.getByLabelText(/email address/i), 'not-an-email');
+    await user.type(screen.getByLabelText(/^phone/i), '07845 000000');
+    await user.selectOptions(screen.getByLabelText(/^service/i), 'Carpet Cleaning');
+    await user.type(screen.getByRole('textbox', { name: /^message/i }), 'Two rooms, please quote.');
+    await user.click(screen.getByRole('button', { name: /send message/i }));
+
+    const emailField = screen.getByLabelText(/email address/i);
+    expect(emailField).toHaveFocus();
+    expect(emailField).toHaveAttribute('aria-invalid', 'true');
+    expect(await screen.findByText(/enter a valid email address/i)).toBeInTheDocument();
+  });
+
+  it('clears a field error once that field is corrected and resubmitted', async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+    vi.stubGlobal('fetch', fetchSpy);
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /send message/i }));
+    expect(await screen.findByText(/please fix the highlighted fields/i)).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/full name/i), 'Jane Smith');
+    await user.type(screen.getByLabelText(/email address/i), 'jane@example.com');
+    await user.type(screen.getByLabelText(/^phone/i), '07845 000000');
+    await user.selectOptions(screen.getByLabelText(/^service/i), 'Carpet Cleaning');
+    await user.type(screen.getByRole('textbox', { name: /^message/i }), 'Two rooms, please quote.');
+    await user.click(screen.getByRole('button', { name: /send message/i }));
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/message sent/i)).toBeInTheDocument();
   });
 
   it('submits name, email, phone and a service-prefixed message to /api/contact, then shows success', async () => {
@@ -92,5 +140,39 @@ describe('ContactPage', () => {
     expect(body.message).toContain('Two rooms, please quote.');
 
     expect(await screen.findByText(/message sent/i)).toBeInTheDocument();
+  });
+
+  it('shows a recovery message and does not crash when the network request fails', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+    renderPage();
+
+    await user.type(screen.getByLabelText(/full name/i), 'Jane Smith');
+    await user.type(screen.getByLabelText(/email address/i), 'jane@example.com');
+    await user.type(screen.getByLabelText(/^phone/i), '07845 000000');
+    await user.selectOptions(screen.getByLabelText(/^service/i), 'Carpet Cleaning');
+    await user.type(screen.getByRole('textbox', { name: /^message/i }), 'Two rooms, please quote.');
+    await user.click(screen.getByRole('button', { name: /send message/i }));
+
+    expect(await screen.findByText(/something went wrong.*whatsapp/i)).toBeInTheDocument();
+    expect(screen.queryByText(/message sent/i)).not.toBeInTheDocument();
+  });
+
+  it('surfaces the server-provided error message when /api/contact responds with a failure', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, json: async () => ({ error: 'That email looks invalid.' }) }),
+    );
+    renderPage();
+
+    await user.type(screen.getByLabelText(/full name/i), 'Jane Smith');
+    await user.type(screen.getByLabelText(/email address/i), 'jane@example.com');
+    await user.type(screen.getByLabelText(/^phone/i), '07845 000000');
+    await user.selectOptions(screen.getByLabelText(/^service/i), 'Carpet Cleaning');
+    await user.type(screen.getByRole('textbox', { name: /^message/i }), 'Two rooms, please quote.');
+    await user.click(screen.getByRole('button', { name: /send message/i }));
+
+    expect(await screen.findByText('That email looks invalid.')).toBeInTheDocument();
   });
 });

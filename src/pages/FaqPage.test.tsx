@@ -3,7 +3,14 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import FaqPage from './FaqPage';
 import { CookieConsentProvider } from '../context/CookieConsentContext';
-import { FAQ_ITEMS } from '../data/faq';
+import {
+  FAQ_ITEMS,
+  HOMEPAGE_FAQ_ITEMS,
+  PRICING_FAQ_ITEMS,
+  FAQ_ONLY_ITEMS,
+  normalizeQuestion,
+} from '../data/faq';
+import { EOT_CARPET_PACKAGE_DISCOUNT_PCT, EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS, EOT_GUARANTEE_HOURS } from '../data/pricing';
 
 function renderPage() {
   render(
@@ -23,30 +30,21 @@ describe('FaqPage', () => {
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
   });
 
-  it('includes every homepage FAQ question', () => {
-    renderPage();
-    expect(screen.getByText('How does the deposit-back guarantee work?')).toBeInTheDocument();
-    expect(screen.getByText("What's included in an end of tenancy clean?")).toBeInTheDocument();
-    expect(screen.getByText('Are your cleaners insured and vetted?')).toBeInTheDocument();
-    expect(screen.getByText('Which areas do you cover?')).toBeInTheDocument();
-    expect(screen.getByText('Do you clean occupied homes?')).toBeInTheDocument();
+  it('includes every question from every source array — not a handpicked subset', () => {
+    const normalizedFaqQuestions = new Set(FAQ_ITEMS.map((item) => normalizeQuestion(item.q)));
+    for (const source of [HOMEPAGE_FAQ_ITEMS, PRICING_FAQ_ITEMS, FAQ_ONLY_ITEMS]) {
+      for (const item of source) {
+        expect(normalizedFaqQuestions.has(normalizeQuestion(item.q))).toBe(true);
+      }
+    }
   });
 
-  it('includes every Pricing-page mini-FAQ question', () => {
-    renderPage();
-    expect(screen.getByText('Are prices really fixed?')).toBeInTheDocument();
-    expect(screen.getByText('Can I book same-day or next-day?')).toBeInTheDocument();
-    expect(screen.getByText('Can the price change?')).toBeInTheDocument();
+  it('has no duplicate normalized question in the merged list', () => {
+    const normalized = FAQ_ITEMS.map((item) => normalizeQuestion(item.q));
+    expect(new Set(normalized).size).toBe(normalized.length);
   });
 
-  it('deduplicates questions shared by both sources', () => {
-    renderPage();
-    expect(screen.getAllByText('Can the price change?')).toHaveLength(1);
-    expect(screen.getAllByText('When do I pay?')).toHaveLength(1);
-    expect(screen.getAllByText('Do you clean occupied homes?')).toHaveLength(1);
-  });
-
-  it('renders exactly one accordion item per FAQ_ITEMS entry', () => {
+  it('renders exactly one accordion item per FAQ_ITEMS entry, matching the source-array count after dedup', () => {
     const { container } = render(
       <MemoryRouter>
         <CookieConsentProvider>
@@ -55,6 +53,37 @@ describe('FaqPage', () => {
       </MemoryRouter>,
     );
     expect(container.querySelectorAll('details.faq-item')).toHaveLength(FAQ_ITEMS.length);
+
+    const allSourceQuestions = [...HOMEPAGE_FAQ_ITEMS, ...PRICING_FAQ_ITEMS, ...FAQ_ONLY_ITEMS].map((i) =>
+      normalizeQuestion(i.q),
+    );
+    const expectedUniqueCount = new Set(allSourceQuestions).size;
+    expect(FAQ_ITEMS.length).toBe(expectedUniqueCount);
+  });
+
+  it('adds the carpet add-on question with the canonical discount and qualifying-area rule (not unconditional 50%)', () => {
+    renderPage();
+    const text = document.body.textContent || '';
+    expect(text).toMatch(/Can I add carpet cleaning to my end of tenancy booking\?/);
+    expect(text).toContain(`save up to ${EOT_CARPET_PACKAGE_DISCOUNT_PCT}%`);
+    expect(text).toContain(`${EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS} or more qualifying areas`);
+    expect(text).toMatch(/fewer than 3.*normal standalone rate/i);
+  });
+
+  it('adds the letting-agent question, scoped to the Complete package and canonical guarantee hours', () => {
+    renderPage();
+    const text = document.body.textContent || '';
+    expect(text).toMatch(/What if my letting agent flags something after the clean\?/);
+    expect(text).toContain(`Complete End of Tenancy package`);
+    expect(text).toContain(`within ${EOT_GUARANTEE_HOURS} hours`);
+    expect(text).toMatch(/Tailored package and other services are not covered/);
+  });
+
+  it('keeps "Do you clean occupied homes?" exactly once despite appearing in two sources', () => {
+    renderPage();
+    expect(screen.getAllByText('Do you clean occupied homes?')).toHaveLength(1);
+    expect(screen.getAllByText('Can the price change?')).toHaveLength(1);
+    expect(screen.getAllByText('When do I pay?')).toHaveLength(1);
   });
 
   it('emits FAQPage JSON-LD schema matching the rendered questions', () => {
