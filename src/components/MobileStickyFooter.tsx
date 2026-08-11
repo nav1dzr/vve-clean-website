@@ -65,7 +65,7 @@ export default function MobileStickyFooter() {
             href={waLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 bg-royal-500 hover:bg-royal-600 active:bg-royal-700 text-white font-bold text-sm py-4 min-h-[44px] transition-colors duration-200 border-r border-white/20"
+            className="mobile-sticky-primary flex-1 flex items-center justify-center gap-2 font-bold text-sm py-4 min-h-[44px] transition-colors duration-200 border-r border-navy-950/15"
             aria-label="Request a quote via WhatsApp"
           >
             {WA_ICON}
@@ -75,7 +75,7 @@ export default function MobileStickyFooter() {
           <button
             type="button"
             onClick={handlePrimaryClick}
-            className="flex-1 flex items-center justify-center gap-2 bg-royal-500 hover:bg-royal-600 active:bg-royal-700 text-white font-bold text-sm py-4 min-h-[44px] transition-colors duration-200 border-r border-white/20"
+            className="mobile-sticky-primary flex-1 flex items-center justify-center gap-2 font-bold text-sm py-4 min-h-[44px] transition-colors duration-200 border-r border-navy-950/15"
             // "Request booking", not "Book": paying the deposit submits a
             // request and availability is confirmed separately
             // (docs/BRAND_AND_UI_GUIDE.md). This is the most-tapped CTA on
@@ -93,7 +93,7 @@ export default function MobileStickyFooter() {
           href={helpLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-2 btn-whatsapp font-semibold text-sm py-4 min-h-[44px] transition-colors duration-200"
+          className="mobile-sticky-whatsapp flex-1 flex items-center justify-center gap-2 font-semibold text-sm py-4 min-h-[44px] transition-colors duration-200"
           aria-label="Need help? Chat on WhatsApp"
         >
           {WA_ICON}

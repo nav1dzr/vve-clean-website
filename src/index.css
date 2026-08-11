@@ -111,6 +111,32 @@
   .btn-whatsapp:active {
     background-color: #052e3d;
   }
+
+  /* The fixed mobile actions deliberately use the brighter launch palette.
+     Dark navy copy keeps both colours comfortably readable without muting the
+     bar to the deeper shades used by standard inline CTAs. */
+  .mobile-sticky-primary {
+    background-color: #0ea5e9;
+    color: #020b24;
+  }
+  .mobile-sticky-primary:hover,
+  .mobile-sticky-primary:focus-visible {
+    background-color: #38bdf8;
+  }
+  .mobile-sticky-primary:active {
+    background-color: #0284c7;
+  }
+  .mobile-sticky-whatsapp {
+    background-color: #25d366;
+    color: #020b24;
+  }
+  .mobile-sticky-whatsapp:hover,
+  .mobile-sticky-whatsapp:focus-visible {
+    background-color: #4ade80;
+  }
+  .mobile-sticky-whatsapp:active {
+    background-color: #1ebe5d;
+  }
 }
 
 /* Animated underline for nav links — sky blue */
