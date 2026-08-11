@@ -203,6 +203,54 @@ const routes = [
     priority: '0.7',
     sources: ['src/pages/GalleryPage.tsx', 'src/data/galleryMedia.ts'],
   },
+  // ── Trust pages ─────────────────────────────────────────────────────────────
+  {
+    path: '/about',
+    title: 'About Us | VVE Clean London',
+    description:
+      'VVE Clean was started by three friends who had worked for different cleaning companies across London and wanted a fairer, more accountable way to work.',
+    ogTitle: 'About VVE Clean',
+    ogDescription:
+      'The story behind VVE Clean — fixed pricing, a real guarantee, and a vetted, insured team.',
+    changefreq: 'yearly',
+    priority: '0.5',
+    sources: ['src/pages/AboutPage.tsx'],
+  },
+  {
+    path: '/contact',
+    title: 'Contact Us | VVE Clean London',
+    description:
+      'Call, WhatsApp, email or message VVE Clean. 23-25 Queensway, London W2 4QP. Monday to Saturday, 8am to 6pm.',
+    ogTitle: 'Contact VVE Clean',
+    ogDescription:
+      'Call, WhatsApp, email or send us a message — we usually reply within the hour.',
+    changefreq: 'yearly',
+    priority: '0.6',
+    sources: ['src/pages/ContactPage.tsx', 'src/data/contactDetails.ts'],
+  },
+  {
+    path: '/faq',
+    title: 'FAQs | VVE Clean London',
+    description:
+      'Answers to the questions customers ask most about pricing, the re-clean guarantee, booking, cancellations and coverage across East and North London.',
+    ogTitle: 'Frequently Asked Questions | VVE Clean',
+    ogDescription:
+      'Pricing, the re-clean guarantee, booking and coverage — answered in one place.',
+    changefreq: 'monthly',
+    priority: '0.6',
+    sources: ['src/pages/FaqPage.tsx', 'src/data/faq.ts'],
+  },
+  {
+    path: '/team',
+    title: 'Our Team | VVE Clean London',
+    description:
+      'Meet the people behind VVE Clean — founder and team profiles, coming soon.',
+    ogTitle: 'Our Team | VVE Clean',
+    ogDescription: 'The people behind VVE Clean — profiles coming soon.',
+    changefreq: 'monthly',
+    priority: '0.4',
+    sources: ['src/pages/TeamPage.tsx', 'src/data/team.ts'],
+  },
 ];
 
 // The 404 page is rendered like any other route, but it is written to

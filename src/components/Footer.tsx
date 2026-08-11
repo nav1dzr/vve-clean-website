@@ -13,7 +13,10 @@ const footerLinks = [
   { label: 'Services',   href: '/#services' },
   { label: 'Pricing',    href: '/pricing' },
   { label: 'Commercial', href: '/commercial' },
-  { label: 'Contact',    href: '/#contact' },
+  { label: 'About',      href: '/about' },
+  { label: 'Our Team',   href: '/team' },
+  { label: 'FAQs',       href: '/faq' },
+  { label: 'Contact',    href: '/contact' },
 ];
 
 function WhatsAppIcon({ size = 16 }: { size?: number }) {

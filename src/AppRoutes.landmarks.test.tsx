@@ -46,6 +46,10 @@ const PUBLIC_ROUTES = [
   '/end-of-tenancy-cleaning-london',
   '/after-builders-cleaning-london',
   '/gallery',
+  '/about',
+  '/contact',
+  '/faq',
+  '/team',
 ];
 
 describe('public routes expose exactly one main landmark', () => {
