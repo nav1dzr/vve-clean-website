@@ -73,6 +73,12 @@ describe('TeamPage', () => {
     expect(text.toLowerCase()).not.toMatch(/subcontractor|uniform|id badge|normally attends|hand-picked|hire only/);
   });
 
+  it('is team-first — never frames VVE Clean as owner-operated', () => {
+    renderPage();
+    const text = (document.body.textContent || '').toLowerCase();
+    expect(text).not.toMatch(/owner-operated|owner-run|not a single owner|not one person|founder attends/);
+  });
+
   it('links prominently to the external Checkatrade profile without a hardcoded rating', () => {
     renderPage();
     const link = screen.getByRole('link', { name: /view our checkatrade profile/i });

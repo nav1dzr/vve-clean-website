@@ -226,7 +226,7 @@ const DATA: ServiceLandingData = {
 
   ctaH2: 'Book your end of tenancy clean today.',
   ctaBody:
-    'Book online in 2 minutes. Pay a £30 deposit to secure your slot — balance due after you check the work.',
+    'Book online in 2 minutes. Pay a £30 booking request deposit, deducted from your final bill — we confirm availability within one business hour, balance due after you check the work.',
   ctaPrimary: { href: '/booking', label: 'Book online now' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };

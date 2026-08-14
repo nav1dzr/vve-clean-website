@@ -6,8 +6,17 @@
 export const CONTACT_PHONE_DISPLAY = '020 8050 2233';
 export const CONTACT_PHONE_TEL = 'tel:02080502233';
 export const CONTACT_EMAIL = 'contact@vveclean.co.uk';
-export const CONTACT_ADDRESS_LINE1 = '23–25 Queensway';
+// Full official first line, matching Companies House exactly (VVE LIMITED,
+// company 17234391: find-and-update.company-information.service.gov.uk).
+// This is the registered office, not a branch customers can visit — see
+// CONTACT_ADDRESS_LABEL/CONTACT_ADDRESS_NOTE below, which every visible
+// consumer must render alongside it so nobody mistakes W2 for the service
+// base.
+export const CONTACT_ADDRESS_LINE1 = 'Queensway Market, 23–25 Queensway';
 export const CONTACT_ADDRESS_LINE2 = 'London W2 4QP';
+export const CONTACT_ADDRESS_LABEL = 'Registered office only';
+export const CONTACT_ADDRESS_NOTE =
+  'Our mobile teams serve East and North London. No walk-ins.';
 // Owner-supplied. Sunday is deliberately not stated — we were told the
 // Monday-Saturday window, not that Sunday is closed, and inventing a claim
 // about a day we weren't told about is exactly the kind of unsupported

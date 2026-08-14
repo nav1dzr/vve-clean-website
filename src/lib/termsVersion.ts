@@ -8,5 +8,5 @@
 // versions currently track together. If the cancellation policy is ever
 // split into its own document with its own change cadence, give it its own
 // version constant at that point.
-export const TERMS_VERSION = '2026-07-14';
-export const CANCELLATION_POLICY_VERSION = '2026-07-14';
+export const TERMS_VERSION = '2026-08-11';
+export const CANCELLATION_POLICY_VERSION = '2026-08-11';

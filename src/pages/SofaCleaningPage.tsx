@@ -220,7 +220,7 @@ const DATA: ServiceLandingData = {
 
   ctaH2: 'Ready to book your sofa clean?',
   ctaBody:
-    'Book online in 2 minutes and pay a £30 deposit to secure your slot. We confirm within 1 hour during business hours.',
+    'Book online in 2 minutes and pay a £30 booking request deposit, deducted from your final bill. We confirm availability within one business hour.',
   ctaPrimary: { href: '/booking', label: 'Book online now' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };

@@ -10,11 +10,20 @@ import {
   CONTACT_EMAIL,
   CONTACT_ADDRESS_LINE1,
   CONTACT_ADDRESS_LINE2,
+  CONTACT_ADDRESS_LABEL,
+  CONTACT_ADDRESS_NOTE,
   CONTACT_HOURS,
   WA_NUMBER_DISPLAY,
   WA_BASE,
 } from '../data/contactDetails';
 import { usePageMeta } from '../hooks/usePageMeta';
+
+// Built from the shared address constants (not hand-duplicated) so this
+// never drifts from what the page itself renders. Keep the literal string
+// here in sync with the /contact description in prerender.mjs — that script
+// runs as plain Node and cannot import this TSX module.
+const CONTACT_META_DESCRIPTION =
+  `Registered office: ${CONTACT_ADDRESS_LINE1}, ${CONTACT_ADDRESS_LINE2}. ${CONTACT_ADDRESS_NOTE}`;
 
 const WA_TEXT = "Hi VVE Clean, I'd like to get a quote.";
 const WA_LINK = `${WA_BASE}?text=${encodeURIComponent(WA_TEXT)}`;
@@ -65,7 +74,7 @@ function WhatsAppIcon({ size = 16 }: { size?: number }) {
 export default function ContactPage() {
   usePageMeta(
     'Contact Us | VVE Clean London',
-    'Call, WhatsApp, email or message VVE Clean. 23-25 Queensway, London W2 4QP. Monday to Saturday, 8am to 6pm.',
+    CONTACT_META_DESCRIPTION,
     '/contact',
   );
 
@@ -257,6 +266,9 @@ export default function ContactPage() {
                   <div className="text-silver-300 text-xs mb-0.5">Address</div>
                   <span className="text-white font-semibold text-sm block">{CONTACT_ADDRESS_LINE1}</span>
                   <span className="text-silver-400 text-xs block">{CONTACT_ADDRESS_LINE2}</span>
+                  <p className="text-silver-400 text-xs leading-snug mt-1">
+                    <span className="font-medium text-silver-300">{CONTACT_ADDRESS_LABEL}.</span> {CONTACT_ADDRESS_NOTE}
+                  </p>
                 </div>
               </div>
 

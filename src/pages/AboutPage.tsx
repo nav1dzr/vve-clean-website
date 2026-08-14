@@ -48,7 +48,7 @@ const SCHEMA = {
 export default function AboutPage() {
   usePageMeta(
     'About Us | VVE Clean London',
-    'VVE Clean was started by three friends who brought experience from different cleaning companies together to build a fairer, more accountable way of working.',
+    'VVE Clean was started by three friends who brought experience from different cleaning companies together to build a fairer, more accountable team.',
     '/about',
   );
 
@@ -72,7 +72,7 @@ export default function AboutPage() {
             Three friends, one accountable team
           </h1>
           <p className="text-silver-300 text-base md:text-lg max-w-xl mx-auto leading-relaxed">
-            VVE Clean is built and run as a team — not one person doing every job.
+            VVE Clean is built and run as a team, with shared standards every member is accountable to.
           </p>
         </div>
       </div>
@@ -92,7 +92,7 @@ export default function AboutPage() {
               and real accountability, agreed between the three of them from day one.
             </p>
             <p>
-              That's the company VVE Clean is today: a team, not a single owner-operator. Fixed, honest
+              That's the company VVE Clean is today: a real team with shared standards. Fixed, honest
               pricing agreed before work begins. A team that turns up and finishes the job properly. And
               real accountability if something isn't right — a guarantee we stand behind, backed by an
               independently vetted profile you can check for yourself.

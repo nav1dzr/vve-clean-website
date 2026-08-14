@@ -73,10 +73,10 @@ const routes = [
     path: '/booking',
     title: 'Book Your Clean — VVE Clean London',
     description:
-      'Book a professional cleaning service online with VVE Clean. Choose your service, fill in your details and pay a £30 deposit to secure your slot.',
+      'Book a cleaning service online with VVE Clean. Pay a £30 deposit, deducted from your final bill — we confirm availability within one business hour.',
     ogTitle: 'Book a Clean Online | VVE Clean London',
     ogDescription:
-      'Book a professional cleaning service online with VVE Clean. Pay a £30 deposit to secure your slot.',
+      'Book online with VVE Clean and pay a £30 deposit, deducted from your final bill. We confirm availability within one business hour.',
     changefreq: 'monthly',
     priority: '0.6',
     sources: ['src/pages/BookingPage.tsx'],
@@ -211,7 +211,7 @@ const routes = [
       'VVE Clean was started by three friends who brought experience from different cleaning companies together to build a fairer, more accountable team.',
     ogTitle: 'About VVE Clean',
     ogDescription:
-      'The story behind VVE Clean — a team, not a single owner-operator, backed by fixed pricing and a real guarantee.',
+      'The story behind VVE Clean — a real, accountable team backed by fixed pricing and a real guarantee.',
     changefreq: 'yearly',
     priority: '0.5',
     sources: ['src/pages/AboutPage.tsx'],
@@ -219,8 +219,11 @@ const routes = [
   {
     path: '/contact',
     title: 'Contact Us | VVE Clean London',
+    // Keep this in sync with CONTACT_META_DESCRIPTION in src/pages/ContactPage.tsx
+    // (built from src/data/contactDetails.ts) — this script runs as plain Node
+    // and cannot import that TSX module.
     description:
-      'Call, WhatsApp, email or message VVE Clean. 23-25 Queensway, London W2 4QP. Monday to Saturday, 8am to 6pm.',
+      'Registered office: Queensway Market, 23–25 Queensway, London W2 4QP. Our mobile teams serve East and North London. No walk-ins.',
     ogTitle: 'Contact VVE Clean',
     ogDescription: 'Call, WhatsApp, email or send us a message.',
     changefreq: 'yearly',
@@ -243,7 +246,7 @@ const routes = [
     path: '/team',
     title: 'Our Team | VVE Clean London',
     description:
-      'Meet the people behind VVE Clean — a real team, not a single owner-operator. Founding team and wider team profiles are on their way.',
+      'Meet the people behind VVE Clean — a real, accountable team. Founding team and wider team profiles are on their way.',
     ogTitle: 'Our Team | VVE Clean',
     ogDescription: 'The people behind VVE Clean — profiles coming soon.',
     changefreq: 'monthly',

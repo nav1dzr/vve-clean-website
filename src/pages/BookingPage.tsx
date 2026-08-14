@@ -8,6 +8,7 @@ import { getQuoteOriginHref } from '../lib/quoteOrigin';
 import { CARPET_MIN_BOOKING, DISCOUNT_MIN_NOTE } from '../data/carpetPricing';
 import { TERMS_VERSION, CANCELLATION_POLICY_VERSION } from '../lib/termsVersion';
 import { PARKING_ESTIMATE_P, CONGESTION_CHARGE_P, PARKING_CHARGED_AT_ACTUAL_COST_NOTE } from '../data/pricing';
+import { DEPOSIT_REFUND_ON_UNAVAILABLE_SLOT } from '../data/policies';
 
 const PARKING_ESTIMATE    = PARKING_ESTIMATE_P / 100;
 const CONGESTION_CHARGE   = CONGESTION_CHARGE_P / 100;
@@ -847,19 +848,30 @@ export default function BookingPage() {
               </div>
             )}
 
-            <div className="flex items-center gap-2 px-5 py-3"
+            <div className="flex items-start gap-2 px-5 py-3"
               style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(0,0,0,0.15)' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 flex-shrink-0"
+                strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 flex-shrink-0 mt-0.5"
                 style={{ color: 'rgba(255,255,255,0.85)' }}>
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
               <span className="text-xs" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                Secured by Stripe · Bank-level encryption · We never store card details
+                Payments are processed securely by Stripe. VVE Clean does not store your card details.
               </span>
             </div>
           </div>
+
+          {/* ── Slot-unavailable reassurance ────────────────────────────────── */}
+          <details className="rounded-xl border border-[#E3E7EE] bg-white px-4 py-3 group">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold text-navy-900">
+              What if my requested slot is unavailable?
+              <span className="flex-shrink-0 text-silver-400 transition-transform group-open:rotate-45" aria-hidden="true">+</span>
+            </summary>
+            <p className="mt-2 text-sm text-silver-600 leading-relaxed">
+              {DEPOSIT_REFUND_ON_UNAVAILABLE_SLOT}
+            </p>
+          </details>
 
           {/* ── Terms acceptance ────────────────────────────────────────────── */}
           <div data-error={!!termsError}>

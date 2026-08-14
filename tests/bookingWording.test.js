@@ -14,6 +14,9 @@ const FILES = [
   'public/confirmation.html',
   'api/create-checkout-session.js',
   'api/stripe-webhook.js',
+  'prerender.mjs',
+  'src/pages/EndOfTenancyPage.tsx',
+  'src/pages/SofaCleaningPage.tsx',
 ];
 
 const BANNED_PATTERNS = [

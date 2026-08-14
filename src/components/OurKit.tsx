@@ -47,8 +47,8 @@ export default function OurKit() {
 
             <p className="text-slate-300 text-base leading-relaxed mb-8">
               We turn up with commercial-grade equipment — carpet extraction, pressure washers and
-              professional-grade products. The same kit the big agencies use, run by someone who
-              actually shows up: the founder, on every job.
+              professional-grade products. The same kit the big agencies use, run by a team that
+              shows up and gets the job done properly.
             </p>
 
             <ul className="space-y-3">

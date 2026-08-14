@@ -8,6 +8,8 @@ import {
   CONTACT_EMAIL,
   CONTACT_ADDRESS_LINE1,
   CONTACT_ADDRESS_LINE2,
+  CONTACT_ADDRESS_LABEL,
+  CONTACT_ADDRESS_NOTE,
   CONTACT_HOURS,
   WA_NUMBER_DISPLAY,
   WA_BASE,
@@ -153,7 +155,9 @@ export default function Contact() {
                     <div className="text-silver-300 text-xs mb-0.5">Address</div>
                     <span className="text-white font-semibold text-sm block">{CONTACT_ADDRESS_LINE1}</span>
                     <span className="text-silver-400 text-xs block">{CONTACT_ADDRESS_LINE2}</span>
-                    <span className="text-silver-300 text-xs mt-1 block">Serving East &amp; North London</span>
+                    <p className="text-silver-400 text-xs leading-snug mt-1">
+                      <span className="font-medium text-silver-300">{CONTACT_ADDRESS_LABEL}.</span> {CONTACT_ADDRESS_NOTE}
+                    </p>
                   </div>
                 </div>
 

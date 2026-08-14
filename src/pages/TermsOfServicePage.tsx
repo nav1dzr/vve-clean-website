@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { TERMS_VERSION } from '../lib/termsVersion';
+import { DEPOSIT_REFUND_ON_UNAVAILABLE_SLOT } from '../data/policies';
 
 const CONTACT_EMAIL = 'contact@vveclean.co.uk';
 // Derived from TERMS_VERSION (single source of truth, shared with the
@@ -130,6 +131,9 @@ const sections: Section[] = [
           We may also need to reschedule in exceptional circumstances (for example, severe weather, staff
           illness, or vehicle issues). We will notify you as soon as possible and offer the earliest
           available alternative date.
+        </p>
+        <p className="mt-3">
+          {DEPOSIT_REFUND_ON_UNAVAILABLE_SLOT}
         </p>
       </>
     ),

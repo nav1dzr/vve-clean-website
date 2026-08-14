@@ -148,6 +148,43 @@ describe('404 handling', () => {
   });
 });
 
+describe('booking meta description', () => {
+  it('keeps /booking description and ogDescription within search-engine length limits while retaining the key facts', () => {
+    const start = prerender.indexOf("path: '/booking'");
+    const end = prerender.indexOf("path: '/commercial'");
+    const block = prerender.slice(start, end);
+
+    const descriptionMatch = block.match(/description:\s*\n\s*'([^']+)'/);
+    const ogDescriptionMatch = block.match(/ogDescription:\s*\n\s*'([^']+)'/);
+    expect(descriptionMatch).not.toBeNull();
+    expect(ogDescriptionMatch).not.toBeNull();
+
+    const description = descriptionMatch[1];
+    const ogDescription = ogDescriptionMatch[1];
+
+    // Google typically truncates meta descriptions somewhere around 155-165
+    // characters — past that the truncated text can cut off mid-sentence.
+    expect(description.length).toBeLessThanOrEqual(165);
+    expect(ogDescription.length).toBeLessThanOrEqual(165);
+
+    for (const text of [description, ogDescription]) {
+      expect(text).toContain('£30 deposit');
+      expect(text).toContain('deducted from your final bill');
+      expect(text).toContain('confirm availability within one business hour');
+    }
+  });
+});
+
+describe('trust-page meta descriptions', () => {
+  it('never frames VVE Clean as owner-operated in prerendered /about or /team meta', () => {
+    const about = prerender.slice(prerender.indexOf("path: '/about'"), prerender.indexOf("path: '/contact'"));
+    const team = prerender.slice(prerender.indexOf("path: '/team'"));
+    for (const block of [about, team]) {
+      expect(block.toLowerCase()).not.toMatch(/not a single owner|not one person|owner-operated|owner-run|founder attends/);
+    }
+  });
+});
+
 describe('sitemap', () => {
   it('is generated from the route list, not hand-maintained', () => {
     // A checked-in file drifts: the old one listed 12 URLs with every lastmod

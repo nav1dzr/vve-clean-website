@@ -41,8 +41,8 @@ export default function Hero() {
           <div className="inline-flex items-center gap-2 glass-card rounded-full px-3 py-1 sm:px-4 sm:py-1.5 mb-3 sm:mb-6" style={{ animationDelay: '0.1s' }}>
             <span className="w-2 h-2 rounded-full bg-royal-400 animate-pulse" />
             <span className="text-silver-200 text-[10px] sm:text-xs tracking-widest font-medium uppercase">
-              <span className="sm:hidden">Independent &amp; owner-operated</span>
-              <span className="hidden sm:inline">Independent &amp; Owner-Operated — No Call Centres, No Random Cleaners</span>
+              <span className="sm:hidden">Independent &amp; team-run</span>
+              <span className="hidden sm:inline">Independent &amp; Team-Run — DBS-Checked &amp; Fully Insured</span>
             </span>
           </div>
 

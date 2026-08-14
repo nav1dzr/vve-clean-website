@@ -19,7 +19,7 @@ const TEAM_TRUST_FACTS = [
 export default function TeamPage() {
   usePageMeta(
     'Our Team | VVE Clean London',
-    'Meet the people behind VVE Clean — a team, not a single owner-operator. Founder and team profiles are on their way.',
+    'Meet the people behind VVE Clean — a real, accountable team. Founding team and wider team profiles are on their way.',
     '/team',
   );
 

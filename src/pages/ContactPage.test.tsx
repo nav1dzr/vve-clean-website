@@ -39,9 +39,31 @@ describe('ContactPage', () => {
     const waLinks = screen.getAllByRole('link', { name: /whatsapp/i });
     expect(waLinks.some((a) => (a.getAttribute('href') || '').includes('https://wa.me/447845451111'))).toBe(true);
     const text = document.body.textContent || '';
-    expect(text).toContain('23–25 Queensway');
+    expect(text).toContain('Queensway Market, 23–25 Queensway');
     expect(text).toContain('W2 4QP');
     expect(text).toContain('Monday – Saturday, 8am – 6pm');
+  });
+
+  it('labels the W2 address as the registered office only, paired with the mobile-team/no-walk-ins note', () => {
+    renderPage();
+    const text = document.body.textContent || '';
+    expect(text).toContain('Registered office only');
+    expect(text).toContain('Our mobile teams serve East and North London. No walk-ins.');
+  });
+
+  it('rewrites the page meta description to state the registered office and mobile-team coverage, not the old address-as-base wording', () => {
+    const meta = document.createElement('meta');
+    meta.setAttribute('name', 'description');
+    document.head.appendChild(meta);
+    try {
+      renderPage();
+      const content = meta.getAttribute('content') || '';
+      expect(content).toContain('Registered office: Queensway Market, 23–25 Queensway, London W2 4QP.');
+      expect(content).toMatch(/mobile teams serve East and North London/i);
+      expect(content).not.toMatch(/Monday to Saturday, 8am to 6pm/);
+    } finally {
+      meta.remove();
+    }
   });
 
   it('does not claim an unsupported response time, instant reply or appointment-only policy', () => {

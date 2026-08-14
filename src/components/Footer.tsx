@@ -9,6 +9,8 @@ import {
   CONTACT_EMAIL,
   CONTACT_ADDRESS_LINE1,
   CONTACT_ADDRESS_LINE2,
+  CONTACT_ADDRESS_LABEL,
+  CONTACT_ADDRESS_NOTE,
   WA_NUMBER_DISPLAY,
   WA_BASE,
 } from '../data/contactDetails';
@@ -148,6 +150,9 @@ export default function Footer() {
                 <div>
                   <span className="text-silver-300 text-sm block">{CONTACT_ADDRESS_LINE1}</span>
                   <span className="text-silver-300 text-sm block">{CONTACT_ADDRESS_LINE2}</span>
+                  <p className="text-silver-500 text-xs leading-snug mt-1">
+                    <span className="font-medium text-silver-400">{CONTACT_ADDRESS_LABEL}.</span> {CONTACT_ADDRESS_NOTE}
+                  </p>
                 </div>
               </li>
             </ul>

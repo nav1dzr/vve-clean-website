@@ -169,6 +169,48 @@ describe('BookingPage — booking request wording', () => {
   });
 });
 
+describe('BookingPage — Stripe payment security copy', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    seedSelection();
+  });
+
+  it('states the accurate Stripe processing claim, not the unverifiable "bank-level encryption" one', () => {
+    renderBookingPage();
+    const text = document.body.textContent || '';
+    expect(text).toContain('Payments are processed securely by Stripe. VVE Clean does not store your card details.');
+    expect(text).not.toMatch(/bank-level encryption/i);
+  });
+});
+
+describe('BookingPage — slot-unavailable deposit reassurance', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    seedSelection();
+  });
+
+  it('shows a collapsible disclosure, positioned before the terms checkbox', () => {
+    renderBookingPage();
+    const disclosure = screen.getByText('What if my requested slot is unavailable?');
+    const checkbox = screen.getByRole('checkbox', { name: /terms of service/i });
+    expect(disclosure.compareDocumentPosition(checkbox) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('explains the deposit is refunded to the original payment method, without claiming an automated refund', () => {
+    renderBookingPage();
+    const text = document.body.textContent || '';
+    expect(text).toMatch(/refunded to your original payment method/i);
+    expect(text.toLowerCase()).not.toMatch(/\bautomatically\b/);
+  });
+
+  it('mentions bank processing times vary, without inventing a specific number of business days', () => {
+    renderBookingPage();
+    const text = document.body.textContent || '';
+    expect(text).toMatch(/bank processing times vary/i);
+    expect(text).not.toMatch(/\d+\s*business days/i);
+  });
+});
+
 describe('BookingPage — accessible labels on property/contact fields', () => {
   beforeEach(() => {
     sessionStorage.clear();

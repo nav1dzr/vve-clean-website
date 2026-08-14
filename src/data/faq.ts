@@ -5,6 +5,7 @@ import {
   EOT_CARPET_PACKAGE_DISCOUNT_PCT,
   EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS,
 } from './pricing';
+import { DEPOSIT_REFUND_ON_UNAVAILABLE_SLOT } from './policies';
 
 export interface FaqItem {
   q: string;
@@ -104,6 +105,10 @@ export const FAQ_ONLY_ITEMS: FaqItem[] = [
   {
     q: 'What if my letting agent flags something after the clean?',
     a: `On the Complete End of Tenancy package, if the agent or landlord flags a cleaning issue within ${EOT_GUARANTEE_HOURS} hours of our visit, we come back and re-clean those specific areas free of charge. This covers the cleaning scope carried out — it does not cover pre-existing damage, wear and tear, or anything outside what was cleaned. The Tailored package and other services are not covered by this guarantee.`,
+  },
+  {
+    q: 'What happens to my deposit if my requested slot is unavailable?',
+    a: DEPOSIT_REFUND_ON_UNAVAILABLE_SLOT,
   },
 ];
 

@@ -42,6 +42,15 @@ describe('TermsOfServicePage — booking request / deposit clarity', () => {
     expect(text).toMatch(/No extra work will begin, and no price change will apply, without your agreement\./);
   });
 
+  it('explains the deposit is refunded, not automatically and with no invented business-day number, if a requested slot cannot be offered', () => {
+    const text = renderPage();
+    expect(text).toMatch(/can't offer your requested date and time/i);
+    expect(text).toMatch(/refunded to your original payment method/i);
+    expect(text).toMatch(/bank processing times vary/i);
+    expect(text.toLowerCase()).not.toMatch(/\bautomatically\b/);
+    expect(text).not.toMatch(/\d+\s*business days/i);
+  });
+
   it('still covers cancellation/rescheduling rules and failed-access consequences', () => {
     const text = renderPage();
     expect(text).toMatch(/Cancellations and Rescheduling/);

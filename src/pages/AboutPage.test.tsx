@@ -36,8 +36,8 @@ describe('AboutPage', () => {
   it('is team-first — never frames VVE Clean as owner-operated or founder-attends-every-job', () => {
     renderPage();
     const text = (document.body.textContent || '').toLowerCase();
-    expect(text).not.toMatch(/owner-operated|owner-run|same cleaner attends every job|founder attends|one owner/);
-    expect(text).toMatch(/team, not a single owner-operator/);
+    expect(text).not.toMatch(/owner-operated|owner-run|same cleaner attends every job|founder attends|one owner|not a single owner|not one person/);
+    expect(text).toMatch(/a real team with shared standards/);
   });
 
   it('does not disparage previous employers (no "rushed", "corners cut" or "chasing" claims)', () => {

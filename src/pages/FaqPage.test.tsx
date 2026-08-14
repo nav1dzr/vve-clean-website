@@ -79,6 +79,15 @@ describe('FaqPage', () => {
     expect(text).toMatch(/Tailored package and other services are not covered/);
   });
 
+  it('adds the deposit-refund question for an unavailable slot, without claiming an automated or timed refund', () => {
+    renderPage();
+    const text = document.body.textContent || '';
+    expect(text).toMatch(/What happens to my deposit if my requested slot is unavailable\?/);
+    expect(text).toMatch(/refunded to your original payment method/i);
+    expect(text.toLowerCase()).not.toMatch(/\bautomatically\b/);
+    expect(text).not.toMatch(/\d+\s*business days/i);
+  });
+
   it('keeps "Do you clean occupied homes?" exactly once despite appearing in two sources', () => {
     renderPage();
     expect(screen.getAllByText('Do you clean occupied homes?')).toHaveLength(1);
