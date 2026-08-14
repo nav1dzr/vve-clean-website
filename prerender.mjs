@@ -179,6 +179,69 @@ const routes = [
     priority: '0.9',
     sources: ['src/pages/EndOfTenancyPage.tsx'],
   },
+  // ── Local end of tenancy pages ──────────────────────────────────────────────
+  // Five implemented local pages — see src/data/localEotAreas.ts (source of
+  // truth for the copy) and src/AppRoutes.tsx (route registration).
+  {
+    path: '/end-of-tenancy-cleaning-islington',
+    title: 'End of Tenancy Cleaning Islington (N1) London | VVE Clean',
+    description:
+      'Local end of tenancy cleaning near Angel and Upper Street in Islington N1. Fixed pricing from £220, free oven clean, 72-hour guarantee.',
+    ogTitle: 'End of Tenancy Cleaning Islington (N1) | VVE Clean',
+    ogDescription:
+      'Local end of tenancy cleaning near Angel and Upper Street in Islington N1. Fixed pricing from £220, 72-hour guarantee.',
+    changefreq: 'monthly',
+    priority: '0.7',
+    sources: ['src/pages/LocalEndOfTenancyPage.tsx', 'src/data/localEotAreas.ts'],
+  },
+  {
+    path: '/end-of-tenancy-cleaning-camden',
+    title: 'End of Tenancy Cleaning Camden (NW1) London | VVE Clean',
+    description:
+      'Local end of tenancy cleaning near Camden Market and Regent\'s Canal in Camden NW1. Fixed pricing from £220, free oven clean, 72-hour guarantee.',
+    ogTitle: 'End of Tenancy Cleaning Camden (NW1) | VVE Clean',
+    ogDescription:
+      'Local end of tenancy cleaning near Camden Market and Regent\'s Canal in Camden NW1. Fixed pricing from £220, 72-hour guarantee.',
+    changefreq: 'monthly',
+    priority: '0.7',
+    sources: ['src/pages/LocalEndOfTenancyPage.tsx', 'src/data/localEotAreas.ts'],
+  },
+  {
+    path: '/end-of-tenancy-cleaning-hackney',
+    title: 'End of Tenancy Cleaning Hackney (E8) London | VVE Clean',
+    description:
+      'Local end of tenancy cleaning near London Fields and Broadway Market in Hackney E8. Fixed pricing from £220, free oven clean, 72-hour guarantee.',
+    ogTitle: 'End of Tenancy Cleaning Hackney (E8) | VVE Clean',
+    ogDescription:
+      'Local end of tenancy cleaning near London Fields and Broadway Market in Hackney E8. Fixed pricing from £220, 72-hour guarantee.',
+    changefreq: 'monthly',
+    priority: '0.7',
+    sources: ['src/pages/LocalEndOfTenancyPage.tsx', 'src/data/localEotAreas.ts'],
+  },
+  {
+    path: '/end-of-tenancy-cleaning-stratford',
+    title: 'End of Tenancy Cleaning Stratford (E15) London | VVE Clean',
+    description:
+      'Local end of tenancy cleaning near Westfield Stratford City and the Olympic Park in Stratford E15. Fixed pricing from £220, 72-hour guarantee.',
+    ogTitle: 'End of Tenancy Cleaning Stratford (E15) | VVE Clean',
+    ogDescription:
+      'Local end of tenancy cleaning near Westfield Stratford City and the Olympic Park in Stratford E15. Fixed pricing from £220, 72-hour guarantee.',
+    changefreq: 'monthly',
+    priority: '0.7',
+    sources: ['src/pages/LocalEndOfTenancyPage.tsx', 'src/data/localEotAreas.ts'],
+  },
+  {
+    path: '/end-of-tenancy-cleaning-walthamstow',
+    title: 'End of Tenancy Cleaning Walthamstow (E17) London | VVE Clean',
+    description:
+      'Local end of tenancy cleaning near Walthamstow Village and Lloyd Park in Walthamstow E17. Fixed pricing from £220, 72-hour guarantee.',
+    ogTitle: 'End of Tenancy Cleaning Walthamstow (E17) | VVE Clean',
+    ogDescription:
+      'Local end of tenancy cleaning near Walthamstow Village and Lloyd Park in Walthamstow E17. Fixed pricing from £220, 72-hour guarantee.',
+    changefreq: 'monthly',
+    priority: '0.7',
+    sources: ['src/pages/LocalEndOfTenancyPage.tsx', 'src/data/localEotAreas.ts'],
+  },
   {
     path: '/after-builders-cleaning-london',
     title: 'After Builders Cleaning London | From £249 | VVE Clean',

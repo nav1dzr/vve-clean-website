@@ -39,6 +39,7 @@ export type ServiceSectionKey =
   | 'process'
   | 'media'
   | 'faq'
+  | 'nearby'
   | 'related';
 
 const DEFAULT_SECTION_ORDER: ServiceSectionKey[] = [
@@ -125,6 +126,12 @@ export interface ServiceLandingData {
   //               reassurance sections rather than bundled into the proof.
   proofSection?: React.ReactNode;
   processSection?: React.ReactNode;
+
+  // A third optional content slot, rendered wherever 'nearby' falls in
+  // sectionOrder — used by the local area pages for their "nearby areas"
+  // internal-linking block. Not part of DEFAULT_SECTION_ORDER, so pages that
+  // don't set it are unaffected.
+  nearbySection?: React.ReactNode;
 
   // FAQ
   faqs: ServiceFaq[];
@@ -407,6 +414,8 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
     process: data.processSection,
 
     media: data.afterPricingSection,
+
+    nearby: data.nearbySection,
 
     faq: (
       <section className="bg-[#f0f7ff] py-16 px-4">

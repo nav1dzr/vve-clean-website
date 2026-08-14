@@ -1,5 +1,7 @@
 import { MapPin } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useReveal } from '../hooks/useReveal';
+import { LOCAL_EOT_AREAS } from '../data/localEotAreas';
 
 const areas = [
   // East London
@@ -9,6 +11,13 @@ const areas = [
   'Islington', 'Stoke Newington', 'Finsbury Park', 'Highbury', 'Holloway',
   'Tottenham', 'Crouch End', 'Wood Green', 'Camden', 'Highgate',
 ];
+
+// Only these five have a real, implemented local page (see
+// src/data/localEotAreas.ts) — every other name above stays plain text so
+// this section never links to a page that doesn't exist.
+const AREA_PATHS: Record<string, string> = Object.fromEntries(
+  LOCAL_EOT_AREAS.map((a) => [a.areaName, a.path]),
+);
 
 export default function Areas() {
   const { ref, visible } = useReveal();
@@ -30,18 +39,27 @@ export default function Areas() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3 mb-10">
-          {areas.map((area, i) => (
-            <div
-              key={i}
-              className={`bg-white rounded-xl px-3 py-3 flex items-center gap-2 shadow-sm border border-silver-200 hover:border-royal-300 hover:shadow-md transition-all duration-300 ${
-                visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-              }`}
-              style={{ transitionDelay: `${i * 30}ms` }}
-            >
-              <MapPin size={12} className="text-royal-500 flex-shrink-0" />
-              <span className="text-navy-800 text-xs font-medium">{area}</span>
-            </div>
-          ))}
+          {areas.map((area, i) => {
+            const path = AREA_PATHS[area];
+            const cls = `bg-white rounded-xl px-3 py-3 flex items-center gap-2 shadow-sm border border-silver-200 hover:border-royal-300 hover:shadow-md transition-all duration-300 ${
+              visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+            }`;
+            const inner = (
+              <>
+                <MapPin size={12} className="text-royal-500 flex-shrink-0" />
+                <span className="text-navy-800 text-xs font-medium">{area}</span>
+              </>
+            );
+            return path ? (
+              <Link key={i} to={path} className={cls} style={{ transitionDelay: `${i * 30}ms` }}>
+                {inner}
+              </Link>
+            ) : (
+              <div key={i} className={cls} style={{ transitionDelay: `${i * 30}ms` }}>
+                {inner}
+              </div>
+            );
+          })}
         </div>
 
         {/* Map placeholder / CTA strip */}

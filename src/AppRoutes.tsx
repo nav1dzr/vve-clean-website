@@ -10,6 +10,8 @@ import CarpetCleaningPage from './pages/CarpetCleaningPage';
 import SofaCleaningPage from './pages/SofaCleaningPage';
 import CommercialCarpetPage from './pages/CommercialCarpetPage';
 import EndOfTenancyPage from './pages/EndOfTenancyPage';
+import LocalEndOfTenancyPage from './pages/LocalEndOfTenancyPage';
+import { LOCAL_EOT_AREAS } from './data/localEotAreas';
 import AfterBuildersPage from './pages/AfterBuildersPage';
 import GalleryPage from './pages/GalleryPage';
 import AboutPage from './pages/AboutPage';
@@ -32,6 +34,12 @@ export default function AppRoutes() {
       <Route path="/sofa-cleaning-london" element={<SofaCleaningPage />} />
       <Route path="/commercial-carpet-cleaning-london" element={<CommercialCarpetPage />} />
       <Route path="/end-of-tenancy-cleaning-london" element={<EndOfTenancyPage />} />
+      {/* Five implemented local end of tenancy pages — see
+          src/data/localEotAreas.ts. Every other area name in the homepage
+          Areas section stays plain text until it has its own real page. */}
+      {LOCAL_EOT_AREAS.map((area) => (
+        <Route key={area.slug} path={area.path} element={<LocalEndOfTenancyPage area={area} />} />
+      ))}
       <Route path="/after-builders-cleaning-london" element={<AfterBuildersPage />} />
       <Route path="/gallery" element={<GalleryPage />} />
       <Route path="/about" element={<AboutPage />} />

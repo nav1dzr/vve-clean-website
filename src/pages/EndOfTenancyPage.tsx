@@ -1,7 +1,6 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
 import QuoteCalculator from '../components/QuoteCalculator';
 import EotResultsSection from '../components/gallery/EotResultsSection';
-import { ClipboardList, PackageCheck, RefreshCw, Camera } from 'lucide-react';
 import {
   EOT_BASE_PRICES_P,
   EOT_TAILORED_START_PRICES_P,
@@ -9,6 +8,13 @@ import {
   EOT_EXTRA_WC_P,
   EOT_GUARANTEE_HOURS,
 } from '../data/pricing';
+import { LOCAL_EOT_AREAS } from '../data/localEotAreas';
+import {
+  EOT_BENEFITS,
+  EOT_WHY_POINTS,
+  EOT_PRICING_ROWS,
+  EOT_PRICING_NOTE,
+} from '../data/eotContent';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20book%20an%20end%20of%20tenancy%20clean.';
 
@@ -123,58 +129,16 @@ const DATA: ServiceLandingData = {
     'End of tenancy cleans are not the same as a regular deep clean. Letting agents work from a detailed inventory checklist — and so do we. Choose our Complete Agency-Ready package for the entire property covered to the full 67-point standard, or our Tailored Checklist package to build only the internal tasks you need. Oven cleaning is included free in every booking. We cover East and North London and give you a photographic receipt to support your deposit return.',
 
   benefitsH2: 'Why tenants and landlords choose VVE Clean',
-  benefits: [
-    {
-      icon: <ClipboardList size={28} />,
-      title: '67-point agency checklist',
-      body: 'Every item your letting agent checks at inventory — we clean it on the Complete package. No area is missed because we work from the same standard checklist agents use.',
-    },
-    {
-      icon: <PackageCheck size={28} />,
-      title: 'Free oven clean included',
-      body: 'Inside oven, hob, extractor filter and grill — all included at no extra cost on Complete, with no surprise appliance charges.',
-    },
-    {
-      icon: <RefreshCw size={28} />,
-      title: `${EOT_GUARANTEE_HOURS}-hour re-clean guarantee`,
-      body: `If your agent flags anything within ${EOT_GUARANTEE_HOURS} hours of your clean, we return to fix it for free. We ask only for a copy of the agent's written feedback.`,
-    },
-    {
-      icon: <Camera size={28} />,
-      title: 'Photographic cleaning receipt',
-      body: 'We photograph the property after cleaning so you have documented proof. Useful for any deposit dispute where the condition at checkout is questioned.',
-    },
-  ],
+  benefits: EOT_BENEFITS,
 
   whyH2: 'What every Complete end of tenancy clean includes',
-  whyPoints: [
-    '67-point agency checklist — the same one your agent uses',
-    'Inside oven, hob, extractor filter and grill — free',
-    'Inside all cupboards, drawers and wardrobes',
-    'Bathrooms fully descaled, tiles, grouting and fixtures',
-    'Internal windows cleaned streak-free',
-    'Skirting boards, light switches and door frames wiped',
-    `${EOT_GUARANTEE_HOURS}-hour free re-clean if your agent flags anything`,
-    'Photographic cleaning receipt emailed on completion',
-  ],
+  whyPoints: EOT_WHY_POINTS,
 
   pricingH2: 'Fixed end of tenancy cleaning prices',
   pricingIntro:
     `Prices are fixed by property size for normally maintained, vacant flats. Complete Agency-Ready is our recommended, fully-inclusive package. Prefer to choose only what you need? Tailored Checklist starts from £${EOT_TAILORED_START_PRICES_P.studio / 100} — build it in the quote above.`,
-  pricingRows: [
-    { label: 'Studio — Complete',                  price: pDisplay(EOT_BASE_PRICES_P.studio) },
-    { label: '1 Bedroom — Complete',                price: pDisplay(EOT_BASE_PRICES_P.bed1) },
-    { label: '2 Bedrooms — Complete',               price: pDisplay(EOT_BASE_PRICES_P.bed2) },
-    { label: '3 Bedrooms — Complete',               price: pDisplay(EOT_BASE_PRICES_P.bed3) },
-    { label: '4 Bedrooms — Complete',               price: pDisplay(EOT_BASE_PRICES_P.bed4) },
-    { label: 'Studio — Tailored (from)',            price: pDisplay(EOT_TAILORED_START_PRICES_P.studio) },
-    { label: '4 Bedrooms — Tailored (from)',        price: pDisplay(EOT_TAILORED_START_PRICES_P.bed4) },
-    { label: 'Each additional full bathroom',       price: `+${pDisplay(EOT_EXTRA_BATH_P)}` },
-    { label: 'Each additional separate WC',         price: `+${pDisplay(EOT_EXTRA_WC_P)}` },
-    { label: '5+ Bedrooms',                         price: 'Tailored quote' },
-  ],
-  pricingNote:
-    'Prices are for normally maintained, vacant properties with reasonable access. Carpet steam cleaning, upholstery, exterior windows, balconies and rubbish removal are available as paid extras. Parking and the Congestion Charge, where applicable, are passed through at actual cost — never an invented flat fee — and confirmed with you before the booking is accepted. Heavy soiling, mould, biohazard contamination or extreme conditions require a photo review and confirmed quote before work starts.',
+  pricingRows: EOT_PRICING_ROWS,
+  pricingNote: EOT_PRICING_NOTE,
   pricingCta: { href: '/end-of-tenancy-cleaning-london#quote', label: 'Build my quote' },
 
   faqs: [
@@ -222,6 +186,12 @@ const DATA: ServiceLandingData = {
     { href: '/commercial-carpet-cleaning-london', label: 'Commercial Cleaning' },
     { href: '/pricing', label: 'All Prices' },
     { href: '/booking', label: 'Book Online' },
+    // Local area pages — real, routed pages (see AppRoutes.tsx). Kept in the
+    // same nearby-graph order as src/data/localEotAreas.ts.
+    ...LOCAL_EOT_AREAS.map((area) => ({
+      href: area.path,
+      label: `End of Tenancy — ${area.areaName}`,
+    })),
   ],
 
   ctaH2: 'Book your end of tenancy clean today.',

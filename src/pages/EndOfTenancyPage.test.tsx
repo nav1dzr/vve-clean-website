@@ -16,6 +16,7 @@ import EndOfTenancyPage from './EndOfTenancyPage';
 import { CookieConsentProvider } from '../context/CookieConsentContext';
 import { BookingProvider } from '../context/BookingContext';
 import { EOT_COMPLETE_PRICES_P, EOT_TAILORED_START_PRICES_P } from '../data/pricing';
+import { LOCAL_EOT_AREAS } from '../data/localEotAreas';
 
 const cheapestP = (sizeP: number, tailoredP: number) => Math.min(sizeP, tailoredP);
 
@@ -104,6 +105,14 @@ describe('EndOfTenancyPage — mounts the Complete/Tailored wizard directly, not
     } finally {
       sessionStorage.removeItem('vve_restore_quote');
       sessionStorage.removeItem('vve_booking');
+    }
+  });
+
+  it('links to all five implemented local end of tenancy pages', () => {
+    renderPage();
+    for (const area of LOCAL_EOT_AREAS) {
+      const link = screen.getByRole('link', { name: new RegExp(`End of Tenancy — ${area.areaName}`) });
+      expect(link).toHaveAttribute('href', area.path);
     }
   });
 });
