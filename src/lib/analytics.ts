@@ -13,9 +13,16 @@
 // | contact_form_submitted  | Contact form POST succeeds                 | Contact                | —                              |
 // | deposit_paid (GA4 conv) | Stripe payment confirmed (confirmation.html)| confirmation.html      | value, currency, transaction_id|
 //
-// Google Ads configuration (MANUAL REVIEW REQUIRED):
+// Google Ads configuration:
 //   Primary conversion: AW-18214693277/hUwdCK68gswcEJ3TuO1D (deposit_paid, fires in confirmation.html)
-//   Secondary conversions to configure: booking_initiated (micro-conversion)
+//   Secondary conversions below are observation-only: primary_for_goal=false and
+//   excluded from the Conversions metric/bidding in Google Ads.
+
+const SECONDARY_ADS_CONVERSIONS = {
+  bookingInitiated: 'AW-18214693277/cmLZCIm-6eEcEJ3TuO1D',
+  whatsappContact: 'AW-18214693277/zzetCIy-6eEcEJ3TuO1D',
+  contactFormSubmitted: 'AW-18214693277/XA4UCI--6eEcEJ3TuO1D',
+} as const;
 
 type GtagEventParams = Record<string, string | number | boolean | undefined>;
 
@@ -25,18 +32,25 @@ function safeGtag(event: string, params?: GtagEventParams): void {
   gtagFn('event', event, params);
 }
 
+function safeAdsConversion(sendTo: string, params?: GtagEventParams): void {
+  safeGtag('conversion', { send_to: sendTo, ...params });
+}
+
 export function trackPhoneClick(location: string): void {
   safeGtag('phone_click', { event_category: 'engagement', event_label: location });
 }
 
 export function trackWhatsAppClick(location: string): void {
   safeGtag('whatsapp_click', { event_category: 'engagement', event_label: location });
+  safeAdsConversion(SECONDARY_ADS_CONVERSIONS.whatsappContact, { event_label: location });
 }
 
 export function trackBookingInitiated(serviceType: string): void {
   safeGtag('booking_initiated', { event_category: 'funnel', event_label: serviceType });
+  safeAdsConversion(SECONDARY_ADS_CONVERSIONS.bookingInitiated, { event_label: serviceType });
 }
 
 export function trackContactFormSubmitted(): void {
   safeGtag('contact_form_submitted', { event_category: 'engagement' });
+  safeAdsConversion(SECONDARY_ADS_CONVERSIONS.contactFormSubmitted);
 }
