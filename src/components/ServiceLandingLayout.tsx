@@ -55,6 +55,8 @@ export interface ServiceLandingData {
   h1: string;
   h1Highlight: string;
   heroSubtitle?: string;
+  // Compact high-salience price anchor for paid-traffic first screens.
+  heroPriceChip?: string;
   heroBadges: string[];
   heroBgImage?: string;
   // Optional higher-resolution desktop variant of heroBgImage (served at
@@ -542,7 +544,15 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
                 )}
               </h1>
               {data.heroSubtitle && (
-                <p className={`max-w-2xl text-silver-200 text-base sm:text-lg ${data.heroCompactMobile ? 'mb-4 sm:mb-6' : 'mb-6'}`}>{data.heroSubtitle}</p>
+                <p className={`max-w-2xl text-silver-200 text-base sm:text-lg ${data.heroPriceChip ? 'mb-3' : data.heroCompactMobile ? 'mb-4 sm:mb-6' : 'mb-6'}`}>{data.heroSubtitle}</p>
+              )}
+
+              {data.heroPriceChip && (
+                <div className={`flex ${data.heroAside ? 'justify-start' : 'justify-center'} ${data.heroCompactMobile ? 'mb-4 sm:mb-5' : 'mb-5'}`}>
+                  <span className="inline-flex items-center rounded-full border border-sky-300/45 bg-sky-400/15 px-3.5 py-2 text-sm font-bold text-white shadow-sm backdrop-blur-sm">
+                    {data.heroPriceChip}
+                  </span>
+                </div>
               )}
 
               <div className={`flex flex-wrap gap-x-6 gap-y-2 ${data.heroAside ? 'justify-start' : 'justify-center'} ${data.heroCompactMobile ? 'mb-5 sm:mb-8' : 'mb-8'} text-sky-100 text-sm`}>

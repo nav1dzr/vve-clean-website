@@ -327,7 +327,7 @@ function todayIsoDate(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-type FormErrors = Partial<Record<keyof FormData | 'contact', string>>;
+type FormErrors = Partial<Record<keyof FormData, string>>;
 
 export default function BookingPage() {
   const [selection,    setSelection]    = useState<BookingSelection | null>(null);
@@ -419,10 +419,10 @@ export default function BookingPage() {
     if (!form.fullName.trim())          e.fullName = 'Please enter your full name.';
     if (!form.address.trim())           e.address  = 'Please enter your address.';
     if (!validPostcode(form.postcode))  e.postcode = 'Please enter a valid UK postcode.';
-    const noContact = !form.phone.trim() && !form.email.trim();
-    if (noContact)                      e.contact  = 'Please provide a phone number or email address.';
-    if (form.phone && !validPhone(form.phone))   e.phone = 'Please enter a valid phone number.';
-    if (form.email && !validEmail(form.email))   e.email = 'Please enter a valid email address.';
+    if (!form.phone.trim())            e.phone = 'Please enter a phone number so we can confirm availability.';
+    else if (!validPhone(form.phone))    e.phone = 'Please enter a valid phone number.';
+    if (!form.email.trim())              e.email = 'Please enter an email address for your booking confirmation.';
+    else if (!validEmail(form.email))    e.email = 'Please enter a valid email address.';
     if (!form.date)                     e.date = REQUIRED_DATE_ERROR;
     else if (form.date < todayIsoDate()) e.date = PAST_DATE_ERROR;
     if (!form.time)                     e.time = REQUIRED_TIME_ERROR;
@@ -629,35 +629,34 @@ export default function BookingPage() {
           </div>
 
           {/* ── Step 2: Contact ─────────────────────────────────────────────── */}
-          <div data-error={!!errors.contact} className="bg-white border border-[#E3E7EE] rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="bg-white border border-[#E3E7EE] rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-[#0369a1] text-white text-xs font-bold flex items-center justify-center">2</span>
               <span className="text-navy-900 text-sm font-semibold">Contact</span>
             </div>
 
-            {errors.contact && (
-              <div id="contact-error" role="alert" className="rounded-xl px-3.5 py-2.5 text-sm border"
-                style={{ background: '#EBF5FE', borderColor: '#BDE0FB', color: '#1e4d7b' }}>
-                {errors.contact}
-              </div>
-            )}
-
             <div data-error={!!errors.phone}>
-              <label htmlFor="booking-phone" className="block text-navy-900 font-semibold text-sm mb-1.5">Phone number</label>
+              <label htmlFor="booking-phone" className="block text-navy-900 font-semibold text-sm mb-1.5">
+                Phone number <span style={{ color: '#D14343' }}>*</span>
+              </label>
               <input id="booking-phone" type="tel" value={form.phone} onChange={setField('phone')}
                 placeholder="07700 900000" autoComplete="tel" inputMode="tel"
+                required aria-required="true"
                 aria-invalid={!!errors.phone}
-                aria-describedby={errors.phone ? 'phone-error' : errors.contact ? 'contact-error' : undefined}
+                aria-describedby={errors.phone ? 'phone-error' : undefined}
                 className={inputCls('phone')} />
               {errors.phone && <p id="phone-error" role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.phone}</p>}
             </div>
 
             <div data-error={!!errors.email}>
-              <label htmlFor="booking-email" className="block text-navy-900 font-semibold text-sm mb-1.5">Email address</label>
+              <label htmlFor="booking-email" className="block text-navy-900 font-semibold text-sm mb-1.5">
+                Email address <span style={{ color: '#D14343' }}>*</span>
+              </label>
               <input id="booking-email" type="email" value={form.email} onChange={setField('email')}
                 placeholder="you@example.com" autoComplete="email" inputMode="email"
+                required aria-required="true"
                 aria-invalid={!!errors.email}
-                aria-describedby={errors.email ? 'email-error' : errors.contact ? 'contact-error' : undefined}
+                aria-describedby={errors.email ? 'email-error' : undefined}
                 className={inputCls('email')} />
               {errors.email && <p id="email-error" role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.email}</p>}
             </div>

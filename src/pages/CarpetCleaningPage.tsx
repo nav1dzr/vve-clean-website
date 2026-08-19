@@ -115,6 +115,7 @@ const DATA: ServiceLandingData = {
   h1Highlight: ' — deeper than the surface.',
   heroHighlightClassName: 'text-gradient-carpet',
   heroSubtitle: 'Deep steam cleaning and stain removal',
+  heroPriceChip: `From ${pd(CARPET_ITEM_PRICES_P.bedroom)} per room · ${pd(CARPET_MIN_BOOKING_P)} minimum booking`,
   heroAside: <CarpetHeroPanel />,
   heroAsideOnMobile: true,
   // This slot now carries a different, existing benefit (see the "Fixed prices,

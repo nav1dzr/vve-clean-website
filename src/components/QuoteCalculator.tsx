@@ -689,6 +689,14 @@ export default function QuoteCalculator({
     });
   }, [isEot, isManualQuote, isReadyToBook, price, waLink, stableBook, setCtx]);
 
+  // QuoteCalculator is keyed/remounted when a customer changes service on the
+  // homepage. Reset the shared mobile action-dock state when this calculator
+  // unmounts so the next screen cannot inherit a stale `bookable`, `manual` or
+  // `hidden` state before its own calculator has synchronised.
+  useEffect(() => () => {
+    setCtx({ state: 'none', price: 0, waLink: '', onBook: () => {} });
+  }, [setCtx]);
+
   const handleBookWithValidation = () => {
     setBookError('Please choose at least one service first.');
     serviceAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });

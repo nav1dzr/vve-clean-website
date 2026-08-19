@@ -86,6 +86,7 @@ const DATA: ServiceLandingData = {
   h1Highlight: ' — cleaned with care, not guesswork.',
   heroHighlightClassName: 'text-gradient-sofa',
   heroSubtitle: 'A fabric-first clean for sofas, armchairs, mattresses and dining chairs across East & North London.',
+  heroPriceChip: `2-seater sofa ${pd(CARPET_ITEM_PRICES_P.sofa_2)} · ${pd(CARPET_MIN_BOOKING_P)} minimum booking`,
   heroAside: <SofaHeroPanel />,
   heroAsideOnMobile: true,
   heroBadges: [
@@ -93,6 +94,9 @@ const DATA: ServiceLandingData = {
     'Colour-safe on most fabrics',
     'Fabric checked before treatment',
   ],
+  heroGoogleBadge: true,
+  heroCompactMobile: true,
+  heroTrustLine: '£5m public liability insurance · fabric checked before treatment',
   primaryHref: '/sofa-cleaning-london#quote',
   primaryLabel: 'Build my upholstery quote',
   secondaryHref: WA,

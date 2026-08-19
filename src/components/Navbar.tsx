@@ -64,7 +64,7 @@ export default function Navbar() {
       style={{ background: 'rgba(249,249,245,0.94)', backdropFilter: 'blur(10px)' }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 lg:h-20">
+        <div className="flex items-center justify-between h-16 xl:h-20">
           {/* Logo */}
           <Link
             to="/"
@@ -87,7 +87,7 @@ export default function Navbar() {
           </Link>
 
           {/* Nav */}
-          <nav className="hidden lg:flex items-center gap-7">
+          <nav className="hidden xl:flex items-center gap-7">
             <div className="relative">
               <button
                 type="button"
@@ -153,7 +153,7 @@ export default function Navbar() {
 
           {/* Right side — phone/WhatsApp stay visibly secondary; "Get my
               price" is the one visually dominant CTA (solid brand blue). */}
-          <div className="hidden lg:flex items-center gap-3">
+          <div className="hidden xl:flex items-center gap-3">
             <a href="tel:02080502233" onClick={() => trackPhoneClick('navbar')}
               className={`flex items-center gap-1.5 text-slate-700 hover:text-sky-600 text-sm transition-colors ${FOCUS_RING}`}>
               <Phone size={13} />
@@ -173,7 +173,7 @@ export default function Navbar() {
           {/* Mobile: compact header — logo + call/WhatsApp shortcuts +
               hamburger. Urgent mobile visitors can reach us in one tap;
               the persistent booking CTA stays in MobileStickyFooter. */}
-          <div className="lg:hidden flex items-center gap-1">
+          <div className="xl:hidden flex items-center gap-1">
             <a href="tel:02080502233"
               className={`text-slate-800 p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center ${FOCUS_RING}`}
               aria-label="Call VVE Clean on 020 8050 2233">
@@ -200,7 +200,7 @@ export default function Navbar() {
 
       {/* Removing the closed menu from the DOM prevents invisible links from
           remaining in the keyboard tab order. */}
-      {menuOpen && <div id="mobile-nav-menu" className="lg:hidden overflow-hidden"
+      {menuOpen && <div id="mobile-nav-menu" className="xl:hidden overflow-hidden"
         style={{ background: 'rgba(249,249,245,0.96)', backdropFilter: 'blur(10px)', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
         <div className="px-4 py-6 space-y-4">
           <div className="border-b border-slate-100 pb-2">

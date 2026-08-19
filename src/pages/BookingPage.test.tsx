@@ -61,6 +61,7 @@ async function fillContactDetails(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/^address/i), '12 High Street');
   await user.type(screen.getByLabelText(/postcode/i), 'E8 1AA');
   await user.type(screen.getByLabelText(/phone number/i), '07700900000');
+  await user.type(screen.getByLabelText(/email address/i), 'jane@example.com');
 }
 
 async function fillAllRequiredFields(user: ReturnType<typeof userEvent.setup>) {
@@ -209,6 +210,8 @@ describe('BookingPage — accessible labels on property/contact fields', () => {
     expect(fullName).toBeRequired();
     expect(screen.getByLabelText(/^address/i)).toBeRequired();
     expect(screen.getByLabelText(/postcode/i)).toBeRequired();
+    expect(screen.getByLabelText(/phone number/i)).toBeRequired();
+    expect(screen.getByLabelText(/email address/i)).toBeRequired();
     expect(screen.getByLabelText(/preferred date/i)).toBeRequired();
     expect(screen.getByLabelText(/preferred arrival window/i)).toBeRequired();
 

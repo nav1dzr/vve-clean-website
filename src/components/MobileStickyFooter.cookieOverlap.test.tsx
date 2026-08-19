@@ -80,6 +80,14 @@ describe('the booking bar sits above the cookie banner, never under it', () => {
     expect(primary.textContent).toContain('Request booking');
     expect(primary.textContent).not.toMatch(/^Book\b/);
   });
+
+  it('uses the visible button text as its accessible name', () => {
+    renderBar();
+
+    const primary = screen.getByRole('button', { name: /Request booking/i });
+    expect(primary).not.toHaveAttribute('aria-label');
+    expect(primary.textContent).toContain('Request booking');
+  });
 });
 
 describe('the banner publishes its height before the first paint', () => {

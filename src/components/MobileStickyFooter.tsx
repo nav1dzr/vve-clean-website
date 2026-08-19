@@ -81,7 +81,6 @@ export default function MobileStickyFooter() {
             // (docs/BRAND_AND_UI_GUIDE.md). This is the most-tapped CTA on
             // mobile, so it must set the same expectation the booking page
             // does rather than implying a confirmed slot.
-            aria-label={state === 'bookable' ? 'Request booking — pay £30 deposit' : 'Request booking — select a service first'}
           >
             {CAL_ICON}
             <span>{state === 'bookable' ? 'Request booking · £30 deposit' : 'Request booking'}</span>

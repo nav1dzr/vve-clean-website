@@ -12,6 +12,15 @@ function renderNavbar() {
   );
 }
 
+describe('Navbar responsive breakpoint', () => {
+  it('keeps the compact navigation through 1199px and only enables the full desktop nav at xl', () => {
+    const { container } = renderNavbar();
+    const desktopNav = container.querySelector('nav');
+    expect(desktopNav).toHaveClass('hidden', 'xl:flex');
+    expect(desktopNav).not.toHaveClass('lg:flex');
+  });
+});
+
 describe('Navbar service navigation', () => {
   it('opens an accessible desktop menu with direct links to every core service page', async () => {
     const user = userEvent.setup();

@@ -109,6 +109,22 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
     });
   });
 
+  it('rejects a request with no phone number', async () => {
+    const res = makeRes();
+    await handler(makeReq(basePayload({ phone: '' })), res);
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body).error).toMatch(/phone/i);
+    expect(sessionsCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a request with no email address', async () => {
+    const res = makeRes();
+    await handler(makeReq(basePayload({ email: '' })), res);
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body).error).toMatch(/email/i);
+    expect(sessionsCreateMock).not.toHaveBeenCalled();
+  });
+
   it('rejects a request with no preferred date', async () => {
     const res = makeRes();
     await handler(makeReq(basePayload({ date: '' })), res);
