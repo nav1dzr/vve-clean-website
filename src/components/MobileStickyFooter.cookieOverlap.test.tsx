@@ -62,15 +62,24 @@ describe('the booking bar sits above the cookie banner, never under it', () => {
     const { container } = renderBar();
 
     const primary = screen.getByRole('button', { name: /Request booking/i });
-    expect(primary.className).toContain('mobile-sticky-primary');
+    expect(primary.className).toContain('bg-royal-500');
     expect(primary.className).not.toContain('btn-whatsapp');
 
     const help = screen.getByRole('link', { name: /Need help/i });
-    expect(help.className).toContain('mobile-sticky-whatsapp');
+    expect(help.className).toContain('btn-whatsapp');
 
     // Exactly one WhatsApp-green action in the bar, never two side by side.
-    expect(container.querySelectorAll('.mobile-sticky-primary')).toHaveLength(1);
-    expect(container.querySelectorAll('.mobile-sticky-whatsapp')).toHaveLength(1);
+    expect(container.querySelectorAll('.btn-whatsapp')).toHaveLength(1);
+  });
+
+  it('uses the approved flat dark tray, not the rejected pale floating treatment', () => {
+    const { container } = renderBar();
+    const tray = container.querySelector('.bg-navy-950');
+
+    expect(tray).not.toBeNull();
+    expect(container.querySelector('.mobile-sticky-tray')).toBeNull();
+    expect(container.querySelector('.mobile-sticky-primary')).toBeNull();
+    expect(container.querySelector('.mobile-sticky-whatsapp')).toBeNull();
   });
 
   it('says "Request booking", never "Book" — the deposit buys a request, not a slot', () => {

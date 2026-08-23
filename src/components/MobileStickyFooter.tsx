@@ -50,8 +50,8 @@ export default function MobileStickyFooter() {
       style={{ bottom: 'var(--vve-cookie-banner-h, 0px)' }}
     >
       <div
-        className="mobile-sticky-tray flex items-stretch gap-2 px-2 pt-2"
-        style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))' }}
+        className="flex items-stretch bg-navy-950 shadow-[0_-4px_24px_rgba(0,0,0,0.18)]"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
         {/* Primary action — the blue one, in every state.
             In the 'manual' state this used to be a second solid green
@@ -65,7 +65,7 @@ export default function MobileStickyFooter() {
             href={waLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="mobile-sticky-primary flex-[1.15] flex items-center justify-center gap-2 rounded-xl font-bold text-sm py-3 min-h-[48px] transition-all duration-200"
+            className="flex-1 flex items-center justify-center gap-2 bg-royal-500 hover:bg-royal-600 active:bg-royal-700 text-white font-bold text-sm py-4 min-h-[48px] transition-colors duration-200 border-r border-white/20"
             aria-label="Request a quote via WhatsApp"
           >
             {WA_ICON}
@@ -75,7 +75,7 @@ export default function MobileStickyFooter() {
           <button
             type="button"
             onClick={handlePrimaryClick}
-            className="mobile-sticky-primary flex-[1.15] flex items-center justify-center gap-2 rounded-xl font-bold text-sm py-3 min-h-[48px] transition-all duration-200"
+            className="flex-1 flex items-center justify-center gap-2 bg-royal-500 hover:bg-royal-600 active:bg-royal-700 text-white font-bold text-sm py-4 min-h-[48px] transition-colors duration-200 border-r border-white/20"
             // "Request booking", not "Book": paying the deposit submits a
             // request and availability is confirmed separately
             // (docs/BRAND_AND_UI_GUIDE.md). This is the most-tapped CTA on
@@ -92,7 +92,7 @@ export default function MobileStickyFooter() {
           href={helpLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="mobile-sticky-whatsapp flex-1 flex items-center justify-center gap-2 rounded-xl font-semibold text-sm py-3 min-h-[48px] transition-all duration-200"
+          className="btn-whatsapp flex-1 flex items-center justify-center gap-2 font-semibold text-sm py-4 min-h-[48px] transition-colors duration-200"
           aria-label="Need help? Chat on WhatsApp"
         >
           {WA_ICON}
