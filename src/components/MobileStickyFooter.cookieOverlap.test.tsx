@@ -62,21 +62,20 @@ describe('the booking bar sits above the cookie banner, never under it', () => {
     const { container } = renderBar();
 
     const primary = screen.getByRole('button', { name: /Request booking/i });
-    expect(primary.className).toContain('bg-royal-500');
+    expect(primary.className).toContain('bg-sky-500');
     expect(primary.className).not.toContain('btn-whatsapp');
 
     const help = screen.getByRole('link', { name: /Need help/i });
-    expect(help.className).toContain('btn-whatsapp');
+    expect(help.className).toContain('bg-[#25d366]');
 
     // Exactly one WhatsApp-green action in the bar, never two side by side.
-    expect(container.querySelectorAll('.btn-whatsapp')).toHaveLength(1);
+    expect(container.querySelectorAll('.bg-\\[\\#25d366\\]')).toHaveLength(1);
   });
 
-  it('uses the approved flat dark tray, not the rejected pale floating treatment', () => {
+  it("keeps the live site's lighter flat colour treatment, not a dark tray or floating card", () => {
     const { container } = renderBar();
-    const tray = container.querySelector('.bg-navy-950');
 
-    expect(tray).not.toBeNull();
+    expect(container.querySelector('.bg-navy-950')).toBeNull();
     expect(container.querySelector('.mobile-sticky-tray')).toBeNull();
     expect(container.querySelector('.mobile-sticky-primary')).toBeNull();
     expect(container.querySelector('.mobile-sticky-whatsapp')).toBeNull();

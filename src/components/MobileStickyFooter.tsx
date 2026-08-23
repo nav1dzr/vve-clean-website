@@ -50,7 +50,7 @@ export default function MobileStickyFooter() {
       style={{ bottom: 'var(--vve-cookie-banner-h, 0px)' }}
     >
       <div
-        className="flex items-stretch bg-navy-950 shadow-[0_-4px_24px_rgba(0,0,0,0.18)]"
+        className="flex items-stretch shadow-[0_-4px_24px_rgba(0,0,0,0.18)]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
         {/* Primary action — the blue one, in every state.
@@ -65,7 +65,7 @@ export default function MobileStickyFooter() {
             href={waLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 bg-royal-500 hover:bg-royal-600 active:bg-royal-700 text-white font-bold text-sm py-4 min-h-[48px] transition-colors duration-200 border-r border-white/20"
+            className="flex-1 flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white font-bold text-sm py-4 min-h-[48px] transition-colors duration-200 border-r border-white/20"
             aria-label="Request a quote via WhatsApp"
           >
             {WA_ICON}
@@ -75,7 +75,7 @@ export default function MobileStickyFooter() {
           <button
             type="button"
             onClick={handlePrimaryClick}
-            className="flex-1 flex items-center justify-center gap-2 bg-royal-500 hover:bg-royal-600 active:bg-royal-700 text-white font-bold text-sm py-4 min-h-[48px] transition-colors duration-200 border-r border-white/20"
+            className="flex-1 flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white font-bold text-sm py-4 min-h-[48px] transition-colors duration-200 border-r border-white/20"
             // "Request booking", not "Book": paying the deposit submits a
             // request and availability is confirmed separately
             // (docs/BRAND_AND_UI_GUIDE.md). This is the most-tapped CTA on
@@ -92,7 +92,7 @@ export default function MobileStickyFooter() {
           href={helpLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="btn-whatsapp flex-1 flex items-center justify-center gap-2 font-semibold text-sm py-4 min-h-[48px] transition-colors duration-200"
+          className="flex-1 flex items-center justify-center gap-2 bg-[#25d366] hover:bg-[#1ebe5d] active:bg-[#1aa851] text-white font-semibold text-sm py-4 min-h-[48px] transition-colors duration-200"
           aria-label="Need help? Chat on WhatsApp"
         >
           {WA_ICON}
