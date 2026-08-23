@@ -452,6 +452,15 @@ export default function QuoteCalculator({
   const isEot           = deepService === 'end_of_tenancy';
   const isAfterBuilders = service === 'deep' && deepService === 'after_builders';
 
+  // Whether EotQuoteWizard's own sticky footer is currently the usable
+  // bottom action surface (stuck above the cookie banner, not merely
+  // somewhere in the DOM) — see the geometry check EotQuoteWizard reports
+  // through onFooterUsableChange below. Starts false: at mount (and for the
+  // entire hero/top-of-page phase, before the visitor has scrolled into the
+  // wizard) the footer sits off-screen in normal flow, so the generic dock
+  // must stay the truthful "Get a quote" surface rather than disappearing.
+  const [eotFooterActive, setEotFooterActive] = useState(false);
+
   // Carpet price (computed only when isCarpet). promoCode enables discount (e.g. LEAFLET20).
   const carpetResult = isCarpet
     ? computeCarpetPrice(carpetCounts, carpetCondition, 1, promoCode)
@@ -674,16 +683,20 @@ export default function QuoteCalculator({
     // The EOT wizard manages its own multi-step state and book action — the
     // generic price/isReadyToBook computed above no longer reflects it once
     // isEot is true (deepBaths/isHouse/etc. here are frozen at their
-    // pre-wizard defaults). The wizard now owns a live, selection-aware sticky
-    // summary, so suppress the generic mobile booking bar rather than showing
-    // a second competing footer with stale state.
+    // pre-wizard defaults). The wizard owns a live, selection-aware sticky
+    // summary, but only *while that summary is actually the usable bottom
+    // action surface* (eotFooterActive, reported by EotQuoteWizard's own
+    // geometry check) — suppressing the generic dock for the entire isEot
+    // lifetime regardless of scroll position left the hero/top-of-page phase
+    // with no persistent action surface at all, since the wizard's sticky
+    // footer sits off-screen in normal flow until the visitor scrolls to it.
     setCtx({
-      state:  isEot ? 'hidden' : isManualQuote ? 'manual' : isReadyToBook ? 'bookable' : 'none',
+      state:  isEot ? (eotFooterActive ? 'hidden' : 'none') : isManualQuote ? 'manual' : isReadyToBook ? 'bookable' : 'none',
       price:  Math.round(price),
       waLink,
       onBook: stableBook,
     });
-  }, [isEot, isManualQuote, isReadyToBook, price, waLink, stableBook, setCtx]);
+  }, [isEot, eotFooterActive, isManualQuote, isReadyToBook, price, waLink, stableBook, setCtx]);
 
   const handleBookWithValidation = () => {
     setBookError('Please choose at least one service first.');
@@ -697,15 +710,6 @@ export default function QuoteCalculator({
       setBookError('');
     }
   }, [carpetResult?.totalItems, isCarpet, bookError]);
-
-  // Listen for sticky-bar "book" tap when no items are selected
-  useEffect(() => {
-    const handler = () => {
-      if (!isReadyToBook && !isManualQuote) handleBookWithValidation();
-    };
-    document.addEventListener('vve:validate-book', handler);
-    return () => document.removeEventListener('vve:validate-book', handler);
-  }, [isReadyToBook, isManualQuote]);
 
   // Homepage, nothing chosen yet: show the introductory quote panel rather than
   // the full configurator. #quote always exists so "Get my price" and other
@@ -877,6 +881,7 @@ export default function QuoteCalculator({
                 onHomepageServiceChange?.('carpet_upholstery');
               }}
               restoreConfig={eotRestoreConfig}
+              onFooterUsableChange={setEotFooterActive}
             />
           </div>
         </div>

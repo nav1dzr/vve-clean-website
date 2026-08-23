@@ -16,7 +16,7 @@ import Areas from '../components/Areas';
 import Contact from '../components/Contact';
 import FAQ from '../components/FAQ';
 import Footer from '../components/Footer';
-import MobileStickyFooter from '../components/MobileStickyFooter';
+import MobileActionDock from '../components/MobileActionDock';
 
 export default function HomePage() {
   const [selectedQuoteService, setSelectedQuoteService] = useState<HomepageQuoteService | null>(null);
@@ -73,7 +73,7 @@ export default function HomePage() {
       <FAQ />
       </main>
       <Footer />
-      <MobileStickyFooter />
+      <MobileActionDock variant="calculator" analyticsLocation="home_dock" />
     </div>
     </BookingProvider>
   );

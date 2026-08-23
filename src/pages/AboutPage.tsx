@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Handshake, Tag, ShieldCheck, CheckCircle2, ExternalLink } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import TrustPageMobileBar from '../components/TrustPageMobileBar';
+import MobileActionDock from '../components/MobileActionDock';
 import { EOT_GUARANTEE_HOURS } from '../data/pricing';
 import { CHECKATRADE_URL, CHECKATRADE_LABEL } from '../data/contactDetails';
 import { usePageMeta } from '../hooks/usePageMeta';
@@ -53,7 +53,7 @@ export default function AboutPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#f5f6f8] pb-[56px] lg:pb-0">
+    <div className="min-h-screen bg-[#f5f6f8] mobile-page-bottom lg:pb-0">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(SCHEMA) }}
@@ -176,7 +176,7 @@ export default function AboutPage() {
       </main>
       <Footer />
 
-      <TrustPageMobileBar analyticsLocation="about_page_sticky" whatsappText={WA_TEXT} />
+      <MobileActionDock variant="general" analyticsLocation="about_page_dock" whatsappText={WA_TEXT} />
     </div>
   );
 }

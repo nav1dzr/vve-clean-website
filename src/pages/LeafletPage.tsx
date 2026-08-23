@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Shield, Star } from 'lucide-react';
 import QuoteCalculator, { type BookingSelection } from '../components/QuoteCalculator';
+import MobileActionDock from '../components/MobileActionDock';
+import { BookingProvider } from '../context/BookingContext';
 import { markLeafletVisit } from '../lib/attribution';
 import { DISCOUNT_MIN_NOTE } from '../data/carpetPricing';
 
@@ -73,7 +75,8 @@ export default function LeafletPage() {
   )}`;
 
   return (
-    <div className="min-h-screen" style={{ background: '#f9f9f5' }}>
+    <BookingProvider>
+    <div className="min-h-screen mobile-page-bottom lg:pb-0" style={{ background: '#f9f9f5' }}>
       <LeafletHeader />
 
       <main id="main-content">
@@ -239,6 +242,9 @@ export default function LeafletPage() {
           </p>
         </div>
       </footer>
+
+      <MobileActionDock variant="calculator" analyticsLocation="leaflet_page_dock" helpWaLink={LEAFLET_WA} />
     </div>
+    </BookingProvider>
   );
 }

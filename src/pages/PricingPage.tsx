@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import MobileActionDock from '../components/MobileActionDock';
 import {
   EOT_BASE_PRICES_P,
   EOT_PRICES_P,
@@ -57,7 +58,7 @@ const EOT_ROWS: [string, number, number][] = [
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen bg-[#f5f6f8] pb-[56px] lg:pb-0">
+    <div className="min-h-screen bg-[#f5f6f8] mobile-page-bottom lg:pb-0">
       <Navbar />
       <main id="main-content">
 
@@ -416,27 +417,11 @@ export default function PricingPage() {
       </main>
       <Footer />
 
-      {/* ── 8. MOBILE STICKY BOTTOM BAR ──
-          No `bottom` transition: animating up to the cookie banner's height
-          slid this bar through the banner on a fresh visit. See
-          MobileStickyFooter for the full note. */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-silver-200 shadow-xl"
-        style={{ bottom: 'var(--vve-cookie-banner-h, 0px)' }}>
-        <div className="grid grid-cols-2 divide-x divide-silver-200">
-          <a href="tel:02080502233"
-            className="flex items-center justify-center gap-2 py-4 font-bold text-navy-900 text-sm active:bg-silver-100 transition-colors">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
-            </svg>
-            Call us
-          </a>
-          <a href={WA_SIMPLE} target="_blank" rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 py-4 font-bold text-white text-sm btn-whatsapp transition-colors">
-            {WA_SVG}
-            WhatsApp
-          </a>
-        </div>
-      </div>
+      <MobileActionDock
+        variant="general"
+        analyticsLocation="pricing_page_dock"
+        whatsappText="Hi VVE Clean! I'd like to book a clean."
+      />
     </div>
   );
 }

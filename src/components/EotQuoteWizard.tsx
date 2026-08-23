@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import {
   BadgeCheck, Bath, Building2, CheckCircle2, ChevronLeft, ChevronRight, CircleOff, Home, Info,
   Layers3, ListChecks, Mail, MessageCircle, Minus, Plus, ShieldCheck, Sparkles, Waves, XCircle,
@@ -145,6 +145,90 @@ interface Props {
   onBook: (result: EotBookingResult) => void;
   onChangeService?: () => void;
   restoreConfig?: EotBookingResult['quoteConfig'] | null;
+  // Reports whether the sticky footer below is currently the *usable* bottom
+  // action surface — see useReportFooterUsability. QuoteCalculator uses this
+  // to hand the generic mobile dock off to this footer only while the
+  // handoff is real, instead of hiding the dock for the wizard's entire
+  // lifetime regardless of scroll position.
+  onFooterUsableChange?: (usable: boolean) => void;
+}
+
+// One CSS pixel of slack around the ~0.5px rounding boundary real-device
+// measurement already found at the exact moment the footer settles into its
+// stuck position.
+const FOOTER_USABILITY_EPSILON = 1;
+
+function readCookieBannerHeight(): number {
+  const raw = document.documentElement.style.getPropertyValue('--vve-cookie-banner-h');
+  const parsed = parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+// Whether this sticky footer is the *usable* bottom action surface right
+// now — not just "some pixel of it intersects the viewport". Plain
+// IntersectionObserver.isIntersecting is not sufficient: real-Chromium
+// instrumentation at 320x844 with the cookie banner visible found the
+// footer technically intersecting mid-scroll (rect 821–962.5 against a
+// viewport of 0–844) while sitting entirely behind the cookie banner and
+// nowhere near its sticky-stuck position (585.5–727, directly above the
+// banner). The correct predicate compares the footer's bottom edge against
+// the *usable* viewport bottom — innerHeight minus whatever height the
+// cookie banner currently publishes — which is exactly the sticky-stuck
+// phase, true from mount (still off-screen, since the wizard sits below the
+// fold) through the stuck phase (true) to fully scrolled past (false again).
+function useReportFooterUsability(
+  ref: RefObject<HTMLElement>,
+  onChange?: (usable: boolean) => void,
+): void {
+  useEffect(() => {
+    if (!onChange) return undefined;
+    const el = ref.current;
+    if (!el) return undefined;
+
+    let lastUsable: boolean | null = null;
+    let rafId = 0;
+
+    const check = () => {
+      rafId = 0;
+      const rect = el.getBoundingClientRect();
+      const usableViewportBottom = window.innerHeight - readCookieBannerHeight();
+      const usable = rect.bottom > 0 && rect.bottom <= usableViewportBottom + FOOTER_USABILITY_EPSILON;
+      if (usable !== lastUsable) {
+        lastUsable = usable;
+        onChange(usable);
+      }
+    };
+
+    const schedule = () => {
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(check);
+    };
+
+    check();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+
+    // The cookie banner publishes its live height by mutating an inline
+    // style property on <html> (see CookieConsentBanner) — there is no DOM
+    // event for that, so this watches the attribute directly instead of
+    // polling on a timer.
+    let observer: MutationObserver | undefined;
+    if (typeof MutationObserver !== 'undefined') {
+      observer = new MutationObserver(schedule);
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+    }
+
+    return () => {
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      observer?.disconnect();
+      if (rafId) window.cancelAnimationFrame(rafId);
+      // Unmounting (service change, navigation) always means this footer is
+      // no longer a usable surface — resets the parent's flag rather than
+      // leaving it stuck true if the wizard remounts later mid-stuck-phase.
+      onChange(false);
+    };
+  }, [ref, onChange]);
 }
 
 const SIZE_OPTIONS: { key: SizeKey; label: string }[] = [
@@ -419,13 +503,15 @@ const FLOOR_CARE_OPTIONS: { key: 'professional' | 'standard' | 'none'; title: st
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig }: Props) {
+export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig, onFooterUsableChange }: Props) {
   const [state, setState] = useState<EotWizardState>(() => makeInitialState(restoreConfig));
   const [step, setStep] = useState(1);
   const [bookError, setBookError] = useState('');
   const [upholsteryOpen, setUpholsteryOpen] = useState(false);
   const wizardRootRef = useRef<HTMLDivElement>(null);
   const hasMountedRef = useRef(false);
+  const stickyFooterRef = useRef<HTMLDivElement>(null);
+  useReportFooterUsability(stickyFooterRef, onFooterUsableChange);
 
   // Every Continue/Back step change must return the viewport to the wizard
   // itself — never leave the customer at the previous step's scroll position
@@ -1316,7 +1402,10 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
           cookie banner, then returns to bottom: 0 when that bar is hidden on
           desktop. The content area remains in normal document flow, so no
           selections are obscured behind it. */}
-      <div className="sticky bottom-[calc(var(--vve-cookie-banner-h,0px)+env(safe-area-inset-bottom,0px))] z-30 border-t border-line bg-white/95 backdrop-blur-xl rounded-b-[28px] shadow-[0_-14px_34px_rgba(2,11,36,0.10)]">
+      <div
+        ref={stickyFooterRef}
+        className="sticky bottom-[calc(var(--vve-cookie-banner-h,0px)+env(safe-area-inset-bottom,0px))] z-30 border-t border-line bg-white/95 backdrop-blur-xl rounded-b-[28px] shadow-[0_-14px_34px_rgba(2,11,36,0.10)]"
+      >
         <div
           className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-y-3 gap-x-4 px-5 sm:px-8 lg:px-10 py-4 max-w-3xl mx-auto"
           data-testid="footer-nav"

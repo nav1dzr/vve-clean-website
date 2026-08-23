@@ -2,7 +2,7 @@ import { useId, useRef, useState } from 'react';
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle2 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import TrustPageMobileBar from '../components/TrustPageMobileBar';
+import MobileActionDock from '../components/MobileActionDock';
 import { trackPhoneClick, trackWhatsAppClick, trackContactFormSubmitted } from '../lib/analytics';
 import {
   CONTACT_PHONE_DISPLAY,
@@ -184,7 +184,7 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f6f8] pb-[56px] lg:pb-0">
+    <div className="min-h-screen bg-[#f5f6f8] mobile-page-bottom lg:pb-0">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(SCHEMA) }}
@@ -472,7 +472,7 @@ export default function ContactPage() {
       </main>
       <Footer />
 
-      <TrustPageMobileBar analyticsLocation="contact_page_sticky" whatsappText={WA_TEXT} />
+      <MobileActionDock variant="general" analyticsLocation="contact_page_dock" whatsappText={WA_TEXT} />
     </div>
   );
 }

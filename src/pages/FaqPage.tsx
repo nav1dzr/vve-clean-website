@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import TrustPageMobileBar from '../components/TrustPageMobileBar';
+import MobileActionDock from '../components/MobileActionDock';
 import { FAQ_ITEMS } from '../data/faq';
 import { WA_BASE } from '../data/contactDetails';
 import { usePageMeta } from '../hooks/usePageMeta';
@@ -27,7 +27,7 @@ export default function FaqPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#f5f6f8] pb-[56px] lg:pb-0">
+    <div className="min-h-screen bg-[#f5f6f8] mobile-page-bottom lg:pb-0">
       {/* JSON-LD FAQPage schema for this page's own URL */}
       <script
         type="application/ld+json"
@@ -104,7 +104,7 @@ export default function FaqPage() {
       </main>
       <Footer />
 
-      <TrustPageMobileBar analyticsLocation="faq_page_sticky" whatsappText={WA_TEXT} />
+      <MobileActionDock variant="general" analyticsLocation="faq_page_dock" whatsappText={WA_TEXT} />
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { User, ShieldCheck, CheckCircle2, ExternalLink } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import TrustPageMobileBar from '../components/TrustPageMobileBar';
+import MobileActionDock from '../components/MobileActionDock';
 import { TEAM_SLOTS } from '../data/team';
 import { EOT_GUARANTEE_HOURS } from '../data/pricing';
 import { CHECKATRADE_URL, CHECKATRADE_LABEL } from '../data/contactDetails';
@@ -24,7 +24,7 @@ export default function TeamPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#f5f6f8] pb-[56px] lg:pb-0">
+    <div className="min-h-screen bg-[#f5f6f8] mobile-page-bottom lg:pb-0">
       <Navbar />
       <main id="main-content">
 
@@ -141,7 +141,7 @@ export default function TeamPage() {
       </main>
       <Footer />
 
-      <TrustPageMobileBar analyticsLocation="team_page_sticky" whatsappText={WA_TEXT} />
+      <MobileActionDock variant="general" analyticsLocation="team_page_dock" whatsappText={WA_TEXT} />
     </div>
   );
 }

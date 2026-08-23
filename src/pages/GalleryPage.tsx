@@ -3,6 +3,7 @@ import { useSearchParams, useLocation } from 'react-router-dom';
 import { Maximize2 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import MobileActionDock from '../components/MobileActionDock';
 import BeforeAfterTile from '../components/gallery/BeforeAfterTile';
 import VideoTile from '../components/gallery/VideoTile';
 import GalleryInstagramCta from '../components/gallery/GalleryInstagramCta';
@@ -80,8 +81,10 @@ export default function GalleryPage() {
     return 0;
   };
 
+  const lightboxOpen = index !== null;
+
   return (
-    <div className="min-h-screen bg-[#fafbfd] pb-[56px] lg:pb-0">
+    <div className="min-h-screen bg-[#fafbfd] mobile-page-bottom lg:pb-0">
       <Navbar />
       <main id="main-content">
 
@@ -198,6 +201,13 @@ export default function GalleryPage() {
 
       </main>
       <Footer />
+
+      <MobileActionDock
+        variant="general"
+        analyticsLocation="gallery_page_dock"
+        whatsappText="Hi VVE Clean, I'd like to get a quote."
+        hidden={lightboxOpen}
+      />
 
       <PhotoLightbox
         photos={lightboxPhotos}

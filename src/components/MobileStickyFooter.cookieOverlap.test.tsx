@@ -54,7 +54,7 @@ describe('the booking bar sits above the cookie banner, never under it', () => {
 
   it('still renders both actions — the fix hides nothing', () => {
     renderBar();
-    expect(screen.getByRole('button', { name: /Book online/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Get a quote/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Need help/i })).toBeInTheDocument();
   });
 });

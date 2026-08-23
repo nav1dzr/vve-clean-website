@@ -4,7 +4,7 @@ import { useReveal } from '../hooks/useReveal';
 import GoogleBadge from './GoogleBadge';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import MobileStickyFooter from './MobileStickyFooter';
+import MobileActionDock from './MobileActionDock';
 import Gallery from './Gallery';
 import Reviews from './Reviews';
 import { BookingProvider } from '../context/BookingContext';
@@ -489,7 +489,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
         dangerouslySetInnerHTML={{ __html: data.schema }}
       />
 
-      <div className="min-h-screen bg-[#fafbfd] pb-[56px] lg:pb-0">
+      <div className="min-h-screen bg-[#fafbfd] mobile-page-bottom lg:pb-0">
         <Navbar />
         <main id="main-content">
 
@@ -641,7 +641,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
         <Footer />
       </div>
 
-      <MobileStickyFooter />
+      <MobileActionDock variant="calculator" />
     </BookingProvider>
   );
 }

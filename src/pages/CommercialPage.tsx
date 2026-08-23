@@ -16,7 +16,7 @@ import {
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import MobileStickyFooter from '../components/MobileStickyFooter';
+import MobileActionDock from '../components/MobileActionDock';
 import {
   COMMERCIAL_REGULAR_HOURLY_P,
   COMMERCIAL_REGULAR_MIN_CHARGE_P,
@@ -135,7 +135,7 @@ export default function CommercialPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: SCHEMA }} />
-      <div className="min-h-screen bg-[#fafbfd] pb-[56px] lg:pb-0">
+      <div className="min-h-screen bg-[#fafbfd] mobile-page-bottom lg:pb-0">
         <Navbar />
         <main id="main-content">
           <section className="relative overflow-hidden bg-navy-950 px-4 pb-20 pt-28">
@@ -302,7 +302,7 @@ export default function CommercialPage() {
         </main>
         <Footer />
       </div>
-      <MobileStickyFooter />
+      <MobileActionDock variant="commercial" analyticsLocation="commercial_page_dock" waLink={WA_COMMERCIAL} />
     </>
   );
 }

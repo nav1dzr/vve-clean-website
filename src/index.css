@@ -161,7 +161,16 @@ html::-webkit-scrollbar-thumb {
    Overridden to 0 by lg:pb-0 via Tailwind (class wins over this at >= lg). */
 @media (max-width: 1023px) {
   .mobile-page-bottom {
-    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    /* --vve-dock-h is published by MobileActionDock (its real, measured
+       offsetHeight, which already folds in env(safe-area-inset-bottom) —
+       see usePublishHeight) and --vve-cookie-banner-h by CookieConsentBanner.
+       Reserving both, not just the dock, matters because the dock is pushed
+       up by the banner's live height while it's visible: real-device
+       measurement found the previous flat 72px under-reserved by exactly the
+       banner's height, leaving the last footer link reachable-but-covered
+       until the banner was dismissed. The fallback mirrors what the real
+       value would be for the one tick before the effect publishes it. */
+    padding-bottom: calc(var(--vve-dock-h, calc(72px + env(safe-area-inset-bottom, 0px))) + var(--vve-cookie-banner-h, 0px));
   }
 }
 

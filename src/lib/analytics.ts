@@ -7,8 +7,8 @@
 //
 // | Event                   | Trigger                                    | Component              | Key params                     |
 // |-------------------------|--------------------------------------------|------------------------|--------------------------------|
-// | phone_click             | User clicks a tel: link                    | Hero, Contact, Navbar  | location (string)              |
-// | whatsapp_click          | User clicks a WhatsApp link                | Hero, Contact, CTAs    | location (string)              |
+// | phone_click             | User clicks a tel: link                    | Hero, Contact, Navbar, MobileActionDock | location (string) |
+// | whatsapp_click          | User clicks a WhatsApp link                | Hero, Contact, CTAs, MobileActionDock   | location (string) |
 // | booking_initiated       | User clicks "Book Now" in calculator       | QuoteCalculator        | service_type (string)          |
 // | contact_form_submitted  | Contact form POST succeeds                 | Contact                | —                              |
 // | deposit_paid (GA4 conv) | Stripe payment confirmed (confirmation.html)| confirmation.html      | value, currency, transaction_id|
@@ -16,6 +16,20 @@
 // Google Ads configuration (MANUAL REVIEW REQUIRED):
 //   Primary conversion: AW-18214693277/hUwdCK68gswcEJ3TuO1D (deposit_paid, fires in confirmation.html)
 //   Secondary conversions to configure: booking_initiated (micro-conversion)
+//
+// MobileActionDock's Call/WhatsApp actions call trackPhoneClick/
+// trackWhatsAppClick with a route-distinguishable `analyticsLocation`
+// (falls back to `mobile_dock:<pathname>` for the calculator variant) — both
+// functions already take a free-form location string by design, so this is
+// a safe, supported extension of the existing contract. The dock's general-
+// variant primary ("Book" -> /booking) deliberately does NOT call
+// trackBookingInitiated: that event's `service_type` param feeds the live
+// Google Ads booking_initiated conversion above, and a non-calculator dock
+// click has no real service to report — passing a page-location string
+// instead would silently mix location strings into a field ad-bidding
+// depends on being genuine service names. No other existing event fits a
+// generic "booking intent, no service chosen yet" click without inventing an
+// unconfigured one, so it is left untracked rather than guessed.
 
 type GtagEventParams = Record<string, string | number | boolean | undefined>;
 
