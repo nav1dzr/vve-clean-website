@@ -195,6 +195,10 @@ export interface BookingSelection {
 interface Props {
   onBook?:    (sel: BookingSelection) => void;
   promoCode?: string;
+  // The standalone booking route begins with this component. Its selector
+  // must be visible in prerendered HTML, including on short landscape screens
+  // where IntersectionObserver may not cross the reveal threshold.
+  aboveFold?: boolean;
   // 'carpet'/'upholstery' lock the calculator onto the carpet_upholstery
   // deep-service branch (same pricing engine as 'all-services') and only
   // render the relevant CARPET_GROUPS item list — no separate calculator.
@@ -296,20 +300,12 @@ function CarpetItemRows({
   );
 }
 
-// Trust strip beside the price. The DBS line is singled out because the Carpet
-// landing page already states the same credential in its hero, directly under
-// the Google rating ("Fully insured · DBS-checked technicians"). Repeating it a
-// few hundred pixels below reads as padding rather than reassurance, so carpet
-// mode drops this one line — and only this one line, on only that mode. The
-// homepage, /leaflet and every other service page still show all five.
-const DBS_TRUST_ITEM = 'DBS-checked, vetted cleaners';
-
 const TRUST_ITEMS = [
   '£5m public liability insurance',
-  DBS_TRUST_ITEM,
-  '72hr re-clean guarantee',
-  'No hidden fees — fixed prices',
+  'Clear scope before work starts',
+  'Published prices for standard services',
   'Secure Stripe checkout',
+  'Direct contact with VVE Clean',
 ];
 
 // ─── Session-restore helper ───────────────────────────────────────────────────
@@ -332,12 +328,14 @@ function getRestoreConfig(): BookingSelection['quoteConfig'] | null {
 export default function QuoteCalculator({
   onBook,
   promoCode,
+  aboveFold = false,
   mode = 'all-services',
   homepageMode = false,
   homepageService = null,
   onHomepageServiceChange,
 }: Props = {}) {
   const { ref, visible } = useReveal();
+  const contentVisible = aboveFold || visible;
   const navigate = useNavigate();
   const { setCtx }      = useBookingCtx();
   const [bookError, setBookError]   = useState('');
@@ -361,7 +359,11 @@ export default function QuoteCalculator({
   // Any locked mode forces a single deep-service branch and hides the
   // Service Type switcher — only 'all-services' lets the visitor choose.
   const focusGroup: 'Carpets' | 'Sofas & Upholstery' | null =
-    isCarpetFocused ? 'Carpets' : isUpholsteryFocused ? 'Sofas & Upholstery' : null;
+    isCarpetFocused || homepageService === 'carpet'
+      ? 'Carpets'
+      : isUpholsteryFocused || homepageService === 'upholstery'
+        ? 'Sofas & Upholstery'
+        : null;
   const [deepService,   setDeepService]   = useState<DeepServiceType>(
     () => isEotFocused
       ? 'end_of_tenancy'
@@ -370,7 +372,9 @@ export default function QuoteCalculator({
         // A restored quote wins over the homepage card selection, so coming
         // back from BookingPage via "Back to quote" reopens what the customer
         // actually had rather than resetting them to the card they first hit.
-        : ((_restore?.deepService as DeepServiceType | undefined) ?? homepageService ?? 'carpet_upholstery'),
+        : ((_restore?.deepService as DeepServiceType | undefined)
+          ?? (homepageService === 'carpet' || homepageService === 'upholstery' ? 'carpet_upholstery' : homepageService)
+          ?? 'carpet_upholstery'),
   );
   const [deepSize,      setDeepSize]      = useState<SizeKey>(
     () => (_restore?.deepSize as SizeKey | undefined) ?? 'bed2',
@@ -685,6 +689,14 @@ export default function QuoteCalculator({
     });
   }, [isEot, isManualQuote, isReadyToBook, price, waLink, stableBook, setCtx]);
 
+  // QuoteCalculator is keyed/remounted when a customer changes service on the
+  // homepage. Reset the shared mobile action-dock state when this calculator
+  // unmounts so the next screen cannot inherit a stale `bookable`, `manual` or
+  // `hidden` state before its own calculator has synchronised.
+  useEffect(() => () => {
+    setCtx({ state: 'none', price: 0, waLink: '', onBook: () => {} });
+  }, [setCtx]);
+
   const handleBookWithValidation = () => {
     setBookError('Please choose at least one service first.');
     serviceAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -714,7 +726,8 @@ export default function QuoteCalculator({
   // without showing this step first.
   if (homepageMode && !homepageService && !_restore) {
     const homepageOptions: Array<{ value: HomepageQuoteService; label: string }> = [
-      { value: 'carpet_upholstery', label: 'Carpet or upholstery cleaning' },
+      { value: 'carpet', label: 'Carpet cleaning' },
+      { value: 'upholstery', label: 'Sofa or upholstery cleaning' },
       { value: 'end_of_tenancy', label: 'End of tenancy cleaning' },
       { value: 'move_in', label: 'Move-in deep cleaning' },
       { value: 'after_builders', label: 'After-builders cleaning' },
@@ -723,7 +736,7 @@ export default function QuoteCalculator({
     return (
       <section id="quote" ref={ref} className="bg-surface pb-20 pt-24 scroll-mt-28 sm:pt-28">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className={`overflow-hidden rounded-3xl border border-line bg-white shadow-[0_22px_70px_rgba(16,36,62,0.10)] transition duration-700 ${visible ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0'}`}>
+          <div className={`overflow-hidden rounded-3xl border border-line bg-white shadow-[0_22px_70px_rgba(16,36,62,0.10)] transition duration-700 ${contentVisible ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0'}`}>
             <div className="grid lg:grid-cols-[1.08fr_0.92fr]">
               <div className="p-6 sm:p-9 lg:p-11">
                 <div className="mb-6 flex items-center justify-between gap-4">
@@ -849,7 +862,7 @@ export default function QuoteCalculator({
     return (
       <section id="quote" ref={ref} className={`${homepageMode ? 'bg-surface pb-20 pt-24 sm:pt-28' : 'bg-gradient-to-br from-sky-50 via-white to-royal-50 py-20'} scroll-mt-24`}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className={`text-center mb-8 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className={`text-center mb-8 transition-all duration-700 ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             {homepageMode ? (
               <>
                 <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-royal-700">Instant quote</p>
@@ -868,7 +881,7 @@ export default function QuoteCalculator({
             )}
           </div>
 
-          <div className={`transition-all duration-700 delay-200 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className={`transition-all duration-700 delay-200 ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             <EotQuoteWizard
               onBook={handleWizardBook}
               onChangeService={() => {
@@ -899,7 +912,7 @@ export default function QuoteCalculator({
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Header */}
-        <div className={`text-center mb-10 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+        <div className={`text-center mb-10 transition-all duration-700 ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           {homepageMode ? (
             <>
               <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-royal-700">Instant quote</p>
@@ -939,7 +952,7 @@ export default function QuoteCalculator({
         </div>
 
         {/* Card grid */}
-        <div className={`grid lg:grid-cols-5 gap-0 rounded-2xl shadow-2xl transition-all duration-700 delay-200 lg:items-start ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+        <div className={`grid lg:grid-cols-5 gap-0 rounded-2xl shadow-2xl transition-all duration-700 delay-200 lg:items-start ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
 
           {/* ── Left: configurator ── */}
           <div className="lg:col-span-3 bg-white p-6 md:p-8 rounded-tl-2xl rounded-tr-2xl lg:rounded-tr-none lg:rounded-bl-2xl">
@@ -961,8 +974,8 @@ export default function QuoteCalculator({
               {service === 'deep' && (
                 <>
                   {/* Service Type selector — carpet is first */}
-                  {mode === 'all-services' && <div>
-                    <label className="block text-navy-900 font-semibold text-sm mb-2">Service Type</label>
+                  {mode === 'all-services' && <fieldset>
+                    <legend className="block text-navy-900 font-semibold text-sm mb-2">Service Type</legend>
                     <div className="grid grid-cols-2 gap-1.5">
                       {(Object.keys(DEEP_SERVICE_LABELS) as DeepServiceType[]).map((k) => (
                         <button key={k} type="button"
@@ -976,7 +989,8 @@ export default function QuoteCalculator({
                             // clicked.
                             onHomepageServiceChange?.(k as HomepageQuoteService);
                           }}
-                          className={`py-2.5 px-3 rounded-xl border-2 text-xs font-semibold text-left transition-all duration-200 ${
+                          aria-pressed={deepService === k}
+                          className={`min-h-[44px] py-2.5 px-3 rounded-xl border-2 text-xs font-semibold text-left transition-all duration-200 ${
                             deepService === k
                               ? 'border-royal-500 bg-royal-50 text-royal-700'
                               : 'border-silver-200 text-navy-700 hover:border-royal-300'
@@ -985,7 +999,7 @@ export default function QuoteCalculator({
                         </button>
                       ))}
                     </div>
-                  </div>}
+                  </fieldset>}
 
                   {/* ── After builders: photo-quote callout ── */}
                   {isAfterBuilders && (
@@ -1002,8 +1016,8 @@ export default function QuoteCalculator({
                   {isCarpet && (
                     <>
                       {/* Condition selector */}
-                      <div>
-                        <label className="block text-navy-900 font-semibold text-sm mb-2">Condition</label>
+                      <fieldset>
+                        <legend className="block text-navy-900 font-semibold text-sm mb-2">Condition</legend>
                         <div className="grid grid-cols-3 gap-1.5">
                           {([
                             ['normal',   'Normal'],
@@ -1011,7 +1025,8 @@ export default function QuoteCalculator({
                             ['delicate', 'Delicate (wool, silk, velvet)'],
                           ] as [CarpetCondition, string][]).map(([k, l]) => (
                             <button key={k} type="button" onClick={() => setCarpetCondition(k)}
-                              className={`py-2 px-1.5 rounded-xl border-2 text-[11px] font-semibold text-center leading-tight transition-all duration-200 ${
+                              aria-pressed={carpetCondition === k}
+                              className={`min-h-[44px] py-2 px-1.5 rounded-xl border-2 text-[11px] font-semibold text-center leading-tight transition-all duration-200 ${
                                 carpetCondition === k
                                   ? k === 'heavy'   ? 'border-amber-400 bg-amber-50 text-amber-800'
                                   : k === 'delicate' ? 'border-purple-400 bg-purple-50 text-purple-700'
@@ -1038,7 +1053,7 @@ export default function QuoteCalculator({
                             </p>
                           </div>
                         )}
-                      </div>
+                      </fieldset>
 
                       {/* Item groups.
                           - 'all-services' (homepage, /leaflet): both groups
@@ -1194,12 +1209,13 @@ export default function QuoteCalculator({
                       )}
 
                       {/* Property size */}
-                      <div>
-                        <label className="block text-navy-900 font-semibold text-sm mb-2">Property Size</label>
+                      <fieldset>
+                        <legend className="block text-navy-900 font-semibold text-sm mb-2">Property Size</legend>
                         <div className={`grid gap-1.5 ${isEot ? 'grid-cols-3' : 'grid-cols-5'}`}>
                           {([['studio','Studio'],['bed1','1 Bed'],['bed2','2 Bed'],['bed3','3 Bed'],['bed4', isEot ? '4 Bed' : '4+ Bed']] as [SizeKey, string][]).map(([k, l]) => (
                             <button key={k} type="button" onClick={() => { setDeepSize(k); setEotTailoredQuote(false); }}
-                              className={`py-2.5 rounded-xl border-2 text-xs font-bold transition-all duration-200 ${
+                              aria-pressed={!eotTailoredQuote && deepSize === k}
+                              className={`min-h-[44px] py-2.5 rounded-xl border-2 text-xs font-bold transition-all duration-200 ${
                                 !eotTailoredQuote && deepSize === k ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-navy-700 hover:border-royal-300'
                               }`}>
                               {l}
@@ -1208,7 +1224,7 @@ export default function QuoteCalculator({
                           {isEot && (
                             <button type="button" onClick={() => setEotTailoredQuote(true)}
                               aria-pressed={eotTailoredQuote}
-                              className={`py-2.5 rounded-xl border-2 text-xs font-bold transition-all duration-200 ${
+                              className={`min-h-[44px] py-2.5 rounded-xl border-2 text-xs font-bold transition-all duration-200 ${
                                 eotTailoredQuote ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-navy-700 hover:border-royal-300'
                               }`}>
                               5+ Bedrooms
@@ -1220,17 +1236,18 @@ export default function QuoteCalculator({
                             5+ bedroom properties need a tailored quote — send us a few details on WhatsApp and we'll confirm your price. No fixed total is shown because it would not reflect the real scope.
                           </p>
                         )}
-                      </div>
+                      </fieldset>
 
                       {!eotTailoredQuote && (
                       <>
                       {/* Bathrooms */}
-                      <div>
-                        <label className="block text-navy-900 font-semibold text-sm mb-2">Bathrooms / WCs</label>
+                      <fieldset>
+                        <legend className="block text-navy-900 font-semibold text-sm mb-2">Bathrooms / WCs</legend>
                         <div className="flex gap-2">
                           {([1, 2, 3] as const).map((n) => (
                             <button key={n} type="button" onClick={() => setDeepBaths(n)}
-                              className={`w-11 h-11 rounded-full border-2 text-sm font-bold transition-all duration-200 ${
+                              aria-pressed={deepBaths === n}
+                              className={`w-11 h-11 min-h-[44px] min-w-[44px] rounded-full border-2 text-sm font-bold transition-all duration-200 ${
                                 deepBaths === n ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-navy-700 hover:border-royal-300'
                               }`}>
                               {n === 3 ? '3+' : n}
@@ -1242,7 +1259,7 @@ export default function QuoteCalculator({
                             +£{(deepBaths - 1) * BATH_SURCHARGE[deepService]} for {deepBaths - 1} extra bathroom{deepBaths > 2 ? 's' : ''} included in price
                           </p>
                         )}
-                      </div>
+                      </fieldset>
 
                       {isEot ? (
                         <>
@@ -1444,7 +1461,7 @@ export default function QuoteCalculator({
                       <div className="text-purple-700 text-[10px] font-bold tracking-widest uppercase">Photo Quote Required</div>
                       <div className="font-display font-bold text-2xl text-purple-900">Delicate fabric clean</div>
                       <p className="text-purple-700 text-sm leading-relaxed max-w-xs mx-auto">
-                        Wool, silk and velvet require assessment before we can give a fixed price. Send us a photo on WhatsApp and we'll confirm within the hour.
+                        Wool, silk and velvet require assessment before we can give a fixed price. Send us a photo on WhatsApp so we can review the fabric and method.
                       </p>
                     </div>
                   ) : isCarpet && (carpetResult?.totalItems ?? 0) === 0 ? (
@@ -1540,11 +1557,7 @@ export default function QuoteCalculator({
 
                       {/* Non-carpet subtitle — end_of_tenancy never reaches this render path;
                           isEot routes to EotQuoteWizard via the early return above. */}
-                      {!isCarpet && service === 'deep' && (
-                        <div className="text-center mt-3 text-sm" style={{ color: '#4a7a62' }}>
-                          72hr re-clean guarantee
-                        </div>
-                      )}
+                      {isEot && <div className="mt-3 text-center text-sm text-royal-700">72-hour re-clean terms shown with the selected package</div>}
                     </div>
                   )}
                 </>
@@ -1608,10 +1621,10 @@ export default function QuoteCalculator({
                   type="button"
                   onClick={isReadyToBook ? handleBookNow : handleBookWithValidation}
                   className="flex items-center justify-center gap-2 w-full py-4 min-h-[44px] rounded-full font-bold text-white text-base bg-royal-500 hover:bg-royal-600 transition-all duration-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
-                  aria-label={isReadyToBook ? 'Book online — pay £30 deposit' : 'Book online'}
+                  aria-label={isReadyToBook ? 'Request booking — pay £30 deposit' : 'Request booking'}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  {isReadyToBook ? 'Book online — pay £30 deposit' : 'Book online'}
+                  {isReadyToBook ? 'Request booking — pay £30 deposit' : 'Request booking'}
                 </button>
               )}
 
@@ -1620,7 +1633,7 @@ export default function QuoteCalculator({
                 <p className="text-center text-xs text-silver-500">
                   Not sure which service you need?{' '}
                   <a href={waLink} target="_blank" rel="noopener noreferrer"
-                    className="font-semibold text-green-600 hover:underline">
+                    className="inline-flex min-h-[44px] items-center font-semibold text-green-600 hover:underline">
                     Get help →
                   </a>
                 </p>
@@ -1710,10 +1723,10 @@ export default function QuoteCalculator({
                     type="button"
                     onClick={handleBookNow}
                     className="flex items-center justify-center gap-2 w-full py-3 min-h-[44px] rounded-full font-bold text-white text-sm bg-royal-500 hover:bg-royal-600 transition-all duration-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
-                    aria-label="Book online — pay £30 deposit"
+                    aria-label="Request booking — pay £30 deposit"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    Book online — pay £30 deposit
+                    Request booking — pay £30 deposit
                   </button>
                   <div className="flex items-center justify-center gap-1.5">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-silver-500 flex-shrink-0" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -1727,10 +1740,10 @@ export default function QuoteCalculator({
                     type="button"
                     onClick={handleBookWithValidation}
                     className="flex items-center justify-center gap-2 w-full py-3 min-h-[44px] rounded-full font-bold text-white text-sm bg-royal-500 hover:bg-royal-600 transition-all duration-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
-                    aria-label="Book online"
+                    aria-label="Request booking"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    Book online
+                    Request booking
                   </button>
                   <p className="text-silver-500 text-[11px] text-center leading-snug">
                     You pay a £30 deposit today — it comes straight off your bill.
@@ -1739,7 +1752,7 @@ export default function QuoteCalculator({
               )}
 
               <div className="space-y-3 mb-4">
-                {TRUST_ITEMS.filter((item) => !(isCarpetFocused && item === DBS_TRUST_ITEM)).map((item) => (
+                {TRUST_ITEMS.map((item) => (
                   <div key={item} className="flex items-center gap-2 text-silver-300 text-sm">
                     <CheckCircle2 size={13} className="text-royal-400 flex-shrink-0" />
                     {item}
@@ -1868,7 +1881,7 @@ export default function QuoteCalculator({
               </a>
               <div className="glass-card rounded-xl p-3 text-center">
                 <div className="text-silver-300 text-xs mb-0.5">Prefer to call?</div>
-                <a href="tel:02080502233" className="text-white font-bold hover:text-silver-200 transition-colors">020 8050 2233</a>
+                <a href="tel:02080502233" className="inline-flex min-h-[44px] items-center justify-center text-white font-bold hover:text-silver-200 transition-colors">020 8050 2233</a>
                 <div className="text-silver-400 text-[10px] mt-0.5">Mon–Fri 9am–6pm · Sat 10am–3pm</div>
               </div>
             </div>
@@ -1886,7 +1899,7 @@ export default function QuoteCalculator({
           {' · '}
           <span className="text-silver-300">Garden services from £45</span>
           {' · '}
-          <span className="text-silver-300">Commercial &amp; communal spaces: contact us for a tailored monthly quote after a free site visit.</span>
+          <span className="text-silver-300">Commercial &amp; communal spaces: contact us for a tailored quote after we review the scope.</span>
         </p>
       </div>
     </section>

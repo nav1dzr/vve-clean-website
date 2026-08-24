@@ -15,24 +15,49 @@ const pd = (pence: number) => `£${pence / 100}`;
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20a%20carpet%20clean%20quote.';
 
+// Single source for the visible accordion and the FAQPage schema — see the
+// same note in EndOfTenancyPage.tsx.
+const FAQS = [
+  {
+    q: 'How long does carpet cleaning take?',
+    a: 'A bedroom typically takes 20–30 minutes. A full 3-bedroom flat including hallways and living room usually takes 2–3 hours. We give you an estimated time when you book.',
+  },
+  {
+    q: 'How long before the carpet is dry?',
+    a: 'Carpets are usually dry within 2–4 hours. We use powerful extraction equipment that removes most of the moisture at the end of the clean, so drying is much faster than older steam methods.',
+  },
+  {
+    q: 'Will you remove all stains?',
+    a: 'Some coffee, wine, pet, mud and general-soiling marks can respond to treatment, but the result depends on the fibre, stain and products already used. Bleach, dye and permanent ink can leave a lasting mark. Complete removal cannot be guaranteed.',
+  },
+  {
+    q: 'Do I need to move furniture before you arrive?',
+    a: 'We ask that you move small items, toys and breakables off the carpet before we arrive. For large furniture like sofas and beds, we use furniture slides or clean around them where it makes sense. Let us know what you need when booking.',
+  },
+  {
+    q: 'Do you clean rugs?',
+    a: `Yes. Standard rugs start at ${pd(CARPET_ITEM_PRICES_P.rug)}. Larger, wool or specialist rugs may need a photo review first so the construction and a suitable cleaning method can be checked and the price confirmed before booking.`,
+  },
+];
+
 const SCHEMA = JSON.stringify({
   '@context': 'https://schema.org',
   '@graph': [
     {
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://vveclean.co.uk' },
-        { '@type': 'ListItem', position: 2, name: 'Carpet Cleaning London', item: 'https://vveclean.co.uk/carpet-cleaning-london' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.vveclean.co.uk' },
+        { '@type': 'ListItem', position: 2, name: 'Carpet Cleaning London', item: 'https://www.vveclean.co.uk/carpet-cleaning-london' },
       ],
     },
     {
       '@type': 'Service',
       name: 'Carpet Cleaning London',
       description:
-        'Professional hot-water extraction carpet cleaning in London. We remove stains, allergens and odours from bedrooms, living rooms, stairs and hallways across East and North London.',
-      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://vveclean.co.uk', telephone: '+442080502233' },
+        'Professional hot-water extraction carpet cleaning for bedrooms, living rooms, stairs and hallways across East and North London.',
+      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
-      url: 'https://vveclean.co.uk/carpet-cleaning-london',
+      url: 'https://www.vveclean.co.uk/carpet-cleaning-london',
       offers: [
         { '@type': 'Offer', name: 'Bedroom carpet clean', price: p(CARPET_ITEM_PRICES_P.bedroom), priceCurrency: 'GBP' },
         { '@type': 'Offer', name: 'Living / dining room carpet clean', price: p(CARPET_ITEM_PRICES_P.living_room), priceCurrency: 'GBP' },
@@ -43,48 +68,11 @@ const SCHEMA = JSON.stringify({
     },
     {
       '@type': 'FAQPage',
-      mainEntity: [
-        {
-          '@type': 'Question',
-          name: 'How long does carpet cleaning take?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'A bedroom typically takes 20–30 minutes. A full 3-bedroom flat including hallways and living room usually takes 2–3 hours. We give you an estimated time when you book.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'How long before the carpet is dry?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Carpets are usually dry within 2–4 hours. We use powerful extraction equipment that removes most of the moisture at the end of the clean, so drying is much faster than older steam methods.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Will you remove all stains?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'We remove the vast majority of stains — coffee, wine, pet accidents, mud, and general soiling respond very well to hot-water extraction. Old, set-in stains or those from bleach, dye, or permanent inks may leave a residual trace. We will always tell you the likely outcome before we start.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Do I need to move furniture before you arrive?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'We ask that you move small items, toys and breakables off the carpet before we arrive. For large furniture like sofas and beds, we use furniture slides or clean around them where it makes sense. Let us know what you need when booking.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Do you clean rugs?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Yes. Standard rugs start at £40. Larger or wool rugs may need a photo quote first to check the pile type and confirm they are safe for hot-water extraction. WhatsApp us a photo for a price in minutes.',
-          },
-        },
-      ],
+      mainEntity: FAQS.map((faq) => ({
+        '@type': 'Question',
+        name: faq.q,
+        acceptedAnswer: { '@type': 'Answer', text: faq.a },
+      })),
     },
   ],
 });
@@ -127,11 +115,9 @@ const DATA: ServiceLandingData = {
   h1Highlight: ' — deeper than the surface.',
   heroHighlightClassName: 'text-gradient-carpet',
   heroSubtitle: 'Deep steam cleaning and stain removal',
+  heroPriceChip: `From ${pd(CARPET_ITEM_PRICES_P.bedroom)} per room · ${pd(CARPET_MIN_BOOKING_P)} minimum booking`,
   heroAside: <CarpetHeroPanel />,
   heroAsideOnMobile: true,
-  // DBS deliberately appears once on this page — in heroTrustLine below, where
-  // it sits alongside insurance as a credential. It used to be repeated here
-  // too, which spent a hero bullet on a claim the visitor had already read.
   // This slot now carries a different, existing benefit (see the "Fixed prices,
   // no surprises" benefit card and the fixed price table further down).
   heroBadges: [
@@ -141,7 +127,7 @@ const DATA: ServiceLandingData = {
   ],
   heroGoogleBadge: true,
   heroCompactMobile: true,
-  heroTrustLine: 'Fully insured · DBS-checked technicians',
+  heroTrustLine: '£5m public liability insurance · fibre checked before treatment',
   primaryHref: '/carpet-cleaning-london#quote',
   primaryLabel: 'Build my carpet quote',
   secondaryHref: WA,
@@ -152,19 +138,19 @@ const DATA: ServiceLandingData = {
 
   introH2: 'Deep carpet cleaning, not just surface freshening',
   introText:
-    'We use professional hot-water extraction — the same method recommended by most carpet manufacturers. Hot water and cleaning solution are injected deep into the carpet pile, breaking up stains and bacteria, then extracted along with the dirt. The result is a carpet that looks cleaner, smells fresher and dries in hours, not days. We serve homes and rental properties across East London (E1–E17) and North London (N1–N19).',
+    'We inspect the carpet and use hot-water extraction where the fibre and construction are suitable. Cleaning solution is applied through the pile and extracted with loosened soil. Drying time varies with fibre, airflow and room conditions. We serve homes and rental properties across our published East and North London postcodes.',
 
   benefitsH2: 'What makes our carpet cleaning different',
   benefits: [
     {
       icon: <Droplets size={28} />,
       title: 'Deep extraction, not surface scrubbing',
-      body: 'Hot water penetrates deep into carpet fibres, loosening embedded grit, bacteria and allergens that surface cleaning leaves behind.',
+      body: 'The process applies cleaning solution through the pile, then extracts loosened soil and moisture with professional equipment.',
     },
     {
       icon: <Leaf size={28} />,
-      title: 'Removes allergens & pet odours',
-      body: 'Dust mites, pet dander and pollen are significantly reduced. Embedded pet and smoke odours are neutralised at source, not masked.',
+      title: 'Targeted stain and odour treatment',
+      body: 'We assess visible marks and odour sources, then choose a treatment suitable for the carpet. Results vary and permanent damage may remain.',
     },
     {
       icon: <Clock size={28} />,
@@ -227,28 +213,7 @@ const DATA: ServiceLandingData = {
     'intro', 'why', 'pricing', 'faq', 'related',
   ],
 
-  faqs: [
-    {
-      q: 'How long does carpet cleaning take?',
-      a: 'A bedroom typically takes 20–30 minutes. A full 3-bedroom flat including hallways and living room usually takes 2–3 hours. We give you an estimated time when you book.',
-    },
-    {
-      q: 'How long before the carpet is dry?',
-      a: 'Carpets are usually dry within 2–4 hours. We use powerful extraction equipment that removes most of the moisture at the end of the clean, so drying is much faster than older steam methods.',
-    },
-    {
-      q: 'Will you remove all stains?',
-      a: 'We remove the vast majority of stains — coffee, wine, pet accidents, mud and general soiling respond very well to hot-water extraction. Old, set-in stains or those from bleach, dye or permanent ink may leave a residual trace. We will always tell you the likely outcome before we start.',
-    },
-    {
-      q: 'Do I need to move furniture before you arrive?',
-      a: 'We ask that you move small items, toys and breakables off the carpet before we arrive. For large furniture like sofas and beds, we use furniture slides or clean around them where it makes sense.',
-    },
-    {
-      q: 'Do you clean rugs?',
-      a: 'Yes. Standard rugs start at £40. Larger or wool rugs may need a quick photo quote to confirm they are safe for hot-water extraction. WhatsApp us a photo for a price within the hour.',
-    },
-  ],
+  faqs: FAQS,
 
   relatedLinks: [
     { href: '/sofa-cleaning-london', label: 'Sofa & Upholstery Cleaning' },
@@ -256,13 +221,13 @@ const DATA: ServiceLandingData = {
     { href: '/after-builders-cleaning-london', label: 'After Builders Cleaning' },
     { href: '/commercial-carpet-cleaning-london', label: 'Commercial Carpet Cleaning' },
     { href: '/pricing', label: 'All Prices' },
-    { href: '/booking', label: 'Book Online' },
+    { href: '/booking', label: 'Request booking' },
   ],
 
   ctaH2: 'Ready to book your carpet clean?',
   ctaBody:
-    'Book online in 2 minutes and pay a £30 deposit to reserve your requested appointment. It comes off the final balance, and we confirm availability within one business hour.',
-  ctaPrimary: { href: '/booking', label: 'Book online now' },
+    'Send your booking request online. The £30 deposit is deducted from the final total, and availability is confirmed separately.',
+  ctaPrimary: { href: '/booking', label: 'Request booking online' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };
 

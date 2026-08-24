@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import QuoteCalculator from './QuoteCalculator';
-import { BookingProvider } from '../context/BookingContext';
+import { BookingProvider, useBookingCtx } from '../context/BookingContext';
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -67,5 +67,35 @@ describe('QuoteCalculator focused modes — reuse, no duplicated pricing logic',
     expect(screen.getByText('Service Type')).toBeInTheDocument();
     expect(screen.getByText('Bedroom')).toBeInTheDocument();
     expect(screen.getByText('2-seater sofa')).toBeInTheDocument();
+  });
+});
+
+function StickyStateProbe() {
+  const { state } = useBookingCtx();
+  return <output data-testid="sticky-state">{state}</output>;
+}
+
+describe('QuoteCalculator mobile-dock lifecycle', () => {
+  it('resets the shared dock state when the calculator unmounts', async () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <BookingProvider>
+          <QuoteCalculator mode="eot" />
+          <StickyStateProbe />
+        </BookingProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('sticky-state')).toHaveTextContent('hidden'));
+
+    rerender(
+      <MemoryRouter>
+        <BookingProvider>
+          <StickyStateProbe />
+        </BookingProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('sticky-state')).toHaveTextContent('none'));
   });
 });

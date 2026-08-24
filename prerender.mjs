@@ -73,10 +73,10 @@ const routes = [
     path: '/booking',
     title: 'Book Your Clean — VVE Clean London',
     description:
-      'Book a professional cleaning service online with VVE Clean. Choose your service, fill in your details and pay a £30 deposit to secure your slot.',
+      'Submit a cleaning booking request with VVE Clean. Choose your service, add your details and pay a £30 deposit that is deducted from the final total.',
     ogTitle: 'Book a Clean Online | VVE Clean London',
     ogDescription:
-      'Book a professional cleaning service online with VVE Clean. Pay a £30 deposit to secure your slot.',
+      'Submit a cleaning booking request online. The £30 deposit is deducted from the final total and availability is confirmed separately.',
     changefreq: 'monthly',
     priority: '0.6',
     sources: ['src/pages/BookingPage.tsx'],
@@ -85,7 +85,7 @@ const routes = [
     path: '/commercial',
     title: 'Commercial & Communal Cleaning London | VVE Clean',
     description:
-      'Contract cleaning for offices, shops, cafés and communal areas across East & North London. Free site visit within 48 hours, fixed written quote, monthly invoicing.',
+      'Commercial cleaning for offices, shops, cafés and communal areas across East and North London. Request a site review and a written scope and quote.',
     ogTitle: 'Commercial Cleaning London | VVE Clean',
     ogDescription:
       'Contract cleaning for offices, shops, cafés and communal areas across East & North London. Free site visit, fixed quote, monthly invoicing.',
@@ -135,10 +135,10 @@ const routes = [
     path: '/carpet-cleaning-london',
     title: 'Carpet Cleaning London | Steam-Clean & Stain Removal | VVE Clean',
     description:
-      'Professional carpet cleaning in London from £50 per room. Hot-water extraction lifts stains, allergens and pet odours, and carpets dry in 2–4 hours.',
+      'Professional carpet cleaning in London from £50 per room. Fibre checks, stain assessment and hot-water extraction where suitable.',
     ogTitle: 'Carpet Cleaning London | VVE Clean',
     ogDescription:
-      'Professional carpet cleaning from £50 per room. Hot-water extraction removes stains, allergens and pet odours across East and North London.',
+      'Professional carpet cleaning from £50 per room, with fibre checks and hot-water extraction where suitable.',
     changefreq: 'monthly',
     priority: '0.9',
     sources: ['src/pages/CarpetCleaningPage.tsx'],
@@ -147,7 +147,7 @@ const routes = [
     path: '/sofa-cleaning-london',
     title: 'Sofa & Upholstery Cleaning London | VVE Clean',
     description:
-      'Professional sofa and upholstery cleaning in London from £75. Hot-water extraction lifts stains, pet hair, odours and allergens from sofas, armchairs and mattresses.',
+      'Professional sofa and upholstery cleaning in London from £75, with fabric checks and hot-water extraction where suitable.',
     ogTitle: 'Sofa & Upholstery Cleaning London | VVE Clean',
     ogDescription:
       'Professional sofa cleaning from £75. Hot-water extraction removes stains, pet hair and odours across East and North London.',
@@ -186,10 +186,41 @@ const routes = [
       'Post-construction cleaning in London from £249. Fine dust, paint splashes, sticker residue and debris removed, leaving the space move-in ready.',
     ogTitle: 'After Builders Cleaning London | VVE Clean',
     ogDescription:
-      'Post-construction cleaning from £249. Fine dust, paint splashes and debris removed. Quote by photo within the hour across East and North London.',
+      'Post-construction cleaning from £249. Send photos of the dust, paint splashes and debris so VVE Clean can review the scope and confirm a price.',
     changefreq: 'monthly',
     priority: '0.8',
     sources: ['src/pages/AfterBuildersPage.tsx'],
+  },
+  // ── Process pages ───────────────────────────────────────────────────────────
+  {
+    path: '/how-we-clean-carpets',
+    title: 'How We Clean Carpets in London | VVE Clean',
+    description: 'How VVE Clean cleans carpets in London — the inspection, pre-treatment and hot-water extraction process, step by step.',
+    ogTitle: 'How We Clean Carpets in London | VVE Clean',
+    ogDescription: 'The hot-water extraction process behind every VVE Clean carpet clean, step by step.',
+    changefreq: 'monthly',
+    priority: '0.6',
+    sources: ['src/pages/HowWeCleanCarpetsPage.tsx'],
+  },
+  {
+    path: '/how-we-clean-sofas-upholstery',
+    title: 'How We Clean Sofas & Upholstery in London | VVE Clean',
+    description: 'How VVE Clean cleans sofas and upholstery in London — the fabric test and hot-water extraction process, step by step.',
+    ogTitle: 'How We Clean Sofas & Upholstery in London | VVE Clean',
+    ogDescription: 'The fabric-test-then-extraction process behind every VVE Clean sofa clean, step by step.',
+    changefreq: 'monthly',
+    priority: '0.6',
+    sources: ['src/pages/HowWeCleanSofasPage.tsx'],
+  },
+  {
+    path: '/how-we-clean-end-of-tenancy',
+    title: 'How We Clean End of Tenancy in London | VVE Clean',
+    description: 'How VVE Clean carries out an end of tenancy clean — the 67-point checklist, free oven clean, photographic receipt and re-clean guarantee.',
+    ogTitle: 'How We Clean End of Tenancy in London | VVE Clean',
+    ogDescription: 'The 67-point checklist behind every VVE Clean end of tenancy clean, step by step.',
+    changefreq: 'monthly',
+    priority: '0.6',
+    sources: ['src/pages/HowWeCleanEndOfTenancyPage.tsx'],
   },
   {
     path: '/gallery',
@@ -202,6 +233,42 @@ const routes = [
     changefreq: 'monthly',
     priority: '0.7',
     sources: ['src/pages/GalleryPage.tsx', 'src/data/galleryMedia.ts'],
+  },
+  {
+    path: '/about',
+    title: 'About VVE Clean | London Cleaning Company',
+    description: 'Learn how VVE Clean handles end of tenancy, carpet, upholstery, after-builders and commercial cleaning across London.',
+    ogTitle: 'About VVE Clean',
+    ogDescription: 'A clear, owner-led cleaning service with visible pricing and direct contact.',
+    changefreq: 'monthly',
+    priority: '0.6',
+    // Previously `noindex, follow` because the page carried a visible
+    // team-photo placeholder addressed to whoever was editing the site. That
+    // block is gone: the page now states only verifiable facts (services,
+    // coverage, insurance, company registration) and makes no team claim, so
+    // there is nothing left to withhold from search. Adding an owner-approved
+    // photograph later does not change indexability.
+    sources: ['src/pages/AboutPage.tsx'],
+  },
+  {
+    path: '/contact',
+    title: 'Contact VVE Clean | Call, WhatsApp or Email',
+    description: 'Contact VVE Clean about cleaning availability, property access or a quote. Call 020 8050 2233, use WhatsApp or send a message.',
+    ogTitle: 'Contact VVE Clean',
+    ogDescription: 'Call, WhatsApp or email VVE Clean about a London cleaning booking.',
+    changefreq: 'monthly',
+    priority: '0.7',
+    sources: ['src/pages/ContactPage.tsx', 'src/components/Contact.tsx'],
+  },
+  {
+    path: '/faq',
+    title: 'Cleaning Questions | VVE Clean FAQ',
+    description: 'Answers about VVE Clean prices, booking requests, payment, rescheduling, coverage and the end of tenancy re-clean guarantee.',
+    ogTitle: 'VVE Clean Frequently Asked Questions',
+    ogDescription: 'Clear answers about booking, payment, coverage and cleaning services.',
+    changefreq: 'monthly',
+    priority: '0.7',
+    sources: ['src/pages/FaqPage.tsx', 'src/components/FAQ.tsx'],
   },
 ];
 
@@ -220,8 +287,59 @@ const notFoundRoute = {
   robots: 'noindex, follow',
 };
 
-const { render } = await import('./dist/server/entry-server.js');
+const { render, AREAS, areaHasRealProof, BLOG_POSTS } = await import('./dist/server/entry-server.js');
 const template = readFileSync(resolve(distDir, 'index.html'), 'utf-8');
+
+// ── Area landing pages — generated from src/data/areas.ts ───────────────────
+// Indexability is computed, not hardcoded: an area is `index, follow` once it
+// has real proof (a matching review, a tagged job photo/clip, or a true job
+// note — areaHasRealProof, shared with AreaProofSection so both agree), and
+// `noindex, follow` otherwise. Today that's Islington and Stratford, the only
+// two with a real tagged review; the rest flip over automatically the moment
+// real proof is added to src/data/areas.ts or a manifest, no code change
+// needed. See docs/LOCATION_PAGES_ASSESSMENT.md.
+for (const area of AREAS) {
+  const indexable = areaHasRealProof(area);
+  const covered = area.coverageConfirmed !== false;
+  const postcodeLabel = area.postcodes.length > 0 ? ` (${area.postcodes.join(', ')})` : '';
+  routes.push({
+    path: `/cleaning-${area.slug}`,
+    title: covered ? `Cleaning in ${area.name}${postcodeLabel} | VVE Clean London` : `Check Cleaning Coverage in ${area.name} | VVE Clean`,
+    description: covered ? `End of tenancy, carpet and sofa & upholstery cleaning for ${area.name}. Fixed prices — the same as everywhere else we cover, no travel surcharge.` : `Ask VVE Clean to check cleaning availability for ${area.name}. Send the full postcode before making a booking request.`,
+    ogTitle: covered ? `Cleaning in ${area.name} | VVE Clean` : `Check Cleaning Coverage in ${area.name} | VVE Clean`,
+    ogDescription: covered ? `End of tenancy, carpet and sofa & upholstery cleaning for ${area.name}. Fixed prices, no travel surcharge.` : `Send your full ${area.name} postcode so VVE Clean can check service availability before you book.`,
+    robots: indexable ? 'index, follow' : 'noindex, follow',
+    changefreq: 'monthly',
+    priority: '0.6',
+    sources: ['src/pages/AreaPage.tsx', 'src/data/areas.ts'],
+  });
+}
+
+// ── Blog — generated from src/data/blog ─────────────────────────────────────
+routes.push({
+  path: '/blog',
+  title: 'Blog | Cleaning & Moving Guides | VVE Clean London',
+  description: 'Practical guides on cleaning, tenancy deposits and moving home in London, from VVE Clean.',
+  ogTitle: 'VVE Clean Blog',
+  ogDescription: 'Practical guides on cleaning, tenancy deposits and moving home in London.',
+  changefreq: 'weekly',
+  priority: '0.6',
+  sources: ['src/pages/BlogIndexPage.tsx', 'src/data/blog/index.ts'],
+});
+for (const post of BLOG_POSTS) {
+  routes.push({
+    path: `/blog/${post.slug}`,
+    title: `${post.title} | VVE Clean Blog`,
+    description: post.excerpt,
+    ogTitle: post.title,
+    ogDescription: post.excerpt,
+    // Editorial review is required before legal guidance enters search.
+    robots: 'noindex, follow',
+    changefreq: 'monthly',
+    priority: '0.5',
+    sources: ['src/pages/BlogPostPage.tsx', `src/data/blog/posts/${post.slug}.ts`],
+  });
+}
 
 /** Replaces a meta tag's content, or inserts the tag if the template lacks it. */
 function setMeta(html, matcher, replacement, insertAfter) {
@@ -238,6 +356,12 @@ function buildHtml(route, canonical) {
     /<meta name="description" content="[^"]*"/,
     `<meta name="description" content="${route.description}"`,
   );
+
+  // The homepage photo is useful only on the homepage. Removing its preload
+  // elsewhere avoids downloading a 300KB image that the route never shows.
+  if (route.path !== '/') {
+    output = output.replace(/\s*<link rel="preload" as="image" href="\/hero-cleaning-1280\.avif"[^>]*>/, '');
+  }
   output = output.replace(
     /<meta name="robots" content="[^"]*"/,
     `<meta name="robots" content="${route.robots ?? 'index, follow'}"`,
@@ -302,7 +426,10 @@ function buildHtml(route, canonical) {
 
 // ── Prerender every real route ───────────────────────────────────────────────
 for (const route of routes) {
-  const canonical = `${BASE_URL}${route.path === '/' ? '' : route.path}`;
+  // Homepage canonical is `${BASE_URL}/`, matching its <loc> in the sitemap
+  // below. It used to be the bare origin with no trailing slash while the
+  // sitemap advertised the slash form — the same page described two ways.
+  const canonical = `${BASE_URL}${route.path === '/' ? '/' : route.path}`;
   const output = buildHtml(route, canonical);
 
   const outPath =

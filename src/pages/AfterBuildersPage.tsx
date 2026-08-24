@@ -4,24 +4,49 @@ import { AFTER_BUILDERS_FROM_PRICES_P, AFTER_BUILDERS_START_FROM_P } from '../da
 
 const WA_PHOTO = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20an%20after-builders%20clean%20quote.%20Sending%20photos%20now.';
 
+// Single source for the visible accordion and the FAQPage schema — see the
+// same note in EndOfTenancyPage.tsx.
+const FAQS = [
+  {
+    q: 'Why do you need a photo for the quote?',
+    a: 'After-builders work varies enormously from job to job. A light renovation leaves mostly fine dust; a full gut-and-rebuild can leave heavy debris, plaster dust and paint on every surface. A photo lets us assess the scope and give you an accurate fixed price, rather than underquoting and revising on the day.',
+  },
+  {
+    q: 'What does after-builders cleaning include?',
+    a: 'We remove fine construction dust from all surfaces (including inside cupboards, sills and light fittings), paint splashes and adhesive residue from glass and hard surfaces, deep-clean the kitchen and bathrooms, and leave the space ready to move in or hand over. All equipment and products are supplied.',
+  },
+  {
+    q: 'How long does an after-builders clean take?',
+    a: 'A 1–2 bedroom flat typically takes a full day (6–8 hours). Larger properties or those with extensive debris may require two visits. We give you an accurate time estimate with your quote.',
+  },
+  {
+    q: 'Can you clean while builders are still on site?',
+    a: 'We need the builders to have finished their main work before we start — there is no point cleaning surfaces that will be dusty again the following day. We recommend booking us for the final clean after all trades have left.',
+  },
+  {
+    q: 'Do you supply materials and equipment?',
+    a: 'Yes. We bring everything — HEPA-filter vacuums, specialist dust-extraction equipment, glass scraper tools, cleaning solutions and all protective materials. You do not need to provide anything.',
+  },
+];
+
 const SCHEMA = JSON.stringify({
   '@context': 'https://schema.org',
   '@graph': [
     {
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://vveclean.co.uk' },
-        { '@type': 'ListItem', position: 2, name: 'After Builders Cleaning London', item: 'https://vveclean.co.uk/after-builders-cleaning-london' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.vveclean.co.uk' },
+        { '@type': 'ListItem', position: 2, name: 'After Builders Cleaning London', item: 'https://www.vveclean.co.uk/after-builders-cleaning-london' },
       ],
     },
     {
       '@type': 'Service',
       name: 'After Builders Cleaning London',
       description:
-        `Post-construction cleaning in London from £${AFTER_BUILDERS_START_FROM_P / 100}. We remove fine dust, paint specks, sticker residue and construction debris — leaving your space spotless and move-in ready.`,
-      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://vveclean.co.uk', telephone: '+442080502233' },
+        `Post-construction cleaning in London from £${AFTER_BUILDERS_START_FROM_P / 100}. We remove fine dust, paint specks, sticker residue and construction debris, leaving the space ready to move into or hand over.`,
+      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
-      url: 'https://vveclean.co.uk/after-builders-cleaning-london',
+      url: 'https://www.vveclean.co.uk/after-builders-cleaning-london',
       offers: [
         { '@type': 'Offer', name: 'After Builders Clean', price: String(AFTER_BUILDERS_START_FROM_P / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_START_FROM_P / 100} — estimated price confirmed by photo before work starts.` },
         { '@type': 'Offer', name: 'After Builders — Studio', price: String(AFTER_BUILDERS_FROM_PRICES_P.studio / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_FROM_PRICES_P.studio / 100} — studio flat.` },
@@ -33,48 +58,11 @@ const SCHEMA = JSON.stringify({
     },
     {
       '@type': 'FAQPage',
-      mainEntity: [
-        {
-          '@type': 'Question',
-          name: 'Why do you need a photo for the after-builders quote?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'After-builders work varies enormously from job to job. A light renovation leaves mostly fine dust; a full gut-and-rebuild can leave heavy debris, plaster dust and paint on every surface. A photo lets us assess the scope and give you an accurate fixed price, rather than underquoting and then revising on the day.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'What does after-builders cleaning include?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'We remove fine construction dust from all surfaces (including inside cupboards, sills and light fittings), remove paint splashes and adhesive residue from glass and hard surfaces, deep-clean the kitchen and bathrooms, and leave the space ready to move in or hand over. All equipment and products are supplied.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'How long does an after-builders clean take?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'A 1-2 bedroom flat typically takes a full day (6–8 hours). Larger properties or those with extensive debris may require two visits. We give you an accurate time estimate with your quote.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Can you clean while builders are still on site?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'We need the builders to have finished their main work before we start — there is no point cleaning surfaces that will be dusty again the following day. We recommend booking us for the final clean after all trades have left.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Do you supply materials and equipment?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Yes. We bring everything needed — HEPA-filter vacuums, specialist dust-extraction equipment, glass scraper tools, cleaning solutions and all protective materials. You do not need to provide anything.',
-          },
-        },
-      ],
+      mainEntity: FAQS.map((faq) => ({
+        '@type': 'Question',
+        name: faq.q,
+        acceptedAnswer: { '@type': 'Answer', text: faq.a },
+      })),
     },
   ],
 });
@@ -121,7 +109,7 @@ const DATA: ServiceLandingData = {
     {
       icon: <CheckCircle2 size={28} />,
       title: 'Move-in or hand-over ready',
-      body: 'We leave the space spotless — photographed and documented. Suitable for handover to clients, tenants, or simply moving in after a long renovation.',
+      body: 'We finish the agreed scope and photograph the result, so the condition at handover is documented. Suitable for handover to clients, tenants, or simply moving in after a long renovation.',
     },
   ],
 
@@ -149,35 +137,14 @@ const DATA: ServiceLandingData = {
     { label: '5+ bedrooms / large commercial',    price: 'Site survey — manual quote' },
   ],
   pricingNote:
-    'Send us photos of the space via WhatsApp and we will confirm your fixed price within the hour. The extent of dust, paint and debris varies enormously from job to job — a photo lets us quote accurately so there are no surprises on the day.',
+    'Send us photos of the space via WhatsApp. The extent of dust, paint and debris varies enormously from job to job, so photos help us review the scope and confirm a useful price before work starts.',
   pricingCta: {
     href: WA_PHOTO,
     label: 'WhatsApp photos for a quote',
     isWa: true,
   },
 
-  faqs: [
-    {
-      q: 'Why do you need a photo for the quote?',
-      a: 'After-builders work varies enormously from job to job. A light renovation leaves mostly fine dust; a full gut-and-rebuild can leave heavy debris, plaster dust and paint on every surface. A photo lets us assess the scope and give you an accurate fixed price, rather than underquoting and revising on the day.',
-    },
-    {
-      q: 'What does after-builders cleaning include?',
-      a: 'We remove fine construction dust from all surfaces (including inside cupboards, sills and light fittings), paint splashes and adhesive residue from glass and hard surfaces, deep-clean the kitchen and bathrooms, and leave the space ready to move in or hand over. All equipment and products are supplied.',
-    },
-    {
-      q: 'How long does an after-builders clean take?',
-      a: 'A 1–2 bedroom flat typically takes a full day (6–8 hours). Larger properties or those with extensive debris may require two visits. We give you an accurate time estimate with your quote.',
-    },
-    {
-      q: 'Can you clean while builders are still on site?',
-      a: 'We need the builders to have finished their main work before we start — there is no point cleaning surfaces that will be dusty again the following day. We recommend booking us for the final clean after all trades have left.',
-    },
-    {
-      q: 'Do you supply materials and equipment?',
-      a: 'Yes. We bring everything — HEPA-filter vacuums, specialist dust-extraction equipment, glass scraper tools, cleaning solutions and all protective materials. You do not need to provide anything.',
-    },
-  ],
+  faqs: FAQS,
 
   relatedLinks: [
     { href: '/end-of-tenancy-cleaning-london', label: 'End of Tenancy Cleaning' },
@@ -189,7 +156,7 @@ const DATA: ServiceLandingData = {
 
   ctaH2: 'Ready to see your space properly clean?',
   ctaBody:
-    'WhatsApp us a few photos and we will confirm your fixed price within the hour. No obligation, no surprises.',
+    'WhatsApp us a few photos and the property details so we can review the scope and confirm a price before work starts.',
   ctaPrimary: {
     href: WA_PHOTO,
     label: 'WhatsApp photos now',

@@ -196,9 +196,9 @@ export default async function handler(req, res) {
   // shapes fall back further to `service`).
   const serviceDetail = formatServiceDetail(quoteConfig, service);
 
-  if (!fullName || (!phone && !email)) {
+  if (!fullName || !phone || !email) {
     res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ error: 'fullName and at least one of phone or email are required' }));
+    return res.end(JSON.stringify({ error: 'fullName, phone and email are required' }));
   }
 
   // Optional message has a hard length cap — Stripe metadata values are

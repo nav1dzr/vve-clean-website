@@ -29,6 +29,12 @@ export interface CarpetVideo {
    * pairing are available for the wider process section.
    */
   pairedWith?: string;
+  /**
+   * The real area this job was done in (e.g. 'Islington, N1'), used to surface
+   * the clip on that area's landing page. Omit unless the area is actually
+   * known. See RecentJobsByArea.
+   */
+  location?: string;
 }
 
 /**

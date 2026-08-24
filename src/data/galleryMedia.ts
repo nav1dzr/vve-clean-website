@@ -47,6 +47,13 @@ export interface GalleryBeforeAfterItem {
    */
   beforeLabel?: string;
   afterLabel?: string;
+  /**
+   * The real area this job was done in (e.g. 'Islington, N1'), used to surface
+   * the photo on that area's landing page. Omit unless the area is actually
+   * known — never guessed from a filename or assumed from the owner's usual
+   * coverage. See RecentJobsByArea.
+   */
+  location?: string;
 }
 
 export interface GalleryPhotoItem {
@@ -55,6 +62,8 @@ export interface GalleryPhotoItem {
   label: string;
   src: string;
   alt: string;
+  /** See GalleryBeforeAfterItem.location. */
+  location?: string;
 }
 
 export interface GalleryVideoItem {
@@ -65,6 +74,8 @@ export interface GalleryVideoItem {
   poster: string;
   /** Describes the clip for people who cannot see it. Falls back to `label`. */
   description?: string;
+  /** See GalleryBeforeAfterItem.location. */
+  location?: string;
 }
 
 export type GalleryItem = GalleryBeforeAfterItem | GalleryPhotoItem | GalleryVideoItem;

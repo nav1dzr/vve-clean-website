@@ -81,7 +81,7 @@ export default function GalleryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafbfd] pb-[56px] lg:pb-0">
+    <div className="min-h-screen bg-[#fafbfd]">
       <Navbar />
       <main id="main-content">
 

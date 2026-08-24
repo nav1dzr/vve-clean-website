@@ -54,8 +54,47 @@ describe('the booking bar sits above the cookie banner, never under it', () => {
 
   it('still renders both actions — the fix hides nothing', () => {
     renderBar();
-    expect(screen.getByRole('button', { name: /Book online/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Request booking/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Need help/i })).toBeInTheDocument();
+  });
+
+  it('gives the bar one dominant action: blue primary, green WhatsApp secondary', () => {
+    const { container } = renderBar();
+
+    const primary = screen.getByRole('button', { name: /Request booking/i });
+    expect(primary.className).toContain('bg-sky-500');
+    expect(primary.className).not.toContain('btn-whatsapp');
+
+    const help = screen.getByRole('link', { name: /Need help/i });
+    expect(help.className).toContain('bg-[#25d366]');
+
+    // Exactly one WhatsApp-green action in the bar, never two side by side.
+    expect(container.querySelectorAll('.bg-\\[\\#25d366\\]')).toHaveLength(1);
+  });
+
+  it("keeps the live site's lighter flat colour treatment, not a dark tray or floating card", () => {
+    const { container } = renderBar();
+
+    expect(container.querySelector('.bg-navy-950')).toBeNull();
+    expect(container.querySelector('.mobile-sticky-tray')).toBeNull();
+    expect(container.querySelector('.mobile-sticky-primary')).toBeNull();
+    expect(container.querySelector('.mobile-sticky-whatsapp')).toBeNull();
+  });
+
+  it('says "Request booking", never "Book" — the deposit buys a request, not a slot', () => {
+    renderBar();
+
+    const primary = screen.getByRole('button', { name: /Request booking/i });
+    expect(primary.textContent).toContain('Request booking');
+    expect(primary.textContent).not.toMatch(/^Book\b/);
+  });
+
+  it('uses the visible button text as its accessible name', () => {
+    renderBar();
+
+    const primary = screen.getByRole('button', { name: /Request booking/i });
+    expect(primary).not.toHaveAttribute('aria-label');
+    expect(primary.textContent).toContain('Request booking');
   });
 });
 

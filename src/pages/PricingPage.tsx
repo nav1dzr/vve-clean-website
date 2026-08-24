@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import FaqSchema from '../components/FaqSchema';
 import {
   EOT_BASE_PRICES_P,
   EOT_PRICES_P,
@@ -18,7 +19,6 @@ import {
   CARPET_MIN_BOOKING_P,
   ADDON_PRICES_P,
   CARPET_BUNDLE_BANDS,
-  SAME_DAY_POLICY_SHORT,
   WINDOW_CLEANING_FROM_P,
   WINDOW_CLEANING_MIN_P,
   WINDOW_CLEANING_SCOPE,
@@ -53,11 +53,20 @@ const EOT_ROWS: [string, number, number][] = [
   ['4+ Bed',    EOT_BASE_PRICES_P.bed4   / 100,  MOVEIN_BASE_PRICES_P.bed4   / 100],
 ];
 
+const PRICING_FAQS = [
+  { q: 'When do I pay?', a: 'You pay a £30 deposit when submitting an online booking request. It is deducted from the final total. Availability is confirmed separately, and the remaining balance follows the terms shown during booking.' },
+  { q: 'What do the published prices cover?', a: 'The tables show the standard scope for normally maintained properties. Select the service and property details to see the applicable price and included work.' },
+  { q: 'Can the price change?', a: 'If the information supplied does not match the condition or scope on arrival, VVE Clean will explain the difference and agree any revised price before additional work starts.' },
+  { q: 'Can I request a same-day or next-day visit?', a: 'You can send any preferred date, but availability varies by service, area and property size. Contact VVE Clean first if the timing is critical.' },
+  { q: 'Do you clean occupied homes?', a: 'Tell us whether the property is occupied when you enquire. VVE Clean will confirm whether the requested service and access arrangements are suitable before booking.' },
+];
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen bg-[#f5f6f8] pb-[56px] lg:pb-0">
+    <div className="min-h-screen bg-[#f5f6f8] mobile-page-bottom lg:pb-0">
+      <FaqSchema items={PRICING_FAQS} />
       <Navbar />
       <main id="main-content">
 
@@ -67,17 +76,21 @@ export default function PricingPage() {
           <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-5">
             <span className="text-silver-300 text-xs tracking-widest font-medium uppercase">Transparent Pricing</span>
           </div>
+          {/* "Zero Surprises" promised something the FAQ below then qualifies
+              ("Can the price change?" — yes, if condition or scope differs on
+              arrival). The heading now says what is actually true: the prices
+              are published, and anything on top is shown before you commit. */}
           <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight">
-            Clear Prices,<br />
-            <span className="text-white">Zero Surprises</span>
+            Published Prices,<br />
+            <span className="text-white">Shown Before You Book</span>
           </h1>
           <p className="text-white text-lg max-w-xl mx-auto">
-            Professional cleaning with clear, upfront pricing. Prices shown apply to normally maintained properties.
+            Professional cleaning with clear, upfront pricing. Prices shown apply to normally maintained properties, and any extra is confirmed with you before the booking is accepted.
           </p>
           <div className="mt-6">
             <Link to="/booking"
               className="inline-flex items-center justify-center gap-2 bg-royal-500 hover:bg-royal-600 text-white font-semibold text-sm sm:text-base px-6 py-3 min-h-[44px] rounded-lg transition-all duration-200 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-              Get my price — book online
+              Get my price — request booking
             </Link>
           </div>
         </div>
@@ -311,7 +324,7 @@ export default function PricingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-8">
             <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-2">Quote-Only Services</h2>
-            <p className="text-silver-400">Send a photo via WhatsApp — priced in minutes.</p>
+            <p className="text-silver-400">Send a photo via WhatsApp so we can review the scope.</p>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -319,7 +332,7 @@ export default function PricingPage() {
               { title: 'Window Cleaning',       from: `From £${WINDOW_CLEANING_FROM_P / 100}`,  desc: WINDOW_CLEANING_SCOPE,            minNote: WINDOW_CLEANING_MIN_P / 100  },
               { title: 'Pressure Washing',       from: `From £${PRESSURE_WASHING_FROM_P / 100}`, desc: 'Driveways, patios & paths.',       minNote: 0 },
               { title: 'Garden Services',        from: `From £${GARDEN_SERVICES_FROM_P / 100}`,  desc: 'Clearance, tidy & maintenance.',   minNote: GARDEN_SERVICES_MIN_P / 100  },
-              { title: 'Commercial & Communal',  from: 'Free site visit', desc: 'Fixed written quote. Invoiced on 14-day terms.',    minNote: 0 },
+              { title: 'Commercial & Communal',  from: 'Free site visit', desc: 'Fixed written quote with billing terms included.', minNote: 0 },
             ].map((card) => (
               <div key={card.title} className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-3">
                 <div>
@@ -328,12 +341,12 @@ export default function PricingPage() {
                 </div>
                 <div className="font-display font-bold text-2xl text-amber-400">{card.from}</div>
                 {card.minNote > 0 && (
-                  <p className="text-silver-500 text-[10px] leading-snug -mt-1">Minimum call-out £{card.minNote} on standalone visits</p>
+                  <p className="text-silver-400 text-[10px] leading-snug -mt-1">Minimum call-out £{card.minNote} on standalone visits</p>
                 )}
                 <a href={WA_PHOTO} target="_blank" rel="noopener noreferrer"
                   className="mt-auto inline-flex items-center gap-1.5 text-xs font-semibold text-green-400 hover:text-green-300 transition-colors">
                   {WA_SVG}
-                  WhatsApp a photo — priced in minutes
+                  WhatsApp a photo for review
                 </a>
               </div>
             ))}
@@ -345,13 +358,13 @@ export default function PricingPage() {
       <section className="py-14 px-4" style={{ backgroundColor: '#1a3d2b' }}>
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
-            <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-2">What's Always Included</h2>
-            <p className="text-green-300 text-sm">Every booking, no exceptions.</p>
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-2">Booking terms and package benefits</h2>
+            <p className="text-green-300 text-sm">Check the label on each benefit to see where it applies.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              '67-point agency checklist',
-              'Photos + cleaning receipt for your agent',
+              '67-point checklist on Complete end of tenancy cleans',
+              'Completion photos and receipt for end of tenancy cleans',
               `${EOT_GUARANTEE_HOURS}-hour free re-clean if anything is flagged (Complete package)`,
               '£15 off if we arrive over an hour late',
               'Free reschedule until 12pm the day before',
@@ -373,33 +386,12 @@ export default function PricingPage() {
             <h2 className="font-display text-3xl font-bold text-navy-900 mb-2">Common Questions</h2>
           </div>
           <div className="space-y-3">
-            {[
-              {
-                q: 'When do I pay?',
-                a: "£30 deposit by secure card link at booking. Balance is due after you've checked the work. Businesses are invoiced monthly.",
-              },
-              {
-                q: 'Are prices really fixed?',
-                a: 'Yes, for normally maintained properties. The only additions are extras you choose to add.',
-              },
-              {
-                q: 'Can the price change?',
-                a: 'Our prices are fixed for normal condition properties based on the details provided. For heavier conditions, we will review photos and confirm the price before you book. No hidden fees — any additional work is explained and agreed first.',
-              },
-              {
-                q: 'Can I book same-day or next-day?',
-                a: SAME_DAY_POLICY_SHORT,
-              },
-              {
-                q: 'Do you clean occupied homes?',
-                a: 'Not yet. We specialise in vacant properties, commercial spaces, and outdoor work.',
-              },
-            ].map((faq) => (
+            {PRICING_FAQS.map((faq) => (
               <details key={faq.q}
                 className="group bg-silver-100 rounded-2xl border border-silver-200 overflow-hidden">
                 <summary className="flex items-center justify-between px-5 py-4 cursor-pointer list-none font-semibold text-navy-900 text-sm select-none">
                   {faq.q}
-                  <span className="text-silver-400 group-open:rotate-45 transition-transform duration-200 text-xl leading-none">+</span>
+                  <span aria-hidden="true" className="text-silver-500 group-open:rotate-45 transition-transform duration-200 text-xl leading-none">+</span>
                 </summary>
                 <div className="px-5 pb-4 text-silver-600 text-sm leading-relaxed border-t border-silver-200 pt-3">
                   {faq.a}
@@ -413,13 +405,13 @@ export default function PricingPage() {
       {/* ── 7. FINAL CTA ── */}
       <section className="bg-navy-950 py-16 px-4">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-3">Got your price? Lock in your date.</h2>
-          <p className="text-silver-400 mb-2 text-base">We confirm every slot within 1 hour during business hours.</p>
-          <p className="text-amber-300 mb-8 text-sm font-semibold">Book online with a £30 deposit — it comes straight off your bill.</p>
+          <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-3">Ready to send your booking request?</h2>
+          <p className="text-silver-300 mb-2 text-base">Choose a preferred date and VVE Clean will confirm availability separately.</p>
+          <p className="text-sky-200 mb-8 text-sm font-semibold">The £30 booking request deposit is deducted from your final total.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/#quote"
               className="inline-flex items-center justify-center gap-2.5 bg-royal-500 hover:bg-royal-600 text-white font-bold px-8 py-4 min-h-[44px] rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-              Book online now
+              Send booking request
             </Link>
             <a href={WA_SIMPLE} target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2.5 btn-whatsapp font-bold px-8 py-4 min-h-[44px] rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">

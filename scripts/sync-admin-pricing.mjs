@@ -56,7 +56,9 @@ const BANNER_LINES = [
 const BANNER = BANNER_LINES.join('\n');
 
 export function buildGeneratedContent() {
-  const source = readFileSync(SOURCE_PATH, 'utf8');
+  // Git may check the source out with CRLF on Windows. Normalise before
+  // generation so this committed mirror has identical bytes on every OS.
+  const source = readFileSync(SOURCE_PATH, 'utf8').replace(/\r\n?/g, '\n');
   return BANNER + source;
 }
 

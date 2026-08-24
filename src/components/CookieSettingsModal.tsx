@@ -43,8 +43,10 @@ export default function CookieSettingsModal() {
   const [draft, setDraft] = useState<ConsentCategories>(categories);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeButtonRef.current?.focus();
 
     function onKeyDown(e: KeyboardEvent) {
@@ -69,7 +71,10 @@ export default function CookieSettingsModal() {
     }
 
     document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      openerRef.current?.focus();
+    };
   }, [closeSettings]);
 
   return (

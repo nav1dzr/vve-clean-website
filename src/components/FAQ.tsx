@@ -1,9 +1,9 @@
 import { EOT_GUARANTEE_HOURS, COVERAGE_POSTCODE_LIST } from '../data/pricing';
 
-const FAQS = [
+export const FAQS = [
   {
-    q: 'How does the deposit-back guarantee work?',
-    a: `We clean to a 67-point checklist that mirrors the standard London letting-agency inventory form — the same document your check-out clerk uses. If the agent or landlord flags any cleaning issue within ${EOT_GUARANTEE_HOURS} hours of our visit (Complete package), we come back and re-clean those areas free of charge. Cleaning is the single biggest cause of deposit deductions in London — this is how we remove it from the equation.`,
+    q: 'How does the end of tenancy re-clean guarantee work?',
+    a: `The Complete End of Tenancy package follows our 67-point checklist. If your agent or landlord reports a cleaning issue covered by that package within ${EOT_GUARANTEE_HOURS} hours of the visit, contact us with their report and we will arrange one free re-clean of the affected area. The guarantee covers cleaning only and does not guarantee the return of a tenancy deposit.`,
   },
   {
     q: "What's included in an end of tenancy clean?",
@@ -11,7 +11,7 @@ const FAQS = [
   },
   {
     q: 'Are your cleaners insured and vetted?',
-    a: 'Yes. Every cleaner is DBS-checked and we carry £5m public liability insurance. Happy to show certificates before your booking — just ask on WhatsApp.',
+    a: 'VVE Clean carries £5m public liability insurance. If you need a copy of the certificate or want to ask who will attend your property, message us before booking.',
   },
   {
     q: 'Do I need to be home during the clean?',
@@ -19,11 +19,11 @@ const FAQS = [
   },
   {
     q: 'Do you bring equipment and products?',
-    a: 'Yes — everything is included in the price. Professional equipment, professional products. Nothing to provide, nothing extra to pay.',
+    a: 'Yes. We bring the equipment and cleaning products needed for the booked work. If a surface needs a specialist treatment outside the agreed scope, we will discuss it before adding anything to the price.',
   },
   {
     q: 'When do I pay?',
-    a: "A £30 deposit is paid by secure card link when you submit your booking request (it comes off your total) — we confirm availability within one business hour. The balance is due on completion, after you've checked the work — card link, bank transfer or cash. Businesses are invoiced monthly with 14-day payment terms.",
+    a: "You pay a £30 deposit by secure card when you submit a booking request. It is deducted from the final total. We confirm availability separately, and the remaining balance is due on completion under the payment terms shown during booking.",
   },
   {
     q: 'Can the price change?',
@@ -31,19 +31,19 @@ const FAQS = [
   },
   {
     q: 'Can I reschedule or cancel?',
-    a: 'Yes — free of charge until 12pm the day before your booking. After that the £30 deposit covers the reserved slot, since we\'ll have turned other work away for it. To move a booking, just message us on WhatsApp.',
+    a: 'You can cancel or reschedule without charge until 12pm on the day before the confirmed appointment. Later changes are handled under our cancellation terms. Message us as soon as possible if your plans change.',
   },
   {
     q: 'How quickly can you come?',
-    a: 'Book by 12pm and we can usually clean the same day or next day. End-of-month slots go fastest — if you\'re moving out, book your date as soon as you have it.',
+    a: 'Availability changes by service, area and property size. Send your preferred date in the booking request or ask us on WhatsApp before paying if the timing is critical.',
   },
   {
     q: 'Which areas do you cover?',
-    a: `East and North London: ${COVERAGE_POSTCODE_LIST}. Just outside? WhatsApp us — if we can't help, we'll recommend someone good who can.`,
+    a: `Our main coverage is East and North London: ${COVERAGE_POSTCODE_LIST}. If your postcode is outside that list, ask us before booking and we will confirm whether we can travel to you.`,
   },
   {
     q: 'Do you clean occupied homes?',
-    a: 'Right now we specialise in vacant properties, commercial spaces and outdoor work — end of tenancy, move-in cleans, after-builders, offices, communal areas, windows, pressure washing and gardens. Regular cleaning of occupied homes is coming later once the team grows.',
+    a: 'Our main services are end of tenancy, move-in, after-builders, carpet, upholstery and commercial cleaning. Tell us if the property will be occupied so we can confirm the right service and scope before you book.',
   },
 ];
 
@@ -59,7 +59,7 @@ const SCHEMA = {
 
 const WA_QUESTION = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20quick%20question';
 
-export default function FAQ() {
+export default function FAQ({ standalone = false }: { standalone?: boolean }) {
   return (
     <>
       {/* JSON-LD FAQPage schema */}
@@ -70,26 +70,33 @@ export default function FAQ() {
 
       <section
         id="faq"
-        className="py-20 px-4 scroll-mt-24"
-        style={{ background: '#F7FAF8' }}
+        className="bg-surface py-20 px-4 scroll-mt-24"
       >
         <div style={{ maxWidth: 780, margin: '0 auto' }}>
 
           {/* Eyebrow */}
           <p
-            className="text-center text-xs font-semibold tracking-[0.18em] uppercase mb-3"
-            style={{ color: '#0E5E47', fontVariant: 'small-caps' }}
+            className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-royal-600"
           >
-            ✦ Questions
+            Questions
           </p>
 
           {/* Heading */}
-          <h2
-            className="text-center font-bold text-navy-900 mb-10"
-            style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)', lineHeight: 1.15 }}
-          >
-            Before you book
-          </h2>
+          {standalone ? (
+            <h1
+              className="text-center font-bold text-navy-900 mb-10"
+              style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)', lineHeight: 1.15 }}
+            >
+              Before you book
+            </h1>
+          ) : (
+            <h2
+              className="text-center font-bold text-navy-900 mb-10"
+              style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)', lineHeight: 1.15 }}
+            >
+              Before you book
+            </h2>
+          )}
 
           {/* FAQ cards */}
           <div className="faq-list">
@@ -108,20 +115,19 @@ export default function FAQ() {
 
           {/* CTA */}
           <div className="text-center mt-10">
-            <p className="text-sm mb-4" style={{ color: '#5C6E66' }}>
+            <p className="mb-4 text-sm text-muted">
               Still unsure about something?
             </p>
             <a
               href={WA_QUESTION}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2.5 font-bold text-navy-900 px-7 py-3.5 rounded-full transition-all duration-300 hover:opacity-90 hover:shadow-lg hover:-translate-y-0.5 text-sm"
-              style={{ background: 'linear-gradient(135deg, #d4a843 0%, #f0c85a 50%, #d4a843 100%)' }}
+              className="btn-whatsapp inline-flex min-h-[48px] items-center gap-2.5 rounded-full px-7 py-3.5 text-sm font-bold transition-colors"
             >
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 flex-shrink-0">
                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
               </svg>
-              Ask us — we reply fast
+              Ask on WhatsApp
             </a>
           </div>
         </div>

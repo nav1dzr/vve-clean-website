@@ -13,7 +13,10 @@ const footerLinks = [
   { label: 'Services',   href: '/#services' },
   { label: 'Pricing',    href: '/pricing' },
   { label: 'Commercial', href: '/commercial' },
-  { label: 'Contact',    href: '/#contact' },
+  { label: 'About',      href: '/about' },
+  { label: 'FAQ',        href: '/faq' },
+  { label: 'Blog',       href: '/blog' },
+  { label: 'Contact',    href: '/contact' },
 ];
 
 function WhatsAppIcon({ size = 16 }: { size?: number }) {
@@ -41,7 +44,7 @@ export default function Footer() {
               <BrandLogo inverse className="w-[104px]" />
             </Link>
             <p className="text-silver-400 text-sm leading-relaxed mb-2">
-              London's premium cleaning and property services. Specialising in commercial sites, empty     properties, and exterior cleaning.
+              Cleaning for end of tenancy, carpets, upholstery, after-builders work and commercial premises across London.
             </p>
             <p className="text-royal-400 text-xs mb-5">Serving East &amp; North London — {COVERAGE_POSTCODE_LIST}</p>
             {/* Icon-only links: without an aria-label a screen reader reads
@@ -97,7 +100,7 @@ export default function Footer() {
                   <Phone className="text-royal-400" size={14} />
                 </div>
                 <div>
-                  <div className="text-silver-500 text-[10px] uppercase tracking-widest mb-0.5">Call Us</div>
+                  <div className="text-silver-300 text-[10px] uppercase tracking-widest mb-0.5">Call Us</div>
                   <a href="tel:02080502233" className="text-silver-200 text-sm font-semibold hover:text-white transition-colors">
                     020 8050 2233
                   </a>
@@ -109,7 +112,7 @@ export default function Footer() {
                   <WhatsAppIcon size={14} />
                 </div>
                 <div>
-                  <div className="text-silver-500 text-[10px] uppercase tracking-widest mb-0.5">WhatsApp</div>
+                  <div className="text-silver-300 text-[10px] uppercase tracking-widest mb-0.5">WhatsApp</div>
                   <a href={WA_LINK} target="_blank" rel="noopener noreferrer"
                     className="text-green-400 text-sm font-semibold hover:text-green-300 transition-colors">
                     07845 451111
@@ -136,7 +139,7 @@ export default function Footer() {
                 <div>
                   <span className="text-silver-300 text-sm block">23-25 Queensway</span>
                   <span className="text-silver-300 text-sm block">London, W2 4QP</span>
-                  <span className="text-silver-600 text-xs italic mt-1 block">Visits by appointment only. Please book before visiting.</span>
+                  <span className="text-silver-400 text-xs mt-1 block">Registered office. Services are delivered at customer premises.</span>
                 </div>
               </li>
             </ul>
@@ -149,7 +152,7 @@ export default function Footer() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-silver-400 text-sm">
           <p className="text-center sm:text-left leading-relaxed">
             &copy; {new Date().getFullYear()} VVE Limited trading as VVE Clean.{' '}
-            <span className="text-silver-500">Registered in England and Wales. Company No. 17234391.</span>
+            <span className="text-silver-300">Registered in England and Wales. Company No. 17234391.</span>
           </p>
           <div className="flex items-center gap-4 flex-shrink-0">
             <Link to="/privacy-policy" className="min-h-[44px] flex items-center hover:text-white transition-colors">Privacy</Link>

@@ -55,6 +55,8 @@ export interface ServiceLandingData {
   h1: string;
   h1Highlight: string;
   heroSubtitle?: string;
+  // Compact high-salience price anchor for paid-traffic first screens.
+  heroPriceChip?: string;
   heroBadges: string[];
   heroBgImage?: string;
   // Optional higher-resolution desktop variant of heroBgImage (served at
@@ -102,12 +104,15 @@ export interface ServiceLandingData {
   whyH2: string;
   whyPoints: string[];
 
-  // Pricing
-  pricingH2: string;
-  pricingIntro: string;
+  // Pricing. Optional as a group: a page with no pricing to show (e.g. a
+  // process/explainer page) omits 'pricing' from sectionOrder and leaves all
+  // three unset — the section then renders nothing rather than a heading
+  // with no content under it.
+  pricingH2?: string;
+  pricingIntro?: string;
   pricingRows?: { label: string; price: string }[];
   pricingNote?: string;
-  pricingCta: { href: string; label: string; isWa?: boolean };
+  pricingCta?: { href: string; label: string; isWa?: boolean };
 
   // Content for the optional 'media' section (e.g. page-specific proof
   // gallery). Rendered wherever 'media' falls in sectionOrder — between
@@ -255,7 +260,14 @@ function HeroBackground({ mobile, desktop }: { mobile: string; desktop: string }
 }
 
 export default function ServiceLandingLayout({ data }: { data: ServiceLandingData }) {
-  const heroReveal    = useReveal();
+  // No reveal on the hero. useReveal starts at `visible: false` and only flips
+  // inside an effect, so every prerendered service, process and area page used
+  // to ship its H1, badges and both CTAs inside `opacity-0` — an empty navy
+  // panel until the client bundle downloaded, hydrated and IntersectionObserver
+  // fired. That handed back the whole point of prerendering on exactly the
+  // pages built to receive search traffic, and pushed LCP to time-to-hydrate on
+  // mobile. The hero now paints straight from the HTML; every section below the
+  // fold keeps its reveal animation.
   const introReveal   = useReveal();
   const benefitsReveal = useReveal();
   const whyReveal     = useReveal();
@@ -337,7 +349,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
       </section>
     ),
 
-    pricing: (
+    pricing: !data.pricingH2 || !data.pricingCta ? null : (
       <section className="max-w-3xl mx-auto px-4 py-20">
         <div
           ref={pricingReveal.ref}
@@ -480,7 +492,11 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
         dangerouslySetInnerHTML={{ __html: data.schema }}
       />
 
-      <div className="min-h-screen bg-[#fafbfd] pb-[56px] lg:pb-0">
+      {/* mobile-page-bottom, not a bare pb-[56px]: MobileStickyFooter adds
+          env(safe-area-inset-bottom) to its own height, so on a phone with a
+          home indicator the bar is ~90px tall and a flat 56px reserve left the
+          end of the page underneath it. */}
+      <div className="min-h-screen bg-[#fafbfd] mobile-page-bottom lg:pb-0">
         <Navbar />
         <main id="main-content">
 
@@ -514,8 +530,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
             <div className="absolute inset-0 bg-gradient-to-b from-navy-900/90 via-navy-900/80 to-navy-900/88" aria-hidden="true" />
           )}
           <div
-            ref={heroReveal.ref}
-            className={`relative z-10 mx-auto transition-all duration-700 ${data.heroAside ? 'grid max-w-7xl items-center gap-10 text-left lg:grid-cols-[1.08fr_0.92fr]' : 'max-w-4xl text-center'} ${heroReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+            className={`relative z-10 mx-auto ${data.heroAside ? 'grid max-w-7xl items-center gap-10 text-left lg:grid-cols-[1.08fr_0.92fr]' : 'max-w-4xl text-center'}`}
           >
             <div>
               <Eyebrow dark align={data.heroAside ? 'start' : 'center'}>{data.eyebrow}</Eyebrow>
@@ -529,10 +544,18 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
                 )}
               </h1>
               {data.heroSubtitle && (
-                <p className={`max-w-2xl text-silver-200 text-base sm:text-lg ${data.heroCompactMobile ? 'mb-4 sm:mb-6' : 'mb-6'}`}>{data.heroSubtitle}</p>
+                <p className={`max-w-2xl text-silver-200 text-base sm:text-lg ${data.heroPriceChip ? 'mb-3' : data.heroCompactMobile ? 'mb-4 sm:mb-6' : 'mb-6'}`}>{data.heroSubtitle}</p>
               )}
 
-              <div className={`flex flex-wrap gap-x-6 gap-y-2 ${data.heroAside ? 'justify-start' : 'justify-center'} ${data.heroCompactMobile ? 'mb-5 sm:mb-8' : 'mb-8'} text-silver-400 text-sm`}>
+              {data.heroPriceChip && (
+                <div className={`flex ${data.heroAside ? 'justify-start' : 'justify-center'} ${data.heroCompactMobile ? 'mb-4 sm:mb-5' : 'mb-5'}`}>
+                  <span className="inline-flex items-center rounded-full border border-sky-300/45 bg-sky-400/15 px-3.5 py-2 text-sm font-bold text-white shadow-sm backdrop-blur-sm">
+                    {data.heroPriceChip}
+                  </span>
+                </div>
+              )}
+
+              <div className={`flex flex-wrap gap-x-6 gap-y-2 ${data.heroAside ? 'justify-start' : 'justify-center'} ${data.heroCompactMobile ? 'mb-5 sm:mb-8' : 'mb-8'} text-sky-100 text-sm`}>
                 {data.heroBadges.map((badge) => (
                   <span key={badge} className="flex items-center gap-1.5">
                     <span className="text-sky-400 font-bold">✓</span> {badge}
@@ -588,7 +611,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
             <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-4 leading-tight">
               {data.ctaH2}
             </h2>
-            <p className="text-silver-300 text-base mb-10 leading-relaxed">{data.ctaBody}</p>
+            <p className="text-sky-100 text-base mb-10 leading-relaxed">{data.ctaBody}</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               {data.ctaPrimary.isWa ? (
                 <a

@@ -53,13 +53,19 @@ export default function MobileStickyFooter() {
         className="flex items-stretch shadow-[0_-4px_24px_rgba(0,0,0,0.18)]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
-        {/* Primary action */}
+        {/* Primary action — the blue one, in every state.
+            In the 'manual' state this used to be a second solid green
+            WhatsApp button sitting flush against "Need help?", so the bar read
+            as one undifferentiated green slab with no dominant action
+            (docs/BRAND_AND_UI_GUIDE.md: "One dominant action per section";
+            MASTER.md: WhatsApp stays visually secondary to quote/booking).
+            It keeps the WhatsApp icon, so where it leads is still obvious. */}
         {state === 'manual' ? (
           <a
             href={waLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 btn-whatsapp font-bold text-sm py-4 min-h-[44px] transition-colors duration-200 border-r border-white/20"
+            className="flex-1 flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white font-bold text-sm py-4 min-h-[48px] transition-colors duration-200 border-r border-white/20"
             aria-label="Request a quote via WhatsApp"
           >
             {WA_ICON}
@@ -69,11 +75,15 @@ export default function MobileStickyFooter() {
           <button
             type="button"
             onClick={handlePrimaryClick}
-            className="flex-1 flex items-center justify-center gap-2 bg-royal-500 hover:bg-royal-600 active:bg-royal-700 text-white font-bold text-sm py-4 min-h-[44px] transition-colors duration-200 border-r border-white/20"
-            aria-label={state === 'bookable' ? 'Book — pay £30 deposit' : 'Book online — select a service first'}
+            className="flex-1 flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white font-bold text-sm py-4 min-h-[48px] transition-colors duration-200 border-r border-white/20"
+            // "Request booking", not "Book": paying the deposit submits a
+            // request and availability is confirmed separately
+            // (docs/BRAND_AND_UI_GUIDE.md). This is the most-tapped CTA on
+            // mobile, so it must set the same expectation the booking page
+            // does rather than implying a confirmed slot.
           >
             {CAL_ICON}
-            <span>{state === 'bookable' ? 'Book — £30 deposit' : 'Book online'}</span>
+            <span>{state === 'bookable' ? 'Request booking · £30 deposit' : 'Request booking'}</span>
           </button>
         )}
 
@@ -82,7 +92,7 @@ export default function MobileStickyFooter() {
           href={helpLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-2 btn-whatsapp font-semibold text-sm py-4 min-h-[44px] transition-colors duration-200"
+          className="flex-1 flex items-center justify-center gap-2 bg-[#25d366] hover:bg-[#1ebe5d] active:bg-[#1aa851] text-white font-semibold text-sm py-4 min-h-[48px] transition-colors duration-200"
           aria-label="Need help? Chat on WhatsApp"
         >
           {WA_ICON}

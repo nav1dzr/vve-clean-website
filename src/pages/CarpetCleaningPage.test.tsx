@@ -128,7 +128,7 @@ describe('CarpetCleaningPage — quote placement and proof placeholders', () => 
 
   it('states honestly that complete stain removal cannot be guaranteed', () => {
     renderPage();
-    expect(screen.getByText(/complete removal cannot be guaranteed/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/complete removal cannot be guaranteed/i).length).toBeGreaterThan(0);
   });
 
   it('links to the Gallery carpet category and an Instagram follow CTA', () => {

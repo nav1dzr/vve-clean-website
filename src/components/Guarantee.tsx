@@ -46,14 +46,20 @@ export default function Guarantee() {
           </div>
 
           <p className="text-xs font-semibold tracking-[0.18em] uppercase text-amber-400 mb-3">
-            ✦ Our Guarantee
+            ✦ End of Tenancy Guarantee
           </p>
 
+          {/* The heading names the service the guarantee belongs to. This
+              section renders on the homepage, where a carpet or sofa customer
+              scanning past an unscoped "72-Hour Re-clean Guarantee" would
+              reasonably read it as sitewide. MASTER.md: the re-clean terms
+              attach only to the applicable end of tenancy package or the
+              selected tasks. */}
           <h2
             className="font-display font-bold text-white mb-4 leading-tight"
             style={{ fontSize: 'clamp(1.9rem, 5vw, 2.75rem)' }}
           >
-            {EOT_GUARANTEE_HOURS}-Hour Re-clean Guarantee
+            {EOT_GUARANTEE_HOURS}-Hour End of Tenancy Re-clean Guarantee
           </h2>
 
           <p className="text-silver-300 text-base max-w-2xl mx-auto leading-relaxed">
@@ -119,8 +125,8 @@ export default function Guarantee() {
             <Shield size={16} className="flex-shrink-0" />
             Book with confidence
           </a>
-          <p className="text-silver-500 text-xs mt-3">
-            Questions? WhatsApp us before you book — we reply within minutes.
+          <p className="text-silver-300 text-xs mt-3">
+            Questions? WhatsApp us before you book.
           </p>
         </div>
 

@@ -3,69 +3,60 @@ import { Moon, FileText, Zap, Calendar } from 'lucide-react';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20commercial%20carpet%20clean%20please.%20Address%3A%20';
 
+// Single source for the visible accordion and the FAQPage schema — see the
+// same note in EndOfTenancyPage.tsx. The schema previously carried an
+// unconfirmed claim about an existing client base and about priority
+// scheduling and consolidated invoicing; only what is agreed in the written
+// scope is stated here.
+const FAQS = [
+  {
+    q: 'Can you clean commercial carpets outside business hours?',
+    a: 'Early-morning, evening and weekend visits can be arranged. The visit window is agreed with you in writing before the work is confirmed, along with any keyholding or alarm arrangements the site needs.',
+  },
+  {
+    q: 'How is commercial carpet cleaning priced?',
+    a: 'We price from the area, access, carpet construction, condition and agreed scope. After reviewing the site, VVE Clean provides a written quote before work is agreed.',
+  },
+  {
+    q: 'What carpet types can you clean commercially?',
+    a: 'We clean commercial loop-pile, cut-pile and carpet tile installations using hot-water extraction. For specialist or heritage carpets, we carry out a pre-inspection and may recommend a low-moisture method instead.',
+  },
+  {
+    q: 'Do you provide RAMS?',
+    a: 'Yes. Risk assessments and method statements are available on request at no extra charge, and the documents your site requires are confirmed in the written scope before work starts. We also carry £5m public liability insurance.',
+  },
+  {
+    q: 'Can you set up a regular maintenance contract?',
+    a: 'A maintenance schedule can be included in the quote. Visit frequency, invoicing and notice terms are agreed in writing before the contract starts.',
+  },
+];
+
 const SCHEMA = JSON.stringify({
   '@context': 'https://schema.org',
   '@graph': [
     {
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://vveclean.co.uk' },
-        { '@type': 'ListItem', position: 2, name: 'Commercial Carpet Cleaning London', item: 'https://vveclean.co.uk/commercial-carpet-cleaning-london' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.vveclean.co.uk' },
+        { '@type': 'ListItem', position: 2, name: 'Commercial Carpet Cleaning London', item: 'https://www.vveclean.co.uk/commercial-carpet-cleaning-london' },
       ],
     },
     {
       '@type': 'Service',
       name: 'Commercial Carpet Cleaning London',
       description:
-        'Professional commercial carpet cleaning for offices, hotels and retail units across London. Out-of-hours visits, RAMS available, fast drying times — priced per area with a written quote.',
-      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://vveclean.co.uk', telephone: '+442080502233' },
+        'Professional commercial carpet cleaning for offices, hotels and retail units across London. Out-of-hours visits can be arranged and RAMS are available on request — priced from the area and agreed scope, with a written quote before work starts.',
+      provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
-      url: 'https://vveclean.co.uk/commercial-carpet-cleaning-london',
+      url: 'https://www.vveclean.co.uk/commercial-carpet-cleaning-london',
     },
     {
       '@type': 'FAQPage',
-      mainEntity: [
-        {
-          '@type': 'Question',
-          name: 'Can you clean commercial carpets outside business hours?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Yes. We offer early-morning, evening and weekend visits to avoid disrupting your team or customers. Keyholding and alarm management can be arranged for regular clients.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'How is commercial carpet cleaning priced?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'We price per area (square metres) with a minimum visit charge. We visit your site, measure the areas to clean, and provide a fixed written quote the same day — no obligation.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'What carpet types can you clean commercially?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'We clean commercial loop-pile, cut-pile, and carpet tile installations using hot-water extraction. For certain specialist or heritage carpets, we carry out a pre-inspection and may recommend a low-moisture method instead.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Do you provide RAMS for commercial carpet cleaning?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Yes. Risk assessments and method statements are available on request before any commercial job starts, at no extra charge. We also carry £5m public liability insurance.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Can you set up a regular carpet maintenance contract?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Yes. Many offices and landlords book us for quarterly or biannual deep cleans on a rolling contract. Regular clients get priority scheduling and consolidated monthly invoicing.',
-          },
-        },
-      ],
+      mainEntity: FAQS.map((faq) => ({
+        '@type': 'Question',
+        name: faq.q,
+        acceptedAnswer: { '@type': 'Answer', text: faq.a },
+      })),
     },
   ],
 });
@@ -90,29 +81,34 @@ const DATA: ServiceLandingData = {
 
   introH2: 'Professional carpet cleaning that fits around your business',
   introText:
-    'A clean, well-maintained carpet makes an immediate impression on clients and staff. Our commercial carpet cleaning service uses the same hot-water extraction method used in premium hotels and corporate offices — powerful enough for heavy traffic, fast enough to minimise business disruption. We provide a free site visit, measure your areas, and give you a fixed written quote the same day. We operate across East London and North London and cover sites up to 5,000 sq ft on a single visit.',
+    'Commercial carpet cleaning is planned around the carpet type, traffic, access and the hours your site can accommodate. We inspect the areas, agree the scope and provide a written quote before work starts. Send the address and approximate floor area to begin.',
 
-  benefitsH2: 'Why facilities managers choose VVE Clean',
+  // Every card states only what is settled in the written scope before work
+  // starts. Earlier wording promised no disruption, RAMS before any job, a
+  // 2–3 hour drying time, priority booking and consolidated invoicing, and
+  // implied an existing facilities-management client base — none of which is
+  // confirmed. See docs/FINAL_COMPLETION_LOG.md.
+  benefitsH2: 'What we agree before a commercial carpet clean',
   benefits: [
     {
       icon: <Moon size={28} />,
-      title: 'Out-of-hours visits',
-      body: 'Early mornings, evenings and weekends are all available. We work around your opening hours so your team or customers are never disrupted.',
+      title: 'Visit timing agreed in writing',
+      body: 'Early-morning, evening and weekend windows can be arranged around your opening hours. The agreed window, site access and any keyholding arrangements are confirmed before the work is booked.',
     },
     {
       icon: <FileText size={28} />,
-      title: 'RAMS & compliance documents',
-      body: 'Risk assessments, method statements and insurance certificates provided before any job starts — ready for your health & safety file.',
+      title: 'RAMS available on request',
+      body: 'Risk assessments and method statements are available on request at no extra charge, and the documents your site requires are listed in the written scope. £5m public liability insurance; certificate on request.',
     },
     {
       icon: <Zap size={28} />,
-      title: 'Fast drying times',
-      body: 'Commercial-grade extraction equipment removes most moisture immediately. Most office carpets are dry and walkable within 2–3 hours.',
+      title: 'Commercial extraction equipment',
+      body: 'Hot-water extraction removes most of the moisture at the end of the clean. Drying time depends on the carpet construction, ventilation and site conditions, and we give you an estimate for your site after the inspection.',
     },
     {
       icon: <Calendar size={28} />,
-      title: 'Maintenance contracts available',
-      body: 'Quarterly or biannual deep-clean schedules with priority booking and consolidated monthly invoicing. One supplier, one phone number.',
+      title: 'Maintenance schedule in the quote',
+      body: 'A recurring schedule can be included in the written quote. Visit frequency, invoicing and notice terms are agreed in writing before the contract starts.',
     },
   ],
 
@@ -122,45 +118,24 @@ const DATA: ServiceLandingData = {
     'Pre-inspection of traffic patterns and stain types',
     'Pre-treatment on high-traffic zones and stains',
     'Hot-water extraction with commercial-grade equipment',
-    'RAMS and insurance certificates on request',
-    'Out-of-hours and weekend visits available',
-    'Monthly invoicing on 14-day payment terms (contract clients)',
-    'No long lock-ins — 30 days’ notice, that’s it',
+    'Insurance certificate available on request',
+    'Required site documents confirmed in the written scope',
+    'Visit timing agreed around site access',
+    'Billing and notice terms confirmed before a contract starts',
   ],
 
   pricingH2: 'Commercial carpet cleaning pricing',
   pricingIntro:
-    'Commercial pricing is based on area, access and soiling level. We visit, measure and provide a fixed written quote the same day. No obligation.',
+    'Commercial pricing is based on area, access, carpet construction, condition and the agreed task list. A written quote is supplied before work is agreed.',
   pricingNote:
-    'Send us your site address via WhatsApp and we will book a free survey within 48 hours. Every quote is fixed in writing before we start.',
+    'Send the site address, approximate floor area and preferred visit window on WhatsApp. VVE Clean will reply with the next steps for reviewing the site.',
   pricingCta: {
     href: WA,
     label: 'Request a site visit',
     isWa: true,
   },
 
-  faqs: [
-    {
-      q: 'Can you clean commercial carpets outside business hours?',
-      a: 'Yes. We offer early-morning, evening and weekend visits to avoid disrupting your team or customers. Keyholding and alarm management can be arranged for regular clients.',
-    },
-    {
-      q: 'How is commercial carpet cleaning priced?',
-      a: 'We price per area (square metres) with a minimum visit charge. We visit your site, measure the areas to clean, and provide a fixed written quote the same day — no obligation.',
-    },
-    {
-      q: 'What carpet types can you clean commercially?',
-      a: 'We clean commercial loop-pile, cut-pile and carpet tile installations using hot-water extraction. For specialist or heritage carpets, we carry out a pre-inspection and may recommend a low-moisture method instead.',
-    },
-    {
-      q: 'Do you provide RAMS?',
-      a: 'Yes. Risk assessments and method statements are available on request before any commercial job starts, at no extra charge. We also carry £5m public liability insurance.',
-    },
-    {
-      q: 'Can you set up a regular maintenance contract?',
-      a: 'Yes. Many offices and landlords book us for quarterly or biannual deep cleans on a rolling contract. Regular clients get priority scheduling and consolidated monthly invoicing on 14-day terms.',
-    },
-  ],
+  faqs: FAQS,
 
   relatedLinks: [
     { href: '/commercial', label: 'All Commercial Services' },
@@ -170,9 +145,9 @@ const DATA: ServiceLandingData = {
     { href: '/pricing', label: 'Pricing' },
   ],
 
-  ctaH2: 'Get a fixed quote this week.',
+  ctaH2: 'Request a written commercial quote.',
   ctaBody:
-    'We visit your site within 48 hours and deliver a written quote the same day. No obligation — and no surprises once work starts.',
+    'Send the address, approximate floor area and access requirements. VVE Clean will confirm the review process and provide a written quote before work starts.',
   ctaPrimary: {
     href: WA,
     label: 'WhatsApp your site address',

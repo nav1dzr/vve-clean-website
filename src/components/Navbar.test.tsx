@@ -12,6 +12,15 @@ function renderNavbar() {
   );
 }
 
+describe('Navbar responsive breakpoint', () => {
+  it('keeps the compact navigation through 1199px and only enables the full desktop nav at xl', () => {
+    const { container } = renderNavbar();
+    const desktopNav = container.querySelector('nav');
+    expect(desktopNav).toHaveClass('hidden', 'xl:flex');
+    expect(desktopNav).not.toHaveClass('lg:flex');
+  });
+});
+
 describe('Navbar service navigation', () => {
   it('opens an accessible desktop menu with direct links to every core service page', async () => {
     const user = userEvent.setup();
@@ -26,5 +35,21 @@ describe('Navbar service navigation', () => {
     expect(screen.getByRole('link', { name: /Sofa & Upholstery Fabric-safe upholstery care/i })).toHaveAttribute('href', '/sofa-cleaning-london');
     expect(screen.getByRole('link', { name: /After Builders Fine dust and post-work cleaning/i })).toHaveAttribute('href', '/after-builders-cleaning-london');
     expect(screen.getByRole('link', { name: /Commercial Cleaning Offices, retail and communal areas/i })).toHaveAttribute('href', '/commercial');
+  });
+
+  it('removes the closed mobile menu from the DOM and restores trigger focus on Escape', async () => {
+    const user = userEvent.setup();
+    renderNavbar();
+
+    const trigger = screen.getByRole('button', { name: 'Open menu' });
+    expect(document.getElementById('mobile-nav-menu')).toBeNull();
+
+    await user.click(trigger);
+    expect(document.getElementById('mobile-nav-menu')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Close menu' })).toHaveAttribute('aria-expanded', 'true');
+
+    await user.keyboard('{Escape}');
+    expect(document.getElementById('mobile-nav-menu')).toBeNull();
+    expect(trigger).toHaveFocus();
   });
 });

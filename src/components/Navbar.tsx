@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Menu, X, Phone } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import BrandLogo from './BrandLogo';
 import { trackPhoneClick } from '../lib/analytics';
 
 // Max 5 links per the design spec — Reviews and Areas stay reachable by
 // scrolling the homepage (not removed), just not repeated in the nav.
 const navLinks = [
+  { label: 'About',      href: '/about', route: true },
   { label: 'Gallery',    href: '/gallery', route: true },
   { label: 'Pricing',    href: '/pricing', route: true },
   { label: 'Commercial', href: '/commercial', route: true },
-  { label: 'Contact',    href: '/#contact' },
+  { label: 'Contact',    href: '/contact', route: true },
 ];
 
 const serviceLinks = [
@@ -30,12 +31,16 @@ export default function Navbar() {
   const [servicesOpen, setServicesOpen] = useState(false);
   const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        const wasOpen = menuOpen;
         setMenuOpen(false);
         setServicesOpen(false);
+        setMobileServicesOpen(false);
+        if (wasOpen) requestAnimationFrame(() => menuButtonRef.current?.focus());
       }
     };
     const onClickOutside = (e: MouseEvent) => {
@@ -50,7 +55,7 @@ export default function Navbar() {
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('mousedown', onClickOutside);
     };
-  }, []);
+  }, [menuOpen]);
 
   return (
     <header
@@ -59,7 +64,7 @@ export default function Navbar() {
       style={{ background: 'rgba(249,249,245,0.94)', backdropFilter: 'blur(10px)' }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 lg:h-20">
+        <div className="flex items-center justify-between h-16 xl:h-20">
           {/* Logo */}
           <Link
             to="/"
@@ -73,13 +78,16 @@ export default function Navbar() {
               className="mx-2 h-8 w-px bg-slate-300 sm:mx-3"
             />
 
-            <span className="max-w-[62px] text-[7px] font-bold uppercase leading-[1.35] tracking-[0.08em] text-navy-700 sm:max-w-[86px] sm:text-[9px]">
+            {/* 7px was unreadable on a phone. At 10px/11px the two-word wrap
+                still fits the header without pushing the call, WhatsApp and
+                menu controls, which keep their 44px targets. */}
+            <span className="max-w-[76px] text-[10px] font-bold uppercase leading-[1.3] tracking-[0.06em] text-navy-700 sm:max-w-[96px] sm:text-[11px]">
               Cleaning &amp; Property Services
             </span>
           </Link>
 
           {/* Nav */}
-          <nav className="hidden lg:flex items-center gap-7">
+          <nav className="hidden xl:flex items-center gap-7">
             <div className="relative">
               <button
                 type="button"
@@ -107,6 +115,7 @@ export default function Navbar() {
                     <Link
                       key={service.href}
                       to={service.href}
+                      aria-label={`${service.label} ${service.description}`}
                       onClick={() => setServicesOpen(false)}
                       className="group flex min-h-[58px] items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-sky-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-royal-600"
                     >
@@ -129,10 +138,10 @@ export default function Navbar() {
             </div>
             {navLinks.map((link) =>
               link.route ? (
-                <Link key={link.href} to={link.href}
-                  className={`nav-link text-sm font-medium tracking-wide transition-colors duration-200 text-slate-700 hover:text-sky-600 ${FOCUS_RING}`}>
+                <NavLink key={link.href} to={link.href}
+                  className={({ isActive }) => `nav-link text-sm font-medium tracking-wide transition-colors duration-200 hover:text-sky-600 ${isActive ? 'text-royal-700' : 'text-slate-700'} ${FOCUS_RING}`}>
                   {link.label}
-                </Link>
+                </NavLink>
               ) : (
                 <a key={link.href} href={link.href}
                   className={`nav-link text-slate-700 hover:text-sky-600 text-sm font-medium tracking-wide transition-colors duration-200 ${FOCUS_RING}`}>
@@ -144,7 +153,7 @@ export default function Navbar() {
 
           {/* Right side — phone/WhatsApp stay visibly secondary; "Get my
               price" is the one visually dominant CTA (solid brand blue). */}
-          <div className="hidden lg:flex items-center gap-3">
+          <div className="hidden xl:flex items-center gap-3">
             <a href="tel:02080502233" onClick={() => trackPhoneClick('navbar')}
               className={`flex items-center gap-1.5 text-slate-700 hover:text-sky-600 text-sm transition-colors ${FOCUS_RING}`}>
               <Phone size={13} />
@@ -164,18 +173,19 @@ export default function Navbar() {
           {/* Mobile: compact header — logo + call/WhatsApp shortcuts +
               hamburger. Urgent mobile visitors can reach us in one tap;
               the persistent booking CTA stays in MobileStickyFooter. */}
-          <div className="lg:hidden flex items-center gap-1">
+          <div className="xl:hidden flex items-center gap-1">
             <a href="tel:02080502233"
               className={`text-slate-800 p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center ${FOCUS_RING}`}
               aria-label="Call VVE Clean on 020 8050 2233">
               <Phone size={22} />
             </a>
             <a href={WA_LINK} target="_blank" rel="noopener noreferrer"
-              className={`text-green-600 p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center ${FOCUS_RING}`}
+              className={`text-[#075e54] p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center ${FOCUS_RING}`}
               aria-label="Chat with VVE Clean on WhatsApp">
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-[22px] h-[22px]" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
             </a>
             <button
+              ref={menuButtonRef}
               className={`text-slate-800 p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center ${FOCUS_RING}`}
               onClick={() => setMenuOpen(!menuOpen)}
               aria-label={menuOpen ? 'Close menu' : 'Open menu'}
@@ -188,8 +198,9 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile menu */}
-      <div id="mobile-nav-menu" className={`lg:hidden transition-all duration-300 overflow-hidden ${menuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'}`}
+      {/* Removing the closed menu from the DOM prevents invisible links from
+          remaining in the keyboard tab order. */}
+      {menuOpen && <div id="mobile-nav-menu" className="xl:hidden overflow-hidden"
         style={{ background: 'rgba(249,249,245,0.96)', backdropFilter: 'blur(10px)', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
         <div className="px-4 py-6 space-y-4">
           <div className="border-b border-slate-100 pb-2">
@@ -228,10 +239,10 @@ export default function Navbar() {
           </div>
           {navLinks.map((link) =>
             link.route ? (
-              <Link key={link.href} to={link.href} onClick={() => setMenuOpen(false)}
-                className={`block text-slate-700 hover:text-sky-600 font-medium py-2.5 min-h-[44px] border-b border-slate-100 transition-colors ${FOCUS_RING}`}>
+              <NavLink key={link.href} to={link.href} onClick={() => setMenuOpen(false)}
+                className={({ isActive }) => `block hover:text-sky-600 font-medium py-2.5 min-h-[44px] border-b border-slate-100 transition-colors ${isActive ? 'text-royal-700' : 'text-slate-700'} ${FOCUS_RING}`}>
                 {link.label}
-              </Link>
+              </NavLink>
             ) : (
               <a key={link.href} href={link.href} onClick={() => setMenuOpen(false)}
                 className={`block text-slate-700 hover:text-sky-600 font-medium py-2.5 min-h-[44px] border-b border-slate-100 transition-colors ${FOCUS_RING}`}>
@@ -253,7 +264,7 @@ export default function Navbar() {
             <Phone size={14} /> 020 8050 2233
           </a>
         </div>
-      </div>
+      </div>}
     </header>
   );
 }

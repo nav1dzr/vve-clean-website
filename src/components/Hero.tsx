@@ -10,18 +10,22 @@ export default function Hero() {
         {/* LCP element — eager-loaded (no loading="lazy") with fetchPriority
             "high" and explicit dimensions so it doesn't compete with
             below-fold images and doesn't cause layout shift. */}
-        <img
-          src="/photo_2026-06-02_16-48-38.jpg"
-          alt="Professionally cleaned kitchen by VVE Clean"
-          width={1536}
-          height={1024}
-          // @ts-expect-error — fetchpriority is a valid HTML attribute; this
-          // React/react-dom version doesn't type it yet, but passes lowercase
-          // attribute names through to the DOM untouched.
-          fetchpriority="high"
-          decoding="async"
-          className="w-full h-full object-cover object-center"
-        />
+        <picture className="block h-full w-full">
+          <source type="image/avif" srcSet="/hero-cleaning-768.avif 768w, /hero-cleaning-1280.avif 1280w" sizes="100vw" />
+          <source type="image/webp" srcSet="/hero-cleaning-768.webp 768w, /hero-cleaning-1280.webp 1280w" sizes="100vw" />
+          <img
+            src="/photo_2026-06-02_16-48-38.jpg"
+            alt="VVE Clean technician working at a London property"
+            width={1536}
+            height={1024}
+            // @ts-expect-error — fetchpriority is a valid HTML attribute; this
+            // React/react-dom version doesn't type it yet, but passes lowercase
+            // attribute names through to the DOM untouched.
+            fetchpriority="high"
+            decoding="async"
+            className="h-full w-full object-cover object-center"
+          />
+        </picture>
       </div>
 
       {/* Overlay — on mobile the copy spans the full width, so use a
@@ -41,8 +45,7 @@ export default function Hero() {
           <div className="inline-flex items-center gap-2 glass-card rounded-full px-3 py-1 sm:px-4 sm:py-1.5 mb-3 sm:mb-6" style={{ animationDelay: '0.1s' }}>
             <span className="w-2 h-2 rounded-full bg-royal-400 animate-pulse" />
             <span className="text-silver-200 text-[10px] sm:text-xs tracking-widest font-medium uppercase">
-              <span className="sm:hidden">Independent &amp; owner-operated</span>
-              <span className="hidden sm:inline">Independent &amp; Owner-Operated — No Call Centres, No Random Cleaners</span>
+              <span>Independent London cleaning business</span>
             </span>
           </div>
 
@@ -67,8 +70,7 @@ export default function Hero() {
             style={{ animationDelay: '0.45s', opacity: 0 }}
           >
             Carpets, upholstery, deep cleaning, end of tenancy and after-builders cleaning across
-            East &amp; North London—with clear pricing, professional equipment and results you can
-            rely on.
+            East &amp; North London, with clear pricing, professional equipment and direct contact.
           </p>
 
           {/* Benefit checklist — company-wide credentials rather than
@@ -79,8 +81,8 @@ export default function Hero() {
           >
             {[
               '£5m public liability insurance',
-              'DBS-checked, vetted cleaners',
-              '72-hour re-clean guarantee',
+              'Published prices for standard services',
+              '72-hour re-clean on Complete end of tenancy cleans',
             ].map((item) => (
               <li key={item} className="flex items-start gap-2.5">
                 <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0 mt-0.5" />

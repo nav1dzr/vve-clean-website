@@ -26,6 +26,12 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`, `MANUAL REVI
 - COMPLETE — Verify static/mobile/desktop CTAs and that important CTAs work without client-only JavaScript.
 - COMPLETE — Verify sitemap, robots, redirects, obsolete routes, admin exclusion and prerender coverage. Created `public/sitemap.xml` and `public/robots.txt`.
 - COMPLETE — Do not create thin location pages or invent reviews, areas or business information.
+  - UPDATE (2026-08-07): superseded by explicit owner sign-off for a specific,
+    honest implementation — see the addendum at the end of
+    docs/LOCATION_PAGES_ASSESSMENT.md. The underlying rule (never invent a
+    review, area, or business claim) still applies and was followed: the 15
+    area pages shipped only assert real postcodes/neighbours, and only mark
+    a page indexable once it carries real proof.
 
 ## Phase 3 — End-of-tenancy gallery
 

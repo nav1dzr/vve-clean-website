@@ -46,6 +46,14 @@ describe('canonical host', () => {
     expect(indexHtml).toContain(`"url": "${WWW}"`);
     expect(indexHtml).toContain(`"image": "${WWW}/og-image.jpg"`);
   });
+
+  it('describes the homepage the same way in its canonical and in the sitemap', () => {
+    // These used to disagree: the canonical was the bare origin and the
+    // sitemap <loc> had a trailing slash, i.e. one page advertised under two
+    // URL forms. Both are now `${WWW}/`.
+    expect(prerender).toContain("route.path === '/' ? '/' : route.path}`");
+    expect(prerender).not.toContain("route.path === '/' ? '' : route.path}`");
+  });
 });
 
 describe('social share image', () => {
@@ -77,6 +85,13 @@ describe('social share image', () => {
 });
 
 describe('indexing', () => {
+  it('does not duplicate stale homepage content in a noscript block', () => {
+    // Every route is server-rendered during the production build. A global
+    // noscript fallback would therefore add a second H1 and stale homepage
+    // pricing to every prerendered page.
+    expect(indexHtml).not.toContain('<noscript>');
+  });
+
   it('defaults the template to indexable', () => {
     expect(indexHtml).toContain('<meta name="robots" content="index, follow" />');
   });
@@ -163,5 +178,22 @@ describe('sitemap', () => {
   it('derives lastmod from git rather than a hardcoded date', () => {
     expect(prerender).toContain("execFileSync('git', ['log', '-1', '--format=%cs'");
     expect(prerender).not.toMatch(/<lastmod>20\d\d-\d\d-\d\d<\/lastmod>/);
+  });
+});
+
+describe('GA4 wiring', () => {
+  it('keeps the Ads tag consent-gated without sending a placeholder GA4 request', () => {
+    const adsIndex = indexHtml.indexOf("gtag('config', 'AW-18214693277')");
+    expect(adsIndex).toBeGreaterThan(-1);
+    expect(indexHtml).not.toContain('G-XXXXXXXXXX');
+
+    // Must come after the Consent Mode v2 default-deny block, not before it —
+    // otherwise the GA4 config call would fire before consent state exists.
+    const consentDefaultIndex = indexHtml.indexOf("gtag('consent', 'default'");
+    expect(consentDefaultIndex).toBeGreaterThan(-1);
+    expect(adsIndex).toBeGreaterThan(consentDefaultIndex);
+
+    // No second gtag.js loader — GA4 shares the Ads tag's script src.
+    expect(indexHtml.match(/googletagmanager\.com\/gtag\/js/g)).toHaveLength(1);
   });
 });

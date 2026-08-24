@@ -446,6 +446,12 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
     const prefersReducedMotion = typeof window.matchMedia === 'function'
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     window.scrollTo({ top, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+    const stepHeading = el.querySelector<HTMLElement>('[data-step-heading]');
+    if (stepHeading) {
+      stepHeading.tabIndex = -1;
+      stepHeading.classList.add('route-focus-target');
+      stepHeading.focus({ preventScroll: true });
+    }
   }, [step]);
 
   const availableSizeOptions = useMemo(
@@ -670,7 +676,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
           <div className="space-y-7">
             <div>
               <p className="text-royal-700 text-[10px] font-bold uppercase tracking-[0.18em] mb-2">Your property</p>
-              <h3 className="font-display text-2xl sm:text-3xl font-bold text-navy-900 tracking-tight">Tell us what we’re cleaning</h3>
+              <h3 data-step-heading className="font-display text-2xl sm:text-3xl font-bold text-navy-900 tracking-tight">Tell us what we’re cleaning</h3>
               <p className="text-muted text-sm sm:text-base leading-relaxed mt-2 max-w-xl">Choose the closest match. Your live starting price updates as you go.</p>
             </div>
 
@@ -727,7 +733,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                 <div className="flex-1">
                   <p className="text-navy-900 font-bold text-base">Large properties are quoted individually</p>
                   <p className="text-navy-700 text-xs leading-relaxed mt-1 max-w-lg">
-                  5+ bedroom homes vary too much for a fixed instant price. Send us a few details and we'll confirm a fixed price, usually within the hour.
+                  5+ bedroom homes vary too much for a fixed instant price. Send us the room count, condition and a few photos so we can review the scope.
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:min-w-[180px]">
@@ -767,7 +773,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
           <div className="space-y-6">
             <div>
               <p className="text-royal-700 text-[10px] font-bold uppercase tracking-[0.18em] mb-2">Your cleaning standard</p>
-              <h3 className="font-display text-2xl sm:text-3xl font-bold text-navy-900 tracking-tight">Choose your cleaning package</h3>
+              <h3 data-step-heading className="font-display text-2xl sm:text-3xl font-bold text-navy-900 tracking-tight">Choose your cleaning package</h3>
               <p className="text-muted text-sm sm:text-base leading-relaxed mt-2 max-w-xl">Start with the Tailored checklist, or choose Complete when you want every agency-ready internal task included.</p>
             </div>
             <div className="grid gap-5 items-start" role="group" aria-label="Cleaning package">
@@ -883,7 +889,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
           <div className="space-y-6">
             <div>
               <p className="text-royal-700 text-[10px] font-bold uppercase tracking-[0.18em] mb-2">Floors and carpets</p>
-              <h3 className="font-display text-2xl sm:text-3xl font-bold text-navy-900 tracking-tight">What floor care do you need?</h3>
+              <h3 data-step-heading className="font-display text-2xl sm:text-3xl font-bold text-navy-900 tracking-tight">What floor care do you need?</h3>
               <p className="text-muted text-sm sm:text-base leading-relaxed mt-2 max-w-xl">Standard vacuuming and suitable hard-floor mopping are already included. Upgrade only if you want professional carpet cleaning.</p>
             </div>
             <div className="grid sm:grid-cols-2 gap-3" role="group" aria-label="Floor care">
@@ -1043,6 +1049,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         {/* ══ Step 4: Add-ons and final review ══ */}
         {step === 4 && (
           <div className="space-y-6">
+            <h3 data-step-heading className="sr-only">Review and adjust your quote</h3>
             {state.pkg === 'tailored' ? (
               <div>
                 <h3 className="text-navy-900 font-bold text-base mb-1">Add back the internal tasks you need</h3>
@@ -1268,7 +1275,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                 <div className="rounded-2xl bg-purple-50 border-2 border-purple-200 p-5 text-center space-y-2 mt-4">
                   <p className="text-purple-900 font-bold text-sm">Photo review required</p>
                   <p className="text-purple-800 text-xs leading-relaxed">
-                    The condition you selected needs a quick photo review before we can confirm a fixed price — no automatic surcharge is applied. Send us photos on WhatsApp and we'll confirm within the hour.
+                    The condition you selected needs a photo review before we can confirm a fixed price — no automatic surcharge is applied. Send us photos on WhatsApp so we can review the scope.
                   </p>
                   <a href={WA_LINK} target="_blank" rel="noopener noreferrer"
                     className="btn-whatsapp inline-flex items-center justify-center gap-2 px-6 py-3 min-h-[44px] rounded-full font-bold text-sm mt-2">
