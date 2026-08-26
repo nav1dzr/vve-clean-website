@@ -114,6 +114,10 @@ async function sendToGoogleSheets(data) {
     full_name:         data.fullName,
     email:             data.email,
     phone:             data.phone || '',
+    // New optional field. The Apps Script lives outside this repository; it
+    // reads named keys, so an unrecognised one is ignored rather than
+    // breaking the row. Add a "service" column to the sheet to capture it.
+    service:           data.service || '',
     message:           data.message,
     marketing_opt_in:  data.marketingOptIn ? 'Yes' : 'No',
     source_page:       data.sourcePage || '/',
@@ -167,6 +171,7 @@ function contactTelegramText(data) {
     `👤 <b>Name:</b> ${escHtml(data.fullName)}`,
     `📧 <b>Email:</b> ${escHtml(data.email)}`,
     `📱 <b>Phone:</b> ${escHtml(data.phone) || '—'}`,
+    `🧽 <b>Service:</b> ${escHtml(data.service) || '—'}`,
     `💬 <b>Message:</b> ${escHtml(data.message)}`,
     `📣 <b>Marketing opt-in:</b> ${data.marketingOptIn ? 'Yes' : 'No'}`,
     `🕐 <b>Submitted:</b> ${now}`,
@@ -180,6 +185,7 @@ function businessEmailHtml(data) {
     ['Full name',        data.fullName],
     ['Email',            data.email],
     ['Phone',            data.phone || '—'],
+    ['Service',          data.service || '—'],
     ['Message',          data.message],
     ['Marketing opt-in', data.marketingOptIn ? 'Yes' : 'No'],
     ['Source page',      data.sourcePage || '/'],
@@ -260,7 +266,7 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'Invalid request body' }));
   }
 
-  const { fullName, email, phone, message, marketingOptIn, sourcePage, _honeypot } = payload;
+  const { fullName, email, phone, service, message, marketingOptIn, sourcePage, _honeypot } = payload;
 
   // Honeypot — silently succeed so bots think the submission worked
   if (_honeypot) {
@@ -287,6 +293,9 @@ export default async function handler(req, res) {
     fullName:       fullName.trim(),
     email:          email.trim().toLowerCase(),
     phone:          (phone || '').trim(),
+    // Optional, and never trusted: a client can post anything here, so it is
+    // length-bounded like sourcePage and HTML-escaped wherever it is rendered.
+    service:        (typeof service === 'string' ? service : '').trim().slice(0, 80),
     message:        message.trim(),
     marketingOptIn: !!marketingOptIn,
     sourcePage:     (sourcePage || '/').slice(0, 200),

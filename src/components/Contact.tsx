@@ -5,6 +5,19 @@ import { trackPhoneClick, trackWhatsAppClick, trackContactFormSubmitted } from '
 
 const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
 
+// Matches the services in the sitewide `hasOfferCatalog` (index.html) — the
+// six VVE Clean actually sells, using the same names. "Something else" keeps
+// the field from forcing a wrong answer for an unusual enquiry.
+const SERVICE_OPTIONS = [
+  'End of tenancy cleaning',
+  'Carpet cleaning',
+  'Sofa & upholstery cleaning',
+  'After builders cleaning',
+  'Move-in deep clean',
+  'Commercial cleaning',
+  'Something else',
+] as const;
+
 function WhatsAppIcon({ size = 16 }: { size?: number }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: size, height: size }}>
@@ -18,6 +31,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [service, setService] = useState('');
   const [message, setMessage] = useState('');
   const [subscribe, setSubscribe] = useState(false);
   const [honeypot, setHoneypot] = useState('');
@@ -43,6 +57,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
           fullName:       name,
           email,
           phone:          phone || '',
+          service:        service || '',
           message,
           marketingOptIn: subscribe,
           sourcePage:     window.location.pathname,
@@ -56,6 +71,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
         setName('');
         setEmail('');
         setPhone('');
+        setService('');
         setMessage('');
         setSubscribe(false);
         trackContactFormSubmitted();
@@ -144,10 +160,13 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                     <MapPin className="text-royal-400" size={16} />
                   </div>
                   <div>
-                    <div className="text-silver-300 text-xs mb-0.5">Address</div>
+                    <div className="text-silver-300 text-xs mb-0.5">Registered office</div>
                     <span className="text-white font-semibold text-sm block">23-25 Queensway</span>
                     <span className="text-silver-400 text-xs block">London, W2 4QP</span>
-                    <span className="text-silver-300 text-xs mt-1 block">Serving East &amp; North London</span>
+                    <span className="text-silver-300 text-xs mt-1 block">
+                      Registered office only — no walk-ins. Our mobile teams work at your
+                      property across East &amp; North London.
+                    </span>
                   </div>
                 </div>
 
@@ -159,7 +178,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                     <div className="text-silver-300 text-xs mb-0.5">Hours</div>
                     <div className="text-white font-semibold text-sm">Mon – Fri: 9:00 AM – 6:00 PM</div>
                     <div className="text-silver-400 text-xs">Sat: 10:00 AM – 3:00 PM</div>
-                    <div className="text-silver-400 text-xs">Sun: Closed</div>
+                    <div className="text-silver-400 text-xs">Sun: by request</div>
                   </div>
                 </div>
               </div>
@@ -235,6 +254,28 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                     className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:border-royal-500 transition-colors"
                   />
                   <p id="contact-phone-hint" className="sr-only">Optional</p>
+                </div>
+
+                <div>
+                  <label htmlFor="contact-service" className="block text-navy-900 font-semibold text-sm mb-1.5">
+                    Service needed
+                  </label>
+                  <select
+                    id="contact-service"
+                    name="service"
+                    value={service}
+                    onChange={(e) => setService(e.target.value)}
+                    aria-describedby="contact-service-hint"
+                    className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-base bg-white focus:outline-none focus:border-royal-500 transition-colors"
+                  >
+                    <option value="">Please choose (optional)</option>
+                    {SERVICE_OPTIONS.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                  <p id="contact-service-hint" className="sr-only">
+                    Optional. Choosing a service helps us reply with the right information.
+                  </p>
                 </div>
 
                 <div>
