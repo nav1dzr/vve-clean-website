@@ -5,6 +5,7 @@
 import nodemailer from 'nodemailer';
 import https from 'node:https';
 import { emailWordmarkHtml } from './_lib/emailBrand.js';
+import { contactBusinessText, contactCustomerText } from './_lib/emailPlainText.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -322,7 +323,10 @@ export default async function handler(req, res) {
         .sendMail({
           from:    `"VVE Clean Enquiries" <${process.env.GMAIL_SENDER}>`,
           to:      process.env.BUSINESS_EMAIL,
+          // Replying to the internal alert reaches the customer directly.
+          replyTo: `"${data.fullName}" <${data.email}>`,
           subject: `New enquiry — ${data.fullName}`,
+          text:    contactBusinessText(data),
           html:    businessEmailHtml(data),
         })
         .then(() => console.log('[contact] Business email sent'))
@@ -332,7 +336,9 @@ export default async function handler(req, res) {
         .sendMail({
           from:    `"VVE Clean" <${process.env.GMAIL_SENDER}>`,
           to:      data.email,
+          replyTo: process.env.BUSINESS_EMAIL,
           subject: 'We received your message – VVE Clean',
+          text:    contactCustomerText(data),
           html:    customerEmailHtml(data),
         })
         .then(() => console.log('[contact] Customer confirmation sent to:', data.email))
