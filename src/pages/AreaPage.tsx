@@ -16,14 +16,31 @@ function buildAreaFaqs(area: AreaInfo): { q: string; a: string }[] {
       a: `${area.name} is outside the currently published postcode list. Contact VVE Clean with the full postcode so availability and any travel requirements can be confirmed before booking.`,
     }];
   }
+  const postcodeLabel = area.postcodes.join(', ');
   return [
     {
       q: `Do you charge more to clean in ${area.name}?`,
       a: `No. We use the same published prices throughout our confirmed coverage area, including ${area.name}. Parking and the Congestion Charge are added only when they apply and are confirmed before booking.`,
     },
     {
+      q: `Which ${area.name} postcodes do you cover?`,
+      a: `We cover ${postcodeLabel} in ${area.name}. If your postcode is not listed, send it to us before booking and we will confirm whether we can travel to you rather than leaving you to guess.`,
+    },
+    {
       q: `What areas near ${area.name} do you also cover?`,
       a: `Nearby published areas include ${area.neighbourAreas.join(', ')}, along with the rest of our ${COVERAGE_SUMMARY} coverage area. Check the postcode list or ask VVE Clean before booking if your postcode is not shown.`,
+    },
+    {
+      q: `Which cleaning services can I book in ${area.name}?`,
+      a: `Every service we offer is available in ${area.name}: end of tenancy, move-in deep cleaning, carpet cleaning, sofa and upholstery cleaning, after-builders cleaning and commercial work. Prices are the same as anywhere else in our coverage area.`,
+    },
+    {
+      q: `How do I get a price for a property in ${area.name}?`,
+      a: `Use the quote calculator for a price based on the property size and the work needed — no visit required for standard jobs. You can also send photos on WhatsApp if the property has unusual staining or after-builders debris, and we will confirm the price before you book.`,
+    },
+    {
+      q: `Do you need parking in ${area.name}?`,
+      a: `Our team carries equipment, so we need to park reasonably close to the property. Tell us during booking whether free parking is available. Where it is not, an estimated parking allowance is shown before you pay. Parking is charged at the actual cost, so the final balance is adjusted if it costs less or more than the estimate.`,
     },
   ];
 }

@@ -7,6 +7,11 @@
       "source": "/booking.html",
       "destination": "/booking",
       "permanent": true
+    },
+    {
+      "source": "/end-of-tenancy-cleaning-:area(islington|stratford|hackney|shoreditch|walthamstow|bethnal-green|dalston|stoke-newington|bow|finsbury-park|angel|camden|highgate|tottenham|canary-wharf)",
+      "destination": "/cleaning-:area",
+      "permanent": true
     }
   ],
   "headers": [
