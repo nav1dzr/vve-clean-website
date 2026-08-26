@@ -239,7 +239,7 @@ const routes = [
     title: 'About VVE Clean | London Cleaning Company',
     description: 'Learn how VVE Clean handles end of tenancy, carpet, upholstery, after-builders and commercial cleaning across London.',
     ogTitle: 'About VVE Clean',
-    ogDescription: 'A clear, owner-led cleaning service with visible pricing and direct contact.',
+    ogDescription: 'A London cleaning team with visible pricing and direct contact.',
     changefreq: 'monthly',
     priority: '0.6',
     // Previously `noindex, follow` because the page carried a visible

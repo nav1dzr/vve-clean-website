@@ -181,6 +181,16 @@ describe('sitemap', () => {
   });
 });
 
+describe('team framing in prerendered metadata', () => {
+  // The visible /about copy dropped "Owner-led service", but the og:description
+  // in prerender.mjs kept it — invisible to a component test, and the text
+  // social platforms and search engines actually quote. VVE Clean is a team,
+  // so no route metadata should describe it as one person's operation.
+  it('describes VVE Clean as a team, not an owner-led operation', () => {
+    expect(prerender).not.toMatch(/owner[-\s]?(led|operated|run)/i);
+  });
+});
+
 describe('GA4 wiring', () => {
   it('keeps the Ads tag consent-gated without sending a placeholder GA4 request', () => {
     const adsIndex = indexHtml.indexOf("gtag('config', 'AW-18214693277')");
