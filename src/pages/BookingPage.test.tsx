@@ -202,21 +202,34 @@ describe('BookingPage — accessible labels on property/contact fields', () => {
     expect(document.getElementById(describedBy!)).toHaveAttribute('role', 'alert');
   });
 
-  it('focuses the first invalid control and exposes native required semantics', async () => {
-    const user = userEvent.setup();
+  it('exposes native required semantics on every mandatory control', () => {
     renderBookingPage();
 
-    const fullName = screen.getByLabelText(/full name/i);
-    expect(fullName).toBeRequired();
+    expect(screen.getByLabelText(/full name/i)).toBeRequired();
     expect(screen.getByLabelText(/^address/i)).toBeRequired();
     expect(screen.getByLabelText(/postcode/i)).toBeRequired();
     expect(screen.getByLabelText(/phone number/i)).toBeRequired();
     expect(screen.getByLabelText(/email address/i)).toBeRequired();
     expect(screen.getByLabelText(/preferred date/i)).toBeRequired();
     expect(screen.getByLabelText(/preferred arrival window/i)).toBeRequired();
+  });
+
+  // Focus now lands on the error summary rather than the first invalid field,
+  // so the count of problems is announced before the user is moved into one of
+  // them. The summary's links then reach each individual control — see
+  // BookingPage.errorSummary.test.tsx. The first invalid field still carries
+  // aria-invalid and its inline message.
+  it('moves focus to the error summary on a blocked submit', async () => {
+    const user = userEvent.setup();
+    renderBookingPage();
 
     await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
-    await waitFor(() => expect(fullName).toHaveFocus());
+
+    const heading = await screen.findByRole('heading', {
+      name: /problems? with your booking request/i,
+    });
+    await waitFor(() => expect(heading.closest('div')).toHaveFocus());
+    expect(screen.getByLabelText(/full name/i)).toHaveAttribute('aria-invalid', 'true');
   });
 });
 

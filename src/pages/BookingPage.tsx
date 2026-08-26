@@ -329,6 +329,36 @@ function todayIsoDate(): string {
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
 
+// Document order of the validated controls, used to build the error summary
+// so its entries always read top-to-bottom in the order the fields appear.
+//
+// `target` is the id of the control a summary entry focuses, where one
+// exists. The two access questions are groups of `aria-pressed` buttons with
+// no single labelled control, and the entry for those falls back to the
+// existing `[data-error="true"]` container — the same hook the
+// scroll-to-first-invalid behaviour already uses.
+// `label` is the summary's own wording — the field name, not a copy of the
+// inline message. Repeating the full sentence in both places makes a screen
+// reader read each problem twice and gives a sighted user two identical
+// blocks of red text to compare. The summary answers "which fields?", the
+// inline error answers "what exactly is wrong with this one?".
+const SUMMARY_FIELDS: ReadonlyArray<{
+  key: keyof FormData | 'terms';
+  label: string;
+  target?: string;
+}> = [
+  { key: 'fullName', label: 'Full name',                 target: 'booking-fullName' },
+  { key: 'address',  label: 'Address',                   target: 'booking-address' },
+  { key: 'postcode', label: 'Postcode',                  target: 'booking-postcode' },
+  { key: 'phone',    label: 'Phone number',              target: 'booking-phone' },
+  { key: 'email',    label: 'Email address',             target: 'booking-email' },
+  { key: 'date',     label: 'Preferred date',            target: 'booking-date' },
+  { key: 'time',     label: 'Preferred arrival window',  target: 'booking-time' },
+  { key: 'parkingAvailable', label: 'Parking availability' },
+  { key: 'congestionZone',   label: 'Congestion Charge zone' },
+  { key: 'terms',    label: 'Booking and cancellation terms', target: 'terms-checkbox' },
+];
+
 export default function BookingPage() {
   const [selection,    setSelection]    = useState<BookingSelection | null>(null);
   const [showSelector, setShowSelector] = useState(false);
@@ -342,6 +372,10 @@ export default function BookingPage() {
   const [submitting,    setSubmitting]    = useState(false);
   const [submitError,   setSubmitError]   = useState('');
   const formTopRef = useRef<HTMLDivElement>(null);
+  const errorSummaryRef = useRef<HTMLDivElement>(null);
+  // Only true after a blocked submit. Without this the summary would appear
+  // while someone is still filling the form in, which is noisier than useful.
+  const [showErrorSummary, setShowErrorSummary] = useState(false);
 
   // ── Restore booking-form draft on mount (before any user input) ───────────
   useEffect(() => {
@@ -432,6 +466,32 @@ export default function BookingPage() {
     return Object.keys(e).length === 0;
   };
 
+  // Every current error, in document order, with the control it points at.
+  const errorSummaryItems = SUMMARY_FIELDS.flatMap(({ key, label, target }) => {
+    const message = key === 'terms' ? termsError : errors[key as keyof FormData];
+    return message ? [{ key, label, target }] : [];
+  });
+
+  // Move focus to the control a summary entry names. Anchor navigation alone
+  // scrolls but does not focus a non-anchor target in every browser, and the
+  // access questions have no id to link to at all, so this does both
+  // explicitly rather than relying on default `href="#id"` behaviour.
+  const focusSummaryTarget = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    item: { key: keyof FormData | 'terms'; target?: string },
+  ) => {
+    event.preventDefault();
+
+    const el = item.target
+      ? document.getElementById(item.target)
+      : formTopRef.current
+          ?.querySelector<HTMLElement>(`[data-summary-target="${item.key}"]`)
+          ?.querySelector<HTMLElement>('input, select, textarea, button');
+
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el?.focus();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -440,15 +500,29 @@ export default function BookingPage() {
     setTermsError(termsValid ? '' : REQUIRED_TERMS_ERROR);
 
     if (!fieldsValid || !termsValid || !selection) {
-      // State updates are rendered on the next frame. Then move both the
-      // viewport and keyboard focus to the first invalid control.
+      setShowErrorSummary(true);
+      // State updates are rendered on the next frame. Move the viewport and
+      // keyboard focus to the summary: it names every problem at once, and
+      // its links jump to the individual controls. Focusing the summary
+      // rather than the first invalid field is what lets a screen-reader user
+      // hear how many errors there are before being dropped into one of them.
       requestAnimationFrame(() => {
+        const summary = errorSummaryRef.current;
+        if (summary) {
+          summary.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          summary.focus();
+          return;
+        }
+        // Fallback if the summary is not rendered for any reason: preserve the
+        // previous scroll-and-focus-first-invalid behaviour.
         const el = formTopRef.current?.querySelector<HTMLElement>('[data-error="true"]');
         el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el?.querySelector<HTMLElement>('input, select, textarea, button')?.focus();
       });
       return;
     }
+
+    setShowErrorSummary(false);
 
     setSubmitting(true);
     setSubmitError('');
@@ -579,6 +653,46 @@ export default function BookingPage() {
         <ServiceCard selection={selection} onChangeService={handleChangeService} />
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
+
+          {/* ── Error summary ──────────────────────────────────────────────────
+              Rendered only after a blocked submit. It is focusable (tabIndex
+              -1) and receives focus on submit, so a screen-reader user hears
+              the whole list before being moved into any one field. role
+              ="alert" is deliberately not used here: focusing the container
+              already announces it, and an assertive live region would speak
+              over the heading as focus lands. */}
+          {showErrorSummary && errorSummaryItems.length > 0 && (
+            <div
+              ref={errorSummaryRef}
+              tabIndex={-1}
+              aria-labelledby="booking-error-summary-heading"
+              className="rounded-2xl border-[1.5px] border-[#D14343] bg-red-50 p-4 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D14343]"
+            >
+              <h2
+                id="booking-error-summary-heading"
+                className="font-display text-base font-bold"
+                style={{ color: '#8C2020' }}
+              >
+                {errorSummaryItems.length === 1
+                  ? 'There is 1 problem with your booking request'
+                  : `There are ${errorSummaryItems.length} problems with your booking request`}
+              </h2>
+              <ul className="mt-2 space-y-1.5">
+                {errorSummaryItems.map((item) => (
+                  <li key={item.key}>
+                    <a
+                      href={item.target ? `#${item.target}` : '#main-content'}
+                      onClick={(event) => focusSummaryTarget(event, item)}
+                      className="text-sm underline underline-offset-2 hover:no-underline"
+                      style={{ color: '#8C2020' }}
+                    >
+                      {item.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* ── Step 1: Property details ────────────────────────────────────── */}
           <div className="bg-white border border-[#E3E7EE] rounded-2xl p-5 shadow-sm space-y-4">
@@ -733,7 +847,7 @@ export default function BookingPage() {
               <span className="text-navy-900 text-sm font-semibold">Parking &amp; Congestion Charge</span>
             </div>
 
-            <fieldset data-error={!!errors.parkingAvailable}>
+            <fieldset data-error={!!errors.parkingAvailable} data-summary-target="parkingAvailable">
               <legend className="block text-navy-900 font-semibold text-sm mb-1.5">
                 Is free parking available for our cleaning team? <span style={{ color: '#D14343' }}>*</span>
               </legend>
@@ -767,7 +881,7 @@ export default function BookingPage() {
               {errors.parkingAvailable && <p role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.parkingAvailable}</p>}
             </fieldset>
 
-            <fieldset data-error={!!errors.congestionZone}>
+            <fieldset data-error={!!errors.congestionZone} data-summary-target="congestionZone">
               <legend className="block text-navy-900 font-semibold text-sm mb-1.5">
                 Is the property inside the Congestion Charge zone? <span style={{ color: '#D14343' }}>*</span>
               </legend>
