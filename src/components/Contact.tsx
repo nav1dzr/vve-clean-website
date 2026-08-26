@@ -112,7 +112,9 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
           {/* Info panel */}
           <div className="lg:col-span-2 navy-gradient p-8 flex flex-col">
             <div>
-              <h3 className="font-display text-2xl font-bold text-white mb-2">Get in Touch</h3>
+              {/* h2, not h3: this is the first heading under the page h1, and
+                  skipping a level breaks screen-reader outline navigation. */}
+              <h2 className="font-display text-2xl font-bold text-white mb-2">Get in Touch</h2>
               <p className="text-silver-300 text-sm mb-8 leading-relaxed">
                 Send the property postcode, service and preferred date so we can give you a useful answer.
               </p>

@@ -329,7 +329,11 @@ routes.push({
 for (const post of BLOG_POSTS) {
   routes.push({
     path: `/blog/${post.slug}`,
-    title: `${post.title} | VVE Clean Blog`,
+    // A post supplying `seoTitle` is already close to the ~65-character
+    // budget, so it takes the shorter brand suffix.
+    title: post.seoTitle
+      ? `${post.seoTitle} | VVE Clean`
+      : `${post.title} | VVE Clean Blog`,
     description: post.excerpt,
     ogTitle: post.title,
     ogDescription: post.excerpt,

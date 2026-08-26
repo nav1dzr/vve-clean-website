@@ -13,6 +13,12 @@ export type BlogPostBlock =
 export interface BlogPost {
   slug: string;
   title: string;
+  /**
+   * Optional shorter title for the `<title>` tag, when `title` plus the
+   * " | VVE Clean Blog" suffix would exceed roughly 65 characters and be
+   * truncated in search results. The visible H1 always uses `title`.
+   */
+  seoTitle?: string;
   /** Used for the meta description and the index-page card. */
   excerpt: string;
   /** ISO date (YYYY-MM-DD), real — never backdated or invented. */

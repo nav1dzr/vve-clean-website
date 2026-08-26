@@ -8,6 +8,12 @@ import type { BlogPost } from '../types';
 export const londonDepositDeductionGuide: BlogPost = {
   slug: 'london-deposit-deduction-guide',
   title: 'London Deposit Deduction Guide: What Landlords Can and Can’t Claim',
+  // The full title plus " | VVE Clean Blog" is 83 characters and truncates in
+  // search results. The H1 keeps the longer, more descriptive version.
+  seoTitle: 'Tenancy Deposit Deductions: What Landlords Can Claim',
+  // 'Blog' is dropped from the suffix for posts with a seoTitle — see
+  // prerender.mjs. Full: "Tenancy Deposit Deductions: What Landlords Can
+  // Claim | VVE Clean" = 63 characters.
   excerpt:
     'A plain-English guide to tenancy deposit protection, common deduction reasons, wear and tear and disputes for renters in England.',
   publishedDate: '2026-08-07',
