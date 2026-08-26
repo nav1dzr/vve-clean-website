@@ -1,6 +1,7 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
 import QuoteCalculator from '../components/QuoteCalculator';
 import EotResultsSection from '../components/gallery/EotResultsSection';
+import GuaranteeTerms from '../components/GuaranteeTerms';
 import { ClipboardList, PackageCheck, RefreshCw, Camera } from 'lucide-react';
 import {
   EOT_BASE_PRICES_P,
@@ -175,6 +176,9 @@ const DATA: ServiceLandingData = {
   faqs: FAQS,
 
   afterPricingSection: <EotResultsSection />,
+  // Full guarantee terms live here rather than on the homepage (§9). The
+  // homepage keeps the promise and links to #guarantee on this page.
+  proofSection: <GuaranteeTerms />,
 
   // Conversion-focused reading order for this page: hero → quote (via
   // afterHeroSection, always directly under the hero) → real proof media →
@@ -183,7 +187,10 @@ const DATA: ServiceLandingData = {
   // Gallery block is intentionally omitted here — it duplicates the real
   // before/after proof already shown above and even repeats a generic End of
   // Tenancy pair, adding no distinct evidence on this page.
-  sectionOrder: ['media', 'reviews', 'benefits', 'intro', 'why', 'pricing', 'faq', 'related'],
+  // 'proof' carries the full re-clean guarantee terms (GuaranteeTerms). It
+  // sits after pricing and before the FAQ: the guarantee answers the
+  // objection the price raises, and the FAQ then handles everything else.
+  sectionOrder: ['media', 'reviews', 'benefits', 'intro', 'why', 'pricing', 'proof', 'faq', 'related'],
 
   relatedLinks: [
     { href: '/carpet-cleaning-london', label: 'Carpet Cleaning' },
