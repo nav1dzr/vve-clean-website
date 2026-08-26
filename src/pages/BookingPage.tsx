@@ -783,8 +783,17 @@ export default function BookingPage() {
               <span className="text-navy-900 text-sm font-semibold">When?</span>
             </div>
 
+            {/* Progressive disclosure: one clause of reassurance at the point
+                the worry arises ("what if my date isn't free?"), with the full
+                terms a click away rather than a block of text beside the
+                payment button. */}
             <p className="text-silver-600 text-xs -mt-2">
               Choose your preferred date and arrival window. We will confirm availability separately.
+              If we cannot offer a slot that works for you, your £30 deposit is refunded in full —{' '}
+              <Link to="/terms-of-service#bookings" className="underline underline-offset-2 hover:no-underline">
+                see booking terms
+              </Link>
+              .
             </p>
 
             <div data-testid="booking-schedule-fields" className="grid min-w-0 grid-cols-1 sm:grid-cols-2 gap-3">

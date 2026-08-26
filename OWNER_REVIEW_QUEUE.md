@@ -135,27 +135,42 @@ unchanged.
 
 ---
 
-## 5. Deposit refund wording — two confirmations needed
+## 5. Deposit refund wording — PUBLISHED, please read the exact wording
 
-The sentence you want to publish is:
+You confirmed **14 business days**. This is now live on the branch, but the
+word **"automatically" was deliberately not used**, because the refund is not
+automatic: the Stripe webhook handles only `checkout.session.completed` and
+discards `charge.refunded` (`api/stripe-webhook.js`; see
+`docs/BACKEND_AUDIT_2026-08-03.md` finding 1). A staff member initiates each
+refund by hand in the Stripe dashboard, and the CRM still shows the booking as
+paid afterwards.
 
-> "If your requested slot is unavailable and you do not accept an alternative,
-> your £30 deposit will be refunded automatically within X business days."
+**Published wording** (in `/terms-of-service` §4 and the `/faq`):
 
-**This is NOT published**, and must not be until both of these are true:
+> If your requested date and arrival window are unavailable, we will contact
+> you with the closest alternatives we can offer. If none of them works for
+> you, we will refund your £30 deposit in full. We will start that refund
+> within one business day of you telling us, and it will reach your card
+> within 14 business days — usually much sooner, as the exact timing depends
+> on your bank.
 
-- [ ] **What is X?** The number of business days.
-- [ ] **Is the refund genuinely automatic?** Right now it is not. The Stripe
-      webhook only handles `checkout.session.completed`; `charge.refunded` is
-      discarded (`api/stripe-webhook.js`, and see
-      `docs/BACKEND_AUDIT_2026-08-03.md` finding 1). A refund today is a manual
-      action in the Stripe dashboard, and the CRM will still show the booking
-      as paid afterwards.
+A one-clause version sits next to the date picker on `/booking`, linking
+through to the full terms.
 
-**Publishing "automatically" while the process is manual would be a promise
-the system cannot keep.** Either commit to doing it manually within a stated
-window and word it as "we will refund you within X business days", or fund the
-refund-handling work first. Both are fine; guessing is not.
+- [ ] **Confirm you can meet "start the refund within one business day".**
+      This is the only operational commitment in the sentence. If one business
+      day is too tight, tell me and I will widen it.
+
+**A note on 14 days.** Stripe returns a refund to a card in 5–10 business days
+once initiated, so 14 is a safe outer bound you will never breach — that is
+why it is framed as "within 14 business days — usually much sooner" rather
+than as a flat 14-day wait. If you would rather advertise a shorter, tighter
+number, 10 business days would still be comfortably achievable.
+
+**Optional follow-up:** handling `charge.refunded` in the webhook would make
+the CRM correct after a refund and would let you honestly say "automatic"
+later. That is a Stripe + Supabase change needing its own branch and your
+approval — not done here.
 
 ---
 

@@ -1,4 +1,9 @@
-import { EOT_GUARANTEE_HOURS, COVERAGE_POSTCODE_LIST } from '../data/pricing';
+import {
+  EOT_GUARANTEE_HOURS,
+  COVERAGE_POSTCODE_LIST,
+  EOT_CARPET_PACKAGE_DISCOUNT_PCT,
+  EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS,
+} from '../data/pricing';
 
 export const FAQS = [
   {
@@ -44,6 +49,22 @@ export const FAQS = [
   {
     q: 'Do you clean occupied homes?',
     a: 'Our main services are end of tenancy, move-in, after-builders, carpet, upholstery and commercial cleaning. Tell us if the property will be occupied so we can confirm the right service and scope before you book.',
+  },
+  {
+    q: 'What if the date I request is not available?',
+    a: 'We will contact you with the closest alternatives we can offer. If none of them works for you, we refund your £30 deposit in full. We start the refund within one business day of you telling us, and it reaches your card within 14 business days — usually sooner, as the exact timing depends on your bank.',
+  },
+  {
+    q: 'Can I add carpet cleaning to an end of tenancy booking?',
+    a: `Yes. Add the rooms you want cleaned while building your end of tenancy quote and the price updates before you pay. Carpet cleaning booked with an end of tenancy clean is charged at up to ${EOT_CARPET_PACKAGE_DISCOUNT_PCT}% off the standalone price once you select ${EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS} or more qualifying areas — see the next question for the conditions.`,
+  },
+  {
+    q: `How does the "up to ${EOT_CARPET_PACKAGE_DISCOUNT_PCT}% off carpet cleaning" work?`,
+    a: `It applies when carpet cleaning is booked together with an end of tenancy clean, and only once you select at least ${EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS} qualifying areas. Qualifying areas are bedrooms, living rooms, large lounges, hallways, landings and stairs. Fewer than ${EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS} areas are charged at the normal standalone price. We say "up to" because the £85 carpet minimum still applies, so a small selection may be discounted by less than ${EOT_CARPET_PACKAGE_DISCOUNT_PCT}%. Rugs, wool, silk and other delicate fibres, severe pet or biohazard contamination and exceptional staining are not included and are quoted separately after a photo review. The exact price is always shown before you pay.`,
+  },
+  {
+    q: 'What happens if my agent or landlord flags a cleaning issue?',
+    a: `Send us their report. If the issue is covered by the Complete End of Tenancy package and you contact us within ${EOT_GUARANTEE_HOURS} hours of the visit, we arrange one free re-clean of the affected area. Tell us as soon as you can, since the ${EOT_GUARANTEE_HOURS}-hour window runs from the clean. The guarantee covers cleaning work only — it does not guarantee that a tenancy deposit will be returned, and it does not cover damage, repairs or issues outside the booked scope.`,
   },
 ];
 

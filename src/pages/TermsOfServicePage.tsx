@@ -98,6 +98,13 @@ const sections: Section[] = [
           provisional rather than fixed.
         </p>
         <p className="mt-3">
+          <strong>If we cannot offer your requested slot.</strong> If your requested date and arrival window
+          are unavailable, we will contact you with the closest alternatives we can offer. If none of them
+          works for you, we will refund your £30 deposit in full. We will start that refund within one
+          business day of you telling us, and it will reach your card within 14 business days — usually much
+          sooner, as the exact timing depends on your bank.
+        </p>
+        <p className="mt-3">
           The remaining balance is due after the service has been completed and you have had the opportunity
           to check the work, unless a different payment arrangement has been agreed in writing in advance.
         </p>
