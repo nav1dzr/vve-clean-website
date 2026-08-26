@@ -23,6 +23,16 @@ export interface BookingCard {
   // markSupersededPendingBookings in admin/api/bookings/index.js). Never
   // deleted, purely a display hint; absent/false for anything else.
   superseded?: boolean;
+  // Notification-delivery flags copied from the booking row. `null` means the
+  // row predates the notification columns, or was written by a path that does
+  // not set them — an unknown, not a known failure.
+  emailCustomerSent?: boolean | null;
+  emailBusinessSent?: boolean | null;
+  // True when the booking is paid but at least one confirmation email is
+  // explicitly recorded as not sent. Derived server-side by
+  // hasFailedNotification() so the list badge and the `notifications=failed`
+  // filter can never disagree.
+  notificationFailed?: boolean;
 }
 
 export interface InternalNote {

@@ -23,13 +23,23 @@ export const BALANCE_PAYMENT_METHOD_VALUES = ['card', 'bank_transfer', 'cash', '
 
 export const SORT_VALUES = ['newest', 'oldest', 'service_date', 'highest_value'];
 
+// Notification-delivery filter on the booking list. Currently only surfaces
+// failures; kept as a whitelist so a future 'pending'/'sent' value validates
+// the same way every other filter does.
+export const NOTIFICATION_FILTER_VALUES = ['failed'];
+
 // Card projection — used by dashboard-summary, search, and the booking list.
 // Deliberately excludes address/notes/Stripe IDs/attribution/tokens; those
 // are detail-only fields (§19).
+// The two `email_*_sent` booleans are the exception to "detail-only": a paid
+// booking whose confirmation never sent is something staff must be able to
+// spot from the list, not only after opening the record (BACKEND_AUDIT
+// finding 6). They carry no customer data — they are delivery flags.
 export const CARD_SELECT = [
   'id', 'booking_ref', 'full_name', 'phone', 'postcode', 'service',
   'preferred_date', 'preferred_time', 'service_date',
   'status', 'payment_status', 'balance_status', 'total_price', 'created_at',
+  'email_customer_sent', 'email_business_sent',
 ].join(', ');
 
 // Detail projection — every field ADMIN_CRM_PLAN.md §19 calls for, and
@@ -48,6 +58,23 @@ export const DETAIL_SELECT = [
   'created_at', 'updated_at',
 ].join(', ');
 
+/**
+ * True when a booking has been paid for but at least one confirmation email
+ * did not send.
+ *
+ * Only `false` counts as a failure. `null` means the row predates the
+ * notification columns (added in 20260712000000_add_security_columns.sql) or
+ * was written by a path that does not set them — an unknown, not a known
+ * failure, and staff should not be sent chasing it.
+ *
+ * Unpaid rows are excluded because `pending_payment` rows are created before
+ * any email is attempted, so their flags are legitimately false.
+ */
+export function hasFailedNotification(row) {
+  if (row.payment_status !== 'paid') return false;
+  return row.email_customer_sent === false || row.email_business_sent === false;
+}
+
 export function toCard(row) {
   return {
     id: row.id,
@@ -64,6 +91,9 @@ export function toCard(row) {
     balanceStatus: row.balance_status,
     totalPrice: row.total_price,
     createdAt: row.created_at,
+    emailCustomerSent: row.email_customer_sent ?? null,
+    emailBusinessSent: row.email_business_sent ?? null,
+    notificationFailed: hasFailedNotification(row),
   };
 }
 

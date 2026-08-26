@@ -38,6 +38,12 @@ export default function BookingCardItem({ booking }: { booking: BookingCard }) {
           {booking.superseded && (
             <StatusBadge label="Superseded" className="bg-silver-200 text-navy-500" />
           )}
+          {/* The customer paid but did not get their confirmation. This is a
+              job for someone, so it is styled as a warning rather than as
+              another neutral state pill. */}
+          {booking.notificationFailed && (
+            <StatusBadge label="Email not sent" className="bg-amber-100 text-amber-900" />
+          )}
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-navy-700">

@@ -37,6 +37,7 @@ function readFilters(params: URLSearchParams) {
     postcode: params.get('postcode') || '',
     dateFrom: params.get('dateFrom') || '',
     dateTo: params.get('dateTo') || '',
+    notifications: params.get('notifications') || '',
     sort: (params.get('sort') as SortValue) || 'newest',
     page: Number.parseInt(params.get('page') || '1', 10) || 1,
     showSuperseded: params.get('showSuperseded') === '1',
@@ -60,6 +61,7 @@ export default function BookingListPage() {
     if (filters.postcode) qs.set('postcode', filters.postcode);
     if (filters.dateFrom) qs.set('dateFrom', filters.dateFrom);
     if (filters.dateTo) qs.set('dateTo', filters.dateTo);
+    if (filters.notifications) qs.set('notifications', filters.notifications);
     qs.set('sort', filters.sort);
     qs.set('page', String(filters.page));
     qs.set('pageSize', String(PAGE_SIZE));
@@ -142,6 +144,15 @@ export default function BookingListPage() {
         <TextFilter label="Postcode" value={filters.postcode} onChange={(v) => updateFilter('postcode', v)} placeholder="e.g. N15" />
         <DateFilter label="From" value={filters.dateFrom} onChange={(v) => updateFilter('dateFrom', v)} />
         <DateFilter label="To" value={filters.dateTo} onChange={(v) => updateFilter('dateTo', v)} />
+        <FilterSelect
+          label="Notifications"
+          value={filters.notifications}
+          onChange={(v) => updateFilter('notifications', v)}
+          options={[
+            { value: '', label: 'All bookings' },
+            { value: 'failed', label: 'Confirmation email failed' },
+          ]}
+        />
         <FilterSelect
           label="Sort"
           value={filters.sort}

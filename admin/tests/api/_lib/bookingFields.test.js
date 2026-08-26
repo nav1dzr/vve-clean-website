@@ -48,6 +48,10 @@ describe('toCard', () => {
       balanceStatus: 'outstanding',
       totalPrice: 249,
       createdAt: '2026-07-01T00:00:00.000Z',
+      // Delivery flags absent from this row: unknown, not failed.
+      emailCustomerSent: null,
+      emailBusinessSent: null,
+      notificationFailed: false,
     });
     expect(card).not.toHaveProperty('confirmation_token');
     expect(card).not.toHaveProperty('notes');
