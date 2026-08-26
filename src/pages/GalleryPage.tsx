@@ -7,6 +7,7 @@ import BeforeAfterTile from '../components/gallery/BeforeAfterTile';
 import VideoTile from '../components/gallery/VideoTile';
 import GalleryInstagramCta from '../components/gallery/GalleryInstagramCta';
 import PhotoLightbox from '../components/gallery/PhotoLightbox';
+import MobileStickyFooter from '../components/MobileStickyFooter';
 import { toLightboxPhotos, useLightbox } from '../components/gallery/useLightbox';
 import {
   GALLERY_CATEGORIES,
@@ -80,8 +81,12 @@ export default function GalleryPage() {
     return 0;
   };
 
+  // `mobile-page-bottom` reserves the sticky bar's height *plus* the
+  // safe-area inset — required on any page rendering MobileStickyFooter, or
+  // the last of the content sits under the bar on a phone with a home
+  // indicator.
   return (
-    <div className="min-h-screen bg-[#fafbfd]">
+    <div className="mobile-page-bottom min-h-screen bg-[#fafbfd] lg:pb-0">
       <Navbar />
       <main id="main-content">
 
@@ -198,6 +203,7 @@ export default function GalleryPage() {
 
       </main>
       <Footer />
+      <MobileStickyFooter />
 
       <PhotoLightbox
         photos={lightboxPhotos}

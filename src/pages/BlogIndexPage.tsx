@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import MobileStickyFooter from '../components/MobileStickyFooter';
 import { BLOG_POSTS } from '../data/blog';
 
 function formatDate(iso: string): string {
@@ -13,7 +14,7 @@ export default function BlogIndexPage() {
   const posts = [...BLOG_POSTS].sort((a, b) => b.publishedDate.localeCompare(a.publishedDate));
 
   return (
-    <div className="min-h-screen bg-[#fafbfd]">
+    <div className="mobile-page-bottom min-h-screen bg-[#fafbfd] lg:pb-0">
       <Navbar />
       <main id="main-content">
         <div className="navy-gradient pt-32 pb-14 px-4">
@@ -52,6 +53,7 @@ export default function BlogIndexPage() {
         </section>
       </main>
       <Footer />
+      <MobileStickyFooter />
     </div>
   );
 }
