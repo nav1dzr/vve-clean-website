@@ -8,6 +8,19 @@ published in the meantime, so the site is correct and safe as it stands.
 
 **Branch:** `feature/website-final-owner-review` · **Base:** `a5b90b8` (production `main`)
 
+Page-by-page review links are in `OWNER_PAGE_REVIEW.md`.
+
+### The short version — what actually needs you
+
+1. **Confirm you can start a refund within one business day** (item 5). The
+   only operational promise added to the site.
+2. **Team details** for `/about` (item 2), or the section stays hidden.
+3. **GA4 ID and Search Console** (item 6), or nothing can be measured.
+4. **One review, two photos or a few job notes** per area (item 7) to make the
+   remaining 13 area pages indexable.
+
+Everything else is optional or already safe.
+
 ---
 
 ## 1. Email deliverability — DNS decision
