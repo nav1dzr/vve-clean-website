@@ -60,12 +60,20 @@ async function chooseCard(user: ReturnType<typeof userEvent.setup>, title: strin
   await user.click(within(card as HTMLElement).getByRole('button', { name: /Get quote/i }));
 }
 
-/** Copy unique to each branch of the detailed calculator. */
+/**
+ * Copy unique to each branch of the detailed calculator.
+ *
+ * after_builders does NOT show a property-size selector: the scope varies too
+ * much to price from size alone, so the branch renders a photo-quote callout
+ * instead (`isAfterBuilders` in QuoteCalculator.tsx). This marker previously
+ * expected /Property Size/i and had been failing on `main` before this branch
+ * existed — the assertion was wrong, not the component.
+ */
 const DETAIL_MARKER: Record<string, RegExp> = {
   carpet: /Living \/ dining room/i,
   upholstery: /Armchair/i,
   move_in: /Property Size/i,
-  after_builders: /Property Size/i,
+  after_builders: /After Builders Clean/i,
 };
 
 describe('HomePage — fresh visit', () => {

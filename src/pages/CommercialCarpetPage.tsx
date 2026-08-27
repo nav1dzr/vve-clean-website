@@ -69,7 +69,10 @@ const DATA: ServiceLandingData = {
   h1: 'Commercial Carpet Cleaning London',
   h1Highlight: '— Offices, Hotels & Retail',
   heroBadges: [
-    'Out-of-hours visits available',
+    // Was "Out-of-hours visits available" — an unqualified standing claim.
+    // The schema on this same page already says such visits "can be
+    // arranged", which is the accurate framing.
+    'Out-of-hours visits can be arranged',
     '£5m public liability insured',
     'RAMS & method statements on request',
   ],

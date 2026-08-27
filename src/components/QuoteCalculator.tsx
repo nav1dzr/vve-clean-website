@@ -33,6 +33,10 @@ import {
   COMMERCIAL_REGULAR_MIN_HOURS,
   CARPET_BUNDLE_BANDS,
   CARPET_ITEM_PRICES_P,
+  WINDOW_CLEANING_FROM_P,
+  GARDEN_SERVICES_FROM_P,
+  PRESSURE_WASHING_FROM_P,
+  penceToDisplay,
 } from '../data/pricing';
 
 // ─── Pricing engine (non-carpet services) ────────────────────────────────────
@@ -1574,13 +1578,22 @@ export default function QuoteCalculator({
                 </div>
               )}
 
-              {/* Regular cleaning discount nudge */}
+              {/* Regular cleaning nudge.
+
+                  This previously advertised "10% to 30% off". No such
+                  discount exists anywhere in shared/pricingCatalogue.js or the
+                  admin price list, and it appeared inside the quote flow where
+                  a customer could reasonably rely on it. A specific percentage
+                  is a price commitment; it needs a source. Replaced with an
+                  invitation to ask, which is true and still surfaces the
+                  opportunity. Restore a figure only once one is published in
+                  the catalogue. */}
               {!isEot && <div className="flex items-start gap-3 bg-royal-50 border border-royal-200 rounded-xl px-4 py-3">
                 <div className="w-1 self-stretch rounded-full bg-royal-400 flex-shrink-0" />
                 <div>
-                  <p className="text-royal-700 text-xs font-semibold mb-0.5">Regular service discounts available</p>
+                  <p className="text-royal-700 text-xs font-semibold mb-0.5">Cleaning on a regular schedule?</p>
                   <p className="text-royal-600 text-xs leading-relaxed">
-                    Customers who book regular cleaning services can get <span className="font-semibold">10% to 30% off</span>, depending on the service type, frequency, and property size.
+                    Tell us how often you need us and we will quote for the schedule rather than a single visit. Ask before you book and we will confirm the price in writing.
                   </p>
                 </div>
               </div>}
@@ -1889,15 +1902,21 @@ export default function QuoteCalculator({
         </div>
       </div>
 
-      {/* Quote-only footnote */}
+      {/* Quote-only footnote.
+
+          These prices are read from the canonical catalogue, never typed as
+          literals. They were hard-coded at £45 for window cleaning and garden
+          services and had gone stale: the catalogue, the homepage and the
+          admin price list all say £75, so the booking page was quoting a
+          price 40% below the real one at the moment a customer decides. */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         <p className="text-center text-silver-500 text-xs leading-relaxed">
           Need something else?{' '}
-          <span className="text-silver-300">Window cleaning from £45</span>
+          <span className="text-silver-300">Window cleaning from {penceToDisplay(WINDOW_CLEANING_FROM_P)}</span>
           {' · '}
-          <span className="text-silver-300">Pressure washing from £120</span>
+          <span className="text-silver-300">Pressure washing from {penceToDisplay(PRESSURE_WASHING_FROM_P)}</span>
           {' · '}
-          <span className="text-silver-300">Garden services from £45</span>
+          <span className="text-silver-300">Garden services from {penceToDisplay(GARDEN_SERVICES_FROM_P)}</span>
           {' · '}
           <span className="text-silver-300">Commercial &amp; communal spaces: contact us for a tailored quote after we review the scope.</span>
         </p>

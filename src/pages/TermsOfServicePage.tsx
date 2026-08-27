@@ -100,9 +100,14 @@ const sections: Section[] = [
         <p className="mt-3">
           <strong>If we cannot offer your requested slot.</strong> If your requested date and arrival window
           are unavailable, we will contact you with the closest alternatives we can offer. If none of them
-          works for you, we will refund your £30 deposit in full. We will start that refund within one
-          business day of you telling us, and it will reach your card within 14 business days — usually much
-          sooner, as the exact timing depends on your bank.
+          works for you, we will refund your £30 deposit in full.
+        </p>
+        <p className="mt-3">
+          Once we issue the refund, the money is returned to the card you paid with. Card refunds
+          typically appear about 5 to 10 business days after they are issued, but the exact timing is
+          controlled by your card issuer rather than by us. If it has not appeared after 10 business
+          days, contact us with your booking reference and we will send you the refund confirmation
+          from our payment provider so you can take it up with your bank.
         </p>
         <p className="mt-3">
           The remaining balance is due after the service has been completed and you have had the opportunity

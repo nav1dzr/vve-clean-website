@@ -54,21 +54,42 @@ const renderBooking = () =>
   );
 
 describe('Terms — unavailable slot refund', () => {
-  it('states the refund and the 14 business day outer bound', () => {
+  it('commits to refunding the deposit in full', () => {
     const { container } = renderTerms();
-    const text = container.textContent ?? '';
-
-    expect(text).toMatch(/refund your £30 deposit in full/i);
-    expect(text).toMatch(/14 business days/i);
+    expect(container.textContent ?? '').toMatch(/refund your £30 deposit in full/i);
   });
 
-  it('explains that we start the refund, rather than claiming it is automatic', () => {
+  // Card settlement time belongs to the issuer. "It will reach your card
+  // within N days" is a guarantee VVE Clean cannot enforce, so the copy
+  // describes the typical range and says plainly who controls it.
+  it('describes card timing as typical and issuer-controlled, not guaranteed', () => {
     const { container } = renderTerms();
     const text = container.textContent ?? '';
 
-    expect(text).toMatch(/start that refund within one business day/i);
-    // The refund is manual today. "Automatically" would be false.
-    expect(text).not.toMatch(/refunded automatically|automatic refund/i);
+    expect(text).toMatch(/typically appear about 5 to 10 business days/i);
+    expect(text).toMatch(/controlled by your card issuer/i);
+    expect(text).not.toMatch(/will reach your card within/i);
+    expect(text).not.toMatch(/\b14 business days\b/);
+  });
+
+  // The refund is issued by hand; the webhook discards charge.refunded.
+  it('never claims the refund is automatic', () => {
+    const { container } = renderTerms();
+    expect(container.textContent ?? '').not.toMatch(/refunded automatically|automatic refund/i);
+  });
+
+  // No operational SLA is published until the owner confirms one.
+  it('publishes no unconfirmed turnaround commitment', () => {
+    const { container } = renderTerms();
+    const text = container.textContent ?? '';
+
+    expect(text).not.toMatch(/within one business day/i);
+    expect(text).not.toMatch(/start that refund within/i);
+  });
+
+  it('tells the customer what to do if the money does not arrive', () => {
+    const { container } = renderTerms();
+    expect(container.textContent ?? '').toMatch(/has not appeared after 10 business days/i);
   });
 
   it('offers alternatives before refunding, matching the real process', () => {
@@ -100,6 +121,16 @@ describe('Booking page — progressive disclosure of the refund', () => {
 
     const link = screen.getByRole('link', { name: /see booking terms/i });
     expect(link).toHaveAttribute('href', '/terms-of-service#bookings');
+  });
+
+  // Progressive disclosure: the short version makes no timing claim at all,
+  // so it cannot contradict the terms or overpromise settlement.
+  it('makes no timing claim beside the payment flow', () => {
+    const { container } = renderBooking();
+    const text = container.textContent ?? '';
+
+    expect(text).not.toMatch(/business days/i);
+    expect(text).not.toMatch(/5 to 10/);
   });
 
   it('does not claim the refund is automatic', () => {

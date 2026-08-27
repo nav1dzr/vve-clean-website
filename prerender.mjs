@@ -2,6 +2,19 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  CARPET_ITEM_PRICES_P,
+  CARPET_MIN_BOOKING_P,
+  penceToDisplay,
+} from './shared/pricingCatalogue.js';
+
+// Prices quoted in route metadata come from the canonical catalogue, never
+// typed as literals. The sofa description said "from £75", which matched
+// nothing: the cheapest sofa is a 2-seater at £70, and the £85 minimum
+// booking means no customer ever pays £75. The page itself already showed the
+// correct figures — only the search snippet was wrong.
+const SOFA_FROM = penceToDisplay(CARPET_ITEM_PRICES_P.sofa_2);
+const CARPET_MIN = penceToDisplay(CARPET_MIN_BOOKING_P);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distDir = resolve(__dirname, 'dist');
@@ -147,10 +160,10 @@ const routes = [
     path: '/sofa-cleaning-london',
     title: 'Sofa & Upholstery Cleaning London | VVE Clean',
     description:
-      'Professional sofa and upholstery cleaning in London from £75, with fabric checks and hot-water extraction where suitable.',
+      `Professional sofa and upholstery cleaning in London from ${SOFA_FROM} for a 2-seater, ${CARPET_MIN} minimum booking, with fabric checks and hot-water extraction where suitable.`,
     ogTitle: 'Sofa & Upholstery Cleaning London | VVE Clean',
     ogDescription:
-      'Professional sofa cleaning from £75. Hot-water extraction removes stains, pet hair and odours across East and North London.',
+      `Professional sofa cleaning from ${SOFA_FROM} for a 2-seater (${CARPET_MIN} minimum booking). Hot-water extraction across East and North London.`,
     changefreq: 'monthly',
     priority: '0.8',
     sources: ['src/pages/SofaCleaningPage.tsx'],

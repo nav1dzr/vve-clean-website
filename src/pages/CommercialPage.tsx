@@ -50,7 +50,7 @@ const SECTORS = [
   {
     icon: KeyRound,
     title: 'Communal areas',
-    body: 'Scheduled care for residential blocks, landlords and managing agents with one simple monthly invoice.',
+    body: 'Scheduled care for residential blocks, landlords and managing agents, with the schedule and invoicing set out in the written agreement.',
     detail: 'Hallways · stairs · lifts · bin stores',
   },
   {
@@ -153,7 +153,10 @@ export default function CommercialPage() {
                 </p>
                 <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-300">
                   <span className="inline-flex items-center gap-2"><ShieldCheck size={18} className="text-sky-300" /> £5m public liability</span>
-                  <span className="inline-flex items-center gap-2"><Clock3 size={18} className="text-sky-300" /> Out-of-hours available</span>
+                  {/* "Out-of-hours available" read as a standing commitment
+                      while this page's own FAQ says any out-of-hours visit
+                      must be confirmed in the written scope first. */}
+                  <span className="inline-flex items-center gap-2"><Clock3 size={18} className="text-sky-300" /> Access hours agreed per site</span>
                   <span className="inline-flex items-center gap-2"><FileCheck2 size={18} className="text-sky-300" /> Written specification</span>
                 </div>
                 <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -188,7 +191,9 @@ export default function CommercialPage() {
 
           <section className="border-b border-slate-200 bg-white px-4 py-6">
             <div className="mx-auto grid max-w-6xl grid-cols-2 divide-x divide-slate-200 text-center sm:grid-cols-4">
-              {['Free site visit', 'Fixed written quote', 'Monthly invoicing', 'East & North London'].map((item) => (
+              {/* "Monthly invoicing" was asserted as standing practice; billing
+                  arrangements are agreed per contract. */}
+              {['Free site visit', 'Fixed written quote', 'Invoicing agreed per contract', 'East & North London'].map((item) => (
                 <p key={item} className="px-3 py-2 text-xs font-bold uppercase tracking-[0.08em] text-navy-800 sm:text-sm">{item}</p>
               ))}
             </div>

@@ -107,12 +107,34 @@ first:
   (`src/lib/areaProof.ts:areaHasRealProof`), not asserted for all 15: a page
   ships `noindex, follow` until it has real proof, then flips to
   `index, follow` automatically once that proof exists — no redeploy needed
-  beyond adding the data. As of this addendum, that's Islington, Stratford
-  (the two the table above already flagged) and Angel (shares Islington's
-  N1 postcode district with a real tagged review).
+  beyond adding the data. As of this addendum, that's **Islington and
+  Stratford** — the two the table above already flagged, and no others.
 
 The residual risk this document raised — thin, duplicate-reading pages as a
 site-level quality signal — is managed by that `noindex` default, not
 eliminated by asserting all 15 are equally strong. See
 `src/data/areas.ts`, `src/data/areas.test.ts` (postcode/neighbour
 data-integrity guard) and `prerender.mjs` for the implementation.
+
+### Correction (27 August 2026)
+
+The paragraph above previously listed **Angel** as indexable, on the grounds
+that it shares Islington's N1 postcode district with a real tagged review.
+**That was wrong**, and it contradicted both the code and the sitemap.
+
+`matchesNamedArea` requires an **exact named-area match**. Sharing a postcode
+district is deliberately not enough — this is the same defect the completion
+log records as fixed ("Angel inherited an Islington review through shared
+N1"). Angel ships `noindex, follow`, which is correct.
+
+Indexable today, verified against `src/lib/areaProof.ts`, the `index, follow`
+pages in `dist/`, and `dist/sitemap.xml` — all three agree:
+
+| Area | Indexable | Proof |
+|---|---|---|
+| Islington | Yes | Google review, Hannah M., N1 |
+| Stratford | Yes | Google review, Ahmad B., E15 |
+| The other 13 | No | None yet |
+
+`tests/areaIndexability.test.js` now asserts this agreement, so documentation
+cannot drift from the code again.

@@ -52,7 +52,7 @@ export const FAQS = [
   },
   {
     q: 'What if the date I request is not available?',
-    a: 'We will contact you with the closest alternatives we can offer. If none of them works for you, we refund your £30 deposit in full. We start the refund within one business day of you telling us, and it reaches your card within 14 business days — usually sooner, as the exact timing depends on your bank.',
+    a: 'We will contact you with the closest alternatives we can offer. If none of them works for you, we refund your £30 deposit in full. Once the refund is issued it goes back to the card you paid with. Card refunds typically appear about 5 to 10 business days later, though the exact timing is set by your card issuer rather than by us.',
   },
   {
     q: 'Can I add carpet cleaning to an end of tenancy booking?',

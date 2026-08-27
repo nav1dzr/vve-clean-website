@@ -66,8 +66,11 @@ const services = [
     title: 'Commercial & communal',
     price: 'TAILORED QUOTE',
     priceFixed: false,
+    // Contract terms, out-of-hours access and invoicing arrangements are
+    // agreed per site in the written scope — they are not standing offers, so
+    // the card points at the enquiry rather than promising them.
     description:
-      'Offices, shops, cafés and the communal hallways of residential blocks. Contract cleaning, out-of-hours visits, monthly invoicing.',
+      'Offices, shops, cafés and the communal hallways of residential blocks. Tell us your site and access needs and we will quote against a written scope.',
     cta: 'For businesses →',
     ctaHref: '/commercial',
     featured: false,
@@ -88,8 +91,11 @@ const services = [
     title: 'Pressure washing',
     price: `FROM £${PRESSURE_WASHING_FROM_P / 100}`,
     priceFixed: false,
+    // "Back to their original colour" is an outcome claim that depends on the
+    // surface, its age and what caused the staining. Describe the method and
+    // let the photo review set expectations.
     description:
-      'Driveways, patios, decking, paths and bin areas jet-washed back to their original colour. Instant kerb-appeal for sales and lettings.',
+      'Driveways, patios, decking, paths and bin areas jet-washed to lift dirt, moss and algae. Send a photo and we will tell you what to expect before you book.',
     cta: 'WhatsApp a photo →',
     ctaHref: WA_LINK,
     ctaExternal: true,
@@ -100,8 +106,10 @@ const services = [
     title: 'Garden services',
     price: `FROM £${GARDEN_SERVICES_FROM_P / 100}`,
     priceFixed: false,
+    // Green-waste removal is a licensed waste-carrier activity and is not
+    // confirmed anywhere in this repository. Ask rather than promise.
     description:
-      'Lawn mowing, hedge trimming, weeding and garden tidy-ups with green-waste removal. Send a photo so we can review the work.',
+      'Lawn mowing, hedge trimming, weeding and garden tidy-ups. Send a photo so we can review the work, and tell us if you need waste taken away.',
     cta: 'WhatsApp a photo →',
     ctaHref: WA_LINK,
     ctaExternal: true,

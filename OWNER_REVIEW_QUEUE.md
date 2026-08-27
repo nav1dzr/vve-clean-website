@@ -203,13 +203,25 @@ Needed before any measurement plan can produce numbers:
 
 ## 7. Local area pages — real proof
 
-12 of the 15 `/cleaning-*` pages are `noindex, follow` because they have no
+**13 of the 15** `/cleaning-*` pages are `noindex, follow` because they have no
 genuine local proof. This is deliberate and correct: publishing near-identical
 pages differing only by a postcode list is a doorway-page pattern that risks
 the whole domain.
 
-Indexable today: **Islington**, **Stratford**, **Angel** (shares Islington's N1
-with a real tagged review).
+**Indexable today: Islington and Stratford. Those two only.** They are the only
+areas with a genuine area-tagged review (Hannah M., N1 and Ahmad B., E15).
+
+Verified against three sources, which agree: `src/lib/areaProof.ts`
+(`areaHasRealProof`), the two `index, follow` pages in `dist/`, and the two
+`/cleaning-*` entries in `dist/sitemap.xml`.
+
+> **Correction.** An earlier version of this file, and
+> `docs/LOCATION_PAGES_ASSESSMENT.md`, said Angel was also indexable because it
+> shares Islington's N1 postcode district. That is wrong. `matchesNamedArea`
+> requires an **exact named-area match**, precisely so an area cannot inherit a
+> neighbour's review — a deliberate fix recorded in
+> `docs/FINAL_COMPLETION_LOG.md`. Angel is `noindex` and correctly so. The code
+> was right; the documentation was wrong.
 
 Any **one** of these per area flips it to indexable automatically, with no code
 change:

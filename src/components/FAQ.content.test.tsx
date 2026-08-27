@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { FAQS } from './FAQ';
 import {
   EOT_CARPET_PACKAGE_DISCOUNT_PCT,
@@ -95,8 +98,31 @@ describe('the guarantee and refund answers match the real process', () => {
 
   // The webhook discards charge.refunded, so refunds are initiated by hand.
   it('does not claim the unavailable-slot refund is automatic', () => {
+    expect(answerFor(/not available/i)).not.toMatch(/automatically|automatic/i);
+  });
+
+  // Card settlement time is the issuer's, not VVE Clean's. The FAQ must
+  // describe the typical range and say who controls it, never guarantee an
+  // arrival date, and never publish an unconfirmed internal turnaround.
+  it('states card refund timing as typical and issuer-controlled', () => {
     const answer = answerFor(/not available/i);
-    expect(answer).toMatch(/14 business days/);
-    expect(answer).not.toMatch(/automatically|automatic/i);
+
+    expect(answer).toMatch(/typically appear about 5 to 10 business days/i);
+    expect(answer).toMatch(/set by your card issuer/i);
+    expect(answer).not.toMatch(/\b14 business days\b/);
+    expect(answer).not.toMatch(/within one business day/i);
+  });
+
+  it('keeps the FAQ and the Terms consistent on refund timing', () => {
+    const answer = answerFor(/not available/i);
+    const terms = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), '../pages/TermsOfServicePage.tsx'),
+      'utf8',
+    );
+
+    // Both quote the same range and the same attribution of control.
+    expect(answer).toMatch(/5 to 10 business days/);
+    expect(terms).toMatch(/5 to 10 business days/);
+    expect(terms).toMatch(/card issuer/i);
   });
 });
