@@ -12,14 +12,16 @@ Page-by-page review links are in `OWNER_PAGE_REVIEW.md`.
 
 ### The short version — what actually needs you
 
-1. **Confirm you can start a refund within one business day** (item 5). The
-   only operational promise added to the site.
-2. **Team details** for `/about` (item 2), or the section stays hidden.
-3. **GA4 ID and Search Console** (item 6), or nothing can be measured.
-4. **One review, two photos or a few job notes** per area (item 7) to make the
+1. **Team details** for `/about` (item 2), or the section stays hidden.
+2. **GA4 ID and Search Console** (item 6), or nothing can be measured.
+3. **One review, two photos or a few job notes** per area (item 7) to make the
    remaining 13 area pages indexable.
+4. **A decision on the homepage FAQ** (item 12) — the one change I recommend
+   but have not made.
 
-Everything else is optional or already safe.
+Everything else is optional or already safe. The refund wording (item 5) no
+longer needs anything from you: the unconfirmed one-business-day commitment
+was removed after independent review.
 
 ---
 
@@ -148,42 +150,55 @@ unchanged.
 
 ---
 
-## 5. Deposit refund wording — PUBLISHED, please read the exact wording
+## 5. Deposit refund wording — REVISED, and now needs nothing from you
 
-You confirmed **14 business days**. This is now live on the branch, but the
-word **"automatically" was deliberately not used**, because the refund is not
-automatic: the Stripe webhook handles only `checkout.session.completed` and
-discards `charge.refunded` (`api/stripe-webhook.js`; see
-`docs/BACKEND_AUDIT_2026-08-03.md` finding 1). A staff member initiates each
-refund by hand in the Stripe dashboard, and the CRM still shows the booking as
-paid afterwards.
+You confirmed 14 business days, and I published it. **Independent review then
+found two problems with that wording, and I agree with both.** It has been
+rewritten.
 
-**Published wording** (in `/terms-of-service` §4 and the `/faq`):
+**What was wrong.** The published sentence said the refund "will reach your
+card within 14 business days" and that we would "start that refund within one
+business day".
+
+1. **Card settlement is not ours to promise.** Once a refund is issued, when
+   it lands is decided by the customer's card issuer. "It will reach your card
+   within 14 business days" is a guarantee the business cannot enforce — if a
+   bank takes longer, VVE Clean has broken a published term through no fault
+   of its own.
+2. **The one-business-day SLA was never confirmed by you.** I had it in this
+   queue as an open question while it was already live on the page. That was
+   my error: an unconfirmed operational commitment should not have been
+   published in the first place.
+
+**Current published wording** (`/terms-of-service` §4 and `/faq`):
 
 > If your requested date and arrival window are unavailable, we will contact
 > you with the closest alternatives we can offer. If none of them works for
-> you, we will refund your £30 deposit in full. We will start that refund
-> within one business day of you telling us, and it will reach your card
-> within 14 business days — usually much sooner, as the exact timing depends
-> on your bank.
+> you, we will refund your £30 deposit in full.
+>
+> Once we issue the refund, the money is returned to the card you paid with.
+> Card refunds typically appear about 5 to 10 business days after they are
+> issued, but the exact timing is controlled by your card issuer rather than
+> by us. If it has not appeared after 10 business days, contact us with your
+> booking reference and we will send you the refund confirmation from our
+> payment provider so you can take it up with your bank.
 
-A one-clause version sits next to the date picker on `/booking`, linking
-through to the full terms.
+This commits VVE Clean to the refund, describes the typical timing honestly,
+names who actually controls it, and gives the customer a route if it stalls.
+`/booking` keeps a one-clause version that makes no timing claim and links
+here.
 
-- [ ] **Confirm you can meet "start the refund within one business day".**
-      This is the only operational commitment in the sentence. If one business
-      day is too tight, tell me and I will widen it.
+**Nothing is outstanding on this item.** No unconfirmed SLA is published.
 
-**A note on 14 days.** Stripe returns a refund to a card in 5–10 business days
-once initiated, so 14 is a safe outer bound you will never breach — that is
-why it is framed as "within 14 business days — usually much sooner" rather
-than as a flat 14-day wait. If you would rather advertise a shorter, tighter
-number, 10 business days would still be comfortably achievable.
+- [ ] *Optional:* if you **do** want to commit to a turnaround — "we issue the
+      refund within one business day", say — tell me and I will add it. It
+      would be a genuine differentiator, but only if you can meet it every
+      time.
 
-**Optional follow-up:** handling `charge.refunded` in the webhook would make
-the CRM correct after a refund and would let you honestly say "automatic"
-later. That is a Stripe + Supabase change needing its own branch and your
-approval — not done here.
+**Optional follow-up (unchanged):** handling `charge.refunded` in the webhook
+would make the CRM correct after a refund, instead of still showing the
+booking as paid. That is a Stripe + Supabase change needing its own branch and
+your approval — not done here.
 
 ---
 
@@ -297,3 +312,34 @@ So no change was needed on this branch, and none was made.
       `git checkout -- AGENTS.md` in the main checkout, or keep it; either
       way it will need resolving before you next pull. **I have not touched
       your working copy.**
+
+---
+
+## 12. Homepage FAQ — one change I recommend but have not made
+
+The FAQ section on the homepage is **873 words, 39% of the whole page** — and
+it renders all 15 questions, byte-identical to the standalone `/faq` page.
+Nothing is filtered; the only difference is `h1` versus `h2`.
+
+That is nearly three times the next-largest section, and it sits after the
+quote calculator where an undecided visitor is scrolling.
+
+**Recommendation:** show five or six booking-blocking questions on the
+homepage — when do I pay, can the price change, cancellation, coverage, do I
+need to be home, the re-clean guarantee — with a "See all questions" link to
+`/faq`.
+
+- Homepage FAQ: ~873 → ~350 words
+- Whole homepage: 2,250 → ~1,730 words (**23% shorter**)
+- Nothing lost: every question stays one click away, and `/faq` already ranks
+
+**Conversion risk: low.** The questions that block a booking stay visible; the
+long-tail ones move. The `FAQPage` schema would be trimmed to match the
+visible list, which the existing parity specs enforce.
+
+- [ ] **Shall I make this change?** It alters what a visitor sees on your most
+      important page, so it is your call. About twenty minutes' work plus
+      tests.
+
+Full measurements and the reasoning for keeping every other section:
+`docs/HOMEPAGE_SIMPLIFICATION_REVIEW.md`.
