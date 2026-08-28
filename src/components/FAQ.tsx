@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import {
   EOT_GUARANTEE_HOURS,
   COVERAGE_POSTCODE_LIST,
@@ -19,8 +20,12 @@ export const FAQS = [
     a: 'VVE Clean carries £5m public liability insurance. If you need a copy of the certificate or want to ask who will attend your property, message us before booking.',
   },
   {
+    // Previously claimed most customers leave keys with us, that we always send
+    // completion photos, and that keys are returned however the customer likes.
+    // None of that is an agreed operational commitment, so the answer now
+    // describes the arrangement as something confirmed per booking.
     q: 'Do I need to be home during the clean?',
-    a: 'No. Most end of tenancy customers leave keys with us or with the agent. We send photos when the job is done and return keys however suits you.',
+    a: 'You do not normally need to remain at the property, provided access and key arrangements are agreed before the appointment. Confirm the key-return and completion-photo arrangements for your particular booking.',
   },
   {
     q: 'Do you bring equipment and products?',
@@ -35,8 +40,12 @@ export const FAQS = [
     a: 'Our prices are fixed for normal condition properties based on the details provided. If we arrive and the property has heavy soiling, mould, excessive rubbish, biohazard contamination, strong odours, pet accidents, or large/permanent stains, we will explain the issue and confirm any revised price before starting.',
   },
   {
+    // The old answer said cancelling and rescheduling were both free until noon
+    // the day before. Terms §5 only makes *rescheduling* free at that deadline;
+    // a late cancellation may forfeit the deposit. The two are now stated
+    // separately so the FAQ cannot promise more than the Terms allow.
     q: 'Can I reschedule or cancel?',
-    a: 'You can cancel or reschedule without charge until 12pm on the day before the confirmed appointment. Later changes are handled under our cancellation terms. Message us as soon as possible if your plans change.',
+    a: 'Rescheduling is free if you contact us before 12 noon on the day before the confirmed appointment. Late cancellations with less than 24 hours’ notice, or cancellations on the appointment day, may result in the deposit being retained. See the cancellation terms for full details.',
   },
   {
     q: 'How quickly can you come?',
@@ -68,25 +77,60 @@ export const FAQS = [
   },
 ];
 
-const SCHEMA = {
+/**
+ * The six questions that block a booking, shown on the homepage.
+ *
+ * The homepage previously rendered all 15 — a byte-identical copy of /faq that
+ * was 39% of the page. These are matched against FAQS rather than retyped, so
+ * the homepage and /faq can never give different answers to the same question.
+ * Order here is the order shown.
+ */
+const HOMEPAGE_FAQ_QUESTIONS = [
+  'How does the end of tenancy re-clean guarantee work?',
+  'When do I pay?',
+  'Can the price change?',
+  'Can I reschedule or cancel?',
+  'What if the date I request is not available?',
+  'Which areas do you cover?',
+] as const;
+
+export const HOMEPAGE_FAQS = HOMEPAGE_FAQ_QUESTIONS.map((question) => {
+  const faq = FAQS.find(({ q }) => q === question);
+  // A question renamed in FAQS without updating this list would otherwise drop
+  // silently off the homepage and out of its schema.
+  if (!faq) throw new Error(`Homepage FAQ "${question}" is not in FAQS`);
+  return faq;
+});
+
+/**
+ * FAQPage schema built from exactly the questions the page renders — the
+ * homepage advertises its six, /faq advertises all 15. Structured data that
+ * claims answers a visitor cannot see on that page is what Google's FAQ
+ * guidance prohibits, and what the parity specs check.
+ */
+const schemaFor = (faqs: readonly { q: string; a: string }[]) => ({
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
-  mainEntity: FAQS.map(({ q, a }) => ({
+  mainEntity: faqs.map(({ q, a }) => ({
     '@type': 'Question',
     name: q,
     acceptedAnswer: { '@type': 'Answer', text: a },
   })),
-};
+});
 
 const WA_QUESTION = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20quick%20question';
 
 export default function FAQ({ standalone = false }: { standalone?: boolean }) {
+  // /faq is the full reference; everywhere else shows the booking-blocking six
+  // and links to it.
+  const faqs = standalone ? FAQS : HOMEPAGE_FAQS;
+
   return (
     <>
-      {/* JSON-LD FAQPage schema */}
+      {/* JSON-LD FAQPage schema — exactly the questions rendered below */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(SCHEMA) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaFor(faqs)) }}
       />
 
       <section
@@ -121,7 +165,7 @@ export default function FAQ({ standalone = false }: { standalone?: boolean }) {
 
           {/* FAQ cards */}
           <div className="faq-list">
-            {FAQS.map(({ q, a }) => (
+            {faqs.map(({ q, a }) => (
               <details key={q} className="faq-item">
                 <summary className="faq-summary">
                   <span className="faq-question">{q}</span>
@@ -133,6 +177,20 @@ export default function FAQ({ standalone = false }: { standalone?: boolean }) {
               </details>
             ))}
           </div>
+
+          {/* Route to the remaining questions. Only shown where the list is a
+              subset — on /faq itself there is nowhere further to go. */}
+          {!standalone && (
+            <div className="text-center mt-8">
+              <Link
+                to="/faq"
+                className="inline-flex min-h-[48px] items-center gap-2 rounded-full border-2 border-royal-600 px-7 py-3 text-sm font-bold text-royal-700 transition-colors hover:bg-royal-50"
+              >
+                View all {FAQS.length} FAQs
+                <span aria-hidden="true">→</span>
+              </Link>
+            </div>
+          )}
 
           {/* CTA */}
           <div className="text-center mt-10">

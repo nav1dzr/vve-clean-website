@@ -16,12 +16,19 @@ Page-by-page review links are in `OWNER_PAGE_REVIEW.md`.
 2. **GA4 ID and Search Console** (item 6), or nothing can be measured.
 3. **One review, two photos or a few job notes** per area (item 7) to make the
    remaining 13 area pages indexable.
-4. **A decision on the homepage FAQ** (item 12) — the one change I recommend
-   but have not made.
 
-Everything else is optional or already safe. The refund wording (item 5) no
-longer needs anything from you: the unconfirmed one-business-day commitment
-was removed after independent review.
+Everything else is optional or already safe. Two items that used to sit here
+are now closed: the refund wording (item 5) lost its unconfirmed
+one-business-day commitment, and the homepage FAQ (item 12) has been shortened
+to six questions on your instruction.
+
+**One thing to be aware of rather than act on.** The cancellation FAQ now
+matches your Terms exactly: rescheduling is free before noon the day before,
+but a cancellation inside 24 hours may mean the deposit is retained. The old
+answer implied both were free, which was more generous than your Terms
+actually are. **I have not changed the underlying policy** — only the wording
+that describes it. If you would rather the policy itself were more generous,
+that is a separate decision and it needs your approval (item 13).
 
 ---
 
@@ -315,31 +322,79 @@ So no change was needed on this branch, and none was made.
 
 ---
 
-## 12. Homepage FAQ — one change I recommend but have not made
+## 12. Homepage FAQ — done, please look at it
 
-The FAQ section on the homepage is **873 words, 39% of the whole page** — and
-it renders all 15 questions, byte-identical to the standalone `/faq` page.
-Nothing is filtered; the only difference is `h1` versus `h2`.
+**Implemented on your instruction.** Nothing outstanding here; this entry is
+kept so you can see what changed and check it on the preview.
 
-That is nearly three times the next-largest section, and it sits after the
-quote calculator where an undecided visitor is scrolling.
+The homepage FAQ used to render all 15 questions, byte-identical to `/faq`.
+It now shows the **six that block a booking**, in this order:
 
-**Recommendation:** show five or six booking-blocking questions on the
-homepage — when do I pay, can the price change, cancellation, coverage, do I
-need to be home, the re-clean guarantee — with a "See all questions" link to
-`/faq`.
+1. How does the end of tenancy re-clean guarantee work?
+2. When do I pay?
+3. Can the price change?
+4. Can I reschedule or cancel?
+5. What if the date I request is not available?
+6. Which areas do you cover?
 
-- Homepage FAQ: ~873 → ~350 words
-- Whole homepage: 2,250 → ~1,730 words (**23% shorter**)
-- Nothing lost: every question stays one click away, and `/faq` already ranks
+followed by a **"View all 15 FAQs"** button linking to `/faq`, which still
+carries the full set. Both pages keep the accordion behaviour you already had:
+question visible, answer expands on click.
 
-**Conversion risk: low.** The questions that block a booking stay visible; the
-long-tail ones move. The `FAQPage` schema would be trimmed to match the
-visible list, which the existing parity specs enforce.
+Measured on the built pages, not estimated:
 
-- [ ] **Shall I make this change?** It alters what a visitor sees on your most
-      important page, so it is your call. About twenty minutes' work plus
-      tests.
+| | Before | After |
+|---|---:|---:|
+| Homepage FAQ section | 873 words | **366 words** |
+| Whole homepage | 2,250 words | **1,727 words** (23% shorter) |
+| `/faq` | 15 questions | **15 questions** (unchanged) |
 
-Full measurements and the reasoning for keeping every other section:
-`docs/HOMEPAGE_SIMPLIFICATION_REVIEW.md`.
+**On search:** each page's `FAQPage` structured data is now generated from
+exactly the questions that page renders — six on the homepage, fifteen on
+`/faq`. That is what Google's FAQ guidance requires, and advertising answers a
+visitor could not see would have risked the rich result. Nothing is lost from
+search: `/faq` still carries all fifteen, and it is the page that ranks for
+them.
+
+The six answers are read from the same array as `/faq`, so the two pages can
+never give different answers to the same question. Two new test files (28
+specs) pin the selection, the order, the link, the schema/visible parity and
+the fact that the homepage does not advertise the nine questions it no longer
+shows.
+
+Original measurements and the reasoning for keeping every other homepage
+section: `docs/HOMEPAGE_SIMPLIFICATION_REVIEW.md`.
+
+---
+
+## 13. Cancellation policy — a question the FAQ correction raised
+
+**Nothing is broken and nothing is blocked.** The site is now accurate. This
+is a business question that only became visible once the wording was fixed.
+
+The FAQ used to say customers could **cancel or reschedule** without charge
+until noon the day before. Your Terms §5 do not say that. They say:
+
+- free **reschedule** before 12:00 noon the day before, and
+- cancellations with **less than 24 hours' notice**, or on the day, **may
+  result in the deposit being forfeited**.
+
+So the FAQ was offering a refund right the Terms do not give. It now states
+the two separately, in your Terms' own terms. **The policy itself is
+unchanged** — I only corrected the description, because changing what you
+charge customers is your decision, not mine.
+
+What is worth your attention:
+
+- [ ] **Is the Terms wording the policy you actually operate?** "May result in
+      the deposit being forfeited" is discretionary. If in practice you always
+      refund a same-day cancellation, or never do, the Terms should say so —
+      customers read "may" as "might not", and it is the kind of ambiguity
+      that causes a dispute.
+- [ ] **Do you want a free-cancellation window at all?** Many cleaning firms
+      offer one at 48 hours. Adding one would be more generous than your
+      current Terms and might reduce booking hesitancy. **This would change a
+      customer-facing payment policy, so I will not touch it without you
+      saying so explicitly.**
+
+If you change nothing, the site stays correct as it is.

@@ -5,9 +5,16 @@ redesign it, and report whether any section can be removed or moved to a
 service page without weakening conversion. Subjective changes are left for
 owner review.
 
-**Nothing in this document has been changed on the branch.** It is a report.
-The one change I would make without hesitation is flagged as such and is
-waiting on your word.
+**Update, 28 August 2026 — the FAQ recommendation below has been implemented**
+on the owner's instruction. The homepage now shows six booking-blocking
+questions and links to `/faq` for the rest. Measured on the rebuilt page: the
+FAQ section went 873 → **366 words** and the homepage 2,250 → **1,727 words**,
+a 23% reduction — within three words of the estimate below. `/faq` still
+carries all 15. Everything else in this report stands as written and was left
+alone.
+
+The rest of this document is the original report, kept for the reasoning and
+the before-measurements.
 
 Measured 27 August 2026 against the built `dist/index.html`.
 
