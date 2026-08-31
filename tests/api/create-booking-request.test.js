@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const selectLikeMock = vi.fn();
 const insertSingleMock = vi.fn();
@@ -20,6 +20,10 @@ vi.mock('nodemailer', () => ({
 }));
 
 const { default: handler } = await import('../../api/create-booking-request.js');
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 function futureDate() {
   const date = new Date();
@@ -149,10 +153,31 @@ describe('POST /api/create-booking-request', () => {
     for (const [message] of sendMailMock.mock.calls) {
       expect(message.text).toBeTruthy();
       expect(message.html).toBeTruthy();
+      expect(message.text).not.toMatch(/£30 deposit|deposit link|Stripe/i);
+      expect(message.html).not.toMatch(/£30 deposit|deposit link|Stripe/i);
     }
     expect(updateEqMock).toHaveBeenCalledWith(expect.objectContaining({
       email_customer_sent: true,
       email_business_sent: true,
     }), 'id', 'booking-1');
+  });
+
+  it('sends the manager Telegram notification using the existing bot settings', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    process.env.TELEGRAM_BOT_TOKEN = 'test-bot-token';
+    process.env.TELEGRAM_CHAT_ID = 'test-chat-id';
+    const response = res();
+
+    await handler(req(payload()), response);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toContain('/bottest-bot-token/sendMessage');
+    const telegramBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(telegramBody.chat_id).toBe('test-chat-id');
+    expect(telegramBody.text).toMatch(/New booking request/);
+    expect(telegramBody.text).toMatch(/No online deposit required/);
+    expect(telegramBody.text).not.toMatch(/£30 deposit|deposit link|Stripe/i);
+    expect(updateEqMock).toHaveBeenCalledWith(expect.objectContaining({ telegram_sent: true }), 'id', 'booking-1');
   });
 });

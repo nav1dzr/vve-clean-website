@@ -1,30 +1,46 @@
 import { Link } from 'react-router-dom';
+import { Armchair, KeyRound, Waves, type LucideIcon } from 'lucide-react';
 import type { AreaInfo } from '../../data/areas';
 import { getAreaShowcaseVideos } from '../../data/areaShowcase';
 import { CARPET_MIN_BOOKING_P, EOT_BASE_PRICES_P } from '../../data/pricing';
-import { SERVICE_IMAGES } from '../../data/services';
 
-const serviceCards = [
+type AreaServiceCard = {
+  title: string;
+  detail: string;
+  price: string;
+  href: string;
+  icon: LucideIcon;
+  iconColour: string;
+  iconBackground: string;
+};
+
+const serviceCards: AreaServiceCard[] = [
   {
     title: 'End of tenancy cleaning',
     detail: 'Vacant-property cleaning to a published scope, with oven cleaning included.',
     price: `From £${EOT_BASE_PRICES_P.studio / 100}`,
     href: '/end-of-tenancy-cleaning-london',
-    image: SERVICE_IMAGES.endOfTenancy,
+    icon: KeyRound,
+    iconColour: 'text-amber-600',
+    iconBackground: 'bg-amber-50',
   },
   {
     title: 'Carpet cleaning',
     detail: 'Hot-water extraction for suitable carpets, with the price built item by item.',
     price: `£${CARPET_MIN_BOOKING_P / 100} minimum visit`,
     href: '/carpet-cleaning-london',
-    image: SERVICE_IMAGES.deepCleaning,
+    icon: Waves,
+    iconColour: 'text-blue-600',
+    iconBackground: 'bg-blue-50',
   },
   {
     title: 'Sofa & upholstery',
     detail: 'Fabric suitability checked first, with photo assessment where the material needs it.',
     price: `£${CARPET_MIN_BOOKING_P / 100} minimum visit`,
     href: '/sofa-cleaning-london',
-    image: '/sofa_upholstery/web/gallery/sofa-gallery-01.webp',
+    icon: Armchair,
+    iconColour: 'text-emerald-700',
+    iconBackground: 'bg-emerald-50',
   },
 ];
 
@@ -45,19 +61,24 @@ export default function AreaServiceShowcase({ area }: { area: AreaInfo }) {
         </div>
 
         <div className="grid gap-5 md:grid-cols-3">
-          {serviceCards.map((service) => (
-            <article key={service.title} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <img src={service.image} alt="" loading="lazy" decoding="async" className="aspect-[16/8] w-full object-cover" />
-              <div className="p-5">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-royal-700">{service.price}</p>
-                <h3 className="mt-2 font-display text-xl font-bold text-navy-900">{service.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">{service.detail}</p>
-                <Link to={service.href} className="mt-5 inline-flex min-h-[44px] items-center font-semibold text-royal-700 underline decoration-royal-300 underline-offset-4 hover:text-royal-900">
-                  See service details
-                </Link>
-              </div>
-            </article>
-          ))}
+          {serviceCards.map((service) => {
+            const Icon = service.icon;
+            return (
+              <article key={service.title} className="flex min-h-[300px] flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-sky-300 hover:shadow-md motion-reduce:transform-none">
+                <span className={`mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl ${service.iconBackground} ${service.iconColour}`} aria-hidden="true">
+                  <Icon size={25} strokeWidth={1.8} />
+                </span>
+                <div className="flex flex-1 flex-col">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-royal-700">{service.price}</p>
+                  <h3 className="mt-2 font-display text-xl font-bold text-navy-900">{service.title}</h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-slate-600">{service.detail}</p>
+                  <Link to={service.href} className="mt-5 inline-flex min-h-[44px] items-center font-semibold text-royal-700 underline decoration-royal-300 underline-offset-4 hover:text-royal-900">
+                    See service details
+                  </Link>
+                </div>
+              </article>
+            );
+          })}
         </div>
 
         {videos.length > 0 && (

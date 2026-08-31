@@ -135,6 +135,7 @@ describe('HomePage — fresh visit', () => {
     }
     expect(grid.getAllByRole('article')).toHaveLength(5);
     expect(grid.queryByText('Most booked')).not.toBeInTheDocument();
+    expect(grid.queryAllByRole('img')).toHaveLength(0);
 
     // Cards come first in the document, the quote below them.
     const cards = document.getElementById('services') as HTMLElement;

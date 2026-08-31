@@ -1289,7 +1289,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                     <span data-testid="final-total" className="text-navy-900 font-display font-bold text-3xl">{penceToDisplay(totalP)}</span>
                   </div>
                   <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-sm text-navy-800">
-                    <strong>No payment now.</strong> Send your preferred time first. If you accept the time we offer, we send a secure £30 deposit link and deduct it from this total.
+                    <strong>No payment now.</strong> Send your preferred time first. We check availability, scope and the final price, then contact you to confirm the appointment.
                   </div>
                   <div className="mt-4 inline-flex items-center gap-1.5 text-green-800 bg-green-50 border border-green-200 rounded-full px-3 py-1.5 text-xs font-semibold">
                     <ShieldCheck size={13} /> {state.pkg === 'complete' ? `Full ${EOT_GUARANTEE_HOURS}-hour agency-ready guarantee` : `${EOT_GUARANTEE_HOURS}-hour guarantee on selected tasks`}

@@ -12,13 +12,18 @@
 
 The conversion review has been implemented as a single isolated review branch.
 The main change is a request-first booking journey: customers send a preferred
-time without paying, the manager checks availability, and a £30 deposit is
-requested only after the customer accepts the offered time.
+time without paying, the manager checks availability, scope and final price,
+and the appointment is confirmed directly with the customer. Online deposits
+are not part of the active journey.
 
 ## Implemented
 
 - New no-payment booking-request API with server-side quote validation,
   database persistence, multipart email and manager notification.
+- Customer confirmation email, business email and Telegram notification use
+  the same existing server credentials as the previous booking flow.
+- The former Stripe checkout endpoint is retained for rollback but fails
+  closed unless `STRIPE_BOOKING_ENABLED=true` is deliberately configured.
 - Booking page rewritten around preferred-time requests, including a focused
   error summary, field-level messages, semantic required states and preserved
   entered information.
@@ -28,6 +33,8 @@ requested only after the customer accepts the offered time.
   without the runaround.”
 - Duplicate homepage service sections combined into one five-card set; unsupported
   “Most booked” labels removed.
+- Missing legacy service images replaced with dependable coloured service icons
+  on the homepage and every area page.
 - Homepage proof expanded from four curated before/after pairs to four curated
   plus two stable daily rotating real results.
 - Quote entry visually strengthened without returning to the rejected dark
@@ -52,7 +59,7 @@ requested only after the customer accepts the offered time.
 
 ## Verification
 
-- Public website: **1,745 passed**, 111 skipped, 0 failed.
+- Public website: **1,742 passed**, 111 skipped, 0 failed.
 - VVE manager system: **716 passed**, 1 todo, 0 failed.
 - Type checks: pass for website and manager system.
 - Lint: 0 errors; 7 website and 1 manager Fast Refresh warnings in the existing
@@ -77,9 +84,12 @@ requested only after the customer accepts the offered time.
   functional error.
 - Future large gallery media still needs an owner-approved Supabase Storage
   destination and upload workflow.
-- A one-click manager action to confirm a time and send the £30 link is a
-  logical VVE OS follow-up; this branch keeps that step explicit rather than
-  pretending it is automated.
+- Customer email, business email and Telegram dispatch are covered by API tests.
+  A real delivery check requires a protected Vercel preview with the existing
+  server credentials; the static Vite preview at port 4175 does not execute
+  `/api` functions and therefore cannot submit a real request.
+- VVE OS can later automate appointment confirmation and payment collection,
+  but the present website does not depend on that future workflow.
 
 Owner-only decisions are kept in `OWNER_REVIEW_QUEUE.md`. The review order is
 in `OWNER_PAGE_REVIEW.md`.

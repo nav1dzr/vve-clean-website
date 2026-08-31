@@ -308,7 +308,7 @@ const TRUST_ITEMS = [
   '£5m public liability insurance',
   'Clear scope before work starts',
   'Published prices for standard services',
-  'Secure Stripe checkout',
+  'No payment to send a request',
   'Direct contact with VVE Clean',
 ];
 
@@ -1737,7 +1737,7 @@ export default function QuoteCalculator({
                 <div className="glass-card rounded-xl p-3 mb-3">
                   <p className="text-white text-xs font-semibold">No payment to request a preferred time</p>
                   <p className="mt-1 text-silver-300 text-[10px] leading-snug">
-                    After we check availability, you only pay the £30 deposit if you accept the offered time. It comes off the total.
+                    We check availability, scope and the final price before the appointment is confirmed.
                   </p>
                 </div>
               )}

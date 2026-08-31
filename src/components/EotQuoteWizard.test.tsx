@@ -319,7 +319,7 @@ describe('EotQuoteWizard — Step 4: Add-ons and final review', () => {
     expect(screen.queryByText('Total service price')).not.toBeInTheDocument();
     expect(screen.queryByText('Final total')).not.toBeInTheDocument();
     expect(screen.getByText('No payment now.')).toBeInTheDocument();
-    expect(screen.getByText(/If you accept the time we offer, we send a secure £30 deposit link/i)).toBeInTheDocument();
+    expect(screen.getByText(/We check availability, scope and the final price, then contact you to confirm the appointment/i)).toBeInTheDocument();
     expect(screen.queryByText('Deposit today')).not.toBeInTheDocument();
     expect(screen.getByText(new RegExp(`${72}-hour guarantee on selected tasks`))).toBeInTheDocument();
   });

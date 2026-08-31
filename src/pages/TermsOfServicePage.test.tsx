@@ -18,18 +18,18 @@ function renderPage() {
   return (document.body.textContent || '').replace(/\s+/g, ' ');
 }
 
-describe('TermsOfServicePage — booking request / deposit clarity', () => {
-  it('explains the request is free and a later £30 deposit is deducted from the final total', () => {
+describe('TermsOfServicePage — no-deposit booking request clarity', () => {
+  it('explains the request is free and creates no payment obligation', () => {
     const text = renderPage();
     expect(text).toMatch(/No payment is taken when you send that request/i);
-    expect(text).toMatch(/If you accept the offered time, we send a secure link for a\s*£30 deposit/i);
-    expect(text).toMatch(/deducted from your final total/i);
+    expect(text).toMatch(/does not create a payment obligation/i);
+    expect(text).not.toMatch(/£30 deposit|Stripe secure checkout/i);
   });
 
-  it('explains the preferred time is a request until accepted and deposited', () => {
+  it('explains the preferred time is a request until time, scope and price are agreed', () => {
     const text = renderPage();
     expect(text).toMatch(/is a\s*booking request, not a confirmed appointment/i);
-    expect(text).toMatch(/confirmed only after we have agreed the time with you and received any required deposit/i);
+    expect(text).toMatch(/confirm the appointment only after we have agreed the time, scope and final price/i);
   });
 
   it('states when the remaining balance is due', () => {
@@ -46,8 +46,8 @@ describe('TermsOfServicePage — booking request / deposit clarity', () => {
     const text = renderPage();
     expect(text).toMatch(/Cancellations and Rescheduling/);
     expect(text).toMatch(/Access and No-Show/);
-    expect(text).toMatch(/deposit being forfeited/i);
-    expect(text).toMatch(/deposit may be non-refundable/i);
+    expect(text).toMatch(/call-out charge applies only if it was stated and agreed in writing/i);
+    expect(text).not.toMatch(/deposit being forfeited|deposit may be non-refundable/i);
   });
 
   it('displays a "last updated" date derived from the shared TERMS_VERSION constant', () => {
@@ -57,7 +57,7 @@ describe('TermsOfServicePage — booking request / deposit clarity', () => {
     expect(text).toContain(`Last updated: ${expected}`);
   });
 
-  it('renders at the Terms of Service route linked before a deposit is paid', () => {
+  it('renders at the Terms of Service route linked from the request form', () => {
     renderPage();
     expect(screen.getByRole('heading', { name: 'Terms of Service', level: 1 })).toBeInTheDocument();
   });

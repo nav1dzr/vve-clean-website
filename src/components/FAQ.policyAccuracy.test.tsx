@@ -2,8 +2,8 @@
 //
 // 1. "Can I reschedule or cancel?" said cancelling AND rescheduling were free
 //    until noon the day before. Terms §5 makes only *rescheduling* free at that
-//    deadline; a cancellation inside 24 hours may forfeit the deposit. The FAQ
-//    was offering customers a refund right the Terms do not give them.
+//    deadline. With online deposits disabled, any cancellation or call-out
+//    charge must instead have been agreed when the appointment was confirmed.
 //
 // 2. "Do I need to be home?" asserted that most customers leave keys with us,
 //    that completion photos are always sent, and that keys are returned however
@@ -42,31 +42,26 @@ describe('the cancellation answer matches the Terms', () => {
     expect(text).not.toMatch(/free[^.]*cancel/i);
   });
 
-  it('states the deposit consequence of a late cancellation', () => {
+  it('states how late cancellations are handled without inventing a fee', () => {
     const text = answer();
-    expect(text).toMatch(/less than 24 hours/i);
-    expect(text).toMatch(/deposit being retained/i);
+    expect(text).toMatch(/cancel later than that/i);
+    expect(text).toMatch(/charge applies only if it was stated and agreed in writing/i);
   });
 
   it('points the customer at the full cancellation terms', () => {
-    expect(answer()).toMatch(/cancellation terms/i);
+    expect(answer()).toMatch(/contact us as soon as possible/i);
   });
 
-  it('agrees with Terms §5 on both the deadline and the 24-hour rule', () => {
+  it('agrees with Terms §5 on the deadline and written-agreement safeguard', () => {
     const answerText = answer();
 
     // Same deadline, written the same way round: noon, the day before.
     expect(terms).toMatch(/12:00 noon the day before/i);
     expect(answerText).toMatch(/12 noon on the day before/i);
 
-    // Same forfeiture trigger.
-    expect(terms).toMatch(/less than 24 hours notice/i);
-    expect(answerText).toMatch(/less than 24 hours/i);
-
-    // The Terms say "forfeited", the FAQ says "retained" — same meaning in
-    // plainer words. Neither may claim the deposit is safe.
-    expect(terms).toMatch(/deposit being forfeited/i);
-    expect(answerText).not.toMatch(/deposit is refunded|full refund/i);
+    expect(terms).toMatch(/charge applies only if it was stated and agreed in writing/i);
+    expect(answerText).toMatch(/charge applies only if it was stated and agreed in writing/i);
+    expect(terms).not.toMatch(/deposit being forfeited|deposit may be non-refundable/i);
   });
 
   it('keeps the free-reschedule deadline anchored to the Terms section that owns it', () => {

@@ -83,7 +83,7 @@ const sections: Section[] = [
   },
   {
     id: 'bookings',
-    title: '4. Bookings and Deposits',
+    title: '4. Booking Requests and Confirmation',
     content: (
       <>
         <p>
@@ -92,22 +92,12 @@ const sections: Section[] = [
           and contact you with a time we can offer.
         </p>
         <p className="mt-3">
-          If you accept the offered time, we send a secure link for a <strong>£30 deposit</strong>. The deposit is
-          processed by Stripe, deducted from your final total and is not an extra charge. Your appointment is
-          confirmed only after we have agreed the time with you and received any required deposit.
+          We confirm the appointment only after we have agreed the time, scope and final price with you. Sending a
+          request does not oblige you to accept an alternative time and does not create a payment obligation.
         </p>
         <p className="mt-3">
           <strong>If we cannot offer your requested slot.</strong> We will contact you with the closest alternatives
-          we can offer. If none works for you, you can decline them and nothing is charged. If VVE Clean later
-          cannot honour an agreed appointment after taking a deposit and you do not accept an alternative, we will
-          refund that deposit in full.
-        </p>
-        <p className="mt-3">
-          Once we issue the refund, the money is returned to the card you paid with. Card refunds
-          typically appear about 5 to 10 business days after they are issued, but the exact timing is
-          controlled by your card issuer rather than by us. If it has not appeared after 10 business
-          days, contact us with your booking reference and we will send you the refund confirmation
-          from our payment provider so you can take it up with your bank.
+          we can offer. If none works for you, you can decline them and nothing is charged.
         </p>
         <p className="mt-3">
           The remaining balance is due after the service has been completed and you have had the opportunity
@@ -128,8 +118,8 @@ const sections: Section[] = [
         <ul className="mt-3 space-y-2 list-none">
           {[
             'Free reschedule if you contact us before 12:00 noon the day before your booking',
-            'Late cancellations (less than 24 hours notice) or cancellations on the day of the booking may result in the deposit being forfeited',
-            'If we cannot access the property at the agreed time due to no-show, no access, or locked premises, the deposit may be non-refundable (see Section 8)',
+            'If you need to cancel with less than 24 hours’ notice, contact us as soon as possible',
+            'Any cancellation or call-out charge applies only if it was stated and agreed in writing when the appointment was confirmed (see Section 8)',
           ].map((item) => (
             <li key={item} className="flex items-start gap-2.5 text-silver-700">
               <span className="w-1.5 h-1.5 rounded-full bg-royal-500 flex-shrink-0 mt-2" />
@@ -190,8 +180,8 @@ const sections: Section[] = [
       <p>
         If our team arrives at the agreed time and cannot gain access to the property — whether due to
         incorrect address details, locked premises, or no response — we may treat this as a failed
-        appointment. In such cases, the deposit may be non-refundable and a call-out charge may apply
-        to cover travel and labour costs. We will always attempt to contact you before leaving.
+        appointment. A call-out charge applies only if it was stated and agreed in writing when the appointment was
+        confirmed. We will always attempt to contact you before leaving.
       </p>
     ),
   },
@@ -200,19 +190,12 @@ const sections: Section[] = [
     title: '9. Payment',
     content: (
       <>
-        <p>We accept the following payment methods:</p>
-        <ul className="mt-3 space-y-2 list-none">
-          {[
-            'Debit or credit card (via Stripe secure checkout)',
-            'Bank transfer (for agreed commercial or repeat-booking arrangements)',
-            'Cash (by prior arrangement only)',
-          ].map((item) => (
-            <li key={item} className="flex items-start gap-2.5 text-silver-700">
-              <span className="w-1.5 h-1.5 rounded-full bg-royal-500 flex-shrink-0 mt-2" />
-              {item}
-            </li>
-          ))}
-        </ul>
+        <p>
+          No payment is collected when you send a booking request. For standard residential work, the full balance
+          is normally due after the service has been completed and you have had an opportunity to check the work.
+          The payment method and any different arrangement will be confirmed with you in writing before the
+          appointment.
+        </p>
         <p className="mt-3">
           Commercial customers are invoiced on 14-day payment terms unless otherwise agreed. Late payment
           may result in suspension of future bookings.

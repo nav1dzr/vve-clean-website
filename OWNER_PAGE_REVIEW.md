@@ -40,7 +40,7 @@ When a protected preview is created, review these pages in this order.
 | Page | What to check |
 |---|---|
 | `/faq` | All 15 questions remain; homepage shows only the six booking blockers. |
-| `/terms-of-service` | Request-first payment wording, refund timing and late-cancellation policy. |
+| `/terms-of-service` | Request-first confirmation, no online deposit and written-agreement safeguard for any late-cancellation/call-out charge. |
 | `/privacy-policy` | Consent and analytics wording. |
 | `/blog` | Blog listing now has a conversion path; the deposit guide remains `noindex` pending editorial approval. |
 | any bad URL | Branded 404 with working routes back to services and quote. |

@@ -54,7 +54,7 @@ const EOT_ROWS: [string, number, number][] = [
 ];
 
 const PRICING_FAQS = [
-  { q: 'When do I pay?', a: 'Request a preferred time online with no payment. After we confirm what is available, you pay the £30 deposit only if you accept the offered time. It is deducted from the final total.' },
+  { q: 'When do I pay?', a: 'Request a preferred time online with no payment. We confirm availability, scope and the final price with you first. For standard residential work, payment is normally due after the service unless a different arrangement is agreed in writing.' },
   { q: 'What do the published prices cover?', a: 'The tables show the standard scope for normally maintained properties. Select the service and property details to see the applicable price and included work.' },
   { q: 'Can the price change?', a: 'If the information supplied does not match the condition or scope on arrival, VVE Clean will explain the difference and agree any revised price before additional work starts.' },
   { q: 'Can I request a same-day or next-day visit?', a: 'You can send any preferred date, but availability varies by service, area and property size. Contact VVE Clean first if the timing is critical.' },
@@ -414,7 +414,7 @@ export default function PricingPage() {
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-3">Ready to request a cleaning time?</h2>
           <p className="text-silver-300 mb-2 text-base">Choose a preferred date and VVE Clean will confirm availability separately.</p>
-          <p className="text-sky-100 mb-8 text-sm font-semibold">No payment now. We check availability first and contact you before any deposit is requested.</p>
+          <p className="text-sky-100 mb-8 text-sm font-semibold">No payment to send a request. We check availability, scope and the final price first.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/#quote"
               className="inline-flex items-center justify-center gap-2.5 bg-royal-500 hover:bg-royal-600 text-white font-bold px-8 py-4 min-h-[44px] rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">

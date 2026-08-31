@@ -105,21 +105,17 @@ describe('the guarantee and refund answers match the real process', () => {
     const answer = answerFor(/not available/i);
 
     expect(answer).toMatch(/nothing is charged/i);
-    expect(answer).toMatch(/only after you accept an available time/i);
+    expect(answer).toMatch(/decline/i);
     expect(answer).not.toMatch(/refund/i);
   });
 
-  // Refund timing remains relevant only after a customer has accepted a time
-  // and paid. The Terms must describe that separate, later-stage process
-  // without promising an issuer-controlled settlement date.
-  it('keeps issuer-controlled refund timing in the Terms', () => {
+  it('keeps online-payment and refund-timing promises out of the Terms', () => {
     const terms = readFileSync(
       resolve(dirname(fileURLToPath(import.meta.url)), '../pages/TermsOfServicePage.tsx'),
       'utf8',
     );
 
-    expect(terms).toMatch(/5 to 10 business days/);
-    expect(terms).toMatch(/card issuer/i);
-    expect(terms).not.toMatch(/\b14 business days\b/);
+    expect(terms).toMatch(/No payment is collected when you send a booking request/i);
+    expect(terms).not.toMatch(/5 to 10 business days|card issuer|\b14 business days\b/i);
   });
 });

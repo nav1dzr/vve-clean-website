@@ -33,19 +33,15 @@ export const FAQS = [
   },
   {
     q: 'When do I pay?',
-    a: "There is no payment when you request a preferred time. We check availability and contact you first. If you accept the time offered, we send a secure £30 deposit link; the deposit is deducted from the final total. The remaining balance is due on completion under the agreed payment terms.",
+    a: 'There is no payment when you request a preferred time. We check availability, scope and the final price, then contact you to confirm the appointment. For standard residential work, payment is normally due after the service unless a different arrangement is agreed in writing.',
   },
   {
     q: 'Can the price change?',
     a: 'Our prices are fixed for normal condition properties based on the details provided. If we arrive and the property has heavy soiling, mould, excessive rubbish, biohazard contamination, strong odours, pet accidents, or large/permanent stains, we will explain the issue and confirm any revised price before starting.',
   },
   {
-    // The old answer said cancelling and rescheduling were both free until noon
-    // the day before. Terms §5 only makes *rescheduling* free at that deadline;
-    // a late cancellation may forfeit the deposit. The two are now stated
-    // separately so the FAQ cannot promise more than the Terms allow.
     q: 'Can I reschedule or cancel?',
-    a: 'Rescheduling is free if you contact us before 12 noon on the day before the confirmed appointment. Late cancellations with less than 24 hours’ notice, or cancellations on the appointment day, may result in the deposit being retained. See the cancellation terms for full details.',
+    a: 'Rescheduling is free if you contact us before 12 noon on the day before the confirmed appointment. If you need to cancel later than that, contact us as soon as possible. Any cancellation or call-out charge applies only if it was stated and agreed in writing when the appointment was confirmed.',
   },
   {
     q: 'How quickly can you come?',
@@ -61,7 +57,7 @@ export const FAQS = [
   },
   {
     q: 'What if the date I request is not available?',
-    a: 'We will contact you with the closest alternatives we can offer. If none works for you, you can decline them and nothing is charged because payment is requested only after you accept an available time.',
+    a: 'We will contact you with the closest alternatives we can offer. If none works for you, you can decline them. Nothing is charged for sending or declining a request.',
   },
   {
     q: 'Can I add carpet cleaning to an end of tenancy booking?',

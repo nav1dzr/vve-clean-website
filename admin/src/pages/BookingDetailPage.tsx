@@ -142,7 +142,7 @@ export default function BookingDetailPage() {
         <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-relaxed text-navy-900">
           <p className="font-semibold">Preferred-time request — no payment requested yet</p>
           <p className="mt-1">
-            Check availability and the final scope, then contact the customer. Only send a £30 deposit invoice or secure payment link after they accept the offered time.
+            Check availability and the final scope, then contact the customer to agree the time and final price. No online deposit is required.
           </p>
         </div>
       )}

@@ -66,7 +66,7 @@ const sections: Section[] = [
             'Email address',
             'Property address and postcode',
             'Booking details (service type, preferred date and time)',
-            'Payment and deposit status (we do not store full card details — see Section 5)',
+            'Payment status where needed for invoicing or accounting (we do not store full card details — see Section 5)',
             'Messages and notes you send us when requesting a quote or support',
             'Photos you share to help us assess a job or provide a quote',
             'Website usage data where analytics or advertising tracking is in use (see Section 7)',
@@ -96,7 +96,7 @@ const sections: Section[] = [
           {[
             'To provide quotes and respond to enquiries',
             'To manage and confirm bookings',
-            'To process deposit payments securely via Stripe',
+            'To record and process payments where a payment arrangement has been agreed',
             'To deliver cleaning and property services to you',
             'To provide customer support and follow up after a service',
             'To improve our website, services, and advertising',
@@ -154,11 +154,10 @@ const sections: Section[] = [
     title: '5. Payments',
     content: (
       <p>
-        All card payments and deposits are processed securely by <strong>Stripe</strong>, a PCI-DSS compliant
-        payment processor. We do not receive, store, or have access to your full card number, CVV, or other
-        sensitive payment credentials. Stripe's own privacy policy applies to data you submit during checkout.
-        You can view it at{' '}
-        <span className="text-royal-600">stripe.com/gb/privacy</span>.
+        The website does not collect payment when you send a booking request. If a card payment link is separately
+        offered and accepted, it may be processed by <strong>Stripe</strong>. VVE Clean does not receive or store
+        your full card number, CVV or other sensitive card credentials. Stripe's own privacy policy applies to data
+        submitted on its payment page at <span className="text-royal-600">stripe.com/gb/privacy</span>.
       </p>
     ),
   },
@@ -172,7 +171,7 @@ const sections: Section[] = [
         </p>
         <ul className="mt-3 space-y-2 list-none">
           {[
-            'Stripe — to process deposit payments securely',
+            'Stripe — only if you choose to use a separately offered card payment link',
             'Google — for advertising (Google Ads), analytics (Google Analytics), and related services, where in use',
             'Email service providers — to send booking confirmations and customer communications',
             'Hosting and infrastructure providers (e.g. Vercel) — to operate the website',

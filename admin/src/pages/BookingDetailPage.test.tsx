@@ -193,7 +193,7 @@ describe('BookingDetailPage', () => {
 
     expect(await screen.findAllByText('Check availability')).not.toHaveLength(0);
     expect(screen.getByText('Preferred-time request — no payment requested yet')).toBeInTheDocument();
-    expect(screen.getByText(/Only send a £30 deposit invoice or secure payment link after they accept/i)).toBeInTheDocument();
+    expect(screen.getByText(/No online deposit is required/i)).toBeInTheDocument();
   });
 
   it('shows "unavailable" action states instead of broken links when contact info is missing', async () => {

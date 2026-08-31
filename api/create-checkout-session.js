@@ -107,6 +107,17 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
   }
 
+  // The public booking journey is request-first and currently takes no online
+  // deposit. Keep the reviewed Stripe implementation available for a future
+  // rollback, but fail closed unless the owner deliberately re-enables it in
+  // the server environment.
+  if (process.env.STRIPE_BOOKING_ENABLED !== 'true') {
+    res.writeHead(410, { ...headers, 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({
+      error: 'Online deposit checkout is not currently available. Send a booking request instead.',
+    }));
+  }
+
   if (!process.env.STRIPE_SECRET_KEY) {
     console.error('[checkout] STRIPE_SECRET_KEY is not set');
     res.writeHead(500, { ...headers, 'Content-Type': 'application/json' });

@@ -142,7 +142,7 @@ describe('BookingPage — booking request wording', () => {
     renderBookingPage();
     expect(
       screen.getByText(
-        /Send your preferred date with no payment now\. Our team will check availability and contact you before any deposit is requested\./,
+        /Send your preferred date with no payment\. Our team will check availability, the final scope and price, then contact you to confirm the appointment\./,
       ),
     ).toBeInTheDocument();
   });
@@ -395,7 +395,7 @@ describe('BookingPage — no-payment request submission', () => {
     renderBookingPage();
     expect(screen.queryByRole('checkbox', { name: /terms of service/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/pay £30 deposit/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/booking and cancellation terms are shown before any deposit is paid/i)).toBeInTheDocument();
+    expect(screen.getByText(/booking and cancellation terms apply once an appointment is confirmed/i)).toBeInTheDocument();
   });
 
   it('links to the privacy policy at the point of submission', () => {

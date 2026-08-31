@@ -120,24 +120,24 @@ function detailText(data) {
 function customerText(data) {
   return [
     `Hi ${data.fullName},`, '',
-    'We received your preferred-time request. No payment has been taken.',
-    'Your requested time is not confirmed yet. We will review availability during opening hours and contact you.',
+    'We received your cleaning request. No payment has been taken.',
+    'Your requested time is not confirmed yet. We will review availability, the final scope and price during opening hours and contact you.',
     '', detailText(data), '',
-    'If you accept the time we offer, we will send a secure £30 deposit link. The deposit is deducted from the final bill.',
+    'Your appointment becomes confirmed when we agree the time, scope and price with you.',
     '', 'VVE Clean', '020 8050 2233 · contact@vveclean.co.uk',
   ].join('\n');
 }
 
 function businessText(data) {
   return [
-    `New no-payment booking request — ${data.bookingRef}`, '',
+    `New booking request — ${data.bookingRef}`, '',
     `Customer: ${data.fullName}`,
     `Phone: ${data.phone}`,
     `Email: ${data.email}`,
     detailText(data),
     `Estimated total: £${data.totalPrice}`,
     `Notes: ${data.message || '—'}`, '',
-    'Manager next step: check availability, contact the customer, then send the secure deposit request only if the time is accepted.',
+    'Manager next step: check availability and the final scope, then contact the customer to agree the appointment. No online deposit is required.',
   ].join('\n');
 }
 
@@ -149,9 +149,9 @@ function emailHtml(data, business = false) {
     .join('');
 
   const intro = business
-    ? 'Check availability, contact the customer, then send the secure deposit request only if the time is accepted.'
-    : 'No payment has been taken. Your requested time is not confirmed yet; we will review availability during opening hours and contact you.';
-  return `<!doctype html><html lang="en"><body style="margin:0;background:#f5f6f8;font-family:Arial,sans-serif;color:#020b24"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="560" style="max-width:560px;width:100%;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#020b24;padding:24px 28px">${emailWordmarkHtml({ inverse: true })}</td></tr><tr><td style="padding:28px"><h1 style="font-size:22px;margin:0 0 12px">${business ? 'New booking request' : 'We received your request'}</h1><p style="font-size:15px;line-height:1.6;margin:0 0 18px">${esc(intro)}</p><table role="presentation" width="100%" cellspacing="0" style="border:1px solid #e3e7ee;border-radius:10px;border-collapse:separate;border-spacing:0">${rows}</table>${business ? '' : '<p style="font-size:14px;line-height:1.6;margin:18px 0 0">If you accept the time we offer, we will send a secure £30 deposit link. The deposit is deducted from the final bill.</p>'}</td></tr></table></td></tr></table></body></html>`;
+    ? 'Check availability and the final scope, then contact the customer to agree the appointment. No online deposit is required.'
+    : 'No payment has been taken. Your requested time is not confirmed yet; we will review availability, the final scope and price during opening hours and contact you.';
+  return `<!doctype html><html lang="en"><body style="margin:0;background:#f5f6f8;font-family:Arial,sans-serif;color:#020b24"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="560" style="max-width:560px;width:100%;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#020b24;padding:24px 28px">${emailWordmarkHtml({ inverse: true })}</td></tr><tr><td style="padding:28px"><h1 style="font-size:22px;margin:0 0 12px">${business ? 'New booking request' : 'We received your request'}</h1><p style="font-size:15px;line-height:1.6;margin:0 0 18px">${esc(intro)}</p><table role="presentation" width="100%" cellspacing="0" style="border:1px solid #e3e7ee;border-radius:10px;border-collapse:separate;border-spacing:0">${rows}</table>${business ? '' : '<p style="font-size:14px;line-height:1.6;margin:18px 0 0">Your appointment becomes confirmed when we agree the time, scope and price with you.</p>'}</td></tr></table></td></tr></table></body></html>`;
 }
 
 async function sendNotifications(data) {
@@ -166,7 +166,7 @@ async function sendNotifications(data) {
         from: `"VVE Clean Requests" <${process.env.GMAIL_SENDER}>`,
         to: process.env.BUSINESS_EMAIL,
         replyTo: `"${data.fullName}" <${data.email}>`,
-        subject: `New no-payment request — ${data.bookingRef}`,
+        subject: `New booking request — ${data.bookingRef}`,
         text: businessText(data),
         html: emailHtml(data, true),
       }),
@@ -181,6 +181,8 @@ async function sendNotifications(data) {
     ]);
     result.emailBusinessSent = business.status === 'fulfilled';
     result.emailCustomerSent = customer.status === 'fulfilled';
+    if (business.status === 'rejected') console.error('[booking-request] business email failed:', business.reason?.message || business.reason);
+    if (customer.status === 'rejected') console.error('[booking-request] customer email failed:', customer.reason?.message || customer.reason);
   }
 
   if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
@@ -190,7 +192,7 @@ async function sendNotifications(data) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: process.env.TELEGRAM_CHAT_ID,
-          text: `New no-payment request\n${data.bookingRef}\n${data.fullName} · ${data.phone}\n${data.service}\n${data.date} · ${data.time}\n£${data.totalPrice}`,
+          text: `New booking request\n${data.bookingRef}\n${data.fullName} · ${data.phone}\n${data.service}\n${data.date} · ${data.time}\nEstimated total: £${data.totalPrice}\nNo online deposit required`,
         }),
       });
       result.telegramSent = response.ok;
@@ -269,6 +271,9 @@ export default async function handler(req, res) {
     confirmation_token: randomBytes(32).toString('hex'),
     stripe_session_id: null,
     stripe_payment_intent_id: null,
+    // The existing database enum uses `pending_payment` for every unpaid row.
+    // deposit_amount=0 is the deliberate marker used by VVE Manager to show
+    // this as a request awaiting availability, not as an abandoned checkout.
     payment_status: 'pending_payment',
     deposit_amount: 0,
     total_price: validatedPrice,

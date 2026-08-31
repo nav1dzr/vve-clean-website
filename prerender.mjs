@@ -86,10 +86,10 @@ const routes = [
     path: '/booking',
     title: 'Book Your Clean — VVE Clean London',
     description:
-      'Submit a cleaning booking request with VVE Clean. Choose your service, add your details and pay a £30 deposit that is deducted from the final total.',
+      'Submit a cleaning booking request with VVE Clean. Choose your service, add your details and request a preferred time with no payment.',
     ogTitle: 'Book a Clean Online | VVE Clean London',
     ogDescription:
-      'Submit a cleaning booking request online. The £30 deposit is deducted from the final total and availability is confirmed separately.',
+      'Submit a cleaning request online with no payment. VVE Clean checks availability, scope and final price before confirming the appointment.',
     changefreq: 'monthly',
     priority: '0.6',
     sources: ['src/pages/BookingPage.tsx'],
@@ -121,7 +121,7 @@ const routes = [
     path: '/terms-of-service',
     title: 'Terms of Service | VVE Clean London',
     description:
-      'The terms that apply when you use VVE Clean services in London. Covers bookings, deposits, cancellations, liability, complaints, and payment.',
+      'The terms that apply when you use VVE Clean services in London. Covers booking requests, confirmation, cancellations, liability, complaints, and payment.',
     ogTitle: 'Terms of Service | VVE Clean',
     ogDescription: 'The terms that apply when you use VVE Clean services in London.',
     changefreq: 'yearly',

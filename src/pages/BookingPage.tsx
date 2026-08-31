@@ -636,7 +636,7 @@ export default function BookingPage() {
               <p className="mt-1 font-display text-xl font-bold text-navy-900">{requestComplete}</p>
             </div>
             <p className="mt-5 text-sm leading-relaxed text-silver-600">
-              If you accept the time we offer, we will send a secure £30 deposit link. The deposit is deducted from your final bill.
+              Your appointment becomes confirmed when we agree the time, scope and final price with you.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <a href={waLink} target="_blank" rel="noopener noreferrer" className="btn-whatsapp inline-flex min-h-[48px] items-center justify-center rounded-xl px-6 font-bold">
@@ -662,7 +662,7 @@ export default function BookingPage() {
         <div className="mb-5">
           <h1 className="font-display text-2xl font-bold text-navy-900 mb-1">Request a preferred cleaning time</h1>
           <p className="text-silver-600 text-sm">
-            Send your preferred date with no payment now. Our team will check availability and contact you before any deposit is requested.
+            Send your preferred date with no payment. Our team will check availability, the final scope and price, then contact you to confirm the appointment.
           </p>
         </div>
 
@@ -973,7 +973,7 @@ export default function BookingPage() {
             <ol className="mt-3 space-y-2 text-sm leading-relaxed text-navy-800">
               <li><strong>1.</strong> Your request goes to the VVE manager queue.</li>
               <li><strong>2.</strong> We check the date, access details and final price, then contact you.</li>
-              <li><strong>3.</strong> If you accept the offered time, we send a secure £30 deposit link. The deposit comes off the final bill.</li>
+              <li><strong>3.</strong> We confirm the appointment after you agree the time, scope and final price.</li>
             </ol>
           </div>
 
@@ -1004,7 +1004,7 @@ export default function BookingPage() {
             <Link to="/privacy-policy" className="font-semibold text-[#0369a1] hover:underline">
               Privacy Policy
             </Link>
-            . Booking and cancellation terms are shown before any deposit is paid.
+            . Booking and cancellation terms apply once an appointment is confirmed.
           </p>
 
           {/* ── WhatsApp alternative ────────────────────────────────────────── */}

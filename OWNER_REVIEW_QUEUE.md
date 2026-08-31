@@ -67,35 +67,34 @@ Instagram, Facebook and Google links are shown. YouTube stays hidden until its
 official URL is confirmed. A separate image CDN is not required yet; add one
 only if measured delivery performance justifies the extra service.
 
-### 5. Manager deposit workflow
+### 5. Future payment workflow
 
-The approved customer journey is now:
+The current customer journey is now:
 
 1. customer requests a preferred time with no payment;
 2. the request appears in the manager queue as **Check availability**;
 3. the manager checks scope/date and contacts the customer;
-4. only after the customer accepts, the manager sends a secure £30 deposit
-   invoice or payment link.
+4. the appointment is confirmed after the customer agrees the time, scope and
+   final price. No online deposit is required.
 
-The website and VVE manager screens support this workflow, but sending the
-later deposit is still an operational manager step. Decide whether the first
-release should use the existing invoice/payment-link process, or whether a
-future VVE OS task should add a one-click **Confirm time and send deposit
-link** action. The latter requires a separately reviewed Stripe/email workflow.
+The old Stripe booking endpoint is retained but disabled by default, so the
+reviewed implementation can be restored later without being available to
+customers now. A future VVE OS task can define how confirmed appointments are
+invoiced or paid; that is not required for this website release.
 
 ### 6. Policy confirmations
 
 - Confirm Sunday customer-contact hours are **10:00–15:00**.
-- Confirm the current late-cancellation policy: the Terms say a cancellation
-  inside 24 hours *may* result in the deposit being retained.
+- Decide whether confirmed appointments should ever carry a specific late-
+  cancellation or call-out fee. Until then, the Terms say a charge applies only
+  when it was stated and agreed in writing at confirmation.
 - Confirm `BUSINESS_EMAIL` points to a mailbox someone monitors.
 
 ## Safe defaults currently published
 
 - No payment is taken before availability is checked.
 - If an offered time is declined, nothing was charged and no refund is needed.
-- Refund timing for a later paid deposit is described as issuer-controlled,
-  typically 5–10 business days after issue.
+- The public booking journey contains no online deposit or refund promise.
 - Queensway is labelled as a registered office only, with no walk-ins.
 - No universal DBS, founder-attends-every-job or no-subcontractor claim is
   published.
