@@ -5,8 +5,8 @@ import QuoteCalculator, { type BookingSelection } from '../components/QuoteCalcu
 import BrandLogo from '../components/BrandLogo';
 import { getAttribution } from '../lib/attribution';
 import { getQuoteOriginHref } from '../lib/quoteOrigin';
+import { trackBookingRequestSubmitted } from '../lib/analytics';
 import { CARPET_MIN_BOOKING, DISCOUNT_MIN_NOTE } from '../data/carpetPricing';
-import { TERMS_VERSION, CANCELLATION_POLICY_VERSION } from '../lib/termsVersion';
 import { PARKING_ESTIMATE_P, CONGESTION_CHARGE_P, PARKING_CHARGED_AT_ACTUAL_COST_NOTE } from '../data/pricing';
 
 const PARKING_ESTIMATE    = PARKING_ESTIMATE_P / 100;
@@ -20,9 +20,8 @@ type CongestionAnswer = '' | 'no' | 'yes' | 'not_sure';
 const STORAGE_KEY  = 'vve_booking';
 
 // ─── Booking-form draft ───────────────────────────────────────────────────────
-// Persists contact/scheduling fields across Stripe Checkout and page refreshes.
-// Cleared only after verify-payment confirms paid: true (in confirmation.html).
-// Terms acceptance is intentionally excluded.
+// Persists contact/scheduling fields across page refreshes. Cleared only after
+// the manager-visible request has been saved successfully.
 
 const DRAFT_KEY = 'vve_form_draft_v1';
 const DRAFT_TTL = 48 * 60 * 60 * 1000; // 48 hours
@@ -45,9 +44,8 @@ function loadDraft(): FormData | null {
     return parsed.form ?? null;
   } catch { return null; }
 }
-const BACKEND_URL  = '/api/create-checkout-session';
+const BACKEND_URL  = '/api/create-booking-request';
 const WA_NUMBER    = '447845451111';
-const DEPOSIT      = 30;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -141,12 +139,12 @@ function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
 }
 
 // Two-phase progress indicator — step 1 is the quote/service selector,
-// step 2 is the details, date and £30 deposit form. Rendered in both
+// step 2 is the details and preferred-time request. Rendered in both
 // phases so visitors always know where they are and what comes next.
 function StepIndicator({ current }: { current: 1 | 2 }) {
   const steps: Array<{ n: 1 | 2; label: string }> = [
     { n: 1, label: 'Service & price' },
-    { n: 2, label: `Details, date & £${DEPOSIT} deposit` },
+    { n: 2, label: 'Details & preferred time' },
   ];
   return (
     <ol aria-label="Booking progress" className="max-w-5xl mx-auto px-4 pt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-xs sm:text-sm">
@@ -189,7 +187,6 @@ function ServiceCard({ selection, onChangeService }: {
   selection: BookingSelection;
   onChangeService: () => void;
 }) {
-  const remaining = selection.price > DEPOSIT ? selection.price - DEPOSIT : 0;
   const hasOffer  = !!selection.offerCode && (selection.discountAmount ?? 0) > 0;
   const isLeaflet = selection.offerCode === 'LEAFLET20';
 
@@ -275,13 +272,9 @@ function ServiceCard({ selection, onChangeService }: {
         </div>
       )}
 
-      {remaining > 0 && (
-        <div className="px-5 py-2.5 border-t border-[#E3E7EE]" style={{ background: '#F7F8FA' }}>
-          <span className="text-xs text-silver-600">
-            £{DEPOSIT} deposit today · <span className="font-semibold text-navy-800">{money(remaining)} remaining</span> paid on the day
-          </span>
-        </div>
-      )}
+      <div className="px-5 py-2.5 border-t border-[#E3E7EE]" style={{ background: '#F7F8FA' }}>
+        <span className="text-xs font-semibold text-green-800">No payment now — request a preferred time first</span>
+      </div>
     </div>
   );
 }
@@ -306,7 +299,6 @@ const PAST_DATE_ERROR           = 'Please choose a date that has not already pas
 const REQUIRED_TIME_ERROR       = 'Please choose your preferred arrival window.';
 const REQUIRED_PARKING_ERROR    = 'Please tell us whether free parking is available for our cleaning team.';
 const REQUIRED_CONGESTION_ERROR = 'Please tell us whether the property is inside the Congestion Charge zone.';
-const REQUIRED_TERMS_ERROR      = 'Please read and accept the booking and cancellation terms.';
 
 // Surcharge for a given parking/Congestion Charge answer — £0 for the
 // no-extra-cost answer, the centralised estimate otherwise (mirrors
@@ -343,7 +335,7 @@ type FormErrors = Partial<Record<keyof FormData, string>>;
 // blocks of red text to compare. The summary answers "which fields?", the
 // inline error answers "what exactly is wrong with this one?".
 const SUMMARY_FIELDS: ReadonlyArray<{
-  key: keyof FormData | 'terms';
+  key: keyof FormData;
   label: string;
   target?: string;
 }> = [
@@ -356,7 +348,6 @@ const SUMMARY_FIELDS: ReadonlyArray<{
   { key: 'time',     label: 'Preferred arrival window',  target: 'booking-time' },
   { key: 'parkingAvailable', label: 'Parking availability' },
   { key: 'congestionZone',   label: 'Congestion Charge zone' },
-  { key: 'terms',    label: 'Booking and cancellation terms', target: 'terms-checkbox' },
 ];
 
 export default function BookingPage() {
@@ -367,10 +358,10 @@ export default function BookingPage() {
     parkingAvailable: '', congestionZone: '',
   });
   const [errors,        setErrors]        = useState<FormErrors>({});
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [termsError,    setTermsError]    = useState('');
   const [submitting,    setSubmitting]    = useState(false);
   const [submitError,   setSubmitError]   = useState('');
+  const [requestComplete, setRequestComplete] = useState<string | null>(null);
+  const [honeypot, setHoneypot] = useState('');
   const formTopRef = useRef<HTMLDivElement>(null);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   // Only true after a blocked submit. Without this the summary would appear
@@ -468,7 +459,7 @@ export default function BookingPage() {
 
   // Every current error, in document order, with the control it points at.
   const errorSummaryItems = SUMMARY_FIELDS.flatMap(({ key, label, target }) => {
-    const message = key === 'terms' ? termsError : errors[key as keyof FormData];
+    const message = errors[key];
     return message ? [{ key, label, target }] : [];
   });
 
@@ -478,7 +469,7 @@ export default function BookingPage() {
   // explicitly rather than relying on default `href="#id"` behaviour.
   const focusSummaryTarget = (
     event: React.MouseEvent<HTMLAnchorElement>,
-    item: { key: keyof FormData | 'terms'; target?: string },
+    item: { key: keyof FormData; target?: string },
   ) => {
     event.preventDefault();
 
@@ -496,10 +487,8 @@ export default function BookingPage() {
     e.preventDefault();
 
     const fieldsValid = validate();
-    const termsValid   = termsAccepted;
-    setTermsError(termsValid ? '' : REQUIRED_TERMS_ERROR);
 
-    if (!fieldsValid || !termsValid || !selection) {
+    if (!fieldsValid || !selection) {
       setShowErrorSummary(true);
       // State updates are rendered on the next frame. Move the viewport and
       // keyboard focus to the summary: it names every problem at once, and
@@ -531,7 +520,6 @@ export default function BookingPage() {
     const payload = {
       service:     selection.serviceName,
       price:       totalWithAccessCharges,
-      deposit:     DEPOSIT,
       quoteConfig: {
         ...selection.quoteConfig,
         parkingAvailable: form.parkingAvailable,
@@ -545,11 +533,7 @@ export default function BookingPage() {
       date:        form.date,
       time:        form.time,
       message:     form.message.trim(),
-      // Terms acceptance — recorded at the moment of submission.
-      termsAccepted:             true,
-      termsAcceptedAt:           new Date().toISOString(),
-      termsVersion:              TERMS_VERSION,
-      cancellationPolicyVersion: CANCELLATION_POLICY_VERSION,
+      _honeypot:   honeypot,
       // Offer data (present when a discount was applied)
       ...(selection.offerCode ? {
         offer_code:                 selection.offerCode,
@@ -576,11 +560,12 @@ export default function BookingPage() {
         body:    JSON.stringify(payload),
       });
       const data = await res.json();
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
-      } else {
-        throw new Error(data.error || 'No checkout link returned.');
-      }
+      if (!res.ok || !data.ok || !data.bookingRef) throw new Error(data.error || 'Request could not be saved.');
+
+      localStorage.removeItem(DRAFT_KEY);
+      trackBookingRequestSubmitted(selection.serviceName);
+      setRequestComplete(data.bookingRef);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setSubmitting(false);
       setSubmitError('Sorry, something went wrong. Please try again or message us on WhatsApp.');
@@ -596,11 +581,10 @@ export default function BookingPage() {
 
   // Access charges (parking / Congestion Charge) are answered on this page,
   // after the quote calculator already produced selection.price — so the
-  // displayed total and deposit/remaining split must account for them here.
+  // displayed estimate must account for them here.
   const parkingCharge    = parkingSurcharge(form.parkingAvailable);
   const congestionCharge = congestionSurcharge(form.congestionZone);
   const totalWithAccessCharges = (selection?.price ?? 0) + parkingCharge + congestionCharge;
-  const remaining = totalWithAccessCharges > DEPOSIT ? totalWithAccessCharges - DEPOSIT : 0;
 
   // ── CSS helpers ────────────────────────────────────────────────────────────
   const inputCls = (field: keyof FormData) =>
@@ -634,6 +618,40 @@ export default function BookingPage() {
   }
 
   // ─── Show booking form ─────────────────────────────────────────────────────
+  if (requestComplete) {
+    return (
+      <div className="min-h-screen" style={{ background: '#f9f9f5' }}>
+        <BookingHeader isLeaflet={selection?.offerCode === 'LEAFLET20'} />
+        <main id="main-content" className="mx-auto max-w-xl px-4 py-16">
+          <div className="rounded-3xl border border-green-200 bg-white p-7 text-center shadow-xl sm:p-10">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-700" aria-hidden="true">
+              <CheckCircle2 size={30} />
+            </div>
+            <h1 className="mt-5 font-display text-3xl font-bold text-navy-900">Your request is with our team</h1>
+            <p className="mt-3 text-base leading-relaxed text-silver-700">
+              No payment has been taken. We will check your preferred time during opening hours and contact you to confirm what is available.
+            </p>
+            <div className="mt-5 rounded-2xl bg-silver-100 px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-silver-600">Request reference</p>
+              <p className="mt-1 font-display text-xl font-bold text-navy-900">{requestComplete}</p>
+            </div>
+            <p className="mt-5 text-sm leading-relaxed text-silver-600">
+              If you accept the time we offer, we will send a secure £30 deposit link. The deposit is deducted from your final bill.
+            </p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <a href={waLink} target="_blank" rel="noopener noreferrer" className="btn-whatsapp inline-flex min-h-[48px] items-center justify-center rounded-xl px-6 font-bold">
+                Message us on WhatsApp
+              </a>
+              <Link to="/" className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-2 border-royal-600 px-6 font-bold text-royal-700 hover:bg-royal-50">
+                Return home
+              </Link>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen" style={{ background: '#f9f9f5' }}>
       <BookingHeader isLeaflet={selection?.offerCode === 'LEAFLET20'} />
@@ -642,10 +660,9 @@ export default function BookingPage() {
       <main id="main-content" className="max-w-xl mx-auto px-4 py-7 pb-24" ref={formTopRef}>
         {/* Page title */}
         <div className="mb-5">
-          <h1 className="font-display text-2xl font-bold text-navy-900 mb-1">Complete your booking request</h1>
+          <h1 className="font-display text-2xl font-bold text-navy-900 mb-1">Request a preferred cleaning time</h1>
           <p className="text-silver-600 text-sm">
-            Choose your preferred date, add your details and pay the £{DEPOSIT} deposit. We will confirm
-            availability separately. Your deposit comes off the final total.
+            Send your preferred date with no payment now. Our team will check availability and contact you before any deposit is requested.
           </p>
         </div>
 
@@ -653,6 +670,16 @@ export default function BookingPage() {
         <ServiceCard selection={selection} onChangeService={handleChangeService} />
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          <input
+            type="text"
+            name="companyWebsite"
+            value={honeypot}
+            onChange={(event) => setHoneypot(event.target.value)}
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            className="absolute -left-[9999px] h-px w-px opacity-0"
+          />
 
           {/* ── Error summary ──────────────────────────────────────────────────
               Rendered only after a blocked submit. It is focusable (tabIndex
@@ -783,17 +810,9 @@ export default function BookingPage() {
               <span className="text-navy-900 text-sm font-semibold">When?</span>
             </div>
 
-            {/* Progressive disclosure: one clause of reassurance at the point
-                the worry arises ("what if my date isn't free?"), with the full
-                terms a click away rather than a block of text beside the
-                payment button. */}
             <p className="text-silver-600 text-xs -mt-2">
-              Choose your preferred date and arrival window. We will confirm availability separately.
-              If we cannot offer a slot that works for you, your £30 deposit is refunded in full —{' '}
-              <Link to="/terms-of-service#bookings" className="underline underline-offset-2 hover:no-underline">
-                see booking terms
-              </Link>
-              .
+              Choose the time that suits you best. This is a request, not a confirmed appointment,
+              and no payment is taken at this stage.
             </p>
 
             <div data-testid="booking-schedule-fields" className="grid min-w-0 grid-cols-1 sm:grid-cols-2 gap-3">
@@ -948,89 +967,14 @@ export default function BookingPage() {
             )}
           </div>
 
-          {/* ── Payment breakdown ───────────────────────────────────────────── */}
-          <div className="rounded-2xl overflow-hidden" style={{ background: '#020b24' }}>
-            <div className="flex justify-between items-center px-5 py-4 gap-3">
-              <div>
-                <div className="text-[11px] font-bold tracking-widest uppercase mb-0.5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  Today — booking request deposit
-                </div>
-                <div className="text-sm" style={{ color: '#fff' }}>
-                  Deposit · fully deducted from your final bill
-                </div>
-              </div>
-              <div className="font-display text-3xl font-bold text-white flex-shrink-0">£{DEPOSIT}</div>
-            </div>
-
-            {remaining > 0 && (
-              <div className="flex justify-between items-center px-5 py-4 gap-3"
-                style={{ borderTop: '1px solid rgba(255,255,255,0.09)' }}>
-                <div>
-                  <div className="text-[11px] font-bold tracking-widest uppercase mb-0.5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                    After your clean
-                  </div>
-                  <div className="text-sm" style={{ color: '#fff' }}>
-                    Remaining balance · paid on the day, not now
-                  </div>
-                </div>
-                <div className="font-display text-xl font-bold flex-shrink-0" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                  {money(remaining)}
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center gap-2 px-5 py-3"
-              style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(0,0,0,0.15)' }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 flex-shrink-0"
-                style={{ color: 'rgba(255,255,255,0.85)' }}>
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                Payment handled by Stripe · VVE Clean does not store your card details
-              </span>
-            </div>
-          </div>
-
-          {/* ── Terms acceptance ────────────────────────────────────────────── */}
-          <div data-error={!!termsError}>
-            <label
-              htmlFor="terms-checkbox"
-              className="flex items-start gap-3 min-h-[44px] py-2 px-1 rounded-xl cursor-pointer select-none"
-            >
-              <input
-                id="terms-checkbox"
-                type="checkbox"
-                checked={termsAccepted}
-                required aria-required="true"
-                onChange={(e) => {
-                  setTermsAccepted(e.target.checked);
-                  if (e.target.checked) setTermsError('');
-                }}
-                aria-invalid={!!termsError}
-                aria-describedby={termsError ? 'terms-error' : undefined}
-                className="mt-0.5 h-5 w-5 flex-shrink-0 rounded border-[1.5px] border-[#E3E7EE] text-[#0369a1] focus:ring-2 focus:ring-[#0369a1]"
-              />
-              <span className="text-navy-800 text-sm leading-relaxed">
-                I agree to the{' '}
-                <Link to="/terms-of-service" target="_blank" rel="noopener noreferrer"
-                  className="font-semibold text-[#0369a1] hover:underline">
-                  Terms of Service
-                </Link>{' '}
-                and cancellation policy. I understand that the £{DEPOSIT} deposit is deducted from the final
-                total and may be retained for late cancellation or failed access as explained in the terms.
-                {' '}(<Link to="/privacy-policy" target="_blank" rel="noopener noreferrer"
-                  className="font-semibold text-[#0369a1] hover:underline">
-                  Privacy Policy
-                </Link>)
-              </span>
-            </label>
-            {termsError && (
-              <p id="terms-error" role="alert" className="text-xs mt-1 px-1" style={{ color: '#D14343' }}>
-                {termsError}
-              </p>
-            )}
+          {/* ── Manager handoff ─────────────────────────────────────────────── */}
+          <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5">
+            <h2 className="font-display text-lg font-bold text-navy-900">What happens next</h2>
+            <ol className="mt-3 space-y-2 text-sm leading-relaxed text-navy-800">
+              <li><strong>1.</strong> Your request goes to the VVE manager queue.</li>
+              <li><strong>2.</strong> We check the date, access details and final price, then contact you.</li>
+              <li><strong>3.</strong> If you accept the offered time, we send a secure £30 deposit link. The deposit comes off the final bill.</li>
+            </ol>
           </div>
 
           {/* ── Submit error ────────────────────────────────────────────────── */}
@@ -1046,24 +990,28 @@ export default function BookingPage() {
             className="w-full py-4 min-h-[44px] rounded-full font-bold text-white text-base transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
             style={{ backgroundColor: '#0369a1' }}>
             {submitting ? (
-              'Taking you to secure payment…'
+              'Sending your request…'
             ) : (
               <>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                  strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
-                Pay £{DEPOSIT} deposit
+                <CheckCircle2 className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+                Send request — no payment
               </>
             )}
           </button>
 
+          <p className="text-center text-xs leading-relaxed text-silver-600">
+            By sending this request, you agree that VVE Clean may contact you about it. See our{' '}
+            <Link to="/privacy-policy" className="font-semibold text-[#0369a1] hover:underline">
+              Privacy Policy
+            </Link>
+            . Booking and cancellation terms are shown before any deposit is paid.
+          </p>
+
           {/* ── WhatsApp alternative ────────────────────────────────────────── */}
           <p className="text-center text-sm text-silver-600">
-            Prefer to book by message?{' '}
+            Prefer to ask first?{' '}
             <a href={waLink} target="_blank" rel="noopener noreferrer"
-              className="font-semibold hover:underline" style={{ color: '#16a34a' }}>
+              className="font-semibold text-green-700 hover:underline">
               WhatsApp us →
             </a>
           </p>

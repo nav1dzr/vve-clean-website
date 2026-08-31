@@ -856,6 +856,15 @@ function computeBasePrice(quoteConfig) {
   if (service === 'deep') {
     if (deepService === 'carpet_upholstery' && carpetCounts) {
       if (carpetCondition === 'delicate') return null; // photo quote — no fixed price
+      // Rugs are an add-on to a carpet, upholstery or relevant end-of-tenancy
+      // visit, not a standalone online service. Enforce that on the trusted
+      // server path as well as in the UI so a crafted payload cannot create a
+      // rug-only Stripe checkout.
+      const rugCount = Math.max(0, Number(carpetCounts.rug) || 0);
+      const companionCount = CARPET_ITEM_ORDER
+        .filter((key) => key !== 'rug')
+        .reduce((sum, key) => sum + Math.max(0, Number(carpetCounts[key]) || 0), 0);
+      if (rugCount > 0 && companionCount === 0) return null;
       const r = computeCarpetPrice(carpetCounts, carpetCondition || 'normal');
       return r.finalTotal > 0 ? r.finalTotal : null;
     }

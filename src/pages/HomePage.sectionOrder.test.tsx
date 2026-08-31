@@ -35,8 +35,8 @@ describe('homepage section order', () => {
   });
 
   it('shows proof before the price entry', () => {
-    expect(before('Reviews', 'HomeServiceSelector')).toBe(true);
-    expect(before('Gallery', 'HomeServiceSelector')).toBe(true);
+    expect(before('Reviews', 'QuoteCalculator')).toBe(true);
+    expect(before('Gallery', 'QuoteCalculator')).toBe(true);
   });
 
   it('puts coverage after the price entry', () => {
@@ -48,17 +48,9 @@ describe('homepage section order', () => {
     expect(before('FAQ', 'Contact')).toBe(true);
   });
 
-  // The selector sets the calculator's service, and the calculator remounts on
-  // that change. Anything rendered between them would split one control into
-  // two disconnected sections.
-  it('keeps the service selector adjacent to the calculator', () => {
-    const main = homepage.slice(homepage.indexOf('<main'), homepage.indexOf('</main>'));
-    const start = main.indexOf('<HomeServiceSelector');
-    const between = main
-      .slice(main.indexOf('/>', start) + 2, main.indexOf('<QuoteCalculator'))
-      // Strip JSX comments; only real elements would break the pairing.
-      .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
-    expect(between.trim()).toBe('');
+  it('renders only one homepage service-card section', () => {
+    expect(homepage).toContain('<Services onChoose={chooseService} />');
+    expect(homepage).not.toContain('<HomeServiceSelector');
   });
 
   it('answers the price objection immediately after the price', () => {

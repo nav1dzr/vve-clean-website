@@ -19,17 +19,17 @@ function renderPage() {
 }
 
 describe('TermsOfServicePage — booking request / deposit clarity', () => {
-  it('explains the online payment is a £30 deposit, deducted from the final total', () => {
+  it('explains the request is free and a later £30 deposit is deducted from the final total', () => {
     const text = renderPage();
-    expect(text).toMatch(/you are paying a\s*£30 deposit\s*— not the full price of your clean/i);
+    expect(text).toMatch(/No payment is taken when you send that request/i);
+    expect(text).toMatch(/If you accept the offered time, we send a secure link for a\s*£30 deposit/i);
     expect(text).toMatch(/deducted from your final total/i);
   });
 
-  it('explains paying the deposit submits a booking request, confirmed separately', () => {
+  it('explains the preferred time is a request until accepted and deposited', () => {
     const text = renderPage();
-    expect(text).toMatch(/submits a\s*booking request\s*for your preferred date/i);
-    expect(text).toMatch(/does not, by itself, guarantee that date or time/i);
-    expect(text).toMatch(/confirm the appointment.*separately/i);
+    expect(text).toMatch(/is a\s*booking request, not a confirmed appointment/i);
+    expect(text).toMatch(/confirmed only after we have agreed the time with you and received any required deposit/i);
   });
 
   it('states when the remaining balance is due', () => {
@@ -57,10 +57,8 @@ describe('TermsOfServicePage — booking request / deposit clarity', () => {
     expect(text).toContain(`Last updated: ${expected}`);
   });
 
-  it('links to the same Terms of Service that the booking page checkbox references', () => {
+  it('renders at the Terms of Service route linked before a deposit is paid', () => {
     renderPage();
-    // Sanity check that the route this page is mounted at is the one linked
-    // from BookingPage.tsx's terms checkbox ("/terms-of-service").
     expect(screen.getByRole('heading', { name: 'Terms of Service', level: 1 })).toBeInTheDocument();
   });
 });

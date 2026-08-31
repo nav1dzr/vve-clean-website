@@ -30,7 +30,11 @@ export default function BookingCardItem({ booking }: { booking: BookingCard }) {
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <StatusBadge {...bookingStatusBadge(booking.status)} />
-          <StatusBadge {...paymentStatusBadge(booking.paymentStatus)} />
+          {booking.awaitingAvailabilityReview ? (
+            <StatusBadge label="Check availability" className="bg-sky-100 text-sky-900" />
+          ) : (
+            <StatusBadge {...paymentStatusBadge(booking.paymentStatus)} />
+          )}
           {/* Only shown once balance data actually exists for this booking —
               omitted rather than showing "Balance unavailable" on every
               historical card (ADMIN_CRM_PLAN.md Phase 3 8). */}

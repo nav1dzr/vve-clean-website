@@ -19,7 +19,6 @@ import {
   ADDON_PRICES_P,
   calculateEotQuote,
   calculateEotCarpetPackage,
-  calculateDepositAndBalance,
   generateDefaultRooms,
   eotCarpetAreaStandalonePriceP,
   penceToDisplay,
@@ -514,7 +513,6 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
 
   const isQuoteReviewCondition = state.condition === 'heavy' || state.condition === 'clutter' || state.condition === 'biohazard';
   const totalP = quote.totalP + extrasTotalP;
-  const { depositP, balanceP } = calculateDepositAndBalance(totalP);
   const carpetPackage = quote.carpetPackage;
 
   // ── Step 1 actions ──
@@ -623,8 +621,8 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
 
   const sizeLabel = SIZE_OPTIONS.find((s) => s.key === state.size)?.label ?? '';
 
-  // Step 4 already shows a full "Your quote" payment card (Total, deposit,
-  // balance) once the property doesn't need a photo review — the footer's
+  // Step 4 already shows a full "Your quote" card once the property doesn't
+  // need a photo review — the footer's
   // own total would just be a repeated duplicate directly above it, so it is
   // suppressed there while Back stays fully present and accessible.
   const hideFooterTotal = step === TOTAL_STEPS && !isQuoteReviewCondition;
@@ -1283,23 +1281,21 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   </a>
                 </div>
               ) : (
-                // ── Final payment card ── one clean, premium card: single Total,
-                // deposit, balance, guarantee badge. No duplicated pricing block.
+                // ── Final quote card ── one clear total, guarantee and next step.
                 <div className="rounded-2xl bg-white border border-silver-300 shadow-sm px-5 py-5 mt-4">
                   <p className="text-navy-500 text-[10px] font-bold uppercase tracking-widest mb-2">Your quote</p>
                   <div className="flex items-baseline justify-between">
                     <span className="text-navy-800 text-sm font-semibold">Total</span>
                     <span data-testid="final-total" className="text-navy-900 font-display font-bold text-3xl">{penceToDisplay(totalP)}</span>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-silver-200 space-y-1.5 text-sm">
-                    <div className="flex justify-between text-navy-700"><span>Deposit today</span><span className="font-semibold text-navy-900">{penceToDisplay(depositP)}</span></div>
-                    <div className="flex justify-between text-navy-700"><span>Balance after cleaning</span><span className="font-semibold text-navy-900">{penceToDisplay(balanceP)}</span></div>
+                  <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-sm text-navy-800">
+                    <strong>No payment now.</strong> Send your preferred time first. If you accept the time we offer, we send a secure £30 deposit link and deduct it from this total.
                   </div>
                   <div className="mt-4 inline-flex items-center gap-1.5 text-green-800 bg-green-50 border border-green-200 rounded-full px-3 py-1.5 text-xs font-semibold">
                     <ShieldCheck size={13} /> {state.pkg === 'complete' ? `Full ${EOT_GUARANTEE_HOURS}-hour agency-ready guarantee` : `${EOT_GUARANTEE_HOURS}-hour guarantee on selected tasks`}
                   </div>
                   <p className="text-navy-600 text-[11px] mt-3 leading-relaxed">
-                    The remaining balance is due after the work is completed and you have had the opportunity to inspect it. Your appointment is a booking request until availability is confirmed.
+                    Your preferred time is a request until our team confirms it. The remaining balance is due after the work is completed and you have had the opportunity to inspect it.
                   </p>
                 </div>
               )}
@@ -1311,7 +1307,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
               {!isQuoteReviewCondition && (
                 <button type="button" onClick={handleBook}
                   className="flex items-center justify-center gap-2 w-full py-4 min-h-[44px] rounded-full font-bold text-white text-base bg-royal-500 hover:bg-royal-600 transition-all duration-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7] mt-4">
-                  Continue to booking
+                  Request a time — no payment
                 </button>
               )}
             </div>

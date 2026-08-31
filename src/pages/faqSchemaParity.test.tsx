@@ -82,7 +82,7 @@ function collectFaqEntities(container: HTMLElement) {
  * aria-hidden icons ("+") are stripped before comparing.
  */
 function collectVisibleFaqs(container: HTMLElement) {
-  return [...container.querySelectorAll<HTMLElement>('details')].map((item) => {
+  return [...container.querySelectorAll<HTMLElement>('details:not([data-disclosure])')].map((item) => {
     const summary = item.querySelector('summary');
 
     const questionNode = item.querySelector('.faq-question') ?? summary;

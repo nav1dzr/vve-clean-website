@@ -33,7 +33,7 @@ export const FAQS = [
   },
   {
     q: 'When do I pay?',
-    a: "You pay a £30 deposit by secure card when you submit a booking request. It is deducted from the final total. We confirm availability separately, and the remaining balance is due on completion under the payment terms shown during booking.",
+    a: "There is no payment when you request a preferred time. We check availability and contact you first. If you accept the time offered, we send a secure £30 deposit link; the deposit is deducted from the final total. The remaining balance is due on completion under the agreed payment terms.",
   },
   {
     q: 'Can the price change?',
@@ -49,7 +49,7 @@ export const FAQS = [
   },
   {
     q: 'How quickly can you come?',
-    a: 'Availability changes by service, area and property size. Send your preferred date in the booking request or ask us on WhatsApp before paying if the timing is critical.',
+    a: 'Availability changes by service, area and property size. Send your preferred date online with no payment, or ask us on WhatsApp if the timing is critical. We will check and contact you with what is available.',
   },
   {
     q: 'Which areas do you cover?',
@@ -61,7 +61,7 @@ export const FAQS = [
   },
   {
     q: 'What if the date I request is not available?',
-    a: 'We will contact you with the closest alternatives we can offer. If none of them works for you, we refund your £30 deposit in full. Once the refund is issued it goes back to the card you paid with. Card refunds typically appear about 5 to 10 business days later, though the exact timing is set by your card issuer rather than by us.',
+    a: 'We will contact you with the closest alternatives we can offer. If none works for you, you can decline them and nothing is charged because payment is requested only after you accept an available time.',
   },
   {
     q: 'Can I add carpet cleaning to an end of tenancy booking?',

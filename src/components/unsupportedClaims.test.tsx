@@ -68,24 +68,18 @@ describe('no unsupported percentage discount is advertised', () => {
 });
 
 describe('service descriptions make no unverifiable outcome claim', () => {
-  const services = () => read('components/Services.tsx');
-
   it('does not promise pressure washing restores original colour', () => {
-    expect(services()).not.toMatch(/original colou?r/i);
-  });
-
-  it('describes what pressure washing actually does, and sets expectations', () => {
-    const text = services();
-    expect(text).toMatch(/lift dirt, moss and algae/i);
-    expect(text).toMatch(/what to expect before you book/i);
+    for (const file of allSource) expect(read(file)).not.toMatch(/original colou?r/i);
   });
 
   it('does not promise green-waste removal', () => {
-    expect(services()).not.toMatch(/green[-\s]waste/i);
+    for (const file of allSource) expect(read(file)).not.toMatch(/green[-\s]waste/i);
   });
 
-  it('asks about waste removal rather than promising it', () => {
-    expect(services()).toMatch(/tell us if you need waste taken away/i);
+  it('keeps both secondary services visible on the full pricing page without an outcome promise', () => {
+    const pricing = read('pages/PricingPage.tsx');
+    expect(pricing).toContain('Pressure Washing');
+    expect(pricing).toContain('Garden Services');
   });
 });
 
@@ -125,15 +119,13 @@ describe('commercial terms are written-scope, not standing commitments', () => {
   });
 });
 
-describe('the services themselves are unchanged', () => {
-  // The fix was to the promises, not the offering. Removing a service the
-  // business actually provides would be a worse error than overclaiming.
-  it.each([
-    'Commercial & communal',
-    'Window cleaning',
-    'Pressure washing',
-    'Garden services',
-  ])('%s is still offered on the homepage', (title) => {
-    expect(read('components/Services.tsx')).toContain(title);
+describe('the services themselves remain reachable after homepage simplification', () => {
+  it('keeps Commercial & communal among the five homepage choices', () => {
+    expect(read('components/Services.tsx')).toContain('Commercial & communal');
   });
+
+  it.each(['Window Cleaning', 'Pressure Washing', 'Garden Services'])(
+    '%s remains on the complete price list',
+    (title) => expect(read('pages/PricingPage.tsx')).toContain(title),
+  );
 });

@@ -38,7 +38,7 @@ export const NOTIFICATION_FILTER_VALUES = ['failed'];
 export const CARD_SELECT = [
   'id', 'booking_ref', 'full_name', 'phone', 'postcode', 'service',
   'preferred_date', 'preferred_time', 'service_date',
-  'status', 'payment_status', 'balance_status', 'total_price', 'created_at',
+  'status', 'payment_status', 'balance_status', 'total_price', 'deposit_amount', 'created_at',
   'email_customer_sent', 'email_business_sent',
 ].join(', ');
 
@@ -76,6 +76,7 @@ export function hasFailedNotification(row) {
 }
 
 export function toCard(row) {
+  const awaitingAvailabilityReview = row.payment_status === 'pending_payment' && row.deposit_amount === 0;
   return {
     id: row.id,
     bookingRef: row.booking_ref,
@@ -90,6 +91,7 @@ export function toCard(row) {
     paymentStatus: row.payment_status,
     balanceStatus: row.balance_status,
     totalPrice: row.total_price,
+    awaitingAvailabilityReview,
     createdAt: row.created_at,
     emailCustomerSent: row.email_customer_sent ?? null,
     emailBusinessSent: row.email_business_sent ?? null,
@@ -114,6 +116,7 @@ export function toNote(row) {
 
 export function toDetail(row) {
   const hasBalanceInputs = row.total_price != null && row.deposit_amount != null;
+  const awaitingAvailabilityReview = row.payment_status === 'pending_payment' && row.deposit_amount === 0;
 
   return {
     id: row.id,
@@ -133,6 +136,7 @@ export function toDetail(row) {
     depositAmount: row.deposit_amount,
     balance: hasBalanceInputs ? row.total_price - row.deposit_amount : null,
     paymentStatus: row.payment_status,
+    awaitingAvailabilityReview,
     balanceStatus: row.balance_status,
     balancePaidAt: row.balance_paid_at,
     balancePaymentMethod: row.balance_payment_method,

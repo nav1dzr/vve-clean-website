@@ -87,20 +87,20 @@ const sections: Section[] = [
     content: (
       <>
         <p>
-          When you pay online, you are paying a <strong>£30 deposit</strong> — not the full price of your
-          clean. This deposit is processed securely by Stripe and is deducted from your final total; it is
-          not an extra charge.
+          Sending your preferred date and arrival window through the website is a <strong>booking request</strong>,
+          not a confirmed appointment. No payment is taken when you send that request. We review availability
+          and contact you with a time we can offer.
         </p>
         <p className="mt-3">
-          Paying the deposit submits a <strong>booking request</strong> for your preferred date and arrival
-          window. It does not, by itself, guarantee that date or time. We will review the request and confirm the
-          appointment separately. Until we have confirmed your appointment, please treat your requested date and time as
-          provisional rather than fixed.
+          If you accept the offered time, we send a secure link for a <strong>£30 deposit</strong>. The deposit is
+          processed by Stripe, deducted from your final total and is not an extra charge. Your appointment is
+          confirmed only after we have agreed the time with you and received any required deposit.
         </p>
         <p className="mt-3">
-          <strong>If we cannot offer your requested slot.</strong> If your requested date and arrival window
-          are unavailable, we will contact you with the closest alternatives we can offer. If none of them
-          works for you, we will refund your £30 deposit in full.
+          <strong>If we cannot offer your requested slot.</strong> We will contact you with the closest alternatives
+          we can offer. If none works for you, you can decline them and nothing is charged. If VVE Clean later
+          cannot honour an agreed appointment after taking a deposit and you do not accept an alternative, we will
+          refund that deposit in full.
         </p>
         <p className="mt-3">
           Once we issue the refund, the money is returned to the card you paid with. Card refunds

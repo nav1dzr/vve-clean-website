@@ -45,7 +45,7 @@ export default function Hero() {
           <div className="inline-flex items-center gap-2 glass-card rounded-full px-3 py-1 sm:px-4 sm:py-1.5 mb-3 sm:mb-6" style={{ animationDelay: '0.1s' }}>
             <span className="w-2 h-2 rounded-full bg-royal-400 animate-pulse" />
             <span className="text-silver-200 text-[10px] sm:text-xs tracking-widest font-medium uppercase">
-              <span>Independent London cleaning business</span>
+              <span>London cleaning &amp; property services</span>
             </span>
           </div>
 
@@ -60,17 +60,17 @@ export default function Hero() {
           >
             Professional cleaning,
             <br />
-            <span className="text-sky-300">properly done.</span>
+            <span className="text-sky-300">without the runaround.</span>
           </h1>
 
           {/* Supporting text — one version at every breakpoint now: the copy
               names the full service range, which does not shorten usefully. */}
           <p
-            className="text-silver-100 text-sm sm:text-lg leading-relaxed mb-4 sm:mb-5 max-w-lg animate-fade-in-up text-shadow-hero"
+            className="text-silver-100 text-[15px] sm:text-lg leading-relaxed mb-4 sm:mb-5 max-w-xl animate-fade-in-up text-shadow-hero"
             style={{ animationDelay: '0.45s', opacity: 0 }}
           >
-            Carpets, upholstery, deep cleaning, end of tenancy and after-builders cleaning across
-            East &amp; North London, with clear pricing, professional equipment and direct contact.
+            Clear prices, professional equipment and a team you can contact directly for carpets,
+            upholstery, end of tenancy, move-in and after-builders cleaning across East &amp; North London.
           </p>
 
           {/* Benefit checklist — company-wide credentials rather than

@@ -2,6 +2,7 @@ import eotGalleryImages from 'virtual:eot-gallery';
 // sofaMedia imports only *types* back from this file, and `import type` is
 // erased before bundling, so this pair never forms a runtime cycle.
 import { SOFA_MEDIA } from './sofaMedia';
+import { CARPET_PROCESS_VIDEO, CARPET_RESULT_VIDEOS } from './carpetMedia';
 
 // Central media manifest for the routed Gallery page (and the
 // source of truth the End of Tenancy landing page draws its real before/
@@ -187,10 +188,52 @@ const CARPET_BEFORE_AFTER: GalleryBeforeAfterItem[] = [
   },
 ];
 
+const CARPET_VIDEOS: GalleryVideoItem[] = [
+  ...CARPET_RESULT_VIDEOS.map((video) => ({
+    type: 'video' as const,
+    id: video.id,
+    label: video.label,
+    src: video.src,
+    poster: video.poster,
+    description: video.description,
+    location: video.location,
+  })),
+  ...(CARPET_PROCESS_VIDEO ? [{
+    type: 'video' as const,
+    id: CARPET_PROCESS_VIDEO.id,
+    label: CARPET_PROCESS_VIDEO.label,
+    src: CARPET_PROCESS_VIDEO.src,
+    poster: CARPET_PROCESS_VIDEO.poster,
+    description: CARPET_PROCESS_VIDEO.description,
+    location: CARPET_PROCESS_VIDEO.location,
+  }] : []),
+];
+
+/**
+ * Alternates evidence types instead of publishing a long run of near-identical
+ * cards. The original order inside each type is preserved, so approved pairings
+ * and the owner's pinned media still lead their respective groups.
+ */
+export function organiseGalleryItems(items: GalleryItem[]): GalleryItem[] {
+  const queues = {
+    'before-after': items.filter((item) => item.type === 'before-after'),
+    video: items.filter((item) => item.type === 'video'),
+    photo: items.filter((item) => item.type === 'photo'),
+  };
+  const ordered: GalleryItem[] = [];
+  while (queues['before-after'].length || queues.video.length || queues.photo.length) {
+    for (const key of ['before-after', 'video', 'photo'] as const) {
+      const item = queues[key].shift();
+      if (item) ordered.push(item);
+    }
+  }
+  return ordered;
+}
+
 export const GALLERY_MEDIA: Record<GalleryCategory, GalleryItem[]> = {
-  'end-of-tenancy': [...EOT_BEFORE_AFTER, ...EOT_PHOTOS],
-  carpet: [...CARPET_BEFORE_AFTER],
-  'sofa-upholstery': SOFA_MEDIA,
+  'end-of-tenancy': organiseGalleryItems([...EOT_BEFORE_AFTER, ...EOT_PHOTOS]),
+  carpet: organiseGalleryItems([...CARPET_BEFORE_AFTER, ...CARPET_VIDEOS]),
+  'sofa-upholstery': organiseGalleryItems(SOFA_MEDIA),
 };
 
 /** The Carpet page's featured Before/After cards. */

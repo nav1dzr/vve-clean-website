@@ -143,7 +143,7 @@ describe('Carpet page quote — summary and booking hand-off', () => {
     await add(user, 'Living / dining room');  // £60
     await openUpholstery(user);
     await add(user, '3-seater sofa');         // £95
-    await user.click(screen.getAllByRole('button', { name: /Request booking/i })[0]);
+    await user.click(screen.getAllByRole('button', { name: /Request a time/i })[0]);
 
     expect(onBook).toHaveBeenCalledTimes(1);
     const sel = onBook.mock.calls[0][0] as {

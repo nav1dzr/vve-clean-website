@@ -60,7 +60,7 @@ export default function Areas() {
             <a href="mailto:contact@vveclean.co.uk" className="btn-silver whitespace-nowrap">
               Email us
             </a>
-            <a href="#contact" className="inline-flex items-center gap-2 px-6 py-2.5 border-2 border-slate-800/30 text-slate-900 font-semibold rounded-lg transition-all duration-300 hover:bg-slate-900 hover:text-white text-sm whitespace-nowrap">
+            <a href="#contact-form" className="inline-flex items-center gap-2 px-6 py-2.5 border-2 border-slate-800/30 text-slate-900 font-semibold rounded-lg transition-all duration-300 hover:bg-slate-900 hover:text-white text-sm whitespace-nowrap">
               Send a Message
             </a>
           </div>

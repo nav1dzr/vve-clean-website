@@ -1,15 +1,12 @@
 import { Link } from 'react-router-dom';
 import { useReveal } from '../hooks/useReveal';
 import { SERVICE_IMAGES } from '../data/services';
+import type { HomepageQuoteService } from './HomeServiceSelector';
 import {
   EOT_BASE_PRICES_P,
   MOVEIN_BASE_PRICES_P,
   AFTER_BUILDERS_START_FROM_P,
   CARPET_MIN_BOOKING_P,
-  WINDOW_CLEANING_FROM_P,
-  WINDOW_CLEANING_SCOPE,
-  GARDEN_SERVICES_FROM_P,
-  PRESSURE_WASHING_FROM_P,
   EOT_GUARANTEE_HOURS,
 } from '../data/pricing';
 
@@ -21,11 +18,11 @@ const services = [
     price: `FROM £${EOT_BASE_PRICES_P.studio / 100} FIXED`,
     priceFixed: true,
     description:
-      `Vacant properties only. Our 67-point agency checklist: inside cupboards, appliances, oven included free, bathrooms descaled, internal windows. ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee.`,
+      `Vacant properties only. Inside cupboards, appliances, oven cleaning, bathrooms and internal windows are covered by the published scope. ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee.`,
     cta: 'Get your price →',
-    ctaHref: '#quote',
-    featured: true,
-    badge: 'Most booked',
+    quoteService: 'end_of_tenancy' as HomepageQuoteService,
+    pageHref: '/end-of-tenancy-cleaning-london',
+    featured: false,
     img: SERVICE_IMAGES.endOfTenancy,
   },
   {
@@ -35,7 +32,7 @@ const services = [
     description:
       'A vacant-property deep clean before you move in — or between tenancies for landlords. Start fresh in a property cleaned to checklist standard.',
     cta: 'Get your price →',
-    ctaHref: '#quote',
+    quoteService: 'move_in' as HomepageQuoteService,
     featured: false,
     img: SERVICE_IMAGES.deepCleaning,
   },
@@ -56,9 +53,10 @@ const services = [
     price: `FROM £${CARPET_MIN_BOOKING_P / 100}`,
     priceFixed: false,
     description:
-      'Hot-water extraction for suitable carpets, rugs and upholstery, with fabric or fibre checks where needed.',
+      'Hot-water extraction for suitable carpets and upholstery. Rugs can be assessed as an add-on to a qualifying clean.',
     cta: 'Get your price →',
-    ctaHref: '#quote',
+    quoteService: 'carpet_upholstery' as HomepageQuoteService,
+    pageHref: '/carpet-cleaning-london',
     featured: false,
     img: SERVICE_IMAGES.deepCleaning,
   },
@@ -76,98 +74,49 @@ const services = [
     featured: false,
     img: SERVICE_IMAGES.officeService,
   },
-  {
-    title: 'Window cleaning',
-    price: `FROM £${WINDOW_CLEANING_FROM_P / 100}`,
-    priceFixed: false,
-    description:
-      `${WINDOW_CLEANING_SCOPE} Add to any clean or book on its own.`,
-    cta: 'Get your price →',
-    ctaHref: '#quote',
-    featured: false,
-    img: SERVICE_IMAGES.windowCleaning,
-  },
-  {
-    title: 'Pressure washing',
-    price: `FROM £${PRESSURE_WASHING_FROM_P / 100}`,
-    priceFixed: false,
-    // "Back to their original colour" is an outcome claim that depends on the
-    // surface, its age and what caused the staining. Describe the method and
-    // let the photo review set expectations.
-    description:
-      'Driveways, patios, decking, paths and bin areas jet-washed to lift dirt, moss and algae. Send a photo and we will tell you what to expect before you book.',
-    cta: 'WhatsApp a photo →',
-    ctaHref: WA_LINK,
-    ctaExternal: true,
-    featured: false,
-    img: SERVICE_IMAGES.pressureWashing,
-  },
-  {
-    title: 'Garden services',
-    price: `FROM £${GARDEN_SERVICES_FROM_P / 100}`,
-    priceFixed: false,
-    // Green-waste removal is a licensed waste-carrier activity and is not
-    // confirmed anywhere in this repository. Ask rather than promise.
-    description:
-      'Lawn mowing, hedge trimming, weeding and garden tidy-ups. Send a photo so we can review the work, and tell us if you need waste taken away.',
-    cta: 'WhatsApp a photo →',
-    ctaHref: WA_LINK,
-    ctaExternal: true,
-    featured: false,
-    img: SERVICE_IMAGES.gardeningService,
-  },
 ];
 
-export default function Services() {
+export default function Services({ onChoose }: { onChoose: (service: HomepageQuoteService) => void }) {
   const { ref, visible } = useReveal();
 
   return (
-    <section id="services" ref={ref} className="py-24 bg-[#f5f5f0] scroll-mt-24">
+    <section id="services" ref={ref} className="bg-surface py-20 scroll-mt-24 sm:py-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div
           className={`text-center mb-12 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
         >
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-[#1c2b1e] mb-4 tracking-tight">
-            Fixed-price cleaning, no surprises
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-royal-700">Our main services</p>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-navy-950 mb-4 tracking-tight">
+            Choose what you need cleaned
           </h2>
-          <p className="text-[#4a5c4d] text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-            Every price below is what you actually pay — equipment and products included. We specialise in vacant properties, business premises and outdoor work.
+          <p className="text-muted text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
+            See a clear starting price, then build your quote or send the details we need. Requesting a preferred time does not require payment.
           </p>
         </div>
 
         {/* Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((s, i) => (
-            <div
+            <article
               key={i}
-              className={`flex flex-col rounded-2xl overflow-hidden transition-all duration-700 ${
+              className={`group flex flex-col overflow-hidden rounded-2xl border border-line bg-white text-navy-950 shadow-[0_12px_38px_rgba(16,36,62,0.08)] transition-all duration-700 hover:-translate-y-1 hover:border-sky-300 hover:shadow-[0_20px_48px_rgba(16,36,62,0.13)] motion-reduce:transform-none ${
                 visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-              } ${
-                s.featured
-                  ? 'bg-[#1c3d24] text-white shadow-xl'
-                  : 'bg-white text-[#1c2b1e] shadow-sm border border-stone-200/80 hover:shadow-md'
               }`}
               style={{ transitionDelay: `${i * 70}ms` }}
             >
-              {/* Badge */}
-              {s.badge && (
-                <div className="px-5 pt-4">
-                  <span className="inline-block bg-[#d4a017] text-white text-[10px] font-bold tracking-widest uppercase px-3 py-1 rounded-full">
-                    {s.badge}
-                  </span>
-                </div>
-              )}
+              <div className="relative aspect-[16/8] overflow-hidden bg-navy-100">
+                <img src={s.img} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03] motion-reduce:transform-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-navy-950/45 to-transparent" />
+                <span className="absolute bottom-3 left-3 rounded-full bg-white/95 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-royal-700 shadow-sm">{s.price}</span>
+              </div>
 
               {/* Content */}
-              <div className={`flex flex-col flex-1 px-5 ${s.badge ? 'pt-3' : 'pt-5'} pb-5`}>
-                <h3 className={`font-display text-xl font-bold leading-snug mb-1 ${s.featured ? 'text-white' : 'text-[#1c2b1e]'}`}>
-                  {s.title}
+              <div className="flex flex-1 flex-col px-5 pb-5 pt-5">
+                <h3 className="font-display text-xl font-bold leading-snug text-navy-950">
+                  {'pageHref' in s && s.pageHref ? <Link to={s.pageHref} className="hover:text-royal-700">{s.title}</Link> : s.title}
                 </h3>
-                <p className={`text-[11px] font-bold tracking-widest uppercase mb-3 ${s.featured ? 'text-[#d4a017]' : 'text-[#1c7a4a]'}`}>
-                  {s.price}
-                </p>
-                <p className={`text-sm leading-relaxed flex-1 mb-6 ${s.featured ? 'text-white/80' : 'text-[#4a5c4d]'}`}>
+                <p className="mb-6 mt-3 flex-1 text-sm leading-relaxed text-muted">
                   {s.description}
                 </p>
                 {'ctaExternal' in s && s.ctaExternal ? (
@@ -179,31 +128,31 @@ export default function Services() {
                   >
                     {s.cta}
                   </a>
+                ) : 'quoteService' in s && s.quoteService ? (
+                  <button
+                    type="button"
+                    onClick={() => onChoose(s.quoteService)}
+                    className="inline-flex min-h-[44px] items-center justify-center self-start rounded-lg bg-royal-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-royal-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
+                  >
+                    {s.cta}
+                  </button>
                 ) : s.ctaHref.startsWith('/') ? (
                   <Link
                     to={s.ctaHref}
-                    className={`inline-flex items-center justify-center gap-1.5 self-start px-5 py-2.5 min-h-[44px] rounded-lg text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
-                      s.featured
-                        ? 'bg-white text-[#1c3d24] hover:bg-silver-100 focus-visible:outline-white'
-                        : 'bg-royal-500 text-white hover:bg-royal-600 focus-visible:outline-royal-600'
-                    }`}
+                    className="inline-flex min-h-[44px] items-center justify-center self-start rounded-lg bg-royal-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-royal-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
                   >
                     {s.cta}
                   </Link>
                 ) : (
                   <a
                     href={s.ctaHref}
-                    className={`inline-flex items-center justify-center gap-1.5 self-start px-5 py-2.5 min-h-[44px] rounded-lg text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
-                      s.featured
-                        ? 'bg-white text-[#1c3d24] hover:bg-silver-100 focus-visible:outline-white'
-                        : 'bg-royal-500 text-white hover:bg-royal-600 focus-visible:outline-royal-600'
-                    }`}
+                    className="inline-flex min-h-[44px] items-center justify-center self-start rounded-lg bg-royal-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-royal-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
                   >
                     {s.cta}
                   </a>
                 )}
               </div>
-            </div>
+            </article>
           ))}
         </div>
       </div>

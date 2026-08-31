@@ -29,6 +29,12 @@ describe('AboutPage — team and trust', () => {
     ).toBeInTheDocument();
   });
 
+  it('publishes the owner-supplied three-friends founding story without inventing names or employers', () => {
+    renderAbout();
+    expect(screen.getByRole('heading', { name: 'We started together' })).toBeInTheDocument();
+    expect(screen.getByText(/began with three friends who had been working for different companies/i)).toBeInTheDocument();
+  });
+
   it('links to the Checkatrade profile as independent proof', () => {
     renderAbout();
 

@@ -46,6 +46,17 @@ describe('cookie consent — the Google tag is not duplicated', () => {
     }
   });
 
+  it('enables URL passthrough only after denied-by-default consent is established', () => {
+    const source = read('index.html');
+    const defaultIndex = source.indexOf("gtag('consent', 'default'");
+    const passthroughIndex = source.indexOf("gtag('set', 'url_passthrough', true)");
+    const configIndex = source.indexOf("gtag('config', 'AW-18214693277')");
+
+    expect(defaultIndex).toBeGreaterThan(-1);
+    expect(passthroughIndex).toBeGreaterThan(defaultIndex);
+    expect(configIndex).toBeGreaterThan(passthroughIndex);
+  });
+
   it('no React component injects a second gtag.js script tag', () => {
     // The banner/modal/context are the only new client code touching consent
     // — confirm none of them reference the gtag loader URL or inject <script>.

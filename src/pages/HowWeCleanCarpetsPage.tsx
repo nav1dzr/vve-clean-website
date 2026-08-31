@@ -27,7 +27,7 @@ const FAQS = [
   },
   {
     q: 'Do you clean rugs as well as fitted carpets?',
-    a: 'Yes, when the rug material and construction are suitable for the available cleaning method. We inspect it first and will not continue if the test suggests a risk of damage or colour movement.',
+    a: 'Yes, as an add-on to a carpet, upholstery or relevant end of tenancy clean. We assess the rug from a photo first and will not continue if inspection or testing suggests a risk of damage or colour movement. Rug-only bookings are not currently offered.',
   },
   {
     q: 'Do you bring the cleaning equipment and products?',
@@ -101,8 +101,8 @@ const DATA: ServiceLandingData = {
   ],
 
   ctaH2: 'Ready to book your carpet clean?',
-  ctaBody: 'Send your booking request online. The £30 deposit is deducted from the final total, and availability is confirmed separately.',
-  ctaPrimary: { href: '/booking', label: 'Request booking online' },
+  ctaBody: 'Send your preferred date online with no payment. We check availability first and contact you before any deposit is requested.',
+  ctaPrimary: { href: '/booking', label: 'Request a time' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };
 

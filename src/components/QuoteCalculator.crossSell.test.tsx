@@ -56,6 +56,32 @@ const SOFA_Q   = 'Would you also like carpet cleaning?';
 // ── Carpet page → upholstery ────────────────────────────────────────────────
 
 describe('Carpet page — optional upholstery disclosure', () => {
+  it('does not offer a rug-only online booking', async () => {
+    const onBook = vi.fn();
+    const u = user();
+    renderCalc('carpet', onBook);
+
+    await add(u, 'Rug');
+
+    expect(screen.getAllByText('Add-on only').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Rug cleaning is available only with a carpet, upholstery or relevant end of tenancy clean/i))
+      .toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Request a time — no payment/i })).not.toBeInTheDocument();
+    expect(onBook).not.toHaveBeenCalled();
+  });
+
+  it('allows a rug after a qualifying carpet item is added', async () => {
+    const onBook = vi.fn();
+    const u = user();
+    renderCalc('carpet', onBook);
+
+    await add(u, 'Rug');
+    await add(u, 'Bedroom');
+
+    expect(screen.queryByText('Add-on only')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Request a time — no payment/i }).length).toBeGreaterThan(0);
+  });
+
   it('hides the upholstery controls until the customer asks for them', () => {
     renderCalc('carpet');
 
@@ -152,7 +178,7 @@ describe('Carpet page — optional upholstery disclosure', () => {
     await add(u, 'Corner / L-shaped sofa');     // + £130
     await u.click(noBtn());                     // …then changes their mind
 
-    await u.click(screen.getAllByRole('button', { name: /Request booking/i })[0]);
+    await u.click(screen.getAllByRole('button', { name: /Request a time/i })[0]);
 
     const sel = onBook.mock.calls[0][0] as {
       price: number;
@@ -228,7 +254,7 @@ describe('Sofa page — optional carpet disclosure', () => {
     await add(u, 'Bedroom', 3);          // + £150
     await u.click(noBtn());
 
-    await u.click(screen.getAllByRole('button', { name: /Request booking/i })[0]);
+    await u.click(screen.getAllByRole('button', { name: /Request a time/i })[0]);
 
     const sel = onBook.mock.calls[0][0] as {
       price: number;

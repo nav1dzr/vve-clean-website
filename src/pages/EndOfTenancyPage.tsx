@@ -198,13 +198,13 @@ const DATA: ServiceLandingData = {
     { href: '/after-builders-cleaning-london', label: 'After Builders Cleaning' },
     { href: '/commercial-carpet-cleaning-london', label: 'Commercial Cleaning' },
     { href: '/pricing', label: 'All Prices' },
-    { href: '/booking', label: 'Request booking' },
+    { href: '/booking', label: 'Request a time' },
   ],
 
   ctaH2: 'Book your end of tenancy clean today.',
   ctaBody:
-    'Send your booking request online. The £30 deposit is deducted from the final total, and availability is confirmed separately.',
-  ctaPrimary: { href: '/booking', label: 'Request booking online' },
+    'Send your preferred date online with no payment. We check availability first and contact you before any deposit is requested.',
+  ctaPrimary: { href: '/booking', label: 'Request a time' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };
 

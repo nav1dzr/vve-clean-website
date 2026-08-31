@@ -1,5 +1,7 @@
+import { Fragment } from 'react';
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
 import AreaProofSection from '../components/areas/AreaProofSection';
+import AreaServiceShowcase from '../components/areas/AreaServiceShowcase';
 import type { AreaInfo } from '../data/areas';
 import { COVERAGE_SUMMARY } from '../data/pricing';
 
@@ -94,7 +96,7 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
     heroGoogleBadge: true,
     heroTrustLine: '£5m public liability insurance · direct contact',
     primaryHref: covered ? '/booking' : WA,
-    primaryLabel: covered ? 'Send booking request' : 'Check my postcode',
+    primaryLabel: covered ? 'Request a time' : 'Check my postcode',
     primaryIsWa: !covered,
     secondaryHref: WA,
     secondaryLabel: 'WhatsApp for a quote',
@@ -127,7 +129,12 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
     pricingNote: `See the full, itemised price list for every service on our pricing page. The only extras that can apply to any booking are the same disclosed ones every customer sees — a Congestion Charge zone pass-through and a parking estimate — added only when they genuinely apply, never because of where you live.`,
     pricingCta: { href: '/pricing', label: 'See all prices' },
 
-    proofSection: <AreaProofSection area={area} />,
+    proofSection: covered ? (
+      <Fragment>
+        <AreaServiceShowcase area={area} />
+        <AreaProofSection area={area} />
+      </Fragment>
+    ) : <AreaProofSection area={area} />,
 
     sectionOrder: covered ? ['intro', 'proof', 'why', 'pricing', 'faq', 'related'] : ['intro', 'why', 'faq', 'related'],
 
@@ -138,12 +145,12 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
       { href: '/carpet-cleaning-london', label: 'Carpet Cleaning' },
       { href: '/sofa-cleaning-london', label: 'Sofa & Upholstery Cleaning' },
       { href: '/pricing', label: 'All Prices' },
-      { href: '/booking', label: 'Request booking' },
+      { href: '/booking', label: 'Request a time' },
     ],
 
-    ctaH2: covered ? `Ready to send a booking request in ${area.name}?` : `Need cleaning in ${area.name}?`,
-    ctaBody: covered ? 'Send your details and preferred date online. The £30 booking request deposit is deducted from the final total, and availability is confirmed separately.' : 'Send your full postcode on WhatsApp before booking so VVE Clean can confirm whether the visit is possible.',
-    ctaPrimary: covered ? { href: '/booking', label: 'Send booking request' } : { href: WA, label: 'Check my postcode' },
+    ctaH2: covered ? `Ready to request a cleaning time in ${area.name}?` : `Need cleaning in ${area.name}?`,
+    ctaBody: covered ? 'Send your details and preferred date online with no payment. We check availability first and contact you with the closest suitable time.' : 'Send your full postcode on WhatsApp before booking so VVE Clean can confirm whether the visit is possible.',
+    ctaPrimary: covered ? { href: '/booking', label: 'Request a time' } : { href: WA, label: 'Check my postcode' },
     ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
   };
 }

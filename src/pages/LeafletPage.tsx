@@ -161,7 +161,7 @@ export default function LeafletPage() {
                 { icon: <Shield size={15} style={{ color: '#0ea5e9' }} />,   text: 'Fully insured — public liability cover on every job' },
                 { icon: <CheckCircle2 size={15} style={{ color: '#22C55E' }} />, text: 'Professional truck-mounted or portable extraction equipment' },
                 { icon: <CheckCircle2 size={15} style={{ color: '#22C55E' }} />, text: 'Clear written quote before any work starts' },
-                { icon: <CheckCircle2 size={15} style={{ color: '#22C55E' }} />, text: '£30 deposit to submit your booking request — deducted from final bill' },
+                { icon: <CheckCircle2 size={15} style={{ color: '#22C55E' }} />, text: 'No payment to request a time — £30 deposit only after you accept the offered slot' },
                 { icon: <CheckCircle2 size={15} style={{ color: '#22C55E' }} />, text: 'Balance payable after the clean — not before' },
               ].map(({ icon, text }) => (
                 <div key={text} className="flex items-start gap-2.5">
@@ -186,7 +186,7 @@ export default function LeafletPage() {
                 { label: 'Standard price',         value: '£175',  muted: true },
                 { label: 'Leaflet discount 20%',   value: '−£35',  green: true },
                 { label: 'Total after discount',   value: '£140',  bold: true },
-                { label: 'Deposit today',          value: '£30' },
+                { label: 'To request a time',      value: '£0' },
                 { label: 'Balance after clean',    value: '£110' },
               ].map(({ label, value, muted, green, bold }) => (
                 <div key={label} className={`flex justify-between items-center ${bold ? 'border-t border-[#E3E7EE] pt-1.5 mt-1' : ''}`}>

@@ -39,16 +39,14 @@ function rendersBar(source: string): boolean {
 // requires a real CTA.
 const INTENTIONAL_SUPPRESSIONS: Record<string, RegExp> = {
   // Owns the payment button itself; a second booking CTA would compete with it.
-  'BookingPage.tsx': /Pay £\{?DEPOSIT|Pay £30/,
+  'BookingPage.tsx': /Send request — no payment/,
   // Sets state 'hidden' via BookingContext and renders its own fixed bar.
   'LeafletPage.tsx': /wa\.me|tel:/,
   // Not a conversion page; offers a route back plus a quote link.
   'NotFoundPage.tsx': /to="\/#quote"/,
-  // These three render their own two-up Call + WhatsApp bar rather than the
-  // shared component. That is the right call for their content — a legal page
-  // and a price list should not push "Request booking · £30 deposit" — but it
-  // is duplicated markup that could drift, so the bars are asserted directly
-  // in the block below.
+  // These pages render their own two-up bar. Pricing uses price + WhatsApp;
+  // legal pages keep call + WhatsApp. The markup is asserted below so the
+  // variants cannot silently drift.
   'PricingPage.tsx': /fixed bottom-0[\s\S]*?lg:hidden/,
   'PrivacyPolicyPage.tsx': /fixed bottom-0[\s\S]*?lg:hidden/,
   'TermsOfServicePage.tsx': /fixed bottom-0[\s\S]*?lg:hidden/,
@@ -112,8 +110,17 @@ describe('§11 — hand-rolled bars meet the same standards as the shared one', 
 
   it.each(CUSTOM_BAR_PAGES)('%s offers a reachable primary action', (file) => {
     const source = read(pagesDir, file);
-    expect(source).toMatch(/tel:02080502233/);
+    if (file === 'PricingPage.tsx') expect(source).toMatch(/to="\/#quote"/);
+    else expect(source).toMatch(/tel:02080502233/);
     expect(source).toMatch(/wa\.me\/447845451111/);
+  });
+
+  it('gives the pricing page a wider, accessible price action and a secondary WhatsApp action', () => {
+    const source = read(pagesDir, 'PricingPage.tsx');
+    expect(source).toContain('flex-[1.6]');
+    expect(source).toContain('bg-sky-500');
+    expect(source).toContain('bg-[#25d366]');
+    expect(source).not.toMatch(/bg-\[#25d366\][^\n]*text-white/);
   });
 });
 
@@ -122,6 +129,7 @@ describe('§11 — the approved bar treatment is intact', () => {
 
   it('uses the approved lighter blue for the primary action', () => {
     expect(source).toMatch(/bg-sky-500/);
+    expect(source).toMatch(/text-navy-950/);
     // The rejected dark navy treatment must not come back.
     expect(source).not.toMatch(/bg-navy-9|#020b24|#10243E/i);
   });
@@ -131,8 +139,15 @@ describe('§11 — the approved bar treatment is intact', () => {
     expect(source.match(/#25d366/g)).toHaveLength(1);
   });
 
-  it('says "Request booking", never "Book"', () => {
-    expect(source).toContain('Request booking');
+  it('gives the primary action more width and uses accessible text contrast', () => {
+    expect(source.match(/flex-\[1\.6\]/g)).toHaveLength(2);
+    expect(source).toContain('bg-[#25d366]');
+    expect(source).not.toMatch(/bg-\[#25d366\][^\n]*text-white/);
+  });
+
+  it('uses the request-first CTA vocabulary, never a false booking promise', () => {
+    expect(source).toContain('Request a time · no payment');
+    expect(source).toContain('Get my price');
     expect(source).not.toMatch(/>\s*Book\s*</);
   });
 

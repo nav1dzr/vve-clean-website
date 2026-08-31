@@ -99,7 +99,7 @@ export default function GalleryPage() {
             VVE Clean Gallery
           </h1>
           <p className="text-silver-200 text-base sm:text-lg max-w-xl mx-auto">
-            Explore real end of tenancy results now. Carpet and sofa &amp; upholstery photos and short videos will be added as their approved sets are ready.
+            Browse real before-and-after results, finished-job photos and short process clips from our own work. Use the service tabs to keep the page easy to scan.
           </p>
         </div>
       </div>
@@ -196,8 +196,12 @@ export default function GalleryPage() {
           )}
         </div>
 
-        <div className="mt-4">
-          <GalleryInstagramCta galleryCategory={active} showGalleryLink={false} />
+        <div className="mt-12 rounded-2xl border border-silver-200 bg-white px-5 py-7 text-center shadow-sm">
+          <h2 className="font-display text-2xl font-bold text-navy-900">See new work as we publish it</h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-silver-600">
+            Follow the verified profiles below. A YouTube link will only be added after the official channel address is confirmed.
+          </p>
+          <GalleryInstagramCta galleryCategory={active} showGalleryLink={false} showAllNetworks />
         </div>
       </section>
 

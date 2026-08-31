@@ -16,6 +16,7 @@ export interface BookingCard {
   paymentStatus: string | null;
   balanceStatus: string | null;
   totalPrice: number | null;
+  awaitingAvailabilityReview?: boolean;
   createdAt: string;
   // True when this is a still-pending_payment row with a same-phone paid
   // sibling created within 24h of it — almost certainly an abandoned
@@ -81,6 +82,7 @@ export interface BookingDetail {
   depositAmount: number | null;
   balance: number | null;
   paymentStatus: string | null;
+  awaitingAvailabilityReview?: boolean;
   balanceStatus: string | null;
   balancePaidAt: string | null;
   balancePaymentMethod: string | null;

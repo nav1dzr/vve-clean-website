@@ -61,7 +61,7 @@ describe('BookingPage — essential storage is unaffected by rejected optional c
     seedSelection();
     renderBookingPage();
 
-    expect(screen.getByRole('heading', { name: 'Complete your booking request' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Request a preferred cleaning time' })).toBeInTheDocument();
     expect(screen.getByText('Window Cleaning')).toBeInTheDocument();
   });
 
@@ -69,7 +69,7 @@ describe('BookingPage — essential storage is unaffected by rejected optional c
     seedSelection();
     renderBookingPage();
 
-    expect(screen.getByRole('heading', { name: 'Complete your booking request' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Request a preferred cleaning time' })).toBeInTheDocument();
     expect(screen.getByText('Window Cleaning')).toBeInTheDocument();
   });
 });

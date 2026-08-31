@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import AreaMarquee from '../components/AreaMarquee';
 import TrustBadges from '../components/TrustBadges';
-import HomeServiceSelector, { type HomepageQuoteService } from '../components/HomeServiceSelector';
+import type { HomepageQuoteService } from '../components/HomeServiceSelector';
 import QuoteCalculator from '../components/QuoteCalculator';
 import Reviews from '../components/Reviews';
 import Gallery from '../components/Gallery';
@@ -51,9 +51,8 @@ export default function HomePage() {
       {/* Section order follows the completion brief §9: promise, services,
           trust, proof, price entry, coverage, FAQ. Two constraints shaped it:
 
-          - HomeServiceSelector and QuoteCalculator are one unit. The selector
-            sets the calculator's service and the calculator remounts on that
-            change, so nothing can sit between them.
+          - The single Services section can preselect the quote calculator,
+            which remounts on service change so prices never carry across.
           - The quote journey is unchanged. #quote still resolves to the
             calculator, which is what the sticky bar, the 404 page and every
             "Get a quote" link scroll to. */}
@@ -63,7 +62,7 @@ export default function HomePage() {
       <AreaMarquee />
 
       {/* 2. Primary services */}
-      <Services />
+      <Services onChoose={chooseService} />
 
       {/* 3. Trust — who we are and what we bring */}
       <TrustBadges />
@@ -74,7 +73,6 @@ export default function HomePage() {
       <Gallery />
 
       {/* 5. Price / quote entry — the conversion point */}
-      <HomeServiceSelector onChoose={chooseService} />
       {/* Remounts on service change so every branch of the calculator starts
           from clean state rather than carrying the previous service's counts. */}
       <QuoteCalculator

@@ -8,7 +8,7 @@ const TITLES: Record<string, string> = {
   '/': 'VVE Clean London | Carpet, Sofa & End of Tenancy Cleaning',
   '/pricing': 'Cleaning Prices London | VVE Clean',
   '/commercial': 'Commercial & Communal Cleaning London | VVE Clean',
-  '/booking': 'Submit a Booking Request | VVE Clean',
+  '/booking': 'Request a Cleaning Time | VVE Clean',
   '/about': 'About VVE Clean | London Cleaning Company',
   '/contact': 'Contact VVE Clean | Call, WhatsApp or Email',
   '/faq': 'Cleaning Questions | VVE Clean FAQ',

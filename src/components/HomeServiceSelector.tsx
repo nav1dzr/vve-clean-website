@@ -30,7 +30,7 @@ type ServiceCard = {
 const services: ServiceCard[] = [
   {
     title: 'Carpet Cleaning',
-    description: 'Deep cleaning for carpets, rugs and stubborn stains.',
+    description: 'Deep cleaning for fitted carpets and stubborn stains. Rugs can be assessed as an add-on.',
     quoteService: 'carpet',
     icon: Waves,
     colour: 'text-blue-600',

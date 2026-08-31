@@ -54,6 +54,9 @@
         ad_user_data: 'denied',
         ad_personalization: 'denied',
       });
+      // Preserve campaign parameters through consent-safe navigation without
+      // granting storage or weakening the denied-by-default consent state.
+      gtag('set', 'url_passthrough', true);
       // A returning visitor's earlier choice (src/lib/consent.ts, key "vve_consent")
       // is applied immediately so they are not reset to denied on every visit.
       try {

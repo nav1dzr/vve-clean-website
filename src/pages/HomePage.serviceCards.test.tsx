@@ -37,12 +37,10 @@ function renderHome() {
 }
 
 /**
- * The card grid, scoped by id. Several of these service names also appear in
- * the existing Services section further down the page and in the nav, so an
- * unscoped query matches more than one node.
+ * The single card grid, scoped by id.
  */
 function cardGrid() {
-  const el = document.getElementById('choose-service');
+  const el = document.getElementById('services');
   expect(el).not.toBeNull();
   return within(el as HTMLElement);
 }
@@ -53,11 +51,11 @@ function quoteSection() {
   return el as HTMLElement;
 }
 
-/** Clicks the "Get quote" button belonging to a named service card. */
+/** Clicks the quote button belonging to a named service card. */
 async function chooseCard(user: ReturnType<typeof userEvent.setup>, title: string) {
   const card = cardGrid().getByText(title).closest('article');
   expect(card).not.toBeNull();
-  await user.click(within(card as HTMLElement).getByRole('button', { name: /Get quote/i }));
+  await user.click(within(card as HTMLElement).getByRole('button'));
 }
 
 /**
@@ -88,7 +86,7 @@ describe('HomePage — fresh visit', () => {
 
     expect(q.getByText('Instant quote')).toBeInTheDocument();
     expect(q.getByRole('heading', { name: 'Get an instant quote' })).toBeInTheDocument();
-    expect(q.getByText('Start by choosing the service you need.')).toBeInTheDocument();
+    expect(q.getByText('Build a clear price in three short steps.')).toBeInTheDocument();
 
     // Three-step indicator.
     for (const [num, label] of [['1', 'Service'], ['2', 'Details'], ['3', 'Quote']]) {
@@ -100,13 +98,13 @@ describe('HomePage — fresh visit', () => {
     expect(q.getByLabelText('Select a service')).toBeInTheDocument();
     expect(q.getByRole('option', { name: 'Choose what you would like cleaned' })).toBeInTheDocument();
 
-    expect(q.getByText(/No hidden fees · Live price where available · £30 booking deposit/)).toBeInTheDocument();
+    expect(q.getByText(/No hidden fees · Live price where available · No payment to request a time/)).toBeInTheDocument();
 
     // Benefits panel.
     expect(q.getByRole('heading', { name: 'Why book with VVE Clean?' })).toBeInTheDocument();
     for (const benefit of [
       'Transparent pricing with no hidden fees',
-      '£30 deposit handled securely by Stripe',
+      'Request a preferred time with no payment',
       'Professional equipment and direct support',
       '£5m public liability insurance',
       // Was "Rated 5.0 by genuine Google reviewers". The numeric rating was
@@ -129,16 +127,17 @@ describe('HomePage — fresh visit', () => {
     expect(q.queryByText(/Request booking/i)).not.toBeInTheDocument();
   });
 
-  it('still shows all five service cards above the quote', () => {
+  it('shows one focused five-card service section above the quote', () => {
     renderHome();
     const grid = cardGrid();
-    for (const title of ['Carpet Cleaning', 'Sofa & Upholstery', 'End of Tenancy', 'Deep Cleaning', 'After Builders']) {
+    for (const title of ['End of tenancy cleaning', 'Move-in deep clean', 'After builders clean', 'Carpet & upholstery', 'Commercial & communal']) {
       expect(grid.getByText(title)).toBeInTheDocument();
     }
-    expect(grid.getAllByRole('button', { name: /Get quote/i })).toHaveLength(5);
+    expect(grid.getAllByRole('article')).toHaveLength(5);
+    expect(grid.queryByText('Most booked')).not.toBeInTheDocument();
 
     // Cards come first in the document, the quote below them.
-    const cards = document.getElementById('choose-service') as HTMLElement;
+    const cards = document.getElementById('services') as HTMLElement;
     expect(cards.compareDocumentPosition(quoteSection()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
@@ -173,11 +172,8 @@ describe('HomePage — choosing from the dropdown', () => {
 
 describe('HomePage — choosing from a service card', () => {
   const cases: Array<{ card: string; service: string }> = [
-    { card: 'Carpet Cleaning', service: 'carpet' },
-    { card: 'Sofa & Upholstery', service: 'upholstery' },
-    // 'End of Tenancy' is deliberately absent — see the note above.
-    { card: 'Deep Cleaning', service: 'move_in' },
-    { card: 'After Builders', service: 'after_builders' },
+    { card: 'Carpet & upholstery', service: 'carpet' },
+    { card: 'Move-in deep clean', service: 'move_in' },
   ];
 
   for (const { card, service } of cases) {
@@ -196,7 +192,7 @@ describe('HomePage — choosing from a service card', () => {
   it('scrolls to the quote section when the choice came from a card', async () => {
     const user = userEvent.setup();
     renderHome();
-    await chooseCard(user, 'Deep Cleaning');
+    await chooseCard(user, 'Move-in deep clean');
 
     await waitFor(() => {
       expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
@@ -206,7 +202,7 @@ describe('HomePage — choosing from a service card', () => {
   it('keeps the light homepage surface, not the dark service-page gradient', async () => {
     const user = userEvent.setup();
     renderHome();
-    await chooseCard(user, 'Carpet Cleaning');
+    await chooseCard(user, 'Carpet & upholstery');
 
     await waitFor(() => {
       expect(within(quoteSection()).queryByText('Service Type')).toBeInTheDocument();

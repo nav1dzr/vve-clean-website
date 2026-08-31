@@ -97,13 +97,22 @@ describe('Contact details', () => {
     expect(text).toMatch(/23-25 Queensway/);
   });
 
-  // Sunday work happens by arrangement. "Closed" turned real enquiries away.
-  it('describes Sunday as by request rather than closed', () => {
+  it('shows the confirmed Sunday hours', () => {
     const { container } = render(<Contact />);
     const text = container.textContent ?? '';
 
-    expect(text).toMatch(/Sun:\s*by request/i);
+    expect(text).toMatch(/Sun:\s*10:00 AM – 3:00 PM/i);
+    expect(text).not.toMatch(/Sun:\s*by request/i);
     expect(text).not.toMatch(/Sun:\s*Closed/i);
+  });
+
+  it('places the form before the information panel on mobile', () => {
+    const { container } = render(<Contact />);
+    const formPanel = container.querySelector('#contact-form');
+    const infoPanel = formPanel?.previousElementSibling;
+
+    expect(formPanel).toHaveClass('order-1', 'lg:order-2');
+    expect(infoPanel).toHaveClass('order-2', 'lg:order-1');
   });
 
   it('offers click-to-call, email and WhatsApp', () => {

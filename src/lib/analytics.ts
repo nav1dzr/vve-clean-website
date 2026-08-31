@@ -10,6 +10,7 @@
 // | phone_click             | User clicks a tel: link                    | Hero, Contact, Navbar  | location (string)              |
 // | whatsapp_click          | User clicks a WhatsApp link                | Hero, Contact, CTAs    | location (string)              |
 // | booking_initiated       | User clicks "Book Now" in calculator       | QuoteCalculator        | service_type (string)          |
+// | request_submitted       | No-payment preferred-time request saved     | BookingPage            | service_type (string)          |
 // | contact_form_submitted  | Contact form POST succeeds                 | Contact                | —                              |
 // | deposit_paid (GA4 conv) | Stripe payment confirmed (confirmation.html)| confirmation.html      | value, currency, transaction_id|
 //
@@ -48,6 +49,10 @@ export function trackWhatsAppClick(location: string): void {
 export function trackBookingInitiated(serviceType: string): void {
   safeGtag('booking_initiated', { event_category: 'funnel', event_label: serviceType });
   safeAdsConversion(SECONDARY_ADS_CONVERSIONS.bookingInitiated, { event_label: serviceType });
+}
+
+export function trackBookingRequestSubmitted(serviceType: string): void {
+  safeGtag('request_submitted', { event_category: 'funnel', event_label: serviceType });
 }
 
 export function trackContactFormSubmitted(): void {

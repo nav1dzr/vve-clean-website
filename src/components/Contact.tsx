@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle2 } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
-import { trackPhoneClick, trackWhatsAppClick, trackContactFormSubmitted } from '../lib/analytics';
+import { trackContactFormSubmitted } from '../lib/analytics';
 
 const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
 
@@ -109,8 +109,10 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
         <div
           className={`grid lg:grid-cols-5 gap-0 rounded-2xl overflow-hidden shadow-xl transition-all duration-700 delay-200 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
         >
-          {/* Info panel */}
-          <div className="lg:col-span-2 navy-gradient p-8 flex flex-col">
+          {/* The form comes first on a phone, where completing the enquiry is
+              the visitor's main job. The supporting contact details return to
+              the left column on desktop. */}
+          <div className="order-2 lg:order-1 lg:col-span-2 navy-gradient p-8 flex flex-col">
             <div>
               {/* h2, not h3: this is the first heading under the page h1, and
                   skipping a level breaks screen-reader outline navigation. */}
@@ -127,7 +129,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                   </div>
                   <div>
                     <div className="text-silver-300 text-xs mb-0.5">Phone</div>
-                    <a href="tel:02080502233" onClick={() => trackPhoneClick('contact')} className="text-white font-semibold hover:text-silver-200 transition-colors block">
+                    <a href="tel:02080502233" data-track-location="contact-phone" className="text-white font-semibold hover:text-silver-200 transition-colors block">
                       020 8050 2233
                     </a>
                   </div>
@@ -138,7 +140,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                   href={WA_LINK}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() => trackWhatsAppClick('contact')}
+                  data-track-location="contact-whatsapp"
                   className="inline-flex items-center gap-2 btn-whatsapp text-sm font-semibold px-4 py-2.5 rounded-lg transition-all duration-200 w-full justify-center"
                 >
                   <WhatsAppIcon size={15} />
@@ -180,7 +182,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                     <div className="text-silver-300 text-xs mb-0.5">Hours</div>
                     <div className="text-white font-semibold text-sm">Mon – Fri: 9:00 AM – 6:00 PM</div>
                     <div className="text-silver-400 text-xs">Sat: 10:00 AM – 3:00 PM</div>
-                    <div className="text-silver-400 text-xs">Sun: by request</div>
+                    <div className="text-silver-400 text-xs">Sun: 10:00 AM – 3:00 PM</div>
                   </div>
                 </div>
               </div>
@@ -188,7 +190,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
           </div>
 
           {/* Form panel */}
-          <div className="lg:col-span-3 bg-white p-8">
+          <div id="contact-form" className="order-1 scroll-mt-28 lg:order-2 lg:col-span-3 bg-white p-8">
             {submitted ? (
               <div className="flex flex-col items-center justify-center h-full text-center py-12">
                 <CheckCircle2 className="text-green-500 mb-4" size={56} />
@@ -330,7 +332,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
 
                 <p className="text-slate-500 text-xs text-center">
                   Or{' '}
-                  <a href={WA_LINK} target="_blank" rel="noopener noreferrer" className="text-green-600 font-medium hover:underline">
+                  <a href={WA_LINK} target="_blank" rel="noopener noreferrer" data-track-location="contact-form-whatsapp" className="text-green-700 font-medium hover:underline">
                     chat with us on WhatsApp
                   </a>{' '}
                   if you would rather message.

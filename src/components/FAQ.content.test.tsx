@@ -101,28 +101,25 @@ describe('the guarantee and refund answers match the real process', () => {
     expect(answerFor(/not available/i)).not.toMatch(/automatically|automatic/i);
   });
 
-  // Card settlement time is the issuer's, not VVE Clean's. The FAQ must
-  // describe the typical range and say who controls it, never guarantee an
-  // arrival date, and never publish an unconfirmed internal turnaround.
-  it('states card refund timing as typical and issuer-controlled', () => {
+  it('makes clear that an unavailable request creates no charge to refund', () => {
     const answer = answerFor(/not available/i);
 
-    expect(answer).toMatch(/typically appear about 5 to 10 business days/i);
-    expect(answer).toMatch(/set by your card issuer/i);
-    expect(answer).not.toMatch(/\b14 business days\b/);
-    expect(answer).not.toMatch(/within one business day/i);
+    expect(answer).toMatch(/nothing is charged/i);
+    expect(answer).toMatch(/only after you accept an available time/i);
+    expect(answer).not.toMatch(/refund/i);
   });
 
-  it('keeps the FAQ and the Terms consistent on refund timing', () => {
-    const answer = answerFor(/not available/i);
+  // Refund timing remains relevant only after a customer has accepted a time
+  // and paid. The Terms must describe that separate, later-stage process
+  // without promising an issuer-controlled settlement date.
+  it('keeps issuer-controlled refund timing in the Terms', () => {
     const terms = readFileSync(
       resolve(dirname(fileURLToPath(import.meta.url)), '../pages/TermsOfServicePage.tsx'),
       'utf8',
     );
 
-    // Both quote the same range and the same attribution of control.
-    expect(answer).toMatch(/5 to 10 business days/);
     expect(terms).toMatch(/5 to 10 business days/);
     expect(terms).toMatch(/card issuer/i);
+    expect(terms).not.toMatch(/\b14 business days\b/);
   });
 });

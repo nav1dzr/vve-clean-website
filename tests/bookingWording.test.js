@@ -57,9 +57,10 @@ describe('booking flow — no false "slot secured" / "confirmed" wording remains
     expect(source).toMatch(/your booking request has been received/i);
   });
 
-  it('the booking page button says "Pay £30 deposit", not "confirm booking"', () => {
+  it('the booking page asks for a time with no payment, not a confirmed booking', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/pages/BookingPage.tsx'), 'utf8');
-    expect(source).toMatch(/Pay £\{DEPOSIT\} deposit/);
+    expect(source).toMatch(/Send request — no payment/);
+    expect(source).not.toMatch(/Pay £\{DEPOSIT\} deposit/);
     expect(source).not.toMatch(/confirm booking/i);
   });
 });

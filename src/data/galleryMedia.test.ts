@@ -59,14 +59,20 @@ describe('galleryMedia manifest — End of Tenancy', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('publishes exactly the three approved Carpet pairs', () => {
-    // Carpet ships the owner's three approved before/after pairs — no more, no
-    // fewer.
-    expect(GALLERY_MEDIA.carpet).toHaveLength(3);
-    expect(GALLERY_MEDIA.carpet.map((i) => i.id)).toEqual([
-      'carpet-office',
-      'carpet-blue',
-      'carpet-brown',
+  it('publishes the three approved Carpet pairs and four real process clips', () => {
+    expect(GALLERY_MEDIA.carpet).toHaveLength(7);
+    expect(GALLERY_MEDIA.carpet.filter((item) => item.type === 'before-after').map((item) => item.id)).toEqual([
+      'carpet-office', 'carpet-blue', 'carpet-brown',
+    ]);
+    expect(GALLERY_MEDIA.carpet.filter((item) => item.type === 'video')).toHaveLength(4);
+  });
+
+  it('interleaves comparison, video and supporting-photo evidence where available', () => {
+    expect(GALLERY_MEDIA.carpet.slice(0, 4).map((item) => item.type)).toEqual([
+      'before-after', 'video', 'before-after', 'video',
+    ]);
+    expect(GALLERY_MEDIA['sofa-upholstery'].slice(0, 6).map((item) => item.type)).toEqual([
+      'before-after', 'video', 'photo', 'before-after', 'video', 'photo',
     ]);
   });
 

@@ -58,18 +58,18 @@ function quote() {
   return within(el as HTMLElement);
 }
 
-/** Clicks "Get quote" on a named homepage service card. */
+/** Clicks the quote action on a named homepage service card. */
 async function chooseCard(user: ReturnType<typeof userEvent.setup>, title: string) {
-  const grid = document.getElementById('choose-service') as HTMLElement;
+  const grid = document.getElementById('services') as HTMLElement;
   const card = within(grid).getByText(title).closest('article');
-  await user.click(within(card as HTMLElement).getByRole('button', { name: /Get quote/i }));
+  await user.click(within(card as HTMLElement).getByRole('button', { name: /Get your price/i }));
 }
 
 describe('End of Tenancy quote — identical on the homepage and the service page', () => {
   it('the homepage End of Tenancy card opens the same wizard as the dedicated service page', async () => {
     const user = userEvent.setup();
     renderHome();
-    await chooseCard(user, 'End of Tenancy');
+    await chooseCard(user, 'End of tenancy cleaning');
     await waitFor(() => expect(quote().getByRole('list', { name: /Step 1 of 4/ })).toBeInTheDocument());
     expect(quote().queryByText('Service Type')).not.toBeInTheDocument();
   });
@@ -77,7 +77,7 @@ describe('End of Tenancy quote — identical on the homepage and the service pag
   it('selecting the same property size shows the same footer total on both pages', async () => {
     const user = userEvent.setup();
     renderHome();
-    await chooseCard(user, 'End of Tenancy');
+    await chooseCard(user, 'End of tenancy cleaning');
     await waitFor(() => expect(quote().getByRole('list', { name: /Step 1 of 4/ })).toBeInTheDocument());
     await user.click(quote().getByRole('button', { name: /^3 bed/ }));
     const homeTotal = quote().getByTestId('footer-total').textContent;

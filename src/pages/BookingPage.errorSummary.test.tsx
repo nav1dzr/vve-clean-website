@@ -62,16 +62,16 @@ describe('BookingPage — error summary', () => {
     const user = userEvent.setup();
     renderBookingPage();
 
-    await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
+    await user.click(screen.getByRole('button', { name: /send request — no payment/i }));
 
     const heading = await screen.findByRole('heading', {
       name: /problems? with your booking request/i,
     });
-    // 5 contact fields + date + arrival window + 2 access questions + terms.
-    expect(heading).toHaveTextContent('There are 10 problems with your booking request');
+    // 5 contact fields + date + arrival window + 2 access questions.
+    expect(heading).toHaveTextContent('There are 9 problems with your booking request');
 
     const links = within(summary()).getAllByRole('link');
-    expect(links).toHaveLength(10);
+    expect(links).toHaveLength(9);
   });
 
   it('uses singular wording when only one problem remains', async () => {
@@ -86,10 +86,9 @@ describe('BookingPage — error summary', () => {
     await user.type(screen.getByLabelText(/preferred date/i), futureDateISO());
     await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
     await user.click(screen.getAllByRole('button', { name: 'Yes' })[0]);
-    await user.click(screen.getAllByRole('button', { name: 'No' })[1]);
-    // Terms deliberately left unaccepted.
+    // Congestion Charge answer deliberately left empty.
 
-    await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
+    await user.click(screen.getByRole('button', { name: /send request — no payment/i }));
 
     expect(
       await screen.findByRole('heading', { name: 'There is 1 problem with your booking request' }),
@@ -100,7 +99,7 @@ describe('BookingPage — error summary', () => {
     const user = userEvent.setup();
     renderBookingPage();
 
-    await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
+    await user.click(screen.getByRole('button', { name: /send request — no payment/i }));
 
     await waitFor(() => expect(summary()).toHaveFocus());
     // Focusable-but-not-tabbable: reachable programmatically, skipped in the
@@ -112,7 +111,7 @@ describe('BookingPage — error summary', () => {
     const user = userEvent.setup();
     renderBookingPage();
 
-    await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
+    await user.click(screen.getByRole('button', { name: /send request — no payment/i }));
 
     await waitFor(() =>
       expect(summary()).toHaveAttribute('aria-labelledby', 'booking-error-summary-heading'),
@@ -123,7 +122,7 @@ describe('BookingPage — error summary', () => {
     const user = userEvent.setup();
     renderBookingPage();
 
-    await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
+    await user.click(screen.getByRole('button', { name: /send request — no payment/i }));
     await screen.findByRole('heading', { name: /problems? with your booking request/i });
 
     await user.click(within(summary()).getByRole('link', { name: 'Full name' }));
@@ -135,7 +134,7 @@ describe('BookingPage — error summary', () => {
     const user = userEvent.setup();
     renderBookingPage();
 
-    await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
+    await user.click(screen.getByRole('button', { name: /send request — no payment/i }));
     await screen.findByRole('heading', { name: /problems? with your booking request/i });
 
     await user.click(within(summary()).getByRole('link', { name: 'Postcode' }));
@@ -147,14 +146,14 @@ describe('BookingPage — error summary', () => {
     const user = userEvent.setup();
     renderBookingPage();
 
-    await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
-    await screen.findByRole('heading', { name: 'There are 10 problems with your booking request' });
+    await user.click(screen.getByRole('button', { name: /send request — no payment/i }));
+    await screen.findByRole('heading', { name: 'There are 9 problems with your booking request' });
 
     await user.type(screen.getByLabelText(/full name/i), 'Jane Smith');
-    await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
+    await user.click(screen.getByRole('button', { name: /send request — no payment/i }));
 
     expect(
-      await screen.findByRole('heading', { name: 'There are 9 problems with your booking request' }),
+      await screen.findByRole('heading', { name: 'There are 8 problems with your booking request' }),
     ).toBeInTheDocument();
   });
 
@@ -165,7 +164,7 @@ describe('BookingPage — error summary', () => {
     const user = userEvent.setup();
     renderBookingPage();
 
-    await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
+    await user.click(screen.getByRole('button', { name: /send request — no payment/i }));
     await screen.findByRole('heading', { name: /problems? with your booking request/i });
 
     expect(within(summary()).getByRole('link', { name: 'Full name' })).toBeInTheDocument();
@@ -181,7 +180,7 @@ describe('BookingPage — error summary', () => {
     await user.type(screen.getByLabelText(/full name/i), 'Jane Smith');
     await user.type(screen.getByLabelText(/^address/i), '12 High Street');
 
-    await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
+    await user.click(screen.getByRole('button', { name: /send request — no payment/i }));
     await screen.findByRole('heading', { name: /problems? with your booking request/i });
 
     expect(screen.getByLabelText(/full name/i)).toHaveValue('Jane Smith');

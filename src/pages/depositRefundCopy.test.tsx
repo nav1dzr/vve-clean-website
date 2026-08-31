@@ -56,7 +56,7 @@ const renderBooking = () =>
 describe('Terms — unavailable slot refund', () => {
   it('commits to refunding the deposit in full', () => {
     const { container } = renderTerms();
-    expect(container.textContent ?? '').toMatch(/refund your £30 deposit in full/i);
+    expect(container.textContent ?? '').toMatch(/refund that deposit in full/i);
   });
 
   // Card settlement time belongs to the issuer. "It will reach your card
@@ -110,17 +110,17 @@ describe('Booking page — progressive disclosure of the refund', () => {
   it('reassures at the point of choosing a date without a wall of text', () => {
     renderBooking();
 
-    const note = screen.getByText(/cannot offer a slot that works for you/i);
+    const note = screen.getByText(/This is a request, not a confirmed appointment/i);
     expect(note).toBeInTheDocument();
-    // One clause, not a policy block beside the payment button.
+    expect(note).toHaveTextContent(/no payment is taken at this stage/i);
     expect((note.textContent ?? '').length).toBeLessThan(260);
   });
 
-  it('links to the booking terms rather than restating them', () => {
+  it('does not force booking terms before the no-payment request', () => {
     renderBooking();
 
-    const link = screen.getByRole('link', { name: /see booking terms/i });
-    expect(link).toHaveAttribute('href', '/terms-of-service#bookings');
+    expect(screen.queryByRole('checkbox', { name: /terms of service/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/terms are shown before any deposit is paid/i)).toBeInTheDocument();
   });
 
   // Progressive disclosure: the short version makes no timing claim at all,
@@ -138,11 +138,11 @@ describe('Booking page — progressive disclosure of the refund', () => {
     expect(container.textContent ?? '').not.toMatch(/refunded automatically|automatic refund/i);
   });
 
-  it('still says the deposit buys a request, not a confirmed slot', () => {
+  it('says the manager checks the request before asking for a deposit', () => {
     const { container } = renderBooking();
     const text = container.textContent ?? '';
 
-    expect(text).toMatch(/confirm availability separately/i);
-    expect(text).toMatch(/booking request/i);
+    expect(text).toMatch(/VVE manager queue/i);
+    expect(text).toMatch(/If you accept the offered time, we send a secure £30 deposit link/i);
   });
 });
