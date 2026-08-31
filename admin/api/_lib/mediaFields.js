@@ -2,7 +2,16 @@ const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avi
 const VIDEO_TYPES = new Set(['video/mp4', 'video/quicktime', 'video/webm']);
 export const CATEGORY_VALUES = ['end-of-tenancy', 'carpet', 'sofa-upholstery'];
 export const BEFORE_AFTER_VALUES = ['before', 'after', 'none'];
-export const SLOT_VALUES = Array.from({ length: 20 }, (_, index) => `gallery-${String(index + 1).padStart(2, '0')}`);
+export const PLACEMENT_VALUES = ['main-home', 'gallery-end-of-tenancy', 'gallery-carpet', 'gallery-sofa', 'carpet-page', 'sofa-page', 'end-of-tenancy-page'];
+const PLACEMENT_DEFAULTS = {
+  'main-home': { category: 'end-of-tenancy', service: 'VVE Clean' },
+  'gallery-end-of-tenancy': { category: 'end-of-tenancy', service: 'End of tenancy cleaning' },
+  'gallery-carpet': { category: 'carpet', service: 'Carpet cleaning' },
+  'gallery-sofa': { category: 'sofa-upholstery', service: 'Sofa & upholstery cleaning' },
+  'carpet-page': { category: 'carpet', service: 'Carpet cleaning' },
+  'sofa-page': { category: 'sofa-upholstery', service: 'Sofa & upholstery cleaning' },
+  'end-of-tenancy-page': { category: 'end-of-tenancy', service: 'End of tenancy cleaning' },
+};
 const MAX_TITLE = 120;
 const MAX_TEXT = 300;
 const MAX_PAIR_KEY = 64;
@@ -24,14 +33,18 @@ export function validateNewAsset(body) {
 }
 
 export function normaliseMetadata(body) {
-  const category = CATEGORY_VALUES.includes(body.category) ? body.category : 'end-of-tenancy';
+  const placement = PLACEMENT_VALUES.includes(body.placement) ? body.placement : 'gallery-end-of-tenancy';
+  const defaults = PLACEMENT_DEFAULTS[placement];
+  const category = CATEGORY_VALUES.includes(body.category) ? body.category : defaults.category;
   const beforeAfter = BEFORE_AFTER_VALUES.includes(body.beforeAfter) ? body.beforeAfter : 'none';
-  const requestedSlotKey = SLOT_VALUES.includes(body.slotKey) ? body.slotKey : null;
+  const slotKey = text(body.slotKey, 100);
+  const requestedSlotKey = slotKey.startsWith(`${placement}-`) ? slotKey : null;
   return {
     title: text(body.title, MAX_TITLE),
     altText: text(body.altText, MAX_TEXT),
-    service: text(body.service, 100),
+    service: text(body.service, 100) || defaults.service,
     category,
+    placement,
     beforeAfter,
     pairKey: text(body.pairKey, MAX_PAIR_KEY).toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''),
     locationLabel: text(body.locationLabel, 100),
@@ -51,6 +64,7 @@ export function toMediaSummary(row, slotMap) {
     altText: row.alt_text,
     service: row.service,
     category: row.category,
+    placement: row.placement,
     beforeAfter: row.before_after,
     pairKey: row.pair_key,
     locationLabel: row.location_label,

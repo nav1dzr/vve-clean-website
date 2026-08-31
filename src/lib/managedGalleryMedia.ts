@@ -3,6 +3,7 @@ import type { GalleryCategory, GalleryItem } from '../data/galleryMedia';
 
 type PublishedSlot = {
   slot_key: string;
+  placement: string;
   media_type: 'image' | 'video';
   title: string;
   alt_text: string;
@@ -14,9 +15,9 @@ type PublishedSlot = {
 
 const empty = (): Record<GalleryCategory, GalleryItem[]> => ({ 'end-of-tenancy': [], carpet: [], 'sofa-upholstery': [] });
 
-// Public gallery reads only the published-delivery RPC. It never receives an
-// R2 key, original filename, upload metadata, or any admin-only flags.
-export function useManagedGalleryMedia() {
+// Public pages read only the published-delivery RPC. They never receive an R2
+// key, original filename, upload metadata, or any admin-only flags.
+function usePublishedSlots() {
   const [slots, setSlots] = useState<PublishedSlot[]>([]);
 
   useEffect(() => {
@@ -39,25 +40,42 @@ export function useManagedGalleryMedia() {
     return () => { live = false; };
   }, []);
 
+  return slots;
+}
+
+function slotToItem(slot: PublishedSlot): GalleryItem | null {
+  const label = slot.title || `${slot.before_after === 'none' ? 'Cleaning' : slot.before_after} result`;
+  const alt = slot.alt_text || label;
+  if (slot.media_type === 'image' && slot.delivery_url) {
+    return { type: 'photo', id: `managed-${slot.slot_key}`, label, src: slot.delivery_url, alt };
+  }
+  if (slot.media_type === 'video' && slot.mux_playback_id) {
+    return {
+      type: 'video', id: `managed-${slot.slot_key}`, label,
+      src: `https://stream.mux.com/${slot.mux_playback_id}.m3u8`,
+      poster: `https://image.mux.com/${slot.mux_playback_id}/thumbnail.jpg?time=1&width=960&fit_mode=preserve`,
+      playerUrl: `https://player.mux.com/${slot.mux_playback_id}`,
+      description: alt,
+    };
+  }
+  return null;
+}
+
+export function useManagedGalleryMedia() {
+  const slots = usePublishedSlots();
   return useMemo(() => {
     const grouped = empty();
     for (const slot of slots) {
+      if (!slot.placement?.startsWith('gallery-')) continue;
       if (!Object.prototype.hasOwnProperty.call(grouped, slot.category)) continue;
-      const label = slot.title || `${slot.before_after === 'none' ? 'Cleaning' : slot.before_after} result`;
-      const alt = slot.alt_text || label;
-      if (slot.media_type === 'image' && slot.delivery_url) {
-        grouped[slot.category].push({ type: 'photo', id: `managed-${slot.slot_key}`, label, src: slot.delivery_url, alt });
-      }
-      if (slot.media_type === 'video' && slot.mux_playback_id) {
-        grouped[slot.category].push({
-          type: 'video', id: `managed-${slot.slot_key}`, label,
-          src: `https://stream.mux.com/${slot.mux_playback_id}.m3u8`,
-          poster: `https://image.mux.com/${slot.mux_playback_id}/thumbnail.jpg?time=1&width=960&fit_mode=preserve`,
-          playerUrl: `https://player.mux.com/${slot.mux_playback_id}`,
-          description: alt,
-        });
-      }
+      const item = slotToItem(slot);
+      if (item) grouped[slot.category].push(item);
     }
     return grouped;
   }, [slots]);
+}
+
+export function useManagedPlacementMedia(placement: string) {
+  const slots = usePublishedSlots();
+  return useMemo(() => slots.filter((slot) => slot.placement === placement).map(slotToItem).filter((item): item is GalleryItem => item !== null), [slots, placement]);
 }

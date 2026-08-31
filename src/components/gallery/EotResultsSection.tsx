@@ -4,6 +4,7 @@ import GalleryInstagramCta from './GalleryInstagramCta';
 import PhotoLightbox from './PhotoLightbox';
 import { toLightboxPhotos, useLightbox } from './useLightbox';
 import { EOT_FEATURED_BEFORE_AFTER, EOT_ROTATING_PHOTOS } from '../../data/galleryMedia';
+import ManagedServiceMedia from '../media/ManagedServiceMedia';
 
 // Real End of Tenancy proof: exactly 3 approved before/after pairs, plus one
 // rotating results area for photos 1–10. Both pull from the same central
@@ -50,6 +51,8 @@ export default function EotResultsSection() {
           label="Recent end of tenancy cleaning work"
           onOpen={(i, origin) => lightbox.open(ROTATING_OFFSET + i, origin)}
         />
+
+        <ManagedServiceMedia placement="end-of-tenancy-page" />
 
         <GalleryInstagramCta galleryCategory="end-of-tenancy" />
       </div>

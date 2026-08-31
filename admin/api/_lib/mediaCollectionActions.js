@@ -43,7 +43,7 @@ export async function mediaCollectionHandler(req, res) {
 async function listMedia(res, headers, supabase) {
   const [{ data: assets, error: assetsError }, { data: slots, error: slotsError }] = await Promise.all([
     supabase.from('media_assets').select('*').order('created_at', { ascending: false }).limit(100),
-    supabase.from('media_slots').select('slot_key, label, asset_id').order('slot_key'),
+    supabase.from('media_slots').select('slot_key, placement, label, asset_id').order('slot_key'),
   ]);
   if (assetsError || slotsError) {
     console.error('[admin/media] list failed:', assetsError?.code || slotsError?.code);
@@ -54,7 +54,7 @@ async function listMedia(res, headers, supabase) {
   res.writeHead(200, headers);
   return res.end(JSON.stringify({
     assets: (assets || []).map((asset) => toMediaSummary(asset, slotMap)),
-    slots: (slots || []).map((slot) => ({ key: slot.slot_key, label: slot.label, assetId: slot.asset_id })),
+    slots: (slots || []).map((slot) => ({ key: slot.slot_key, placement: slot.placement, label: slot.label, assetId: slot.asset_id })),
   }));
 }
 
@@ -89,6 +89,7 @@ async function createUploadPlan(req, res, headers, supabase, adminId) {
     alt_text: parsed.value.altText,
     service: parsed.value.service,
     category: parsed.value.category,
+    placement: parsed.value.placement,
     before_after: parsed.value.beforeAfter,
     pair_key: parsed.value.pairKey,
     location_label: parsed.value.locationLabel,

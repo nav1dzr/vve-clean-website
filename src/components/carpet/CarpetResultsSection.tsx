@@ -12,6 +12,7 @@ import { toLightboxPhotos, useLightbox } from '../gallery/useLightbox';
 import LazyVideo from '../media/LazyVideo';
 import { CARPET_FEATURED_BEFORE_AFTER } from '../../data/galleryMedia';
 import { CARPET_RESULT_VIDEOS } from '../../data/carpetMedia';
+import ManagedServiceMedia from '../media/ManagedServiceMedia';
 
 // All six halves of the three approved pairs, in reading order, so Previous/
 // Next in the lightbox walks the section exactly as it appears on screen.
@@ -55,6 +56,8 @@ export default function CarpetResultsSection() {
             );
           })}
         </div>
+
+        <ManagedServiceMedia placement="carpet-page" />
 
         <GalleryInstagramCta galleryCategory="carpet" />
       </div>

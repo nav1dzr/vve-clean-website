@@ -1,6 +1,7 @@
 export type MediaType = 'image' | 'video';
 export type MediaStatus = 'uploading' | 'processing' | 'ready' | 'failed' | 'archived';
 export type MediaCategory = 'end-of-tenancy' | 'carpet' | 'sofa-upholstery';
+export type MediaPlacement = 'main-home' | 'gallery-end-of-tenancy' | 'gallery-carpet' | 'gallery-sofa' | 'carpet-page' | 'sofa-page' | 'end-of-tenancy-page';
 export type BeforeAfter = 'before' | 'after' | 'none';
 
 export interface MediaAsset {
@@ -11,6 +12,7 @@ export interface MediaAsset {
   altText: string;
   service: string;
   category: MediaCategory;
+  placement: MediaPlacement;
   beforeAfter: BeforeAfter;
   pairKey: string;
   locationLabel: string;
@@ -27,6 +29,7 @@ export interface MediaAsset {
 
 export interface MediaSlot {
   key: string;
+  placement: MediaPlacement;
   label: string;
   assetId: string | null;
 }

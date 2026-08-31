@@ -61,7 +61,7 @@ export async function mediaAssetHandler(req, res) {
 async function updateMetadata(res, headers, supabase, asset, body, adminId) {
   const fields = normaliseMetadata(body);
   const { data: updated, error } = await supabase.from('media_assets').update({
-    title: fields.title, alt_text: fields.altText, service: fields.service, category: fields.category,
+    title: fields.title, alt_text: fields.altText, service: fields.service, category: fields.category, placement: fields.placement,
     before_after: fields.beforeAfter, pair_key: fields.pairKey, location_label: fields.locationLabel,
     website_visible: fields.websiteVisible, google_enabled: fields.googleEnabled, social_enabled: fields.socialEnabled,
     requested_slot_key: fields.requestedSlotKey, updated_at: new Date().toISOString(),
@@ -170,6 +170,8 @@ async function syncVideo(res, headers, supabase, asset, adminId) {
 async function assignSlot(supabase, slotKey, assetId, adminId) {
   const { data: current, error: readError } = await supabase.from('media_slots').select('asset_id').eq('slot_key', slotKey).single();
   if (readError) throw readError;
+  const { error: clearError } = await supabase.from('media_slots').update({ asset_id: null, updated_at: new Date().toISOString(), updated_by: adminId }).eq('asset_id', assetId).neq('slot_key', slotKey);
+  if (clearError) throw clearError;
   const { error: slotError } = await supabase.from('media_slots').update({ asset_id: assetId, updated_at: new Date().toISOString(), updated_by: adminId }).eq('slot_key', slotKey);
   if (slotError) throw slotError;
   if (current.asset_id && current.asset_id !== assetId) {

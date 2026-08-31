@@ -7,11 +7,11 @@ This code intentionally does not create a Cloudflare bucket, Cloudflare Images a
 - iPhone/browser uploads go straight to the private R2 bucket through a 15-minute, content-type-bound URL issued only to an authenticated VVE admin.
 - The private R2 original is then imported server-to-server into Cloudflare Images (photos) or Mux Plus (videos). The phone does not upload the same source twice.
 - The public website gets only an optimized Cloudflare Images delivery URL or a Mux playback ID. It never receives an R2 key, source URL, original filename, or external-publishing flags.
-- `gallery-01` through `gallery-20` are database records. Replacing one creates a new delivery asset and only swaps the slot after processing succeeds. Do not overwrite an object path.
+- Media is placed through named website areas rather than file names: Main website (6 positions); each Gallery service area (20 positions); and each service page (10 positions). Replacing a position creates a new delivery asset and only swaps the position after processing succeeds. Do not overwrite an object path.
 
 ## 1. Apply the Supabase migration
 
-Apply `supabase/migrations/20260831090000_create_media_library.sql` using the normal migration workflow for the VVE Supabase project. It creates private metadata tables and `public_media_slots()`, a narrowly scoped RPC that is the only public data read.
+Apply both media migrations in `supabase/migrations/` using the normal migration workflow for the VVE Supabase project. They create private metadata tables, the named page/gallery positions, and `public_media_slots()`, a narrowly scoped RPC that is the only public data read.
 
 Do not add browser RLS policies to `media_assets` or `media_slots`; the admin API uses the existing `admin_users` allow-list and the service role. The public RPC returns only ready, website-enabled delivery records.
 
@@ -63,10 +63,10 @@ The public Vercel project needs only its existing `VITE_SUPABASE_URL` and `VITE_
 ## 5. Validate the preview
 
 1. Sign in as a Supabase user present in `admin_users`.
-2. Visit `/media` in the admin app on an iPhone and upload a small approved JPEG to an unused slot.
+2. Visit `/media` in the admin app on an iPhone. Choose Photo or Video, then the destination and an unused position.
 3. Confirm the original appears only in R2, while the preview card uses the Cloudflare delivery copy.
-4. Select “Show on website”, then confirm it appears in the preview site's Gallery page without a redeploy.
+4. Confirm it appears in the chosen preview Gallery or service page without a redeploy.
 5. Upload a short MOV/MP4. It will show as “processing” until Mux finishes; use “Refresh processing” and then test playback in the Gallery.
-6. Replace the same slot. Confirm the slot shows the new result and the old original is still retained privately.
+6. Replace the same position. Confirm it shows the new result and the old original is still retained privately.
 
 Google and social flags are eligibility metadata only. They deliberately do not send anything to Google Business Profile, Instagram, or another third party; that needs a separately approved OAuth connection and publishing workflow.

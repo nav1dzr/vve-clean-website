@@ -4,6 +4,7 @@ import { toLightboxPhotos, useLightbox } from '../gallery/useLightbox';
 import LazyVideo from '../media/LazyVideo';
 import { SOFA_SUPPORTING_VIDEOS } from '../../data/sofaMedia';
 import { useSofaGalleryOrder } from './useSofaGalleryOrder';
+import ManagedServiceMedia from '../media/ManagedServiceMedia';
 
 // The supporting sofa gallery: 11 photographs plus the three clips that are not
 // the featured extraction shot.
@@ -98,6 +99,7 @@ export default function SofaGallerySection() {
             <LazyVideo key={video.id} video={video} className="aspect-[4/3] w-full min-w-0" />
           ))}
         </div>
+        <div className="mt-10"><ManagedServiceMedia placement="sofa-page" dark /></div>
       </div>
 
       <PhotoLightbox
