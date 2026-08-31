@@ -5,7 +5,7 @@ import { readJsonBody } from './_lib/body.js';
 import { getServiceClient } from './_lib/supabaseAdmin.js';
 import { createR2Key, createUploadUrl, getMediaConfig } from './_lib/mediaConfig.js';
 import { toMediaSummary, validateNewAsset } from './_lib/mediaFields.js';
-import mediaAssetHandler from './_lib/mediaAssetActions.js';
+import { mediaAssetHandler } from './_lib/mediaAssetActions.js';
 
 export const config = { api: { bodyParser: false } };
 const MAX_BODY_BYTES = 16 * 1024;

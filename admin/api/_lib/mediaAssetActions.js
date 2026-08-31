@@ -8,7 +8,7 @@ import { normaliseMetadata, toMediaSummary } from '../_lib/mediaFields.js';
 export const config = { api: { bodyParser: false } };
 const MAX_BODY_BYTES = 16 * 1024;
 
-export default async function handler(req, res) {
+export async function mediaAssetHandler(req, res) {
   const headers = { ...corsHeaders(req.headers.origin || ''), 'Cache-Control': 'no-store', 'Content-Type': 'application/json' };
   if (req.method === 'OPTIONS') {
     res.writeHead(204, headers);
