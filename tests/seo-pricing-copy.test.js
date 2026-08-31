@@ -7,7 +7,7 @@
 // so the next edit that invents a price fails here rather than reaching a
 // customer.
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
@@ -66,9 +66,17 @@ describe('titles and descriptions stay inside what search results render', () =>
     prerender.indexOf('const notFoundRoute'),
   );
 
+  // Descriptions may be single-quoted or backtick template literals — the
+  // sofa route interpolates its price from the pricing catalogue rather than
+  // hard-coding it, which is what this suite wants elsewhere. Matching only
+  // '…' silently dropped that route and reported it as a missing description.
   const routes = [...routesBlock.matchAll(/path: '([^']+)'/g)].map((m) => m[1]);
   const titles = [...routesBlock.matchAll(/^\s{4}title:\s*'((?:[^'\\]|\\.)*)'/gm)].map((m) => m[1]);
-  const descriptions = [...routesBlock.matchAll(/^\s{4}description:\s*\n?\s*'((?:[^'\\]|\\.)*)'/gm)].map((m) => m[1]);
+  const descriptions = [
+    ...routesBlock.matchAll(
+      /^\s{4}description:\s*\n?\s*(?:'((?:[^'\\]|\\.)*)'|`((?:[^`\\]|\\.)*)`)/gm,
+    ),
+  ].map((m) => m[1] ?? m[2]);
 
   it('found a title and description for every prerendered route', () => {
     // Asserted as parity rather than a fixed count, so adding a route cannot
@@ -90,7 +98,42 @@ describe('titles and descriptions stay inside what search results render', () =>
   });
 
   it('keeps every description at or under 165 characters', () => {
-    const tooLong = descriptions.filter((d) => d.length > 165).map((d) => `${d.length}: ${d.slice(0, 60)}…`);
+    // Measure the *rendered* length. A description that interpolates a price
+    // from the pricing catalogue is longer in source than in output — the
+    // sofa route's `${SOFA_FROM}` placeholder is 12 source characters that
+    // render as 3. Substituting a representative value keeps this check
+    // honest without pretending to evaluate the template.
+    const rendered = (d) => d.replace(/\$\{[^}]+\}/g, '£000');
+
+    const tooLong = descriptions
+      .map(rendered)
+      .filter((d) => d.length > 165)
+      .map((d) => `${d.length}: ${d.slice(0, 60)}…`);
+
+    expect(tooLong).toEqual([]);
+  });
+
+  // The definitive check: what the built HTML actually contains. Source
+  // analysis cannot evaluate a template literal; this can.
+  it('keeps every built description at or under 165 characters', () => {
+    const dist = resolve(__dirname, '..', 'dist');
+    if (!existsSync(dist)) return; // dist is only present after a build
+
+    const tooLong = [];
+    for (const route of routes) {
+      const file =
+        route === '/'
+          ? resolve(dist, 'index.html')
+          : resolve(dist, route.replace(/^\//, ''), 'index.html');
+      if (!existsSync(file)) continue;
+
+      const description = readFileSync(file, 'utf8')
+        .match(/<meta name="description" content="([^"]*)"/)?.[1];
+      if (description && description.length > 165) {
+        tooLong.push(`${route} — ${description.length}: ${description.slice(0, 60)}…`);
+      }
+    }
+
     expect(tooLong).toEqual([]);
   });
 

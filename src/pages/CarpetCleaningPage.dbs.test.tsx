@@ -41,7 +41,7 @@ describe('service trust copy', () => {
       '£5m public liability insurance',
       'Clear scope before work starts',
       'Published prices for standard services',
-      'Secure Stripe checkout',
+      'No payment to send a request',
       'Direct contact with VVE Clean',
     ]) expect(screen.getByText(item)).toBeInTheDocument();
     expect(screen.queryByText(/72hr re-clean guarantee/i)).not.toBeInTheDocument();

@@ -131,8 +131,21 @@ export default function BookingDetailPage() {
           <h1 className="truncate font-semibold text-xl text-navy-950">{b.bookingRef || 'Reference not recorded'}</h1>
           <p className="truncate text-xs text-navy-500">Internal ID: {b.id}</p>
         </div>
-        <StatusBadge {...paymentStatusBadge(b.paymentStatus)} />
+        {b.awaitingAvailabilityReview ? (
+          <StatusBadge label="Check availability" className="bg-sky-100 text-sky-900" />
+        ) : (
+          <StatusBadge {...paymentStatusBadge(b.paymentStatus)} />
+        )}
       </div>
+
+      {b.awaitingAvailabilityReview && (
+        <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-relaxed text-navy-900">
+          <p className="font-semibold">Preferred-time request — no payment requested yet</p>
+          <p className="mt-1">
+            Check availability and the final scope, then contact the customer to agree the time and final price. No online deposit is required.
+          </p>
+        </div>
+      )}
 
       <Section title="Status">
         <StatusControl bookingId={b.id} status={b.status} onUpdated={handleStatusUpdated} />

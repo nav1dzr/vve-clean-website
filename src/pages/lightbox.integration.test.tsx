@@ -113,8 +113,16 @@ describe('Gallery page — the count spans the whole category', () => {
     const firstPhoto = EOT_ROTATING_PHOTOS[0];
     await user.click(screen.getByRole('button', { name: `View larger: ${firstPhoto.alt}` }));
 
-    // The single photos follow the three before/after pairs (6 halves).
-    expect(within(dialog()).getByText(`Photo 7 of ${total}`)).toBeInTheDocument();
+    // The gallery intentionally interleaves evidence types. Derive the index
+    // from the visible manifest order instead of assuming every pair comes
+    // before every supporting photo.
+    let expectedIndex = 0;
+    for (const item of items) {
+      if (item.id === firstPhoto.id) break;
+      if (item.type === 'before-after') expectedIndex += 2;
+      else if (item.type === 'photo') expectedIndex += 1;
+    }
+    expect(within(dialog()).getByText(`Photo ${expectedIndex + 1} of ${total}`)).toBeInTheDocument();
     expect(within(dialog()).getByAltText(firstPhoto.alt)).toBeInTheDocument();
   });
 

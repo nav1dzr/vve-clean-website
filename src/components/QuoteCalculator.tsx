@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useId, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trackBookingInitiated } from '../lib/analytics';
-import { Calculator, CheckCircle2, Plus, Minus, Info, AlertCircle, ChevronDown, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { Calculator, CheckCircle2, Plus, Minus, Info, AlertCircle, ChevronDown, ShieldCheck } from 'lucide-react';
 import { useBookingCtx } from '../context/BookingContext';
 import { rememberQuoteOrigin } from '../lib/quoteOrigin';
 import { useReveal } from '../hooks/useReveal';
@@ -33,6 +33,10 @@ import {
   COMMERCIAL_REGULAR_MIN_HOURS,
   CARPET_BUNDLE_BANDS,
   CARPET_ITEM_PRICES_P,
+  WINDOW_CLEANING_FROM_P,
+  GARDEN_SERVICES_FROM_P,
+  PRESSURE_WASHING_FROM_P,
+  penceToDisplay,
 } from '../data/pricing';
 
 // ─── Pricing engine (non-carpet services) ────────────────────────────────────
@@ -304,7 +308,7 @@ const TRUST_ITEMS = [
   '£5m public liability insurance',
   'Clear scope before work starts',
   'Published prices for standard services',
-  'Secure Stripe checkout',
+  'No payment to send a request',
   'Direct contact with VVE Clean',
 ];
 
@@ -460,6 +464,9 @@ export default function QuoteCalculator({
   const carpetResult = isCarpet
     ? computeCarpetPrice(carpetCounts, carpetCondition, 1, promoCode)
     : null;
+  const rugCount = Math.max(0, Number(carpetCounts.rug) || 0);
+  const carpetCompanionCount = Math.max(0, (carpetResult?.totalItems ?? 0) - rugCount);
+  const isRugOnlySelection = isCarpet && rugCount > 0 && carpetCompanionCount === 0;
 
   const getAddOnPrice = (key: string): number => {
     if (key === 'carpet_bundle') return CARPET_BUNDLE_PRICE[deepSize];
@@ -523,6 +530,10 @@ export default function QuoteCalculator({
 
     // Carpet & upholstery
     if (isCarpet) {
+      if (isRugOnlySelection) {
+        const msg = `Hello VVE Clean, I'd like to ask about adding a rug to a carpet, upholstery or end of tenancy clean. I'll send a photo of the rug.\nMy postcode is: `;
+        return `${WA_BASE}?text=${encodeURIComponent(msg)}`;
+      }
       if (carpetCondition === 'delicate') {
         const msg = `Hello VVE Clean, I'd like a quote for delicate fabric cleaning (wool, silk or velvet). I'll send photos for an accurate price.\nMy postcode is: `;
         return `${WA_BASE}?text=${encodeURIComponent(msg)}`;
@@ -664,9 +675,10 @@ export default function QuoteCalculator({
 
   // ── Can the "Book Online" button be shown? ─────────────────────────────────
   const canBookOnline = !isAfterBuilders && !(isEot && eotTailoredQuote)
-    && !(isCarpet && (carpetResult?.isPhotoQuote || (carpetResult?.totalItems ?? 0) === 0));
+    && !(isCarpet && (isRugOnlySelection || carpetResult?.isPhotoQuote || (carpetResult?.totalItems ?? 0) === 0));
 
-  const isManualQuote = isAfterBuilders || (isEot && eotTailoredQuote) || (isCarpet && (carpetResult?.isPhotoQuote ?? false));
+  const isManualQuote = isAfterBuilders || (isEot && eotTailoredQuote)
+    || (isCarpet && (isRugOnlySelection || (carpetResult?.isPhotoQuote ?? false)));
   const isReadyToBook = canBookOnline && price > 0;
 
   // Stable ref wrapper — lets context consumers call handleBookNow without stale closures
@@ -734,18 +746,21 @@ export default function QuoteCalculator({
     ];
 
     return (
-      <section id="quote" ref={ref} className="bg-surface pb-20 pt-24 scroll-mt-28 sm:pt-28">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className={`overflow-hidden rounded-3xl border border-line bg-white shadow-[0_22px_70px_rgba(16,36,62,0.10)] transition duration-700 ${contentVisible ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0'}`}>
+      <section id="quote" ref={ref} className="relative overflow-hidden bg-gradient-to-b from-sky-50 via-surface to-white pb-20 pt-24 scroll-mt-28 sm:pt-28">
+        <div aria-hidden="true" className="pointer-events-none absolute -left-24 top-20 h-64 w-64 rounded-full bg-sky-300/20 blur-3xl" />
+        <div aria-hidden="true" className="pointer-events-none absolute -right-20 bottom-8 h-72 w-72 rounded-full bg-emerald-200/20 blur-3xl" />
+        <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className={`overflow-hidden rounded-3xl border border-sky-200 bg-white shadow-[0_26px_80px_rgba(16,80,130,0.16)] ring-1 ring-white transition duration-700 ${contentVisible ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0'}`}>
+            <div aria-hidden="true" className="h-1.5 bg-gradient-to-r from-royal-600 via-sky-400 to-emerald-400" />
             <div className="grid lg:grid-cols-[1.08fr_0.92fr]">
               <div className="p-6 sm:p-9 lg:p-11">
                 <div className="mb-6 flex items-center justify-between gap-4">
                   <div>
-                    <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-royal-700">Instant quote</p>
+                    <p className="mb-3 inline-flex rounded-full bg-royal-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-royal-800">Instant quote</p>
                     <h2 className="font-display text-3xl font-bold text-navy-900 sm:text-4xl">Get an instant quote</h2>
-                    <p className="mt-2 text-sm text-muted">Start by choosing the service you need.</p>
+                    <p className="mt-2 text-sm text-muted">Build a clear price in three short steps.</p>
                   </div>
-                  <span className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-royal-50 text-royal-700 sm:flex">
+                  <span className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-royal-600 to-sky-500 text-white shadow-lg shadow-sky-200 sm:flex">
                     <Calculator size={24} />
                   </span>
                 </div>
@@ -778,12 +793,12 @@ export default function QuoteCalculator({
                   <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
                 </div>
                 <p className="mt-4 flex items-center gap-2 text-xs text-muted">
-                  <LockKeyhole size={14} className="text-royal-700" />
-                  No hidden fees · Live price where available · £30 booking deposit
+                  <CheckCircle2 size={14} className="text-royal-700" />
+                  No hidden fees · Live price where available · No payment to request a time
                 </p>
               </div>
 
-              <aside className="bg-gradient-to-br from-royal-50 to-sky-100/60 p-6 sm:p-9 lg:p-11">
+              <aside className="bg-gradient-to-br from-sky-100 via-royal-50 to-emerald-50 p-6 sm:p-9 lg:p-11">
                 <div className="flex items-center gap-3">
                   <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-royal-700 shadow-sm"><ShieldCheck size={21} /></span>
                   <h3 className="font-display text-lg font-bold text-navy-900">Why book with VVE Clean?</h3>
@@ -791,7 +806,7 @@ export default function QuoteCalculator({
                 <ul className="mt-6 space-y-4">
                   {[
                     'Transparent pricing with no hidden fees',
-                    '£30 deposit handled securely by Stripe',
+                    'Request a preferred time with no payment',
                     'Professional equipment and direct support',
                     '£5m public liability insurance',
                     // Was "Rated 5.0 by genuine Google reviewers". No verified
@@ -801,7 +816,7 @@ export default function QuoteCalculator({
                     'Genuine reviews on our public Google profile',
                   ].map((benefit) => (
                     <li key={benefit} className="flex items-start gap-3 text-sm leading-6 text-navy-800">
-                      <CheckCircle2 size={17} className="mt-1 flex-none text-royal-600" />
+                      <CheckCircle2 size={17} className="mt-1 flex-none text-emerald-700" />
                       {benefit}
                     </li>
                   ))}
@@ -1456,6 +1471,14 @@ export default function QuoteCalculator({
                         Properties this size vary too much for a fixed online price. Send us the room count and a few details on WhatsApp and we'll confirm your price.
                       </p>
                     </div>
+                  ) : isRugOnlySelection ? (
+                    <div className="rounded-2xl px-5 py-5 bg-amber-50 border-2 border-amber-200 space-y-3 text-center">
+                      <div className="text-amber-700 text-[10px] font-bold tracking-widest uppercase">Add-on service</div>
+                      <div className="font-display font-bold text-2xl text-amber-900">Add another clean first</div>
+                      <p className="text-amber-800 text-sm leading-relaxed max-w-xs mx-auto">
+                        Rug cleaning is available only with a carpet, upholstery or relevant end of tenancy clean. Add a qualifying item, then send a rug photo so we can confirm the method and price.
+                      </p>
+                    </div>
                   ) : isCarpet && carpetResult?.isPhotoQuote ? (
                     <div className="rounded-2xl px-5 py-5 bg-purple-50 border-2 border-purple-200 space-y-3 text-center">
                       <div className="text-purple-700 text-[10px] font-bold tracking-widest uppercase">Photo Quote Required</div>
@@ -1473,10 +1496,10 @@ export default function QuoteCalculator({
                   ) : (
                     /* Normal price box — carpet or other service */
                     <div className="relative rounded-2xl px-6 py-6 overflow-visible" style={{ backgroundColor: '#dff0e8', border: '1.5px solid #b6d9c8' }}>
-                      {/* Deposit badge */}
+                      {/* Request-first badge */}
                       <div className="absolute -top-3 -right-3 rotate-6 z-10">
                         <div className="border-2 rounded-lg px-3 py-1.5" style={{ borderColor: '#1a5c3a', backgroundColor: 'transparent' }}>
-                          <span className="text-[9px] font-bold tracking-widest uppercase" style={{ color: '#1a5c3a' }}>£30 Deposit · Rest After</span>
+                          <span className="text-[9px] font-bold tracking-widest uppercase" style={{ color: '#1a5c3a' }}>No payment to request</span>
                         </div>
                       </div>
 
@@ -1574,13 +1597,22 @@ export default function QuoteCalculator({
                 </div>
               )}
 
-              {/* Regular cleaning discount nudge */}
+              {/* Regular cleaning nudge.
+
+                  This previously advertised "10% to 30% off". No such
+                  discount exists anywhere in shared/pricingCatalogue.js or the
+                  admin price list, and it appeared inside the quote flow where
+                  a customer could reasonably rely on it. A specific percentage
+                  is a price commitment; it needs a source. Replaced with an
+                  invitation to ask, which is true and still surfaces the
+                  opportunity. Restore a figure only once one is published in
+                  the catalogue. */}
               {!isEot && <div className="flex items-start gap-3 bg-royal-50 border border-royal-200 rounded-xl px-4 py-3">
                 <div className="w-1 self-stretch rounded-full bg-royal-400 flex-shrink-0" />
                 <div>
-                  <p className="text-royal-700 text-xs font-semibold mb-0.5">Regular service discounts available</p>
+                  <p className="text-royal-700 text-xs font-semibold mb-0.5">Cleaning on a regular schedule?</p>
                   <p className="text-royal-600 text-xs leading-relaxed">
-                    Customers who book regular cleaning services can get <span className="font-semibold">10% to 30% off</span>, depending on the service type, frequency, and property size.
+                    Tell us how often you need us and we will quote for the schedule rather than a single visit. Ask before you book and we will confirm the price in writing.
                   </p>
                 </div>
               </div>}
@@ -1614,6 +1646,8 @@ export default function QuoteCalculator({
                     ? 'Request a quote →'
                     : isEot && eotTailoredQuote
                       ? 'Request tailored quote →'
+                      : isRugOnlySelection
+                        ? 'Ask about adding a rug →'
                       : 'Send photos for a quote →'}
                 </a>
               ) : (
@@ -1621,10 +1655,10 @@ export default function QuoteCalculator({
                   type="button"
                   onClick={isReadyToBook ? handleBookNow : handleBookWithValidation}
                   className="flex items-center justify-center gap-2 w-full py-4 min-h-[44px] rounded-full font-bold text-white text-base bg-royal-500 hover:bg-royal-600 transition-all duration-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
-                  aria-label={isReadyToBook ? 'Request booking — pay £30 deposit' : 'Request booking'}
+                  aria-label={isReadyToBook ? 'Request a time — no payment' : 'Request a time'}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  {isReadyToBook ? 'Request booking — pay £30 deposit' : 'Request booking'}
+                  {isReadyToBook ? 'Request a time — no payment' : 'Request a time'}
                 </button>
               )}
 
@@ -1658,7 +1692,7 @@ export default function QuoteCalculator({
           <div className="lg:col-span-2 navy-gradient p-6 flex flex-col justify-between rounded-br-2xl rounded-bl-2xl lg:rounded-bl-none lg:rounded-tr-2xl lg:sticky lg:top-24 lg:self-start">
             <div>
               <h3 className="text-silver-400 text-xs font-medium tracking-widest uppercase mb-2">
-                {isAfterBuilders ? 'Starting From' : (isEot && eotTailoredQuote) ? 'Tailored Quote' : isCarpet && carpetResult?.isPhotoQuote ? 'Photo Quote' : 'Your price'}
+                {isAfterBuilders ? 'Starting From' : (isEot && eotTailoredQuote) ? 'Tailored Quote' : isRugOnlySelection ? 'Add-on only' : isCarpet && carpetResult?.isPhotoQuote ? 'Photo Quote' : 'Your price'}
               </h3>
               {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
                 <div className="text-silver-400 text-base line-through mb-0.5">
@@ -1670,6 +1704,8 @@ export default function QuoteCalculator({
                   ? `From £${AFTER_BUILDERS_START_FROM_P / 100}`
                   : isEot && eotTailoredQuote
                     ? 'Tailored quote'
+                    : isRugOnlySelection
+                      ? 'Add-on only'
                     : isCarpet && carpetResult?.isPhotoQuote
                       ? 'Photo quote'
                       : isCarpet && (carpetResult?.totalItems ?? 0) === 0
@@ -1681,7 +1717,7 @@ export default function QuoteCalculator({
                   {carpetResult!.bundle.source === 'promo' ? 'Leaflet offer' : 'Bundle saving'} — £{carpetResult!.bundle.saving} off
                 </div>
               )}
-              {minApplied && (
+              {minApplied && !isRugOnlySelection && (
                 <div className="text-amber-400 text-xs mb-2 flex items-center gap-1">
                   <Info size={11} /> £{CARPET_MIN_BOOKING} minimum booking charge applies
                 </div>
@@ -1695,24 +1731,14 @@ export default function QuoteCalculator({
                   : serviceLabels[service]}
               </div>
 
-              {/* Deposit split — shown whenever there's a bookable price */}
+              {/* Request-first explanation — payment follows only after the
+                  manager has checked and the customer accepts a time. */}
               {canBookOnline && price > 0 && (
-                <div className="glass-card rounded-xl p-3 mb-3 space-y-1.5">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-silver-300">£30 deposit today</span>
-                    <span className="text-white font-bold">£30</span>
-                  </div>
-                  {Math.round(price) > 30 && (
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-silver-300">Balance after the job</span>
-                      <span className="text-white font-bold">£{Math.round(price) - 30}</span>
-                    </div>
-                  )}
-                  <div className="border-t border-white/10 pt-1.5 mt-1">
-                    <p className="text-silver-500 text-[10px] leading-snug">
-                      Your £30 deposit comes straight off the total — it is not an extra charge.
-                    </p>
-                  </div>
+                <div className="glass-card rounded-xl p-3 mb-3">
+                  <p className="text-white text-xs font-semibold">No payment to request a preferred time</p>
+                  <p className="mt-1 text-silver-300 text-[10px] leading-snug">
+                    We check availability, scope and the final price before the appointment is confirmed.
+                  </p>
                 </div>
               )}
 
@@ -1723,14 +1749,14 @@ export default function QuoteCalculator({
                     type="button"
                     onClick={handleBookNow}
                     className="flex items-center justify-center gap-2 w-full py-3 min-h-[44px] rounded-full font-bold text-white text-sm bg-royal-500 hover:bg-royal-600 transition-all duration-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
-                    aria-label="Request booking — pay £30 deposit"
+                    aria-label="Request a time — no payment"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    Request booking — pay £30 deposit
+                    Request a time — no payment
                   </button>
                   <div className="flex items-center justify-center gap-1.5">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-silver-500 flex-shrink-0" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    <span className="text-silver-500 text-xs">Secured by Stripe · encrypted checkout</span>
+                    <span className="text-silver-400 text-xs">Manager checks availability first</span>
                   </div>
                 </div>
               )}
@@ -1740,13 +1766,13 @@ export default function QuoteCalculator({
                     type="button"
                     onClick={handleBookWithValidation}
                     className="flex items-center justify-center gap-2 w-full py-3 min-h-[44px] rounded-full font-bold text-white text-sm bg-royal-500 hover:bg-royal-600 transition-all duration-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
-                    aria-label="Request booking"
+                    aria-label="Request a time"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    Request booking
+                    Request a time
                   </button>
                   <p className="text-silver-500 text-[11px] text-center leading-snug">
-                    You pay a £30 deposit today — it comes straight off your bill.
+                    Choose the service first. No payment is taken when you request a time.
                   </p>
                 </div>
               )}
@@ -1882,24 +1908,30 @@ export default function QuoteCalculator({
               <div className="glass-card rounded-xl p-3 text-center">
                 <div className="text-silver-300 text-xs mb-0.5">Prefer to call?</div>
                 <a href="tel:02080502233" className="inline-flex min-h-[44px] items-center justify-center text-white font-bold hover:text-silver-200 transition-colors">020 8050 2233</a>
-                <div className="text-silver-400 text-[10px] mt-0.5">Mon–Fri 9am–6pm · Sat 10am–3pm</div>
+                <div className="text-silver-300 text-[10px] mt-0.5">Mon–Fri 9am–6pm · Sat–Sun 10am–3pm</div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Quote-only footnote */}
+      {/* Quote-only footnote.
+
+          These prices are read from the canonical catalogue, never typed as
+          literals. They were hard-coded at £45 for window cleaning and garden
+          services and had gone stale: the catalogue, the homepage and the
+          admin price list all say £75, so the booking page was quoting a
+          price 40% below the real one at the moment a customer decides. */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-        <p className="text-center text-silver-500 text-xs leading-relaxed">
+        <p className={`text-center text-xs leading-relaxed ${homepageMode ? 'text-slate-600' : 'text-silver-400'}`}>
           Need something else?{' '}
-          <span className="text-silver-300">Window cleaning from £45</span>
+          <span className={homepageMode ? 'text-slate-700' : 'text-silver-300'}>Window cleaning from {penceToDisplay(WINDOW_CLEANING_FROM_P)}</span>
           {' · '}
-          <span className="text-silver-300">Pressure washing from £120</span>
+          <span className={homepageMode ? 'text-slate-700' : 'text-silver-300'}>Pressure washing from {penceToDisplay(PRESSURE_WASHING_FROM_P)}</span>
           {' · '}
-          <span className="text-silver-300">Garden services from £45</span>
+          <span className={homepageMode ? 'text-slate-700' : 'text-silver-300'}>Garden services from {penceToDisplay(GARDEN_SERVICES_FROM_P)}</span>
           {' · '}
-          <span className="text-silver-300">Commercial &amp; communal spaces: contact us for a tailored quote after we review the scope.</span>
+          <span className={homepageMode ? 'text-slate-700' : 'text-silver-300'}>Commercial &amp; communal spaces: contact us for a tailored quote after we review the scope.</span>
         </p>
       </div>
     </section>

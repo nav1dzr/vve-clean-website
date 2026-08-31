@@ -24,6 +24,7 @@ describe('toCard', () => {
       payment_status: 'paid',
       balance_status: 'outstanding',
       total_price: 249,
+      deposit_amount: 30,
       created_at: '2026-07-01T00:00:00.000Z',
       // Fields that must never leak through, even if present on the row:
       confirmation_token: 'super-secret-token',
@@ -47,7 +48,12 @@ describe('toCard', () => {
       paymentStatus: 'paid',
       balanceStatus: 'outstanding',
       totalPrice: 249,
+      awaitingAvailabilityReview: false,
       createdAt: '2026-07-01T00:00:00.000Z',
+      // Delivery flags absent from this row: unknown, not failed.
+      emailCustomerSent: null,
+      emailBusinessSent: null,
+      notificationFailed: false,
     });
     expect(card).not.toHaveProperty('confirmation_token');
     expect(card).not.toHaveProperty('notes');
@@ -73,6 +79,11 @@ describe('toCard', () => {
 
     expect(card.totalPrice).toBeNull();
     expect(card.serviceDate).toBeNull();
+  });
+
+  it('marks a zero-deposit pending row as awaiting an availability review', () => {
+    const card = toCard({ payment_status: 'pending_payment', deposit_amount: 0 });
+    expect(card.awaitingAvailabilityReview).toBe(true);
   });
 });
 
@@ -124,6 +135,13 @@ describe('toDetail', () => {
   it('calculates the balance when total_price and deposit_amount are both present', () => {
     const detail = toDetail(baseRow);
     expect(detail.balance).toBe(219);
+    expect(detail.awaitingAvailabilityReview).toBe(false);
+  });
+
+  it('marks a no-payment request for the manager without changing payment status', () => {
+    const detail = toDetail({ ...baseRow, payment_status: 'pending_payment', deposit_amount: 0 });
+    expect(detail.awaitingAvailabilityReview).toBe(true);
+    expect(detail.paymentStatus).toBe('pending_payment');
   });
 
   it('returns a null balance, not NaN or a misleading number, when total_price is missing', () => {

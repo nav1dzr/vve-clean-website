@@ -178,6 +178,24 @@ describe('BookingDetailPage', () => {
     expect(email).toHaveAttribute('href', 'mailto:jasmine@example.com');
   });
 
+  it('gives the manager a clear workflow for a no-payment preferred-time request', async () => {
+    setupAuthFetchMock({
+      booking: {
+        ...fullBooking,
+        paymentStatus: 'pending_payment',
+        depositAmount: 0,
+        balance: 249,
+        awaitingAvailabilityReview: true,
+        stripe: { sessionId: null, paymentIntentId: null },
+      },
+    });
+    renderDetail();
+
+    expect(await screen.findAllByText('Check availability')).not.toHaveLength(0);
+    expect(screen.getByText('Preferred-time request — no payment requested yet')).toBeInTheDocument();
+    expect(screen.getByText(/No online deposit is required/i)).toBeInTheDocument();
+  });
+
   it('shows "unavailable" action states instead of broken links when contact info is missing', async () => {
     setupAuthFetchMock({ booking: { ...fullBooking, phone: null, email: null } });
     renderDetail();

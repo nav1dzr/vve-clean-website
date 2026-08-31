@@ -54,6 +54,9 @@
         ad_user_data: 'denied',
         ad_personalization: 'denied',
       });
+      // Preserve campaign parameters through consent-safe navigation without
+      // granting storage or weakening the denied-by-default consent state.
+      gtag('set', 'url_passthrough', true);
       // A returning visitor's earlier choice (src/lib/consent.ts, key "vve_consent")
       // is applied immediately so they are not reset to denied on every visit.
       try {
@@ -108,6 +111,17 @@
       "telephone": "+442080502233",
       "email": "contact@vveclean.co.uk",
       "priceRange": "££",
+      "legalName": "VVE Limited",
+      "identifier": {
+        "@type": "PropertyValue",
+        "propertyID": "GB Companies House company number",
+        "value": "17234391"
+      },
+      "sameAs": [
+        "https://www.checkatrade.com/trades/vvelimited",
+        "https://www.instagram.com/vve__clean",
+        "https://find-and-update.company-information.service.gov.uk/company/17234391"
+      ],
       "address": {
         "@type": "PostalAddress",
         "addressLocality": "London",

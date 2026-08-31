@@ -5,6 +5,7 @@ import https from 'node:https';
 import { splitServiceDetail } from './_lib/formatBookingItems.js';
 import { findOrCreateCustomerForPaidBooking } from './_lib/customerSync.js';
 import { emailWordmarkHtml } from './_lib/emailBrand.js';
+import { bookingBusinessText, bookingCustomerText } from './_lib/emailPlainText.js';
 
 // A Lambda crash leaves the event in 'processing'. After this window Stripe
 // retries are allowed to re-claim it.
@@ -819,7 +820,10 @@ export default async function handler(req, res) {
       await transport.sendMail({
         from:    `"VVE Clean Bookings" <${process.env.GMAIL_SENDER}>`,
         to:      process.env.BUSINESS_EMAIL,
+        // Replying to the internal alert reaches the customer directly.
+        ...(meta.email ? { replyTo: `"${meta.fullName || 'Customer'}" <${meta.email}>` } : {}),
         subject: `New booking — ref: ${bookingRef} — ${meta.service || 'Cleaning'}`,
+        text:    bookingBusinessText(meta, bookingRef),
         html:    businessEmailHtml(meta, bookingRef),
       });
       console.log('[webhook] Business alert sent');
@@ -835,7 +839,9 @@ export default async function handler(req, res) {
         await transport.sendMail({
           from:    `"VVE Clean" <${process.env.GMAIL_SENDER}>`,
           to:      meta.email,
+          replyTo: process.env.BUSINESS_EMAIL,
           subject: `We've received your booking request — ${meta.service || 'VVE Clean'}`,
+          text:    bookingCustomerText(meta, bookingRef),
           html:    customerEmailHtml(meta, bookingRef),
         });
         console.log('[webhook] Customer confirmation sent');

@@ -67,7 +67,8 @@ describe('carpet media manifest', () => {
   });
 
   it('feeds the same pairs into the Gallery page carpet category', () => {
-    expect(GALLERY_MEDIA.carpet.length).toBe(CARPET_FEATURED_BEFORE_AFTER.length);
+    expect(GALLERY_MEDIA.carpet.filter((item) => item.type === 'before-after'))
+      .toEqual(CARPET_FEATURED_BEFORE_AFTER);
   });
 });
 

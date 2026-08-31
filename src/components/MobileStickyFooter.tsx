@@ -65,7 +65,7 @@ export default function MobileStickyFooter() {
             href={waLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white font-bold text-sm py-4 min-h-[48px] transition-colors duration-200 border-r border-white/20"
+            className="flex-[1.6] flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-navy-950 font-bold text-sm py-4 min-h-[48px] transition-colors duration-200 border-r border-navy-950/15"
             aria-label="Request a quote via WhatsApp"
           >
             {WA_ICON}
@@ -75,15 +75,13 @@ export default function MobileStickyFooter() {
           <button
             type="button"
             onClick={handlePrimaryClick}
-            className="flex-1 flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white font-bold text-sm py-4 min-h-[48px] transition-colors duration-200 border-r border-white/20"
-            // "Request booking", not "Book": paying the deposit submits a
-            // request and availability is confirmed separately
-            // (docs/BRAND_AND_UI_GUIDE.md). This is the most-tapped CTA on
-            // mobile, so it must set the same expectation the booking page
-            // does rather than implying a confirmed slot.
+            className="flex-[1.6] flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-navy-950 font-bold text-sm py-4 min-h-[48px] transition-colors duration-200 border-r border-navy-950/15"
+            // This is a preferred-time request, not a confirmed booking. No
+            // payment is taken until the manager offers a time and the
+            // customer accepts it.
           >
             {CAL_ICON}
-            <span>{state === 'bookable' ? 'Request booking · £30 deposit' : 'Request booking'}</span>
+            <span>{state === 'bookable' ? 'Request a time · no payment' : 'Get my price'}</span>
           </button>
         )}
 
@@ -92,7 +90,8 @@ export default function MobileStickyFooter() {
           href={helpLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-2 bg-[#25d366] hover:bg-[#1ebe5d] active:bg-[#1aa851] text-white font-semibold text-sm py-4 min-h-[48px] transition-colors duration-200"
+          className="flex-1 flex items-center justify-center gap-2 bg-[#25d366] hover:bg-[#31df72] active:bg-[#1ebe5d] text-navy-950 font-bold text-sm py-4 min-h-[48px] transition-colors duration-200"
+          data-track-location="sticky-footer-whatsapp"
           aria-label="Need help? Chat on WhatsApp"
         >
           {WA_ICON}

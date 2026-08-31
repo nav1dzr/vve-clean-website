@@ -1,9 +1,22 @@
 import { useState } from 'react';
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle2 } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
-import { trackPhoneClick, trackWhatsAppClick, trackContactFormSubmitted } from '../lib/analytics';
+import { trackContactFormSubmitted } from '../lib/analytics';
 
 const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
+
+// Matches the services in the sitewide `hasOfferCatalog` (index.html) — the
+// six VVE Clean actually sells, using the same names. "Something else" keeps
+// the field from forcing a wrong answer for an unusual enquiry.
+const SERVICE_OPTIONS = [
+  'End of tenancy cleaning',
+  'Carpet cleaning',
+  'Sofa & upholstery cleaning',
+  'After builders cleaning',
+  'Move-in deep clean',
+  'Commercial cleaning',
+  'Something else',
+] as const;
 
 function WhatsAppIcon({ size = 16 }: { size?: number }) {
   return (
@@ -18,6 +31,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [service, setService] = useState('');
   const [message, setMessage] = useState('');
   const [subscribe, setSubscribe] = useState(false);
   const [honeypot, setHoneypot] = useState('');
@@ -43,6 +57,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
           fullName:       name,
           email,
           phone:          phone || '',
+          service:        service || '',
           message,
           marketingOptIn: subscribe,
           sourcePage:     window.location.pathname,
@@ -56,6 +71,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
         setName('');
         setEmail('');
         setPhone('');
+        setService('');
         setMessage('');
         setSubscribe(false);
         trackContactFormSubmitted();
@@ -93,10 +109,14 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
         <div
           className={`grid lg:grid-cols-5 gap-0 rounded-2xl overflow-hidden shadow-xl transition-all duration-700 delay-200 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
         >
-          {/* Info panel */}
-          <div className="lg:col-span-2 navy-gradient p-8 flex flex-col">
+          {/* The form comes first on a phone, where completing the enquiry is
+              the visitor's main job. The supporting contact details return to
+              the left column on desktop. */}
+          <div className="order-2 lg:order-1 lg:col-span-2 navy-gradient p-8 flex flex-col">
             <div>
-              <h3 className="font-display text-2xl font-bold text-white mb-2">Get in Touch</h3>
+              {/* h2, not h3: this is the first heading under the page h1, and
+                  skipping a level breaks screen-reader outline navigation. */}
+              <h2 className="font-display text-2xl font-bold text-white mb-2">Get in Touch</h2>
               <p className="text-silver-300 text-sm mb-8 leading-relaxed">
                 Send the property postcode, service and preferred date so we can give you a useful answer.
               </p>
@@ -109,7 +129,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                   </div>
                   <div>
                     <div className="text-silver-300 text-xs mb-0.5">Phone</div>
-                    <a href="tel:02080502233" onClick={() => trackPhoneClick('contact')} className="text-white font-semibold hover:text-silver-200 transition-colors block">
+                    <a href="tel:02080502233" data-track-location="contact-phone" className="text-white font-semibold hover:text-silver-200 transition-colors block">
                       020 8050 2233
                     </a>
                   </div>
@@ -120,7 +140,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                   href={WA_LINK}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() => trackWhatsAppClick('contact')}
+                  data-track-location="contact-whatsapp"
                   className="inline-flex items-center gap-2 btn-whatsapp text-sm font-semibold px-4 py-2.5 rounded-lg transition-all duration-200 w-full justify-center"
                 >
                   <WhatsAppIcon size={15} />
@@ -144,10 +164,13 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                     <MapPin className="text-royal-400" size={16} />
                   </div>
                   <div>
-                    <div className="text-silver-300 text-xs mb-0.5">Address</div>
+                    <div className="text-silver-300 text-xs mb-0.5">Registered office</div>
                     <span className="text-white font-semibold text-sm block">23-25 Queensway</span>
                     <span className="text-silver-400 text-xs block">London, W2 4QP</span>
-                    <span className="text-silver-300 text-xs mt-1 block">Serving East &amp; North London</span>
+                    <span className="text-silver-300 text-xs mt-1 block">
+                      Registered office only — no walk-ins. Our mobile teams work at your
+                      property across East &amp; North London.
+                    </span>
                   </div>
                 </div>
 
@@ -159,7 +182,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                     <div className="text-silver-300 text-xs mb-0.5">Hours</div>
                     <div className="text-white font-semibold text-sm">Mon – Fri: 9:00 AM – 6:00 PM</div>
                     <div className="text-silver-400 text-xs">Sat: 10:00 AM – 3:00 PM</div>
-                    <div className="text-silver-400 text-xs">Sun: Closed</div>
+                    <div className="text-silver-400 text-xs">Sun: 10:00 AM – 3:00 PM</div>
                   </div>
                 </div>
               </div>
@@ -167,7 +190,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
           </div>
 
           {/* Form panel */}
-          <div className="lg:col-span-3 bg-white p-8">
+          <div id="contact-form" className="order-1 scroll-mt-28 lg:order-2 lg:col-span-3 bg-white p-8">
             {submitted ? (
               <div className="flex flex-col items-center justify-center h-full text-center py-12">
                 <CheckCircle2 className="text-green-500 mb-4" size={56} />
@@ -238,6 +261,28 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                 </div>
 
                 <div>
+                  <label htmlFor="contact-service" className="block text-navy-900 font-semibold text-sm mb-1.5">
+                    Service needed
+                  </label>
+                  <select
+                    id="contact-service"
+                    name="service"
+                    value={service}
+                    onChange={(e) => setService(e.target.value)}
+                    aria-describedby="contact-service-hint"
+                    className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-base bg-white focus:outline-none focus:border-royal-500 transition-colors"
+                  >
+                    <option value="">Please choose (optional)</option>
+                    {SERVICE_OPTIONS.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                  <p id="contact-service-hint" className="sr-only">
+                    Optional. Choosing a service helps us reply with the right information.
+                  </p>
+                </div>
+
+                <div>
                   <label htmlFor="contact-message" className="block text-navy-900 font-semibold text-sm mb-1.5">Message *</label>
                   <textarea
                     id="contact-message"
@@ -287,7 +332,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
 
                 <p className="text-slate-500 text-xs text-center">
                   Or{' '}
-                  <a href={WA_LINK} target="_blank" rel="noopener noreferrer" className="text-green-600 font-medium hover:underline">
+                  <a href={WA_LINK} target="_blank" rel="noopener noreferrer" data-track-location="contact-form-whatsapp" className="text-green-700 font-medium hover:underline">
                     chat with us on WhatsApp
                   </a>{' '}
                   if you would rather message.

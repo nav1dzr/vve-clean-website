@@ -100,6 +100,7 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
     sessionsCreateMock.mockReset();
     supabaseInsertMock.mockClear();
     process.env.STRIPE_SECRET_KEY = 'sk_test_123';
+    process.env.STRIPE_BOOKING_ENABLED = 'true';
     process.env.SITE_URL = 'http://localhost:5173';
     delete process.env.VITE_SUPABASE_URL;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -107,6 +108,15 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
       id: 'cs_test_abc',
       url: 'https://checkout.stripe.com/test',
     });
+  });
+
+  it('keeps the archived Stripe booking flow disabled unless deliberately re-enabled', async () => {
+    delete process.env.STRIPE_BOOKING_ENABLED;
+    const res = makeRes();
+    await handler(makeReq(basePayload()), res);
+    expect(res.statusCode).toBe(410);
+    expect(JSON.parse(res.body).error).toMatch(/not currently available/i);
+    expect(sessionsCreateMock).not.toHaveBeenCalled();
   });
 
   it('rejects a request with no phone number', async () => {

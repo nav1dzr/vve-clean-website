@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { INSTAGRAM_URL } from '../../data/social';
+import { FACEBOOK_URL, GOOGLE_REVIEW_URL, INSTAGRAM_URL } from '../../data/social';
 import type { GalleryCategory } from '../../data/galleryMedia';
 
 const IG_SVG = (
@@ -11,6 +11,7 @@ const IG_SVG = (
 export default function GalleryInstagramCta({
   galleryCategory,
   showGalleryLink = true,
+  showAllNetworks = false,
   onDark = false,
 }: {
   galleryCategory: GalleryCategory;
@@ -18,6 +19,8 @@ export default function GalleryInstagramCta({
   // link) — on that page a "View full Gallery" link would point back at the
   // page the visitor is already on, so GalleryPage passes false here.
   showGalleryLink?: boolean;
+  /** Gallery page only: expose the other verified public profiles too. */
+  showAllNetworks?: boolean;
   // Light-on-dark treatment for the Sofa page's navy proof section. The
   // default navy-800 text would be all but invisible there.
   onDark?: boolean;
@@ -55,6 +58,28 @@ export default function GalleryInstagramCta({
         >
           Instagram coming soon
         </span>
+      )}
+      {showAllNetworks && (
+        <>
+          <a
+            href={FACEBOOK_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Follow VVE Clean on Facebook"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-[#1877f2] px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-900"
+          >
+            Facebook
+          </a>
+          <a
+            href={GOOGLE_REVIEW_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="See VVE Clean on Google"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-full border-2 border-silver-200 bg-white px-5 py-2.5 text-sm font-semibold text-navy-900 transition-colors hover:border-royal-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
+          >
+            Google reviews
+          </a>
+        </>
       )}
     </div>
   );

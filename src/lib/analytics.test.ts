@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   trackBookingInitiated,
+  trackBookingRequestSubmitted,
   trackContactFormSubmitted,
   trackPhoneClick,
   trackWhatsAppClick,
@@ -40,6 +41,19 @@ describe('Google Ads analytics events', () => {
     expect(gtag).toHaveBeenNthCalledWith(2, 'event', 'conversion', {
       send_to: 'AW-18214693277/cmLZCIm-6eEcEJ3TuO1D',
       event_label: 'Carpet cleaning',
+    });
+  });
+
+  it('records a saved no-payment request as its own funnel event', () => {
+    const gtag = vi.fn();
+    (window as GtagWindow).gtag = gtag;
+
+    trackBookingRequestSubmitted('Window cleaning');
+
+    expect(gtag).toHaveBeenCalledOnce();
+    expect(gtag).toHaveBeenCalledWith('event', 'request_submitted', {
+      event_category: 'funnel',
+      event_label: 'Window cleaning',
     });
   });
 

@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import AreaMarquee from '../components/AreaMarquee';
 import TrustBadges from '../components/TrustBadges';
-import HomeServiceSelector, { type HomepageQuoteService } from '../components/HomeServiceSelector';
+import type { HomepageQuoteService } from '../components/HomeServiceSelector';
 import QuoteCalculator from '../components/QuoteCalculator';
 import Reviews from '../components/Reviews';
 import Gallery from '../components/Gallery';
@@ -48,11 +48,31 @@ export default function HomePage() {
     <BookingProvider>
     <div className="min-h-screen mobile-page-bottom lg:pb-0">
       <Navbar />
+      {/* Section order follows the completion brief §9: promise, services,
+          trust, proof, price entry, coverage, FAQ. Two constraints shaped it:
+
+          - The single Services section can preselect the quote calculator,
+            which remounts on service change so prices never carry across.
+          - The quote journey is unchanged. #quote still resolves to the
+            calculator, which is what the sticky bar, the 404 page and every
+            "Get a quote" link scroll to. */}
       <main id="main-content">
+      {/* 1. The promise */}
       <Hero />
       <AreaMarquee />
+
+      {/* 2. Primary services */}
+      <Services onChoose={chooseService} />
+
+      {/* 3. Trust — who we are and what we bring */}
       <TrustBadges />
-      <HomeServiceSelector onChoose={chooseService} />
+      <OurKit />
+
+      {/* 4. Reviews and real results */}
+      <Reviews />
+      <Gallery />
+
+      {/* 5. Price / quote entry — the conversion point */}
       {/* Remounts on service change so every branch of the calculator starts
           from clean state rather than carrying the previous service's counts. */}
       <QuoteCalculator
@@ -61,14 +81,17 @@ export default function HomePage() {
         homepageService={selectedQuoteService}
         onHomepageServiceChange={setSelectedQuoteService}
       />
-      <Reviews />
-      <Gallery />
+      {/* The guarantee sits immediately after the price, where it answers the
+          objection the price raises. Detailed exclusions moved to
+          /end-of-tenancy-cleaning-london#guarantee. */}
       <Guarantee />
-      <OurKit />
-      <Services />
+
+      {/* 6. Coverage */}
       <Areas />
-      <Contact />
+
+      {/* 7. Short FAQ, then direct contact for anything it does not answer */}
       <FAQ />
+      <Contact />
       </main>
       <Footer />
       <MobileStickyFooter />

@@ -87,14 +87,13 @@ describe('BookingPage — mobile scheduling and access charges', () => {
     expect(screen.getByLabelText(/anything else/i)).toHaveClass('w-full', 'min-w-0', 'max-w-full');
   });
 
-  it('requires both access questions before checkout', async () => {
+  it('requires both access questions before sending the request', async () => {
     const user = userEvent.setup();
     renderBookingPage();
     await fillContactDetails(user);
     await user.type(screen.getByLabelText(/preferred date/i), FUTURE_DATE);
     await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
-    await user.click(screen.getByRole('checkbox', { name: /terms of service/i }));
-    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
+    await user.click(screen.getByRole('button', { name: /^Send request — no payment$/ }));
 
     expect(await screen.findByText('Please tell us whether free parking is available for our cleaning team.')).toBeInTheDocument();
     expect(screen.getByText('Please tell us whether the property is inside the Congestion Charge zone.')).toBeInTheDocument();
@@ -102,7 +101,8 @@ describe('BookingPage — mobile scheduling and access charges', () => {
 
   it('adds £15 parking and £18 Congestion Charge to the carried booking total', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ checkoutUrl: 'https://checkout.stripe.com/test' }),
+      ok: true,
+      json: async () => ({ ok: true, bookingRef: 'VVE-TEST123' }),
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -113,15 +113,14 @@ describe('BookingPage — mobile scheduling and access charges', () => {
     await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
     await user.click(screen.getAllByRole('button', { name: 'No' })[0]);
     await user.click(screen.getAllByRole('button', { name: 'Yes' })[1]);
-    await user.click(screen.getByRole('checkbox', { name: /terms of service/i }));
-    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
+    expect(screen.getByText('£153')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^Send request — no payment$/ }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(body.price).toBe(153);
     expect(body.quoteConfig.parkingAvailable).toBe('no');
     expect(body.quoteConfig.congestionZone).toBe('yes');
-    expect(screen.getByText('£153')).toBeInTheDocument();
 
     vi.unstubAllGlobals();
   });
@@ -133,9 +132,9 @@ describe('BookingPage — booking request wording', () => {
     seedSelection();
   });
 
-  it('uses "Complete your booking request" as the headline, not a guarantee claim', () => {
+  it('uses a request-first headline, not a guarantee claim', () => {
     renderBookingPage();
-    expect(screen.getByRole('heading', { name: 'Complete your booking request' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Request a preferred cleaning time' })).toBeInTheDocument();
     expect(screen.queryByText(/slot is (nearly )?secured/i)).not.toBeInTheDocument();
   });
 
@@ -143,7 +142,7 @@ describe('BookingPage — booking request wording', () => {
     renderBookingPage();
     expect(
       screen.getByText(
-        /Choose your preferred date, add your details and pay the £30 deposit\. We will confirm availability separately\. Your deposit comes off the final total\./,
+        /Send your preferred date with no payment\. Our team will check availability, the final scope and price, then contact you to confirm the appointment\./,
       ),
     ).toBeInTheDocument();
   });
@@ -151,13 +150,13 @@ describe('BookingPage — booking request wording', () => {
   it('shows the required supporting text near the date fields', () => {
     renderBookingPage();
     expect(
-      screen.getByText(/Choose your preferred date and arrival window\. We will confirm availability separately\./),
+      screen.getByText(/This is a request, not a confirmed appointment, and no payment is taken at this stage\./),
     ).toBeInTheDocument();
   });
 
-  it('uses "Pay £30 deposit" as the payment button label, with no confirmation claim', () => {
+  it('uses a no-payment request label with no confirmation claim', () => {
     renderBookingPage();
-    expect(screen.getByRole('button', { name: /^Pay £30 deposit$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Send request — no payment$/ })).toBeInTheDocument();
   });
 
   it('never claims the slot/appointment is guaranteed or secured', () => {
@@ -192,8 +191,7 @@ describe('BookingPage — accessible labels on property/contact fields', () => {
     await user.type(screen.getByLabelText(/postcode/i), 'E8 1AA');
     await user.type(screen.getByLabelText(/preferred date/i), FUTURE_DATE);
     await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
-    await user.click(screen.getByRole('checkbox', { name: /agree to the/i }));
-    await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
+    await user.click(screen.getByRole('button', { name: /send request — no payment/i }));
 
     const fullNameInput = screen.getByLabelText(/full name/i);
     await waitFor(() => expect(fullNameInput).toHaveAttribute('aria-invalid', 'true'));
@@ -202,21 +200,34 @@ describe('BookingPage — accessible labels on property/contact fields', () => {
     expect(document.getElementById(describedBy!)).toHaveAttribute('role', 'alert');
   });
 
-  it('focuses the first invalid control and exposes native required semantics', async () => {
-    const user = userEvent.setup();
+  it('exposes native required semantics on every mandatory control', () => {
     renderBookingPage();
 
-    const fullName = screen.getByLabelText(/full name/i);
-    expect(fullName).toBeRequired();
+    expect(screen.getByLabelText(/full name/i)).toBeRequired();
     expect(screen.getByLabelText(/^address/i)).toBeRequired();
     expect(screen.getByLabelText(/postcode/i)).toBeRequired();
     expect(screen.getByLabelText(/phone number/i)).toBeRequired();
     expect(screen.getByLabelText(/email address/i)).toBeRequired();
     expect(screen.getByLabelText(/preferred date/i)).toBeRequired();
     expect(screen.getByLabelText(/preferred arrival window/i)).toBeRequired();
+  });
 
-    await user.click(screen.getByRole('button', { name: /pay £30 deposit/i }));
-    await waitFor(() => expect(fullName).toHaveFocus());
+  // Focus now lands on the error summary rather than the first invalid field,
+  // so the count of problems is announced before the user is moved into one of
+  // them. The summary's links then reach each individual control — see
+  // BookingPage.errorSummary.test.tsx. The first invalid field still carries
+  // aria-invalid and its inline message.
+  it('moves focus to the error summary on a blocked submit', async () => {
+    const user = userEvent.setup();
+    renderBookingPage();
+
+    await user.click(screen.getByRole('button', { name: /send request — no payment/i }));
+
+    const heading = await screen.findByRole('heading', {
+      name: /problems? with your booking request/i,
+    });
+    await waitFor(() => expect(heading.closest('div')).toHaveFocus());
+    expect(screen.getByLabelText(/full name/i)).toHaveAttribute('aria-invalid', 'true');
   });
 });
 
@@ -238,7 +249,7 @@ describe('BookingPage — required preferred date and arrival window', () => {
     await fillContactDetails(user);
     await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
 
-    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
+    await user.click(screen.getByRole('button', { name: /^Send request — no payment$/ }));
 
     expect(await screen.findByText('Please choose your preferred date.')).toBeInTheDocument();
   });
@@ -250,7 +261,7 @@ describe('BookingPage — required preferred date and arrival window', () => {
     const dateInput = screen.getByLabelText(/preferred date/i);
     await user.type(dateInput, FUTURE_DATE);
 
-    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
+    await user.click(screen.getByRole('button', { name: /^Send request — no payment$/ }));
 
     expect(await screen.findByText('Please choose your preferred arrival window.')).toBeInTheDocument();
   });
@@ -278,7 +289,7 @@ describe('BookingPage — required preferred date and arrival window', () => {
     await user.type(screen.getByLabelText(/preferred date/i), '2020-01-01');
     await user.selectOptions(screen.getByLabelText(/preferred arrival window/i), 'Flexible');
 
-    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
+    await user.click(screen.getByRole('button', { name: /^Send request — no payment$/ }));
 
     expect(await screen.findByText('Please choose a date that has not already passed.')).toBeInTheDocument();
   });
@@ -289,7 +300,7 @@ describe('BookingPage — required preferred date and arrival window', () => {
     renderBookingPage();
     await fillContactDetails(user);
 
-    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
+    await user.click(screen.getByRole('button', { name: /^Send request — no payment$/ }));
 
     await waitFor(() => {
       expect(screen.getByText('Please choose your preferred date.')).toBeInTheDocument();
@@ -349,7 +360,7 @@ describe('BookingPage — booking-form draft persistence', () => {
     expect((screen.getByLabelText(/full name/i) as HTMLInputElement).value).toBe('');
   });
 
-  it('does not restore terms acceptance from the draft', () => {
+  it('does not make a no-payment request conditional on accepting booking terms', () => {
     const draft = {
       expires: Date.now() + 48 * 60 * 60 * 1000,
       form: { fullName: 'Jane', address: '', postcode: '', phone: '', email: '', date: '', time: '', message: '' },
@@ -357,14 +368,14 @@ describe('BookingPage — booking-form draft persistence', () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     renderBookingPage();
 
-    const checkbox = screen.getByRole('checkbox', { name: /terms of service/i });
-    expect(checkbox).not.toBeChecked();
+    expect(screen.queryByRole('checkbox', { name: /terms of service/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Send request — no payment$/ })).toBeInTheDocument();
   });
 
   it('handles corrupt draft storage without crashing', () => {
     localStorage.setItem(DRAFT_KEY, '{not valid json}}}');
     expect(() => renderBookingPage()).not.toThrow();
-    expect(screen.getByRole('heading', { name: 'Complete your booking request' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Request a preferred cleaning time' })).toBeInTheDocument();
   });
 
   it('handles unavailable localStorage without crashing', () => {
@@ -374,103 +385,51 @@ describe('BookingPage — booking-form draft persistence', () => {
   });
 });
 
-describe('BookingPage — required terms acceptance', () => {
+describe('BookingPage — no-payment request submission', () => {
   beforeEach(() => {
     sessionStorage.clear();
     seedSelection();
   });
 
-  it('shows the terms checkbox unticked by default', () => {
+  it('does not ask for payment or require booking terms before availability is checked', () => {
     renderBookingPage();
-    const checkbox = screen.getByRole('checkbox', { name: /terms of service/i });
-    expect(checkbox).not.toBeChecked();
+    expect(screen.queryByRole('checkbox', { name: /terms of service/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/pay £30 deposit/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/booking and cancellation terms apply once an appointment is confirmed/i)).toBeInTheDocument();
   });
 
-  it('blocks payment and shows the accessible error when terms are not accepted', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
-    const user = userEvent.setup();
+  it('links to the privacy policy at the point of submission', () => {
     renderBookingPage();
-    await fillAllRequiredFields(user);
-
-    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
-
-    expect(
-      await screen.findByText('Please read and accept the booking and cancellation terms.'),
-    ).toBeInTheDocument();
-    expect(fetchSpy).not.toHaveBeenCalled();
-    fetchSpy.mockRestore();
-  });
-
-  it('properly associates the checkbox with its error message for assistive tech', async () => {
-    const user = userEvent.setup();
-    renderBookingPage();
-    await fillAllRequiredFields(user);
-    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
-
-    const checkbox = await screen.findByRole('checkbox', { name: /terms of service/i });
-    const error     = screen.getByText('Please read and accept the booking and cancellation terms.');
-
-    expect(checkbox).toHaveAttribute('aria-invalid', 'true');
-    expect(checkbox.getAttribute('aria-describedby')).toBe(error.id);
-    expect(error).toHaveAttribute('role', 'alert');
-  });
-
-  it('has a properly associated label so clicking the text toggles the checkbox (44px+ tap target)', async () => {
-    const user = userEvent.setup();
-    renderBookingPage();
-    const checkbox = screen.getByRole('checkbox', { name: /terms of service/i });
-    const label     = checkbox.closest('label');
-
-    expect(label).not.toBeNull();
-    expect(label).toHaveClass('min-h-[44px]');
-
-    await user.click(screen.getByText(/I agree to the/));
-    expect(checkbox).toBeChecked();
-  });
-
-  it('links to both the Terms of Service and Privacy Policy', () => {
-    renderBookingPage();
-    expect(screen.getByRole('link', { name: 'Terms of Service' })).toHaveAttribute('href', '/terms-of-service');
     expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy-policy');
   });
 
-  it('clears the terms error once the checkbox is ticked', async () => {
-    const user = userEvent.setup();
-    renderBookingPage();
-    await fillAllRequiredFields(user);
-    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
-    await screen.findByText('Please read and accept the booking and cancellation terms.');
-
-    await user.click(screen.getByRole('checkbox', { name: /terms of service/i }));
-
-    expect(screen.queryByText('Please read and accept the booking and cancellation terms.')).not.toBeInTheDocument();
-  });
-
-  it('submits termsAccepted, termsAcceptedAt, termsVersion and cancellationPolicyVersion alongside the booking once accepted', async () => {
+  it('sends a manager-visible request, preserves scheduling details and never redirects to Stripe', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ checkoutUrl: 'https://checkout.stripe.com/test' }),
+      ok: true,
+      json: async () => ({ ok: true, bookingRef: 'VVE-TEST123' }),
     });
     vi.stubGlobal('fetch', fetchMock);
 
     const user = userEvent.setup();
     renderBookingPage();
     await fillAllRequiredFields(user);
-    await user.click(screen.getByRole('checkbox', { name: /terms of service/i }));
-    await user.click(screen.getByRole('button', { name: /^Pay £30 deposit$/ }));
+    await user.click(screen.getByRole('button', { name: /^Send request — no payment$/ }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
 
     const [, requestInit] = fetchMock.mock.calls[0];
     const body = JSON.parse(requestInit.body as string);
 
-    expect(body.termsAccepted).toBe(true);
-    expect(typeof body.termsAcceptedAt).toBe('string');
-    expect(new Date(body.termsAcceptedAt).toString()).not.toBe('Invalid Date');
-    expect(body.termsVersion).toBeTruthy();
-    expect(body.cancellationPolicyVersion).toBeTruthy();
-    // Preferred date and arrival window must still reach the backend.
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/create-booking-request');
+    expect(body).not.toHaveProperty('termsAccepted');
+    expect(body).not.toHaveProperty('deposit');
     expect(body.date).toBe(FUTURE_DATE);
     expect(body.time).toBe('Flexible');
+    expect(body.quoteConfig.parkingAvailable).toBe('yes');
+    expect(body.quoteConfig.congestionZone).toBe('no');
+    expect(await screen.findByRole('heading', { name: 'Your request is with our team' })).toBeInTheDocument();
+    expect(screen.getByText('VVE-TEST123')).toBeInTheDocument();
+    expect(screen.getByText(/No payment has been taken/i)).toBeInTheDocument();
 
     vi.unstubAllGlobals();
   });

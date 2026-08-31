@@ -1,23 +1,8 @@
-import { Shield, CheckCircle, XCircle } from 'lucide-react';
+import { Shield, CheckCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useReveal } from '../hooks/useReveal';
 import { EOT_GUARANTEE_HOURS } from '../data/pricing';
-
-const COVERED = [
-  'Missed areas from the original booked service',
-  'Reported by landlord, letting agent, or inventory report',
-  `Reported within ${EOT_GUARANTEE_HOURS} hours of our visit`,
-  'Supported by a report or photos',
-];
-
-const NOT_COVERED = [
-  'Wear and tear or pre-existing damage',
-  'Permanent stains, mould staining, or limescale/corrosion damage',
-  'Old paint marks or structural discolouration',
-  'Odours from hidden sources (e.g. subfloor, inside walls)',
-  'Rubbish removal not included in the original booking',
-  'Areas we could not access during the clean',
-  'Mess or damage created after the clean',
-];
+import { GUARANTEE_COVERED } from '../data/guarantee';
 
 const WA_BOOK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20book%20with%20confidence';
 
@@ -70,42 +55,40 @@ export default function Guarantee() {
           </p>
         </div>
 
-        {/* Two-column breakdown */}
+        {/* What qualifies — the four conditions, kept here because they are
+            what a visitor needs to judge the promise. The full exclusion list
+            lives on /end-of-tenancy-cleaning-london, the page the guarantee
+            actually belongs to (§9: move detailed exclusions off the
+            homepage). Both read from src/data/guarantee.ts, so they cannot
+            drift apart. */}
         <div
-          className={`grid md:grid-cols-2 gap-5 mb-10 transition-all duration-700 delay-150 ${
+          className={`mb-8 transition-all duration-700 delay-150 ${
             visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
           }`}
         >
-          {/* What's covered */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <CheckCircle size={17} className="text-green-400 flex-shrink-0" />
-              <h3 className="text-white font-semibold text-sm uppercase tracking-widest">What's covered</h3>
-            </div>
-            <ul className="space-y-2.5">
-              {COVERED.map((item) => (
+          <div className="mx-auto max-w-2xl bg-white/5 border border-white/10 rounded-2xl p-6">
+            <h3 className="text-white font-semibold text-sm uppercase tracking-widest mb-4">
+              What qualifies
+            </h3>
+            <ul className="grid gap-2.5 sm:grid-cols-2">
+              {GUARANTEE_COVERED.map((item) => (
                 <li key={item} className="flex items-start gap-2.5">
                   <CheckCircle size={14} className="text-green-400 flex-shrink-0 mt-0.5" />
                   <span className="text-silver-300 text-sm leading-snug">{item}</span>
                 </li>
               ))}
             </ul>
-          </div>
-
-          {/* What's not covered */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <XCircle size={17} className="text-silver-400 flex-shrink-0" />
-              <h3 className="text-white font-semibold text-sm uppercase tracking-widest">Not covered</h3>
-            </div>
-            <ul className="space-y-2.5">
-              {NOT_COVERED.map((item) => (
-                <li key={item} className="flex items-start gap-2.5">
-                  <XCircle size={14} className="text-silver-500 flex-shrink-0 mt-0.5" />
-                  <span className="text-silver-400 text-sm leading-snug">{item}</span>
-                </li>
-              ))}
-            </ul>
+            <p className="text-silver-400 text-xs mt-5 leading-relaxed">
+              Some things are not covered — including wear and tear, permanent stains and mess
+              created after the clean.{' '}
+              <Link
+                to="/end-of-tenancy-cleaning-london#guarantee"
+                className="text-silver-200 underline underline-offset-2 hover:no-underline"
+              >
+                See the full guarantee terms
+              </Link>
+              .
+            </p>
           </div>
         </div>
 

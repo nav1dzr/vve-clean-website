@@ -3,6 +3,7 @@ import { corsHeaders } from '../_lib/cors.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
 import {
   CARD_SELECT, toCard, BOOKING_STATUS_VALUES, PAYMENT_STATUS_VALUES, BALANCE_STATUS_VALUES, SORT_VALUES,
+  NOTIFICATION_FILTER_VALUES,
 } from '../_lib/bookingFields.js';
 import { sanitiseFreeTextFilter, isValidDateString } from '../_lib/normalise.js';
 
@@ -33,6 +34,16 @@ function buildQuery(supabase, filters) {
   if (filters.postcode) query = query.ilike('postcode', `%${filters.postcode}%`);
   if (filters.dateFrom) query = query.gte('service_date', filters.dateFrom);
   if (filters.dateTo) query = query.lte('service_date', filters.dateTo);
+
+  // Paid bookings whose confirmation email did not send. Mirrors
+  // hasFailedNotification() in bookingFields.js: only an explicit `false`
+  // counts, so rows predating the notification columns (null) are not
+  // reported as failures.
+  if (filters.notifications === 'failed') {
+    query = query
+      .eq('payment_status', 'paid')
+      .or('email_customer_sent.is.false,email_business_sent.is.false');
+  }
 
   switch (filters.sort) {
     case 'oldest':
@@ -259,6 +270,14 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'dateTo must be YYYY-MM-DD' }));
   }
 
+  const notifications = params.get('notifications') || null;
+  if (notifications && !NOTIFICATION_FILTER_VALUES.includes(notifications)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({
+      error: `notifications must be one of: ${NOTIFICATION_FILTER_VALUES.join(', ')}`,
+    }));
+  }
+
   const supabase = getServiceClient();
   if (!supabase) {
     res.writeHead(500, headers);
@@ -271,6 +290,7 @@ export default async function handler(req, res) {
 
     const query = buildQuery(supabase, {
       status, paymentStatus, balanceStatus, service, source, postcode, dateFrom, dateTo, sort,
+      notifications,
     }).range(from, to);
 
     const { data, error, count } = await query;

@@ -36,7 +36,7 @@ const FAQS = [
   },
   {
     q: 'Do you clean rugs?',
-    a: `Yes. Standard rugs start at ${pd(CARPET_ITEM_PRICES_P.rug)}. Larger, wool or specialist rugs may need a photo review first so the construction and a suitable cleaning method can be checked and the price confirmed before booking.`,
+    a: 'Yes, as an add-on to a carpet, upholstery or relevant end of tenancy clean. Send a photo first so the construction, fibre, cleaning method and price can be confirmed. We do not currently offer rug-only bookings.',
   },
 ];
 
@@ -160,7 +160,7 @@ const DATA: ServiceLandingData = {
     {
       icon: <Tag size={28} />,
       title: 'Fixed prices, no surprises',
-      body: 'Every price is listed clearly. The only additions are extras you choose — extra rooms, stairs or the rug bundle add-on.',
+      body: 'Every standard price is listed clearly. Rugs are assessed separately and can be added to a qualifying carpet, upholstery or end of tenancy clean.',
     },
   ],
 
@@ -188,10 +188,10 @@ const DATA: ServiceLandingData = {
     { label: 'Landing', price: pd(CARPET_ITEM_PRICES_P.landing) },
     { label: 'Stairs — first flight', price: pd(STAIRS_FIRST_P) },
     { label: 'Stairs — each additional flight', price: pd(STAIRS_EXTRA_P) },
-    { label: 'Rug (standard)', price: pd(CARPET_ITEM_PRICES_P.rug) },
+    { label: 'Rug cleaning', price: 'Add-on only · photo quote' },
   ],
   pricingNote:
-    'Large, wool or specialist rugs need a photo quote first. Book multiple carpet or upholstery items together and save automatically — see our discount tiers on the pricing page. What a clean can lift depends on the stain, the fibre, how long it has been there and any product already used on it, so complete removal cannot be guaranteed — we tell you the likely outcome before we start, not after.',
+    'Rugs are available only as an add-on to a carpet, upholstery or relevant end of tenancy clean and need a photo quote first. Book multiple carpet or upholstery items together and save automatically — see our discount tiers on the pricing page. What a clean can lift depends on the stain, the fibre, how long it has been there and any product already used on it, so complete removal cannot be guaranteed — we tell you the likely outcome before we start, not after.',
   pricingCta: { href: '/pricing', label: 'See all prices' },
 
   // Real proof: the three approved before/after pairs, each with its own clip.
@@ -221,13 +221,13 @@ const DATA: ServiceLandingData = {
     { href: '/after-builders-cleaning-london', label: 'After Builders Cleaning' },
     { href: '/commercial-carpet-cleaning-london', label: 'Commercial Carpet Cleaning' },
     { href: '/pricing', label: 'All Prices' },
-    { href: '/booking', label: 'Request booking' },
+    { href: '/booking', label: 'Request a time' },
   ],
 
   ctaH2: 'Ready to book your carpet clean?',
   ctaBody:
-    'Send your booking request online. The £30 deposit is deducted from the final total, and availability is confirmed separately.',
-  ctaPrimary: { href: '/booking', label: 'Request booking online' },
+    'Send your preferred date online with no payment. We check availability, scope and the final price, then contact you to confirm the appointment.',
+  ctaPrimary: { href: '/booking', label: 'Request a time' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };
 

@@ -310,7 +310,7 @@ describe('EotQuoteWizard — Step 4: Add-ons and final review', () => {
     expect(screen.queryByRole('button', { name: /^yes$/i })).not.toBeInTheDocument();
   });
 
-  it('the final payment card shows exactly one Total, deposit and balance — no duplicate pricing block', async () => {
+  it('the final quote card shows one Total and makes the no-payment next step clear', async () => {
     const user = userEvent.setup();
     renderWizard();
     await toStep4(user);
@@ -318,8 +318,9 @@ describe('EotQuoteWizard — Step 4: Add-ons and final review', () => {
     expect(screen.getByText('Total')).toBeInTheDocument();
     expect(screen.queryByText('Total service price')).not.toBeInTheDocument();
     expect(screen.queryByText('Final total')).not.toBeInTheDocument();
-    expect(screen.getByText('Deposit today')).toBeInTheDocument();
-    expect(screen.getByText('Balance after cleaning')).toBeInTheDocument();
+    expect(screen.getByText('No payment now.')).toBeInTheDocument();
+    expect(screen.getByText(/We check availability, scope and the final price, then contact you to confirm the appointment/i)).toBeInTheDocument();
+    expect(screen.queryByText('Deposit today')).not.toBeInTheDocument();
     expect(screen.getByText(new RegExp(`${72}-hour guarantee on selected tasks`))).toBeInTheDocument();
   });
 
@@ -335,7 +336,7 @@ describe('EotQuoteWizard — Step 4: Add-ons and final review', () => {
       await user.click(screen.getByRole('button', { name: /Increase Landings/ }));
     }
     await next(user); // → step 4
-    await user.click(screen.getByRole('button', { name: /Continue to booking/ }));
+    await user.click(screen.getByRole('button', { name: /Request a time — no payment/ }));
 
     expect(onBook).toHaveBeenCalledTimes(1);
     const result = onBook.mock.calls[0][0] as EotBookingResult;
@@ -351,7 +352,7 @@ describe('EotQuoteWizard — Step 4: Add-ons and final review', () => {
     await toStep4(user);
     await user.click(screen.getByRole('button', { name: /Mould, biohazard or specialist contamination/ }));
     expect(screen.getAllByText(/Photo review required/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.queryByRole('button', { name: /Continue to booking/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Request a time — no payment/ })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Send photos on WhatsApp/ })).toBeInTheDocument();
     expect(onBook).not.toHaveBeenCalled();
   });

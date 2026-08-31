@@ -99,8 +99,8 @@ const DATA: ServiceLandingData = {
   ],
 
   ctaH2: 'Ready to book your sofa clean?',
-  ctaBody: 'Send your booking request online. The £30 deposit is deducted from the final total, and availability is confirmed separately.',
-  ctaPrimary: { href: '/booking', label: 'Request booking online' },
+  ctaBody: 'Send your preferred date online with no payment. We check availability, scope and the final price, then contact you to confirm the appointment.',
+  ctaPrimary: { href: '/booking', label: 'Request a time' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };
 

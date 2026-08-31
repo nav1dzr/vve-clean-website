@@ -2,6 +2,19 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  CARPET_ITEM_PRICES_P,
+  CARPET_MIN_BOOKING_P,
+  penceToDisplay,
+} from './shared/pricingCatalogue.js';
+
+// Prices quoted in route metadata come from the canonical catalogue, never
+// typed as literals. The sofa description said "from £75", which matched
+// nothing: the cheapest sofa is a 2-seater at £70, and the £85 minimum
+// booking means no customer ever pays £75. The page itself already showed the
+// correct figures — only the search snippet was wrong.
+const SOFA_FROM = penceToDisplay(CARPET_ITEM_PRICES_P.sofa_2);
+const CARPET_MIN = penceToDisplay(CARPET_MIN_BOOKING_P);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distDir = resolve(__dirname, 'dist');
@@ -73,10 +86,10 @@ const routes = [
     path: '/booking',
     title: 'Book Your Clean — VVE Clean London',
     description:
-      'Submit a cleaning booking request with VVE Clean. Choose your service, add your details and pay a £30 deposit that is deducted from the final total.',
+      'Submit a cleaning booking request with VVE Clean. Choose your service, add your details and request a preferred time with no payment.',
     ogTitle: 'Book a Clean Online | VVE Clean London',
     ogDescription:
-      'Submit a cleaning booking request online. The £30 deposit is deducted from the final total and availability is confirmed separately.',
+      'Submit a cleaning request online with no payment. VVE Clean checks availability, scope and final price before confirming the appointment.',
     changefreq: 'monthly',
     priority: '0.6',
     sources: ['src/pages/BookingPage.tsx'],
@@ -108,7 +121,7 @@ const routes = [
     path: '/terms-of-service',
     title: 'Terms of Service | VVE Clean London',
     description:
-      'The terms that apply when you use VVE Clean services in London. Covers bookings, deposits, cancellations, liability, complaints, and payment.',
+      'The terms that apply when you use VVE Clean services in London. Covers booking requests, confirmation, cancellations, liability, complaints, and payment.',
     ogTitle: 'Terms of Service | VVE Clean',
     ogDescription: 'The terms that apply when you use VVE Clean services in London.',
     changefreq: 'yearly',
@@ -147,10 +160,10 @@ const routes = [
     path: '/sofa-cleaning-london',
     title: 'Sofa & Upholstery Cleaning London | VVE Clean',
     description:
-      'Professional sofa and upholstery cleaning in London from £75, with fabric checks and hot-water extraction where suitable.',
+      `Professional sofa and upholstery cleaning in London from ${SOFA_FROM} for a 2-seater, ${CARPET_MIN} minimum booking, with fabric checks and hot-water extraction where suitable.`,
     ogTitle: 'Sofa & Upholstery Cleaning London | VVE Clean',
     ogDescription:
-      'Professional sofa cleaning from £75. Hot-water extraction removes stains, pet hair and odours across East and North London.',
+      `Professional sofa cleaning from ${SOFA_FROM} for a 2-seater (${CARPET_MIN} minimum booking). Hot-water extraction across East and North London.`,
     changefreq: 'monthly',
     priority: '0.8',
     sources: ['src/pages/SofaCleaningPage.tsx'],
@@ -239,7 +252,7 @@ const routes = [
     title: 'About VVE Clean | London Cleaning Company',
     description: 'Learn how VVE Clean handles end of tenancy, carpet, upholstery, after-builders and commercial cleaning across London.',
     ogTitle: 'About VVE Clean',
-    ogDescription: 'A clear, owner-led cleaning service with visible pricing and direct contact.',
+    ogDescription: 'A London cleaning team with visible pricing and direct contact.',
     changefreq: 'monthly',
     priority: '0.6',
     // Previously `noindex, follow` because the page carried a visible
@@ -329,7 +342,11 @@ routes.push({
 for (const post of BLOG_POSTS) {
   routes.push({
     path: `/blog/${post.slug}`,
-    title: `${post.title} | VVE Clean Blog`,
+    // A post supplying `seoTitle` is already close to the ~65-character
+    // budget, so it takes the shorter brand suffix.
+    title: post.seoTitle
+      ? `${post.seoTitle} | VVE Clean`
+      : `${post.title} | VVE Clean Blog`,
     description: post.excerpt,
     ogTitle: post.title,
     ogDescription: post.excerpt,

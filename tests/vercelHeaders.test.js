@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { AREAS } from '../src/data/areas';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -108,6 +109,41 @@ describe('public site vercel.json — response headers (F3)', () => {
       permanent: true,
     });
     expect(existsSync(resolve(__dirname, '..', 'public', 'booking.html'))).toBe(false);
+  });
+
+  // The brief originally asked for /end-of-tenancy-cleaning-[area]. The pages
+  // that exist cover every service for an area, not end of tenancy alone, so
+  // they live at /cleaning-[area]. A second EOT-only set would duplicate an
+  // aggregation that already exists — the pattern Google's spam policy names
+  // as doorway abuse — so the legacy shape 308s to the canonical route
+  // instead, capturing any link that uses it without splitting signals.
+  describe('legacy area-URL aliases', () => {
+    const areaRedirect = () =>
+      config.redirects.find((r) => r.source.startsWith('/end-of-tenancy-cleaning-:area'));
+
+    it('permanently redirects the requested URL shape to the canonical route', () => {
+      const redirect = areaRedirect();
+      expect(redirect).toBeDefined();
+      expect(redirect.destination).toBe('/cleaning-:area');
+      expect(redirect.permanent).toBe(true);
+    });
+
+    it('matches every published area slug', () => {
+      const source = areaRedirect().source;
+      for (const { slug } of AREAS) {
+        expect(source, `${slug} is missing from the alias redirect`).toContain(slug);
+      }
+    });
+
+    // /end-of-tenancy-cleaning-london is a real service page, not an area
+    // page. A bare :area wildcard would swallow it.
+    it('does not shadow the /end-of-tenancy-cleaning-london service page', () => {
+      const source = areaRedirect().source;
+      expect(source).not.toMatch(/:area\s*$/);
+      expect(source).not.toContain('|london|');
+      expect(source).not.toContain('(london');
+      expect(source).not.toContain('london)');
+    });
   });
 
   it('does not add a Content-Security-Policy header (deferred — see CSP_IMPLEMENTATION_NOTES.md)', () => {

@@ -32,18 +32,15 @@ function renderAt(initialEntry: string) {
   );
 }
 
-// End of Tenancy ships the owner-approved photo set (3 before/after pairs + 13
-// supporting photos = 16 items). Carpet now ships its own approved before/after
-// pairs. Sofa & Upholstery remains an empty placeholder — the owner is still
-// organising that folder, so nothing unapproved is referenced until a final set
-// is supplied.
+// Each category is populated from the owner's approved local media sets.
 describe('GalleryPage — categories, deep links, empty states, keyboard nav', () => {
   it('ships all three categories populated from the approved sets', () => {
     expect(GALLERY_MEDIA['end-of-tenancy']).toHaveLength(16);
     expect(GALLERY_MEDIA['end-of-tenancy'].filter((i) => i.type === 'before-after')).toHaveLength(3);
     expect(GALLERY_MEDIA['end-of-tenancy'].filter((i) => i.type === 'photo')).toHaveLength(13);
-    expect(GALLERY_MEDIA.carpet).toHaveLength(3);
-    expect(GALLERY_MEDIA.carpet.every((i) => i.type === 'before-after')).toBe(true);
+    expect(GALLERY_MEDIA.carpet).toHaveLength(7);
+    expect(GALLERY_MEDIA.carpet.filter((i) => i.type === 'before-after')).toHaveLength(3);
+    expect(GALLERY_MEDIA.carpet.filter((i) => i.type === 'video')).toHaveLength(4);
 
     // Sofa was the last empty placeholder. The owner's set landed as 4 approved
     // before/after pairs, 11 supporting photos and 4 clips.
@@ -113,6 +110,14 @@ describe('GalleryPage — categories, deep links, empty states, keyboard nav', (
       'https://www.instagram.com/vve__clean',
     );
     expect(screen.queryByRole('link', { name: 'View full Gallery' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Follow VVE Clean on Facebook' })).toHaveAttribute(
+      'href',
+      'https://www.facebook.com/share/1LXXHgnhvc/',
+    );
+    expect(screen.getByRole('link', { name: 'See VVE Clean on Google' })).toHaveAttribute(
+      'href',
+      'https://g.page/r/CYDRQCaICK7vEAE/review',
+    );
   });
 
   it('supports left/right arrow key navigation between tabs', async () => {

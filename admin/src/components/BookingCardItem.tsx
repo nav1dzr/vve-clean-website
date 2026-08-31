@@ -30,13 +30,23 @@ export default function BookingCardItem({ booking }: { booking: BookingCard }) {
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <StatusBadge {...bookingStatusBadge(booking.status)} />
-          <StatusBadge {...paymentStatusBadge(booking.paymentStatus)} />
+          {booking.awaitingAvailabilityReview ? (
+            <StatusBadge label="Check availability" className="bg-sky-100 text-sky-900" />
+          ) : (
+            <StatusBadge {...paymentStatusBadge(booking.paymentStatus)} />
+          )}
           {/* Only shown once balance data actually exists for this booking —
               omitted rather than showing "Balance unavailable" on every
               historical card (ADMIN_CRM_PLAN.md Phase 3 8). */}
           {booking.balanceStatus && <StatusBadge {...balanceStatusBadge(booking.balanceStatus)} />}
           {booking.superseded && (
             <StatusBadge label="Superseded" className="bg-silver-200 text-navy-500" />
+          )}
+          {/* The customer paid but did not get their confirmation. This is a
+              job for someone, so it is styled as a warning rather than as
+              another neutral state pill. */}
+          {booking.notificationFailed && (
+            <StatusBadge label="Email not sent" className="bg-amber-100 text-amber-900" />
           )}
         </div>
       </div>

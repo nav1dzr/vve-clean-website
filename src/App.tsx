@@ -2,6 +2,7 @@ import { BrowserRouter } from 'react-router-dom';
 import AppRoutes from './AppRoutes';
 import ScrollToTop from './components/ScrollToTop';
 import CampaignAttribution from './components/CampaignAttribution';
+import ContactLinkTracking from './components/ContactLinkTracking';
 import { CookieConsentProvider } from './context/CookieConsentContext';
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
             only written to storage if advertising consent is granted. Nothing
             is transmitted until the customer submits a booking. */}
         <CampaignAttribution />
+        <ContactLinkTracking />
         <AppRoutes />
       </CookieConsentProvider>
     </BrowserRouter>

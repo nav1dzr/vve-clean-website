@@ -181,6 +181,79 @@ describe('sitemap', () => {
   });
 });
 
+describe('business entity identity (§12)', () => {
+  const schema = JSON.parse(
+    indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1],
+  );
+
+  // sameAs is how a search engine ties this site to the same business on
+  // other platforms. Every entry must be a profile that actually exists and
+  // actually belongs to VVE Limited — an unverified link is a false claim
+  // about identity, not a harmless extra.
+  it('links only to verified profiles that belong to this business', () => {
+    expect(schema.sameAs).toEqual([
+      'https://www.checkatrade.com/trades/vvelimited',
+      'https://www.instagram.com/vve__clean',
+      'https://find-and-update.company-information.service.gov.uk/company/17234391',
+    ]);
+  });
+
+  it('states the registered legal name and company number consistently', () => {
+    expect(schema.legalName).toBe('VVE Limited');
+    expect(schema.identifier.value).toBe('17234391');
+    // The same number the About page publishes.
+    expect(prerender.includes('17234391') || indexHtml.includes('17234391')).toBe(true);
+  });
+
+  it('uses one E.164 telephone number in structured data', () => {
+    expect(schema.telephone).toBe('+442080502233');
+  });
+
+  // VVE Clean works at the customer's property. Queensway is a registered
+  // office, not a place anyone can visit, so publishing it as the business
+  // street address would misrepresent it — and contradict /contact, which
+  // says plainly that there are no walk-ins.
+  it('does not present the registered office as a visitable address', () => {
+    expect(schema.address.streetAddress).toBeUndefined();
+    expect(indexHtml).not.toContain('Queensway');
+  });
+
+  it('claims no VAT registration, since the business is not VAT registered', () => {
+    expect(schema.vatID).toBeUndefined();
+  });
+});
+
+describe('AI-crawler files (§12)', () => {
+  // Google's June 2026 Search Central documentation update states plainly
+  // that llms.txt files neither help nor hurt rankings and are not used for
+  // AI features. No major AI provider has committed to reading one. Adding
+  // it would be cargo cult, and the brief explicitly rules it out absent
+  // authoritative evidence of benefit.
+  it('does not ship an llms.txt', () => {
+    expect(existsSync(resolve(root, 'public/llms.txt'))).toBe(false);
+    expect(existsSync(resolve(root, 'llms.txt'))).toBe(false);
+  });
+
+  it('keeps robots.txt open and pointing at the sitemap', () => {
+    const robots = read('public/robots.txt');
+    expect(robots).toMatch(/^User-agent: \*/m);
+    expect(robots).toMatch(/^Allow: \/$/m);
+    expect(robots).toContain('https://www.vveclean.co.uk/sitemap.xml');
+    // No blanket AI-crawler block: the business wants to be found.
+    expect(robots).not.toMatch(/^Disallow: \/$/m);
+  });
+});
+
+describe('team framing in prerendered metadata', () => {
+  // The visible /about copy dropped "Owner-led service", but the og:description
+  // in prerender.mjs kept it — invisible to a component test, and the text
+  // social platforms and search engines actually quote. VVE Clean is a team,
+  // so no route metadata should describe it as one person's operation.
+  it('describes VVE Clean as a team, not an owner-led operation', () => {
+    expect(prerender).not.toMatch(/owner[-\s]?(led|operated|run)/i);
+  });
+});
+
 describe('GA4 wiring', () => {
   it('keeps the Ads tag consent-gated without sending a placeholder GA4 request', () => {
     const adsIndex = indexHtml.indexOf("gtag('config', 'AW-18214693277')");
