@@ -1,15 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import { verifyAdminRequest } from '../_lib/adminAuth.js';
-import { corsHeaders } from '../_lib/cors.js';
-import { readJsonBody } from '../_lib/body.js';
-import { getServiceClient } from '../_lib/supabaseAdmin.js';
-import { createR2Key, createUploadUrl, getMediaConfig } from '../_lib/mediaConfig.js';
-import { toMediaSummary, validateNewAsset } from '../_lib/mediaFields.js';
+import { verifyAdminRequest } from './_lib/adminAuth.js';
+import { corsHeaders } from './_lib/cors.js';
+import { readJsonBody } from './_lib/body.js';
+import { getServiceClient } from './_lib/supabaseAdmin.js';
+import { createR2Key, createUploadUrl, getMediaConfig } from './_lib/mediaConfig.js';
+import { toMediaSummary, validateNewAsset } from './_lib/mediaFields.js';
+import mediaAssetHandler from './_lib/mediaAssetActions.js';
 
 export const config = { api: { bodyParser: false } };
 const MAX_BODY_BYTES = 16 * 1024;
 
-export default async function handler(req, res) {
+async function collectionHandler(req, res) {
   const headers = { ...corsHeaders(req.headers.origin || ''), 'Cache-Control': 'no-store', 'Content-Type': 'application/json' };
   if (req.method === 'OPTIONS') {
     res.writeHead(204, headers);
@@ -37,6 +38,14 @@ export default async function handler(req, res) {
     res.writeHead(500, headers);
     return res.end(JSON.stringify({ error: 'Could not complete that media request.' }));
   }
+}
+
+// Kept as one Vercel function so the existing Hobby-plan CRM project remains
+// under its function limit. The ID stays explicit and validated by the item
+// handler; it is never used to build a filesystem path or database query.
+export default function handler(req, res) {
+  const id = Array.isArray(req.query?.id) ? req.query.id[0] : req.query?.id;
+  return id ? mediaAssetHandler(req, res) : collectionHandler(req, res);
 }
 
 async function listMedia(res, headers, supabase) {

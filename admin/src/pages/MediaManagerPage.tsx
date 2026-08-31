@@ -46,7 +46,7 @@ export default function MediaManagerPage() {
       const result = await authFetch<MediaLibrary>('/api/media');
       if (sync) {
         const processing = result.assets.filter((asset) => asset.mediaType === 'video' && asset.status === 'processing');
-        await Promise.all(processing.map((asset) => authFetch(`/api/media/${asset.id}`, { method: 'POST', body: JSON.stringify({ action: 'sync' }) }).catch(() => null)));
+        await Promise.all(processing.map((asset) => authFetch(`/api/media?id=${encodeURIComponent(asset.id)}`, { method: 'POST', body: JSON.stringify({ action: 'sync' }) }).catch(() => null)));
         if (processing.length) {
           const refreshed = await authFetch<MediaLibrary>('/api/media');
           setLibrary(refreshed);
@@ -88,7 +88,7 @@ export default function MediaManagerPage() {
         body: selectedFile,
       });
       if (!upload.ok) throw new Error('The private original upload did not finish. Try again.');
-      await authFetch(`/api/media/${plan.id}`, { method: 'POST', body: JSON.stringify({ action: 'complete' }) });
+      await authFetch(`/api/media?id=${encodeURIComponent(plan.id)}`, { method: 'POST', body: JSON.stringify({ action: 'complete' }) });
       setSelectedFile(null);
       setForm(initialForm);
       if (fileRef.current) fileRef.current.value = '';
@@ -120,7 +120,7 @@ export default function MediaManagerPage() {
     }
     try {
       setError('');
-      await authFetch(`/api/media/${editing.id}`, { method: 'PATCH', body: JSON.stringify(form) });
+      await authFetch(`/api/media?id=${encodeURIComponent(editing.id)}`, { method: 'PATCH', body: JSON.stringify(form) });
       setEditing(null);
       setForm(initialForm);
       await load();
