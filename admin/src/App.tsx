@@ -18,6 +18,7 @@ import CustomerListPage from './pages/CustomerListPage';
 import CustomerFormPage from './pages/CustomerFormPage';
 import CustomerDetailPage from './pages/CustomerDetailPage';
 import CatalogueListPage from './pages/CatalogueListPage';
+import MediaManagerPage from './pages/MediaManagerPage';
 
 export default function App() {
   return (
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/invoices/new" element={<InvoiceEditorPage />} />
             <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
             <Route path="/catalogue" element={<CatalogueListPage />} />
+            <Route path="/media" element={<MediaManagerPage />} />
             <Route path="/receipts" element={<ReceiptListPage />} />
             <Route path="/receipts/new" element={<ReceiptEditorPage />} />
             <Route path="/receipts/:id" element={<ReceiptDetailPage />} />

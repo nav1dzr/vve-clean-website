@@ -37,6 +37,20 @@ export default function VideoTile({
     );
   }
 
+  if (entry.playerUrl) {
+    return (
+      <div className="aspect-video min-w-0 overflow-hidden rounded-2xl border border-silver-200 bg-navy-950 shadow-sm">
+        <iframe
+          src={entry.playerUrl}
+          title={entry.description || entry.label}
+          className="h-full w-full border-0"
+          allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
   return (
     <LazyVideo
       video={{

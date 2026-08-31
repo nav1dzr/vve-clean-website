@@ -74,6 +74,8 @@ export interface GalleryVideoItem {
   poster: string;
   /** Describes the clip for people who cannot see it. Falls back to `label`. */
   description?: string;
+  /** A hosted adaptive player, used for Mux HLS delivery on every browser. */
+  playerUrl?: string;
   /** See GalleryBeforeAfterItem.location. */
   location?: string;
 }
