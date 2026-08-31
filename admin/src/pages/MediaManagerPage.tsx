@@ -43,12 +43,12 @@ export default function MediaManagerPage() {
   async function load({ sync = false } = {}) {
     try {
       setError('');
-      const result = await authFetch<MediaLibrary>('/api/media');
+      const result = await authFetch<MediaLibrary>('/api/search?resource=media');
       if (sync) {
         const processing = result.assets.filter((asset) => asset.mediaType === 'video' && asset.status === 'processing');
-        await Promise.all(processing.map((asset) => authFetch(`/api/media?id=${encodeURIComponent(asset.id)}`, { method: 'POST', body: JSON.stringify({ action: 'sync' }) }).catch(() => null)));
+        await Promise.all(processing.map((asset) => authFetch(`/api/search?resource=media&id=${encodeURIComponent(asset.id)}`, { method: 'POST', body: JSON.stringify({ action: 'sync' }) }).catch(() => null)));
         if (processing.length) {
-          const refreshed = await authFetch<MediaLibrary>('/api/media');
+          const refreshed = await authFetch<MediaLibrary>('/api/search?resource=media');
           setLibrary(refreshed);
           return;
         }
@@ -78,7 +78,7 @@ export default function MediaManagerPage() {
     setUploading(true);
     setError('');
     try {
-      const plan = await authFetch<{ id: string; uploadUrl: string }>('/api/media', {
+      const plan = await authFetch<{ id: string; uploadUrl: string }>('/api/search?resource=media', {
         method: 'POST',
         body: JSON.stringify({ filename: selectedFile.name, contentType: selectedFile.type, size: selectedFile.size, ...form }),
       });
@@ -88,7 +88,7 @@ export default function MediaManagerPage() {
         body: selectedFile,
       });
       if (!upload.ok) throw new Error('The private original upload did not finish. Try again.');
-      await authFetch(`/api/media?id=${encodeURIComponent(plan.id)}`, { method: 'POST', body: JSON.stringify({ action: 'complete' }) });
+      await authFetch(`/api/search?resource=media&id=${encodeURIComponent(plan.id)}`, { method: 'POST', body: JSON.stringify({ action: 'complete' }) });
       setSelectedFile(null);
       setForm(initialForm);
       if (fileRef.current) fileRef.current.value = '';
@@ -120,7 +120,7 @@ export default function MediaManagerPage() {
     }
     try {
       setError('');
-      await authFetch(`/api/media?id=${encodeURIComponent(editing.id)}`, { method: 'PATCH', body: JSON.stringify(form) });
+      await authFetch(`/api/search?resource=media&id=${encodeURIComponent(editing.id)}`, { method: 'PATCH', body: JSON.stringify(form) });
       setEditing(null);
       setForm(initialForm);
       await load();
