@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { verifyAdminRequest } from './adminAuth.js';
+import { verifyMediaAdminRequest } from './adminAuth.js';
 import { corsHeaders } from './cors.js';
 import { readJsonBody } from './body.js';
 import { getServiceClient } from './supabaseAdmin.js';
 import { createR2Key, createUploadUrl, getMediaConfig } from './mediaConfig.js';
 import { toMediaSummary, validateNewAsset } from './mediaFields.js';
+import { MEDIA_ASSETS_TABLE, MEDIA_SLOTS_TABLE } from './mediaTables.js';
 
 export const config = { api: { bodyParser: false } };
 const MAX_BODY_BYTES = 16 * 1024;
@@ -19,7 +20,7 @@ export async function mediaCollectionHandler(req, res) {
     res.writeHead(405, headers);
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
   }
-  const auth = await verifyAdminRequest(req);
+  const auth = await verifyMediaAdminRequest(req);
   if (!auth.ok) {
     res.writeHead(auth.status, headers);
     return res.end(JSON.stringify({ error: auth.error }));
@@ -42,8 +43,8 @@ export async function mediaCollectionHandler(req, res) {
 
 async function listMedia(res, headers, supabase) {
   const [{ data: assets, error: assetsError }, { data: slots, error: slotsError }] = await Promise.all([
-    supabase.from('media_assets').select('*').order('created_at', { ascending: false }).limit(100),
-    supabase.from('media_slots').select('slot_key, placement, label, asset_id').order('slot_key'),
+    supabase.from(MEDIA_ASSETS_TABLE).select('*').order('created_at', { ascending: false }).limit(100),
+    supabase.from(MEDIA_SLOTS_TABLE).select('slot_key, placement, label, asset_id').order('slot_key'),
   ]);
   if (assetsError || slotsError) {
     console.error('[admin/media] list failed:', assetsError?.code || slotsError?.code);
@@ -78,7 +79,7 @@ async function createUploadPlan(req, res, headers, supabase, adminId) {
   }
   const assetId = randomUUID();
   const r2Key = createR2Key(assetId, parsed.value.filename);
-  const { error } = await supabase.from('media_assets').insert({
+  const { error } = await supabase.from(MEDIA_ASSETS_TABLE).insert({
     id: assetId,
     media_type: parsed.value.mediaType,
     original_filename: parsed.value.filename,

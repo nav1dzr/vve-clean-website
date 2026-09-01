@@ -11,9 +11,9 @@ This code intentionally does not create a Cloudflare bucket, Mux account, Supaba
 
 ## 1. Apply the Supabase migration
 
-Before applying anything, confirm that the target is an isolated **Preview Supabase Branch** (preferred) or a completely separate Preview project. Do not apply these migrations to the shared Production Supabase project. The migration creates private metadata tables, named page/gallery positions, and `public_media_slots()`, a narrowly scoped RPC that is the only public data read.
+Before applying anything, confirm that the target is an isolated **Preview Supabase Branch** (preferred) or a completely separate Preview project. Do not apply the original media migrations to a shared project. For the temporary `vve-os` Preview database, apply only `20260901120000_create_media_preview_isolation.sql`: it creates a separate, uniquely prefixed set of media tables and the `public_media_preview_slots()` RPC without altering VVE OS tables, functions, policies, storage, or auth. The public RPC returns only ready, website-enabled delivery records.
 
-Do not add browser RLS policies to `media_assets` or `media_slots`; the admin API uses the existing `admin_users` allow-list and the service role. The public RPC returns only ready, website-enabled delivery records.
+Do not add browser RLS policies to the Preview media tables; the admin API uses `media_preview_admin_users`, a dedicated empty-by-default allow-list, and the service role. Add a row only after an administrator already exists in the Preview project's Auth users. The public RPC returns only ready, website-enabled delivery records.
 
 ## 2. Private R2 and Cloudflare Worker image delivery
 

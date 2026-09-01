@@ -31,7 +31,7 @@ function usePublishedSlots() {
     void (async () => {
       try {
         const { supabase } = await import('./supabase');
-        const { data, error } = await supabase.rpc('public_media_slots');
+        const { data, error } = await supabase.rpc('public_media_preview_slots');
         if (!live || error || !Array.isArray(data)) return;
         setSlots(data as PublishedSlot[]);
       } catch {

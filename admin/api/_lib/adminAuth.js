@@ -3,6 +3,7 @@
 // service-role key — never imported from admin/src/.
 
 import { getServiceClient } from './supabaseAdmin.js';
+import { MEDIA_ADMINS_TABLE } from './mediaTables.js';
 
 function extractBearerToken(req) {
   const header = req.headers['authorization'] || req.headers['Authorization'] || '';
@@ -23,6 +24,18 @@ function extractBearerToken(req) {
 // detail in the response body — only a generic message. Details are logged
 // server-side only.
 export async function verifyAdminRequest(req) {
+  return verifyAdminRequestForTable(req, 'admin_users');
+}
+
+// The temporary VVE OS Preview database has no shared CRM allow-list. Media
+// routes use a dedicated, empty-by-default allow-list created by the Preview
+// media migration. This keeps authorisation isolated without changing VVE OS
+// tables, policies, or auth configuration.
+export async function verifyMediaAdminRequest(req) {
+  return verifyAdminRequestForTable(req, MEDIA_ADMINS_TABLE);
+}
+
+async function verifyAdminRequestForTable(req, adminTable) {
   const supabase = getServiceClient();
   if (!supabase) {
     return { ok: false, status: 500, error: 'Server misconfiguration' };
@@ -41,13 +54,13 @@ export async function verifyAdminRequest(req) {
   const user = userData.user;
 
   const { data: adminRow, error: adminErr } = await supabase
-    .from('admin_users')
+    .from(adminTable)
     .select('id, display_name')
     .eq('id', user.id)
     .maybeSingle();
 
   if (adminErr) {
-    console.error('[admin/api] admin_users lookup failed:', adminErr.code, adminErr.message);
+    console.error('[admin/api] admin allow-list lookup failed:', adminErr.code, adminErr.message);
     return { ok: false, status: 500, error: 'Authorisation check failed' };
   }
 

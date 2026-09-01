@@ -1,9 +1,10 @@
-import { verifyAdminRequest } from '../_lib/adminAuth.js';
+import { verifyMediaAdminRequest } from '../_lib/adminAuth.js';
 import { corsHeaders } from '../_lib/cors.js';
 import { readJsonBody } from '../_lib/body.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
 import { createDownloadUrl, createImageDeliveryTemplate, getMediaConfig, muxAuthHeader, originalExists } from '../_lib/mediaConfig.js';
 import { normaliseMetadata, toMediaSummary } from '../_lib/mediaFields.js';
+import { MEDIA_ASSETS_TABLE, MEDIA_SLOTS_TABLE } from '../_lib/mediaTables.js';
 
 export const config = { api: { bodyParser: false } };
 const MAX_BODY_BYTES = 16 * 1024;
@@ -18,7 +19,7 @@ export async function mediaAssetHandler(req, res) {
     res.writeHead(405, headers);
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
   }
-  const auth = await verifyAdminRequest(req);
+  const auth = await verifyMediaAdminRequest(req);
   if (!auth.ok) {
     res.writeHead(auth.status, headers);
     return res.end(JSON.stringify({ error: auth.error }));
@@ -41,7 +42,7 @@ export async function mediaAssetHandler(req, res) {
     return res.end(JSON.stringify({ error: 'The request details were invalid.' }));
   }
   try {
-    const { data: asset, error } = await supabase.from('media_assets').select('*').eq('id', id).maybeSingle();
+    const { data: asset, error } = await supabase.from(MEDIA_ASSETS_TABLE).select('*').eq('id', id).maybeSingle();
     if (error || !asset) {
       res.writeHead(404, headers);
       return res.end(JSON.stringify({ error: 'Media item not found.' }));
@@ -60,7 +61,7 @@ export async function mediaAssetHandler(req, res) {
 
 async function updateMetadata(res, headers, supabase, asset, body, adminId) {
   const fields = normaliseMetadata(body);
-  const { data: updated, error } = await supabase.from('media_assets').update({
+  const { data: updated, error } = await supabase.from(MEDIA_ASSETS_TABLE).update({
     title: fields.title, alt_text: fields.altText, service: fields.service, category: fields.category, placement: fields.placement,
     before_after: fields.beforeAfter, pair_key: fields.pairKey, location_label: fields.locationLabel,
     website_visible: fields.websiteVisible, google_enabled: fields.googleEnabled, social_enabled: fields.socialEnabled,
@@ -88,7 +89,7 @@ async function completeUpload(res, headers, supabase, asset, adminId) {
       res.writeHead(422, headers);
       return res.end(JSON.stringify({ error: 'The private original was not found after upload. Please upload the photo again.' }));
     }
-    const { data: updated, error } = await supabase.from('media_assets').update({
+    const { data: updated, error } = await supabase.from(MEDIA_ASSETS_TABLE).update({
       status: 'ready',
       // The immutable R2 key is reconstructed only inside the Cloudflare
       // Worker. A new upload never overwrites a live image, so a slot swap
@@ -119,7 +120,7 @@ async function completeUpload(res, headers, supabase, asset, adminId) {
     res.writeHead(422, headers);
     return res.end(JSON.stringify({ error: 'Mux could not start processing this video. Check the video format and try again.' }));
   }
-  const { data: updated, error } = await supabase.from('media_assets').update({
+  const { data: updated, error } = await supabase.from(MEDIA_ASSETS_TABLE).update({
     status: 'processing', mux_asset_id: payload.data.id, updated_at: new Date().toISOString(), processing_error: '',
   }).eq('id', asset.id).select('*').single();
   if (error) throw error;
@@ -153,7 +154,7 @@ async function syncVideo(res, headers, supabase, asset, adminId) {
   }
   const playbackId = payload.data.playback_ids?.find((entry) => entry.policy === 'public')?.id;
   if (!playbackId) throw new Error('Mux ready asset has no public playback ID');
-  const { data: updated, error } = await supabase.from('media_assets').update({
+  const { data: updated, error } = await supabase.from(MEDIA_ASSETS_TABLE).update({
     status: 'ready', mux_playback_id: playbackId, ready_at: new Date().toISOString(), updated_at: new Date().toISOString(), processing_error: '',
   }).eq('id', asset.id).select('*').single();
   if (error) throw error;
@@ -163,19 +164,19 @@ async function syncVideo(res, headers, supabase, asset, adminId) {
 }
 
 async function assignSlot(supabase, slotKey, assetId, adminId) {
-  const { data: current, error: readError } = await supabase.from('media_slots').select('asset_id').eq('slot_key', slotKey).single();
+  const { data: current, error: readError } = await supabase.from(MEDIA_SLOTS_TABLE).select('asset_id').eq('slot_key', slotKey).single();
   if (readError) throw readError;
-  const { error: clearError } = await supabase.from('media_slots').update({ asset_id: null, updated_at: new Date().toISOString(), updated_by: adminId }).eq('asset_id', assetId).neq('slot_key', slotKey);
+  const { error: clearError } = await supabase.from(MEDIA_SLOTS_TABLE).update({ asset_id: null, updated_at: new Date().toISOString(), updated_by: adminId }).eq('asset_id', assetId).neq('slot_key', slotKey);
   if (clearError) throw clearError;
-  const { error: slotError } = await supabase.from('media_slots').update({ asset_id: assetId, updated_at: new Date().toISOString(), updated_by: adminId }).eq('slot_key', slotKey);
+  const { error: slotError } = await supabase.from(MEDIA_SLOTS_TABLE).update({ asset_id: assetId, updated_at: new Date().toISOString(), updated_by: adminId }).eq('slot_key', slotKey);
   if (slotError) throw slotError;
   if (current.asset_id && current.asset_id !== assetId) {
-    const { error: linkError } = await supabase.from('media_assets').update({ replaced_by_asset_id: assetId, updated_at: new Date().toISOString() }).eq('id', current.asset_id);
+    const { error: linkError } = await supabase.from(MEDIA_ASSETS_TABLE).update({ replaced_by_asset_id: assetId, updated_at: new Date().toISOString() }).eq('id', current.asset_id);
     if (linkError) throw linkError;
   }
 }
 
 async function markFailed(supabase, assetId, message) {
-  const { error } = await supabase.from('media_assets').update({ status: 'failed', processing_error: message, updated_at: new Date().toISOString() }).eq('id', assetId);
+  const { error } = await supabase.from(MEDIA_ASSETS_TABLE).update({ status: 'failed', processing_error: message, updated_at: new Date().toISOString() }).eq('id', assetId);
   if (error) console.error('[admin/media] failed status write failed:', error.code);
 }
