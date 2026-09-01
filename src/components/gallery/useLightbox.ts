@@ -31,7 +31,7 @@ export function toLightboxPhotos(items: GalleryItem[]): LightboxPhoto[] {
       ];
     }
     if (item.type === 'photo') {
-      return [{ src: item.src, alt: item.alt, caption: item.label }];
+      return [{ src: item.fullSrc || item.src, alt: item.alt, caption: item.label }];
     }
     return [];
   });

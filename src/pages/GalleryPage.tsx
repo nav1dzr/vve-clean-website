@@ -172,6 +172,8 @@ export default function GalleryPage() {
                     >
                       <img
                         src={item.src}
+                        srcSet={item.srcSet}
+                        sizes={item.sizes}
                         alt={item.alt}
                         width={600}
                         height={450}

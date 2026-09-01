@@ -6,12 +6,12 @@ describe('media upload fields', () => {
     const result = validateNewAsset({
       filename: 'Living room.jpg', contentType: 'image/jpeg', size: 1234,
       category: 'carpet', beforeAfter: 'after', pairKey: 'Job August 2026!',
-      websiteVisible: true, slotKey: 'gallery-01', altText: 'Clean carpet after extraction',
+      websiteVisible: true, placement: 'gallery-carpet', slotKey: 'gallery-carpet-01', altText: 'Clean carpet after extraction',
     });
     expect(result.ok).toBe(true);
     expect(result.value.mediaType).toBe('image');
     expect(result.value.pairKey).toBe('job-august-2026');
-    expect(result.value.requestedSlotKey).toBe('gallery-01');
+    expect(result.value.requestedSlotKey).toBe('gallery-carpet-01');
   });
 
   it('does not accept an untrusted content type or arbitrary slot key', () => {

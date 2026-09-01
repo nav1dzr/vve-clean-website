@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { GalleryCategory, GalleryItem } from '../data/galleryMedia';
+import { managedImageSizes, mediaImageSrcSet, mediaImageUrl } from './responsiveMediaImage';
 
 type PublishedSlot = {
   slot_key: string;
@@ -47,7 +48,13 @@ function slotToItem(slot: PublishedSlot): GalleryItem | null {
   const label = slot.title || `${slot.before_after === 'none' ? 'Cleaning' : slot.before_after} result`;
   const alt = slot.alt_text || label;
   if (slot.media_type === 'image' && slot.delivery_url) {
-    return { type: 'photo', id: `managed-${slot.slot_key}`, label, src: slot.delivery_url, alt };
+    return {
+      type: 'photo', id: `managed-${slot.slot_key}`, label, alt,
+      src: mediaImageUrl(slot.delivery_url, 1200),
+      srcSet: mediaImageSrcSet(slot.delivery_url),
+      sizes: managedImageSizes,
+      fullSrc: mediaImageUrl(slot.delivery_url, 2400),
+    };
   }
   if (slot.media_type === 'video' && slot.mux_playback_id) {
     return {

@@ -69,7 +69,7 @@ AS $$
   FROM media_slots s
   JOIN media_assets a ON a.id = s.asset_id
   WHERE a.status = 'ready' AND a.website_visible = true
-    AND ((a.media_type = 'image' AND a.cloudflare_image_id IS NOT NULL)
+    AND ((a.media_type = 'image' AND a.delivery_url IS NOT NULL)
       OR (a.media_type = 'video' AND a.mux_playback_id IS NOT NULL))
   ORDER BY s.slot_key;
 $$;

@@ -2,7 +2,7 @@ import { verifyAdminRequest } from '../_lib/adminAuth.js';
 import { corsHeaders } from '../_lib/cors.js';
 import { readJsonBody } from '../_lib/body.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
-import { createDownloadUrl, getMediaConfig, muxAuthHeader } from '../_lib/mediaConfig.js';
+import { createDownloadUrl, createImageDeliveryTemplate, getMediaConfig, muxAuthHeader, originalExists } from '../_lib/mediaConfig.js';
 import { normaliseMetadata, toMediaSummary } from '../_lib/mediaFields.js';
 
 export const config = { api: { bodyParser: false } };
@@ -82,24 +82,18 @@ async function completeUpload(res, headers, supabase, asset, adminId) {
     res.writeHead(503, headers);
     return res.end(JSON.stringify({ error: 'Media hosting is not configured yet.' }));
   }
-  const sourceUrl = await createDownloadUrl(mediaConfig, asset.r2_key);
   if (asset.media_type === 'image') {
-    const form = new FormData();
-    form.set('url', sourceUrl);
-    form.set('requireSignedURLs', 'false');
-    form.set('metadata', JSON.stringify({ vveAssetId: asset.id }));
-    const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${mediaConfig.accountId}/images/v1`, {
-      method: 'POST', headers: { Authorization: `Bearer ${mediaConfig.cloudflareToken}` }, body: form,
-    });
-    const payload = await response.json();
-    if (!response.ok || !payload.success || !payload.result?.id) {
-      await markFailed(supabase, asset.id, 'Cloudflare Images could not process this photo.');
+    if (!await originalExists(mediaConfig, asset.r2_key)) {
+      await markFailed(supabase, asset.id, 'The private R2 original was not found after upload.');
       res.writeHead(422, headers);
-      return res.end(JSON.stringify({ error: 'Cloudflare Images could not process this photo. Try a JPEG, PNG, WebP or AVIF file.' }));
+      return res.end(JSON.stringify({ error: 'The private original was not found after upload. Please upload the photo again.' }));
     }
     const { data: updated, error } = await supabase.from('media_assets').update({
-      status: 'ready', cloudflare_image_id: payload.result.id,
-      delivery_url: `https://imagedelivery.net/${mediaConfig.imagesDeliveryHash}/${payload.result.id}/public`,
+      status: 'ready',
+      // The immutable R2 key is delivered only through Cloudflare's
+      // transformation path. A new upload therefore never overwrites a live
+      // image and a slot swap remains an atomic metadata change.
+      delivery_url: createImageDeliveryTemplate(mediaConfig, asset.r2_key),
       ready_at: new Date().toISOString(), updated_at: new Date().toISOString(), processing_error: '',
     }).eq('id', asset.id).select('*').single();
     if (error) throw error;
@@ -108,6 +102,7 @@ async function completeUpload(res, headers, supabase, asset, adminId) {
     return res.end(JSON.stringify({ asset: toMediaSummary(updated, new Map()) }));
   }
 
+  const sourceUrl = await createDownloadUrl(mediaConfig, asset.r2_key);
   const response = await fetch('https://api.mux.com/video/v1/assets', {
     method: 'POST',
     headers: { Authorization: muxAuthHeader(mediaConfig), 'Content-Type': 'application/json' },

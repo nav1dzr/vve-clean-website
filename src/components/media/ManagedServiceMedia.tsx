@@ -12,6 +12,6 @@ export default function ManagedServiceMedia({ placement, dark = false }: { place
 function MediaTile({ item, dark }: { item: GalleryItem; dark: boolean }) {
   const background = dark ? 'bg-navy-900' : 'bg-silver-100';
   if (item.type === 'video') return <figure className={`overflow-hidden rounded-2xl ${background}`}><iframe className="aspect-video w-full" src={item.playerUrl || item.src} title={item.description || item.label} loading="lazy" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowFullScreen /><figcaption className={`p-3 text-sm font-semibold ${dark ? 'text-white' : 'text-navy-900'}`}>{item.label}</figcaption></figure>;
-  if (item.type === 'photo') return <figure className={`overflow-hidden rounded-2xl ${background}`}><img src={item.src} alt={item.alt} loading="lazy" decoding="async" className="aspect-[4/3] w-full object-cover" /><figcaption className={`p-3 text-sm font-semibold ${dark ? 'text-white' : 'text-navy-900'}`}>{item.label}</figcaption></figure>;
+  if (item.type === 'photo') return <figure className={`overflow-hidden rounded-2xl ${background}`}><img src={item.src} srcSet={item.srcSet} sizes={item.sizes} alt={item.alt} loading="lazy" decoding="async" className="aspect-[4/3] w-full object-cover" /><figcaption className={`p-3 text-sm font-semibold ${dark ? 'text-white' : 'text-navy-900'}`}>{item.label}</figcaption></figure>;
   return null;
 }

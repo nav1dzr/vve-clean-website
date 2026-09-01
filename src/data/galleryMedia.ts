@@ -62,6 +62,11 @@ export interface GalleryPhotoItem {
   label: string;
   src: string;
   alt: string;
+  /** Responsive Cloudflare Transformation candidates for managed R2 images. */
+  srcSet?: string;
+  sizes?: string;
+  /** A larger transformed candidate used only when the visitor opens it. */
+  fullSrc?: string;
   /** See GalleryBeforeAfterItem.location. */
   location?: string;
 }

@@ -73,7 +73,7 @@ export function toMediaSummary(row, slotMap) {
     socialEnabled: row.social_enabled,
     requestedSlotKey: row.requested_slot_key,
     activeSlotKey: slotMap.get(row.id) || null,
-    imageUrl: row.cloudflare_image_id ? `https://imagedelivery.net/${process.env.CLOUDFLARE_IMAGES_DELIVERY_HASH}/${row.cloudflare_image_id}/public` : null,
+    imageUrl: row.media_type === 'image' && row.delivery_url ? row.delivery_url.replace('{width}', '640') : null,
     muxPlaybackId: row.mux_playback_id || null,
     processingError: row.processing_error || '',
     createdAt: row.created_at,
