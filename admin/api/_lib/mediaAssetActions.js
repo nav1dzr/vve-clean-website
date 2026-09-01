@@ -90,10 +90,10 @@ async function completeUpload(res, headers, supabase, asset, adminId) {
     }
     const { data: updated, error } = await supabase.from('media_assets').update({
       status: 'ready',
-      // The immutable R2 key is delivered only through Cloudflare's
-      // transformation path. A new upload therefore never overwrites a live
-      // image and a slot swap remains an atomic metadata change.
-      delivery_url: createImageDeliveryTemplate(mediaConfig, asset.r2_key),
+      // The immutable R2 key is reconstructed only inside the Cloudflare
+      // Worker. A new upload never overwrites a live image, so a slot swap
+      // remains an atomic metadata change and cached old imagery cannot win.
+      delivery_url: createImageDeliveryTemplate(mediaConfig, asset.id, asset.r2_key),
       ready_at: new Date().toISOString(), updated_at: new Date().toISOString(), processing_error: '',
     }).eq('id', asset.id).select('*').single();
     if (error) throw error;

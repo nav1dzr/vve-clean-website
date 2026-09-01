@@ -5,19 +5,19 @@ This code intentionally does not create a Cloudflare bucket, Mux account, Supaba
 ## What the system does
 
 - iPhone/browser uploads go straight to the private R2 bucket through a 15-minute, content-type-bound URL issued only to an authenticated VVE admin.
-- A photo stays as the single original in private R2. The public website receives a Cloudflare Image Transformation URL through a dedicated media hostname; the phone does not upload the source twice.
+- A photo stays as the single original in private R2. The public website receives an optimized response from a dedicated Cloudflare Worker; the phone does not upload the source twice.
 - The public website gets only an optimized Cloudflare Transformation URL or a Mux playback ID. It never receives an R2 API URL, signed source URL, original filename, or external-publishing flags.
 - Media is placed through named website areas rather than file names: Main website (6 positions); each Gallery service area (20 positions); and each service page (10 positions). Replacing a position creates a new delivery asset and only swaps the position after processing succeeds. Do not overwrite an object path.
 
 ## 1. Apply the Supabase migration
 
-Apply both media migrations in `supabase/migrations/` using the normal migration workflow for the VVE Supabase project. They create private metadata tables, the named page/gallery positions, and `public_media_slots()`, a narrowly scoped RPC that is the only public data read.
+Before applying anything, confirm that the target is an isolated **Preview Supabase Branch** (preferred) or a completely separate Preview project. Do not apply these migrations to the shared Production Supabase project. The migration creates private metadata tables, named page/gallery positions, and `public_media_slots()`, a narrowly scoped RPC that is the only public data read.
 
 Do not add browser RLS policies to `media_assets` or `media_slots`; the admin API uses the existing `admin_users` allow-list and the service role. The public RPC returns only ready, website-enabled delivery records.
 
-## 2. Cloudflare R2 and Image Transformations
+## 2. Private R2 and Cloudflare Worker image delivery
 
-Create an R2 bucket for private originals, for example `vve-media-originals`. Keep its S3 API private and do not enable the `r2.dev` public development URL. The only exception is the dedicated Preview media hostname described below, which is required for URL-based Transformations.
+Use `vve-media-originals` for private originals. Keep its S3 API private, do not enable `r2.dev`, and do not attach a public R2 custom domain. The Worker is the sole public image-delivery route.
 
 Create an R2 API token limited to that one bucket. Put its S3 access-key pair in the Preview environment only at first.
 
@@ -35,17 +35,19 @@ Configure this R2 CORS rule, replacing the preview domain with the actual Vercel
 ]
 ```
 
-Cloudflare Hosted Images is not used. Configure a dedicated **Preview-only Cloudflare media hostname** whose origin is this R2 bucket, then enable **Cloudflare Image Transformations** for that hostname. It must serve a transformation path like:
+Cloudflare Hosted Images is not used. Deploy `cloudflare/media-preview-worker/` as a Preview-only Worker with the existing `vve-media-originals` bucket bound as `MEDIA_ORIGINALS` and the Cloudflare Images binding as `IMAGES`. The Worker reads raw private R2 bytes, chooses AVIF/WebP/JPEG from the browser's `Accept` header (the equivalent of `format=auto`), applies one of the bounded responsive widths and quality 85, and writes immutable responses to Workers Cache.
+
+The public route is deliberately limited to an optimized representation, for example:
 
 ```text
-https://YOUR-PREVIEW-MEDIA-HOST/cdn-cgi/image/width=1200,format=auto,quality=85,fit=scale-down/originals/...
+https://YOUR-PREVIEW-MEDIA-HOST/image/1200/ASSET-UUID.heic
 ```
 
-Set long CDN caching for `/cdn-cgi/image/*`. Originals use unique immutable object keys, so a one-year immutable edge cache is safe. Do not enable the bucket's public development URL or publish its S3 API endpoint. The media hostname is the only delivery route exposed to the website; do not store or return signed R2 URLs in the public RPC.
+It accepts neither raw R2 paths nor arbitrary dimensions and never returns the original object bytes. Originals use unique immutable object keys, so its one-year immutable browser/CDN cache is safe: replacing a gallery position points to a new asset URL, avoiding stale imagery without a redeploy. Do not expose the bucket's public development URL or S3 API endpoint. Do not store or return signed R2 URLs in the public RPC.
 
-Important: a custom domain attached directly to R2 makes objects reachable through that domain. The R2 API and `r2.dev` endpoint remain private/disabled, and VVE exposes only the transformed URLs with unguessable immutable object paths, but this URL-based Cloudflare feature cannot make the underlying object strictly private. If strict origin privacy is required, use Cloudflare's paid Images Worker binding instead; do not claim that direct custom-domain R2 delivery is private.
+The production zone's DNS must never be changed for this setup. Use the Worker `workers.dev` hostname for an initial Preview test. A later Preview-only custom hostname such as `media-preview.vveclean.com` must be attached to the Worker manually after a separately approved DNS change; never attach it directly to R2.
 
-Cloudflare Transformations require a Cloudflare-proxied hostname. Creating or attaching a custom domain can involve DNS, so use a dedicated preview hostname only after explicit DNS approval. Until then, use a dedicated Cloudflare preview Worker/Pages hostname that fronts this bucket, or leave this setting unset and do not deploy the media flow.
+The Images binding is billed by unique transformation. Confirm the Cloudflare Images plan supports the Worker binding before deployment.
 
 ## 3. Mux
 
@@ -53,7 +55,7 @@ Create a Mux API token with video read/write permissions. The code requests `vid
 
 ## 4. Preview environment variables
 
-Set the existing Supabase variables plus these names in the **admin Vercel project Preview environment**:
+Set the isolated Preview Supabase variables plus these names only on the `codex/media-system` branch in the **admin Vercel project Preview environment**:
 
 ```text
 CLOUDFLARE_ACCOUNT_ID
@@ -67,13 +69,13 @@ MUX_TOKEN_SECRET
 
 None of these starts with `VITE_`. They must never be included in the browser bundle or committed. `CLOUDFLARE_MEDIA_ORIGIN` is the HTTPS origin of the dedicated Cloudflare media hostname, without a trailing slash. It is not a secret. No Cloudflare Images API token or Hosted Images delivery hash is needed.
 
-The public Vercel project needs only its existing `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Preview. No Cloudflare, R2, or Mux secret belongs there.
+The public Vercel project needs only the isolated Preview `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` on that branch. No Cloudflare, R2, Mux, or Supabase service-role secret belongs there.
 
 ## 5. Validate the preview
 
 1. Sign in as a Supabase user present in `admin_users`.
 2. Visit `/media` in the admin app on an iPhone. Choose Photo or Video, then the destination and an unused position.
-3. Confirm the original appears only in R2, while the preview card uses the transformed Cloudflare delivery URL.
+3. Confirm the original appears only in R2, while the preview card uses the Worker delivery URL.
 4. Confirm it appears in the chosen preview Gallery or service page without a redeploy.
 5. Upload a short MOV/MP4. It will show as “processing” until Mux finishes; use “Refresh processing” and then test playback in the Gallery.
 6. Replace the same position. Confirm it shows the new result and the old original is still retained privately.

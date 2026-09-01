@@ -66,12 +66,14 @@ export async function originalExists(config, key) {
   }
 }
 
-// The media hostname is a Cloudflare-proxied custom domain whose origin is the
-// R2 bucket. Cloudflare applies the /cdn-cgi/image path at the edge; this
-// template deliberately never exposes an R2 API URL or signed source URL.
-// `{width}` is filled by the website for srcset candidates.
-export function createImageDeliveryTemplate(config, key) {
-  return `${config.mediaOrigin}/cdn-cgi/image/width={width},format=auto,quality=85,fit=scale-down/${key}`;
+// The Worker reconstructs the immutable private R2 key from this constrained
+// public route. The URL never reveals an R2 endpoint, a signed URL, the source
+// filename, or a route that can return original bytes. `{width}` is filled by
+// the website for srcset candidates.
+export function createImageDeliveryTemplate(config, assetId, key) {
+  const extension = /^originals\/[0-9a-f-]{36}\/source\.([a-z0-9]{1,8})$/i.exec(key)?.[1]?.toLowerCase();
+  if (!extension) throw new Error('Media image key has an unsupported format');
+  return `${config.mediaOrigin}/image/{width}/${assetId}.${extension}`;
 }
 
 export function muxAuthHeader(config) {
