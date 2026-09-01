@@ -1,5 +1,6 @@
 import { useReveal } from '../hooks/useReveal';
 import { Check } from 'lucide-react';
+import { useManagedWebsiteMedia } from '../lib/managedGalleryMedia';
 
 const ticks = [
   'Commercial hot-water carpet extraction',
@@ -9,6 +10,8 @@ const ticks = [
 
 export default function OurKit() {
   const { ref, visible } = useReveal();
+  const managedEquipment = useManagedWebsiteMedia('homepage-equipment-image');
+  const equipmentImage = managedEquipment?.type === 'photo' ? managedEquipment : null;
 
   return (
     <section
@@ -25,8 +28,10 @@ export default function OurKit() {
           <div className="relative">
             <div className="absolute -inset-3 rounded-3xl bg-sky-300/10" />
             <img
-              src="/gallery/van-equipment.webp"
-              alt="VVE Clean van and professional cleaning equipment"
+              src={equipmentImage?.src || '/gallery/van-equipment.webp'}
+              srcSet={equipmentImage?.srcSet}
+              sizes={equipmentImage?.sizes}
+              alt={equipmentImage?.alt || 'VVE Clean van and professional cleaning equipment'}
               width={780}
               height={520}
               loading="lazy"

@@ -4,7 +4,13 @@ import { readJsonBody } from '../_lib/body.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
 import { createDownloadUrl, createImageDeliveryTemplate, getMediaConfig, muxAuthHeader, originalExists } from '../_lib/mediaConfig.js';
 import { normaliseMetadata, toMediaSummary } from '../_lib/mediaFields.js';
-import { MEDIA_ASSETS_TABLE, MEDIA_SLOTS_TABLE } from '../_lib/mediaTables.js';
+import {
+  MEDIA_ASSETS_TABLE,
+  MEDIA_ASSIGNMENTS_TABLE,
+  MEDIA_GALLERY_SLOTS_TABLE,
+  MEDIA_REFERENCES_TABLE,
+  MEDIA_WEBSITE_SLOTS_TABLE,
+} from '../_lib/mediaTables.js';
 
 export const config = { api: { bodyParser: false } };
 const MAX_BODY_BYTES = 16 * 1024;
@@ -47,9 +53,10 @@ export async function mediaAssetHandler(req, res) {
       res.writeHead(404, headers);
       return res.end(JSON.stringify({ error: 'Media item not found.' }));
     }
-    if (req.method === 'PATCH') return await updateMetadata(res, headers, supabase, asset, body, auth.admin.id);
-    if (body.action === 'complete') return await completeUpload(res, headers, supabase, asset, auth.admin.id);
-    if (body.action === 'sync') return await syncVideo(res, headers, supabase, asset, auth.admin.id);
+    if (req.method === 'PATCH') return await updateMetadata(res, headers, supabase, asset, body);
+    if (body.action === 'complete') return await completeUpload(res, headers, supabase, asset);
+    if (body.action === 'sync') return await syncVideo(res, headers, supabase, asset);
+    if (body.action === 'assign') return await assignMedia(res, headers, supabase, asset, body, auth.admin.id);
     res.writeHead(400, headers);
     return res.end(JSON.stringify({ error: 'Unknown media action.' }));
   } catch (error) {
@@ -59,7 +66,7 @@ export async function mediaAssetHandler(req, res) {
   }
 }
 
-async function updateMetadata(res, headers, supabase, asset, body, adminId) {
+async function updateMetadata(res, headers, supabase, asset, body) {
   const fields = normaliseMetadata(body);
   const { data: updated, error } = await supabase.from(MEDIA_ASSETS_TABLE).update({
     title: fields.title, alt_text: fields.altText, service: fields.service, category: fields.category, placement: fields.placement,
@@ -68,12 +75,11 @@ async function updateMetadata(res, headers, supabase, asset, body, adminId) {
     requested_slot_key: fields.requestedSlotKey, updated_at: new Date().toISOString(),
   }).eq('id', asset.id).select('*').single();
   if (error) throw error;
-  if (updated.status === 'ready' && fields.requestedSlotKey) await assignSlot(supabase, fields.requestedSlotKey, updated.id, adminId);
   res.writeHead(200, headers);
-  return res.end(JSON.stringify({ asset: toMediaSummary(updated, new Map()) }));
+  return res.end(JSON.stringify({ asset: toMediaSummary(updated, []) }));
 }
 
-async function completeUpload(res, headers, supabase, asset, adminId) {
+async function completeUpload(res, headers, supabase, asset) {
   if (asset.status !== 'uploading') {
     res.writeHead(409, headers);
     return res.end(JSON.stringify({ error: 'This upload has already been handed off for processing.' }));
@@ -98,9 +104,8 @@ async function completeUpload(res, headers, supabase, asset, adminId) {
       ready_at: new Date().toISOString(), updated_at: new Date().toISOString(), processing_error: '',
     }).eq('id', asset.id).select('*').single();
     if (error) throw error;
-    if (updated.requested_slot_key) await assignSlot(supabase, updated.requested_slot_key, updated.id, adminId);
     res.writeHead(200, headers);
-    return res.end(JSON.stringify({ asset: toMediaSummary(updated, new Map()) }));
+    return res.end(JSON.stringify({ asset: toMediaSummary(updated, []) }));
   }
 
   const sourceUrl = await createDownloadUrl(mediaConfig, asset.r2_key);
@@ -125,10 +130,10 @@ async function completeUpload(res, headers, supabase, asset, adminId) {
   }).eq('id', asset.id).select('*').single();
   if (error) throw error;
   res.writeHead(202, headers);
-  return res.end(JSON.stringify({ asset: toMediaSummary(updated, new Map()) }));
+  return res.end(JSON.stringify({ asset: toMediaSummary(updated, []) }));
 }
 
-async function syncVideo(res, headers, supabase, asset, adminId) {
+async function syncVideo(res, headers, supabase, asset) {
   if (asset.media_type !== 'video' || asset.status !== 'processing' || !asset.mux_asset_id) {
     res.writeHead(409, headers);
     return res.end(JSON.stringify({ error: 'This item is not waiting for video processing.' }));
@@ -158,22 +163,79 @@ async function syncVideo(res, headers, supabase, asset, adminId) {
     status: 'ready', mux_playback_id: playbackId, ready_at: new Date().toISOString(), updated_at: new Date().toISOString(), processing_error: '',
   }).eq('id', asset.id).select('*').single();
   if (error) throw error;
-  if (updated.requested_slot_key) await assignSlot(supabase, updated.requested_slot_key, updated.id, adminId);
   res.writeHead(200, headers);
-  return res.end(JSON.stringify({ asset: toMediaSummary(updated, new Map()) }));
+  return res.end(JSON.stringify({ asset: toMediaSummary(updated, []) }));
 }
 
-async function assignSlot(supabase, slotKey, assetId, adminId) {
-  const { data: current, error: readError } = await supabase.from(MEDIA_SLOTS_TABLE).select('asset_id').eq('slot_key', slotKey).single();
-  if (readError) throw readError;
-  const { error: clearError } = await supabase.from(MEDIA_SLOTS_TABLE).update({ asset_id: null, updated_at: new Date().toISOString(), updated_by: adminId }).eq('asset_id', assetId).neq('slot_key', slotKey);
-  if (clearError) throw clearError;
-  const { error: slotError } = await supabase.from(MEDIA_SLOTS_TABLE).update({ asset_id: assetId, updated_at: new Date().toISOString(), updated_by: adminId }).eq('slot_key', slotKey);
-  if (slotError) throw slotError;
-  if (current.asset_id && current.asset_id !== assetId) {
-    const { error: linkError } = await supabase.from(MEDIA_ASSETS_TABLE).update({ replaced_by_asset_id: assetId, updated_at: new Date().toISOString() }).eq('id', current.asset_id);
-    if (linkError) throw linkError;
+function validUuid(value) {
+  return typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value);
+}
+
+async function assignMedia(res, headers, supabase, asset, body, adminId) {
+  if (asset.status !== 'ready') {
+    res.writeHead(409, headers);
+    return res.end(JSON.stringify({ error: 'Wait until this media has finished processing before assigning it.' }));
   }
+  const targetType = body.targetType === 'gallery' || body.targetType === 'website' ? body.targetType : '';
+  const targetId = validUuid(body.targetId) ? body.targetId : '';
+  if (!targetType || !targetId) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'Choose a valid Gallery or Website position.' }));
+  }
+  const targetTable = targetType === 'gallery' ? MEDIA_GALLERY_SLOTS_TABLE : MEDIA_WEBSITE_SLOTS_TABLE;
+  const { data: target, error: targetError } = await supabase.from(targetTable).select('*').eq('id', targetId).maybeSingle();
+  if (targetError || !target) {
+    res.writeHead(404, headers);
+    return res.end(JSON.stringify({ error: 'That media position no longer exists.' }));
+  }
+  const role = targetType === 'gallery' && target.slot_kind === 'before_after'
+    ? (body.role === 'before' || body.role === 'after' ? body.role : '')
+    : 'primary';
+  if (!role) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'Choose whether this is the before or after image.' }));
+  }
+  if (targetType === 'gallery' && target.slot_kind === 'before_after' && asset.media_type !== 'image') {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'Before/after positions accept photos only.' }));
+  }
+  if (targetType === 'gallery' && target.slot_kind === 'video' && asset.media_type !== 'video') {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'Video positions accept videos only.' }));
+  }
+  if (targetType === 'gallery' && target.slot_kind === 'photo' && asset.media_type !== 'image') {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'Grid-photo positions accept photos only.' }));
+  }
+  const targetColumn = targetType === 'gallery' ? 'gallery_slot_id' : 'website_slot_id';
+  const { data: current, error: currentError } = await supabase
+    .from(MEDIA_ASSIGNMENTS_TABLE).select('id, asset_id').eq(targetColumn, targetId).eq('media_role', role).maybeSingle();
+  if (currentError) throw currentError;
+  const { data: references, error: referencesError } = await supabase
+    .from(MEDIA_REFERENCES_TABLE).select('reference_key, page_label, component_label').eq(targetColumn, targetId).eq('active', true).order('sort_order');
+  if (referencesError) throw referencesError;
+  const impact = (references || []).map((reference) => ({ key: reference.reference_key, pageLabel: reference.page_label, componentLabel: reference.component_label }));
+  const replacement = current?.asset_id && current.asset_id !== asset.id;
+  if (body.preview === true) {
+    res.writeHead(200, headers);
+    return res.end(JSON.stringify({ preview: true, replacement: Boolean(replacement), impact }));
+  }
+  if (replacement && body.confirm !== true) {
+    res.writeHead(409, headers);
+    return res.end(JSON.stringify({ requiresConfirmation: true, impact, error: 'Review the pages using this position, then confirm the replacement.' }));
+  }
+  const now = new Date().toISOString();
+  if (current) {
+    const { error: updateError } = await supabase.from(MEDIA_ASSIGNMENTS_TABLE)
+      .update({ asset_id: asset.id, updated_at: now, updated_by: adminId }).eq('id', current.id);
+    if (updateError) throw updateError;
+  } else {
+    const row = { asset_id: asset.id, media_role: role, updated_at: now, updated_by: adminId, [targetColumn]: targetId };
+    const { error: insertError } = await supabase.from(MEDIA_ASSIGNMENTS_TABLE).insert(row);
+    if (insertError) throw insertError;
+  }
+  res.writeHead(200, headers);
+  return res.end(JSON.stringify({ assigned: true, replaced: Boolean(replacement), impact }));
 }
 
 async function markFailed(supabase, assetId, message) {

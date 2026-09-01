@@ -5,7 +5,14 @@ import { readJsonBody } from './body.js';
 import { getServiceClient } from './supabaseAdmin.js';
 import { createR2Key, createUploadUrl, getMediaConfig } from './mediaConfig.js';
 import { toMediaSummary, validateNewAsset } from './mediaFields.js';
-import { MEDIA_ASSETS_TABLE, MEDIA_SLOTS_TABLE } from './mediaTables.js';
+import {
+  MEDIA_ASSETS_TABLE,
+  MEDIA_ASSIGNMENTS_TABLE,
+  MEDIA_GALLERY_SLOTS_TABLE,
+  MEDIA_GALLERY_TOPICS_TABLE,
+  MEDIA_REFERENCES_TABLE,
+  MEDIA_WEBSITE_SLOTS_TABLE,
+} from './mediaTables.js';
 
 export const config = { api: { bodyParser: false } };
 const MAX_BODY_BYTES = 16 * 1024;
@@ -42,20 +49,62 @@ export async function mediaCollectionHandler(req, res) {
 
 
 async function listMedia(res, headers, supabase) {
-  const [{ data: assets, error: assetsError }, { data: slots, error: slotsError }] = await Promise.all([
+  const [
+    { data: assets, error: assetsError },
+    { data: topics, error: topicsError },
+    { data: gallerySlots, error: gallerySlotsError },
+    { data: websiteSlots, error: websiteSlotsError },
+    { data: assignments, error: assignmentsError },
+    { data: references, error: referencesError },
+  ] = await Promise.all([
     supabase.from(MEDIA_ASSETS_TABLE).select('*').order('created_at', { ascending: false }).limit(100),
-    supabase.from(MEDIA_SLOTS_TABLE).select('slot_key, placement, label, asset_id').order('slot_key'),
+    supabase.from(MEDIA_GALLERY_TOPICS_TABLE).select('topic_key, label, description, sort_order').eq('active', true).order('sort_order'),
+    supabase.from(MEDIA_GALLERY_SLOTS_TABLE).select('id, topic_key, slot_code, slot_kind, label, sort_order').order('topic_key').order('sort_order'),
+    supabase.from(MEDIA_WEBSITE_SLOTS_TABLE).select('id, slot_key, page_label, purpose_label, description, sort_order').order('sort_order'),
+    supabase.from(MEDIA_ASSIGNMENTS_TABLE).select('id, gallery_slot_id, website_slot_id, asset_id, media_role, updated_at'),
+    supabase.from(MEDIA_REFERENCES_TABLE).select('id, reference_key, page_key, page_label, component_label, gallery_slot_id, website_slot_id, sort_order, active').eq('active', true).order('page_key').order('sort_order'),
   ]);
-  if (assetsError || slotsError) {
-    console.error('[admin/media] list failed:', assetsError?.code || slotsError?.code);
+  if (assetsError || topicsError || gallerySlotsError || websiteSlotsError || assignmentsError || referencesError) {
+    console.error('[admin/media] list failed:', assetsError?.code || topicsError?.code || gallerySlotsError?.code || websiteSlotsError?.code || assignmentsError?.code || referencesError?.code);
     res.writeHead(500, headers);
-    return res.end(JSON.stringify({ error: 'Could not load the media library.' }));
+    return res.end(JSON.stringify({ error: 'Could not load the two-part media manager. Make sure the latest Preview media migration is applied.' }));
   }
-  const slotMap = new Map((slots || []).filter((slot) => slot.asset_id).map((slot) => [slot.asset_id, slot.slot_key]));
+  const referencesByTarget = new Map();
+  for (const reference of references || []) {
+    const target = reference.gallery_slot_id || reference.website_slot_id;
+    const current = referencesByTarget.get(target) || [];
+    current.push({ key: reference.reference_key, pageKey: reference.page_key, pageLabel: reference.page_label, componentLabel: reference.component_label });
+    referencesByTarget.set(target, current);
+  }
+  const assignmentsByTarget = new Map();
+  const usagesByAsset = new Map();
+  for (const assignment of assignments || []) {
+    const target = assignment.gallery_slot_id || assignment.website_slot_id;
+    const current = assignmentsByTarget.get(target) || [];
+    current.push(assignment);
+    assignmentsByTarget.set(target, current);
+    const usages = usagesByAsset.get(assignment.asset_id) || [];
+    usages.push(...(referencesByTarget.get(target) || []));
+    usagesByAsset.set(assignment.asset_id, usages);
+  }
   res.writeHead(200, headers);
   return res.end(JSON.stringify({
-    assets: (assets || []).map((asset) => toMediaSummary(asset, slotMap)),
-    slots: (slots || []).map((slot) => ({ key: slot.slot_key, placement: slot.placement, label: slot.label, assetId: slot.asset_id })),
+    assets: (assets || []).map((asset) => toMediaSummary(asset, usagesByAsset.get(asset.id) || [])),
+    topics: (topics || []).map((topic) => ({ key: topic.topic_key, label: topic.label, description: topic.description, sortOrder: topic.sort_order })),
+    gallerySlots: (gallerySlots || []).map((slot) => ({
+      id: slot.id, topicKey: slot.topic_key, code: slot.slot_code, kind: slot.slot_kind, label: slot.label, sortOrder: slot.sort_order,
+      assignments: (assignmentsByTarget.get(slot.id) || []).map((assignment) => ({ assetId: assignment.asset_id, role: assignment.media_role })),
+      usages: referencesByTarget.get(slot.id) || [],
+    })),
+    websiteSlots: (websiteSlots || []).map((slot) => ({
+      id: slot.id, key: slot.slot_key, pageLabel: slot.page_label, purposeLabel: slot.purpose_label, description: slot.description, sortOrder: slot.sort_order,
+      assignments: (assignmentsByTarget.get(slot.id) || []).map((assignment) => ({ assetId: assignment.asset_id, role: assignment.media_role })),
+      usages: referencesByTarget.get(slot.id) || [],
+    })),
+    references: (references || []).map((reference) => ({
+      id: reference.id, key: reference.reference_key, pageKey: reference.page_key, pageLabel: reference.page_label, componentLabel: reference.component_label,
+      gallerySlotId: reference.gallery_slot_id, websiteSlotId: reference.website_slot_id, sortOrder: reference.sort_order,
+    })),
   }));
 }
 

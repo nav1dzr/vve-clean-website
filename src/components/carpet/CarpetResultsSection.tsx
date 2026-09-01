@@ -57,7 +57,7 @@ export default function CarpetResultsSection() {
           })}
         </div>
 
-        <ManagedServiceMedia placement="carpet-page" />
+        <ManagedServiceMedia pageKey="carpet-main-results" />
 
         <GalleryInstagramCta galleryCategory="carpet" />
       </div>

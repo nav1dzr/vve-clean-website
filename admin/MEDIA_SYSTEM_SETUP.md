@@ -11,7 +11,20 @@ This code intentionally does not create a Cloudflare bucket, Mux account, Supaba
 
 ## 1. Apply the Supabase migration
 
-Before applying anything, confirm that the target is an isolated **Preview Supabase Branch** (preferred) or a completely separate Preview project. Do not apply the original media migrations to a shared project. For the temporary `vve-os` Preview database, apply only `20260901120000_create_media_preview_isolation.sql`: it creates a separate, uniquely prefixed set of media tables and the `public_media_preview_slots()` RPC without altering VVE OS tables, functions, policies, storage, or auth. The public RPC returns only ready, website-enabled delivery records.
+Before applying anything, confirm that the target is an isolated **Preview Supabase Branch** (preferred) or a completely separate Preview project. Do not apply the original media migrations to a shared project. For the temporary `vve-os` Preview database, apply `20260901120000_create_media_preview_isolation.sql` and then `20260901200000_add_two_part_media_model.sql`. They create only separate, uniquely prefixed media objects; they do not alter VVE OS tables, functions, policies, storage, or Auth. The second migration adds the Gallery/Website/assignment/reference model and a public-safe `public_media_preview_references()` RPC.
+
+## Two-part media manager
+
+```text
+Gallery       → Carpet / Sofa / End of Tenancy → fixed curated positions
+Website       → exact page + purpose for standalone changeable media
+Uploads       → private, unassigned media library
+```
+
+Each Gallery topic contains exactly five Before/After sets (`BA01`–`BA05`),
+four videos (`VIDEO01`–`VIDEO04`) and ten grid photos (`PHOTO01`–`PHOTO10`).
+Gallery positions can be referenced by the Gallery itself, a main service page,
+or later a local page. They are pointers to one original asset, never copies.
 
 Do not add browser RLS policies to the Preview media tables; the admin API uses `media_preview_admin_users`, a dedicated empty-by-default allow-list, and the service role. Add a row only after an administrator already exists in the Preview project's Auth users. The public RPC returns only ready, website-enabled delivery records.
 

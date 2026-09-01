@@ -1,7 +1,10 @@
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import GoogleBadge from './GoogleBadge';
+import { useManagedWebsiteMedia } from '../lib/managedGalleryMedia';
 
 export default function Hero() {
+  const managedHero = useManagedWebsiteMedia('homepage-hero-image');
+  const heroImage = managedHero?.type === 'photo' ? managedHero : null;
   return (
     <section className="relative min-h-screen flex items-start sm:items-center overflow-hidden pb-24 sm:pb-0">
 
@@ -11,11 +14,12 @@ export default function Hero() {
             "high" and explicit dimensions so it doesn't compete with
             below-fold images and doesn't cause layout shift. */}
         <picture className="block h-full w-full">
-          <source type="image/avif" srcSet="/hero-cleaning-768.avif 768w, /hero-cleaning-1280.avif 1280w" sizes="100vw" />
-          <source type="image/webp" srcSet="/hero-cleaning-768.webp 768w, /hero-cleaning-1280.webp 1280w" sizes="100vw" />
+          {!heroImage && <><source type="image/avif" srcSet="/hero-cleaning-768.avif 768w, /hero-cleaning-1280.avif 1280w" sizes="100vw" /><source type="image/webp" srcSet="/hero-cleaning-768.webp 768w, /hero-cleaning-1280.webp 1280w" sizes="100vw" /></>}
           <img
-            src="/photo_2026-06-02_16-48-38.jpg"
-            alt="VVE Clean technician working at a London property"
+            src={heroImage?.src || '/photo_2026-06-02_16-48-38.jpg'}
+            srcSet={heroImage?.srcSet}
+            sizes={heroImage?.sizes || '100vw'}
+            alt={heroImage?.alt || 'VVE Clean technician working at a London property'}
             width={1536}
             height={1024}
             // @ts-expect-error — fetchpriority is a valid HTML attribute; this

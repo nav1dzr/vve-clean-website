@@ -1,0 +1,30 @@
+import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const sql = readFileSync(resolve(here, '../../supabase/migrations/20260901200000_add_two_part_media_model.sql'), 'utf8');
+const executableSql = sql.replace(/^--.*$/gm, '');
+
+describe('two-part Preview media model migration', () => {
+  it('creates isolated Gallery, Website, assignment, and reference objects', () => {
+    for (const name of ['gallery_topics', 'gallery_slots', 'website_slots', 'assignments', 'page_references']) {
+      expect(sql).toContain(`public.media_preview_${name}`);
+    }
+    expect(sql).toContain('public_media_preview_references');
+  });
+
+  it('seeds exactly five comparisons, four videos, and ten photos for each initial topic', () => {
+    expect(sql).toContain("generate_series(1, 19)");
+    expect(sql).toContain("'carpet', 'Carpet'");
+    expect(sql).toContain("'sofa', 'Sofa'");
+    expect(sql).toContain("'end-of-tenancy', 'End of Tenancy'");
+  });
+
+  it('does not destructively change VVE OS or Production objects', () => {
+    expect(executableSql).not.toMatch(/^\s*DROP\s+(TABLE|FUNCTION|POLICY|SCHEMA)\b/im);
+    expect(executableSql).not.toMatch(/^\s*(TRUNCATE|DELETE\s+FROM|UPDATE\s+)/im);
+    expect(executableSql).not.toMatch(/\b(vve_os|admin_users|storage\.|auth\.)\b/i);
+  });
+});

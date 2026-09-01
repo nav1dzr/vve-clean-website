@@ -21,20 +21,69 @@ export interface MediaAsset {
   socialEnabled: boolean;
   requestedSlotKey: string | null;
   activeSlotKey: string | null;
+  usages: MediaUsage[];
   imageUrl: string | null;
   muxPlaybackId: string | null;
   processingError: string;
   createdAt: string;
 }
 
-export interface MediaSlot {
+export interface MediaUsage {
   key: string;
-  placement: MediaPlacement;
+  pageKey: string;
+  pageLabel: string;
+  componentLabel: string;
+}
+
+export interface MediaAssignment {
+  assetId: string;
+  role: 'before' | 'after' | 'primary';
+}
+
+export interface GalleryTopic {
+  key: 'carpet' | 'sofa' | 'end-of-tenancy' | string;
   label: string;
-  assetId: string | null;
+  description: string;
+  sortOrder: number;
+}
+
+export interface GallerySlot {
+  id: string;
+  topicKey: string;
+  code: string;
+  kind: 'before_after' | 'video' | 'photo';
+  label: string;
+  sortOrder: number;
+  assignments: MediaAssignment[];
+  usages: MediaUsage[];
+}
+
+export interface WebsiteSlot {
+  id: string;
+  key: string;
+  pageLabel: string;
+  purposeLabel: string;
+  description: string;
+  sortOrder: number;
+  assignments: MediaAssignment[];
+  usages: MediaUsage[];
+}
+
+export interface MediaReference {
+  id: string;
+  key: string;
+  pageKey: string;
+  pageLabel: string;
+  componentLabel: string;
+  gallerySlotId: string | null;
+  websiteSlotId: string | null;
+  sortOrder: number;
 }
 
 export interface MediaLibrary {
   assets: MediaAsset[];
-  slots: MediaSlot[];
+  topics: GalleryTopic[];
+  gallerySlots: GallerySlot[];
+  websiteSlots: WebsiteSlot[];
+  references: MediaReference[];
 }

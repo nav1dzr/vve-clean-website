@@ -37,8 +37,6 @@ export function normaliseMetadata(body) {
   const defaults = PLACEMENT_DEFAULTS[placement];
   const category = CATEGORY_VALUES.includes(body.category) ? body.category : defaults.category;
   const beforeAfter = BEFORE_AFTER_VALUES.includes(body.beforeAfter) ? body.beforeAfter : 'none';
-  const slotKey = text(body.slotKey, 100);
-  const requestedSlotKey = slotKey.startsWith(`${placement}-`) ? slotKey : null;
   return {
     title: text(body.title, MAX_TITLE),
     altText: text(body.altText, MAX_TEXT),
@@ -51,11 +49,13 @@ export function normaliseMetadata(body) {
     websiteVisible: body.websiteVisible === true,
     googleEnabled: body.googleEnabled === true,
     socialEnabled: body.socialEnabled === true,
-    requestedSlotKey,
+    // Uploading creates an unassigned library asset. Position assignment is a
+    // separate, explicit action through the Gallery or Website tab.
+    requestedSlotKey: null,
   };
 }
 
-export function toMediaSummary(row, slotMap) {
+export function toMediaSummary(row, usages = []) {
   return {
     id: row.id,
     mediaType: row.media_type,
@@ -72,7 +72,8 @@ export function toMediaSummary(row, slotMap) {
     googleEnabled: row.google_enabled,
     socialEnabled: row.social_enabled,
     requestedSlotKey: row.requested_slot_key,
-    activeSlotKey: slotMap.get(row.id) || null,
+    activeSlotKey: row.requested_slot_key || null,
+    usages,
     imageUrl: row.media_type === 'image' && row.delivery_url ? row.delivery_url.replace('{width}', '640') : null,
     muxPlaybackId: row.mux_playback_id || null,
     processingError: row.processing_error || '',

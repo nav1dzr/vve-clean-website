@@ -52,7 +52,7 @@ export default function EotResultsSection() {
           onOpen={(i, origin) => lightbox.open(ROTATING_OFFSET + i, origin)}
         />
 
-        <ManagedServiceMedia placement="end-of-tenancy-page" />
+        <ManagedServiceMedia pageKey="end-of-tenancy-main-results" />
 
         <GalleryInstagramCta galleryCategory="end-of-tenancy" />
       </div>

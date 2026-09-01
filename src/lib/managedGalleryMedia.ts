@@ -2,87 +2,94 @@ import { useEffect, useMemo, useState } from 'react';
 import type { GalleryCategory, GalleryItem } from '../data/galleryMedia';
 import { managedImageSizes, mediaImageSrcSet, mediaImageUrl } from './responsiveMediaImage';
 
-type PublishedSlot = {
-  slot_key: string;
-  placement: string;
-  media_type: 'image' | 'video';
-  title: string;
-  alt_text: string;
-  category: GalleryCategory;
-  before_after: 'before' | 'after' | 'none';
-  delivery_url: string | null;
-  mux_playback_id: string | null;
+type PublishedReference = {
+  reference_key: string; page_key: string; page_label: string; component_label: string; sort_order: number;
+  source_type: 'gallery' | 'website'; topic_key: string | null; slot_code: string; slot_kind: 'before_after' | 'video' | 'photo' | 'website';
+  media_role: 'before' | 'after' | 'primary'; media_type: 'image' | 'video'; title: string; alt_text: string;
+  delivery_url: string | null; mux_playback_id: string | null;
 };
 
 const empty = (): Record<GalleryCategory, GalleryItem[]> => ({ 'end-of-tenancy': [], carpet: [], 'sofa-upholstery': [] });
 
-// Public pages read only the published-delivery RPC. They never receive an R2
-// key, original filename, upload metadata, or any admin-only flags.
-function usePublishedSlots() {
-  const [slots, setSlots] = useState<PublishedSlot[]>([]);
-
+// Public pages only read resolved, published media references. This response
+// deliberately contains no R2 key, original filename, upload metadata, or
+// private library asset. A Gallery position can therefore be reused by any
+// number of page references without duplicating its file.
+function usePublishedReferences() {
+  const [references, setReferences] = useState<PublishedReference[]>([]);
   useEffect(() => {
     let live = true;
-    // The site is prerendered without browser environment variables. Defer
-    // creation of the Supabase client until a real browser has the public
-    // VITE_ values, keeping static rendering independent of this optional
-    // runtime gallery enhancement.
     if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) return () => { live = false; };
     void (async () => {
       try {
         const { supabase } = await import('./supabase');
-        const { data, error } = await supabase.rpc('public_media_preview_slots');
+        const { data, error } = await supabase.rpc('public_media_preview_references');
         if (!live || error || !Array.isArray(data)) return;
-        setSlots(data as PublishedSlot[]);
+        setReferences(data as PublishedReference[]);
       } catch {
-        // The gallery retains its existing local media if Supabase is temporarily unavailable.
+        // Existing curated local images stay visible if Preview media is not configured.
       }
     })();
     return () => { live = false; };
   }, []);
-
-  return slots;
+  return references;
 }
 
-function slotToItem(slot: PublishedSlot): GalleryItem | null {
-  const label = slot.title || `${slot.before_after === 'none' ? 'Cleaning' : slot.before_after} result`;
-  const alt = slot.alt_text || label;
-  if (slot.media_type === 'image' && slot.delivery_url) {
+function referenceToItem(rows: PublishedReference[]): GalleryItem | null {
+  const first = rows[0];
+  if (!first) return null;
+  const label = first.title || first.component_label || first.slot_code;
+  if (first.slot_kind === 'before_after') {
+    const before = rows.find((row) => row.media_role === 'before');
+    const after = rows.find((row) => row.media_role === 'after');
+    if (!before?.delivery_url || !after?.delivery_url) return null;
     return {
-      type: 'photo', id: `managed-${slot.slot_key}`, label, alt,
-      src: mediaImageUrl(slot.delivery_url, 1200),
-      srcSet: mediaImageSrcSet(slot.delivery_url),
-      sizes: managedImageSizes,
-      fullSrc: mediaImageUrl(slot.delivery_url, 2400),
+      type: 'before-after', id: `managed-${first.reference_key}`, label,
+      before: mediaImageUrl(before.delivery_url, 1200), after: mediaImageUrl(after.delivery_url, 1200),
+      beforeAlt: before.alt_text || `${label} before cleaning`, afterAlt: after.alt_text || `${label} after cleaning`,
     };
   }
-  if (slot.media_type === 'video' && slot.mux_playback_id) {
-    return {
-      type: 'video', id: `managed-${slot.slot_key}`, label,
-      src: `https://stream.mux.com/${slot.mux_playback_id}.m3u8`,
-      poster: `https://image.mux.com/${slot.mux_playback_id}/thumbnail.jpg?time=1&width=960&fit_mode=preserve`,
-      playerUrl: `https://player.mux.com/${slot.mux_playback_id}`,
-      description: alt,
-    };
-  }
+  const row = rows.find((entry) => entry.media_role === 'primary') || first;
+  if (row.media_type === 'image' && row.delivery_url) return {
+    type: 'photo', id: `managed-${row.reference_key}`, label, alt: row.alt_text || label,
+    src: mediaImageUrl(row.delivery_url, 1200), srcSet: mediaImageSrcSet(row.delivery_url), sizes: managedImageSizes,
+    fullSrc: mediaImageUrl(row.delivery_url, 2400),
+  };
+  if (row.media_type === 'video' && row.mux_playback_id) return {
+    type: 'video', id: `managed-${row.reference_key}`, label,
+    src: `https://stream.mux.com/${row.mux_playback_id}.m3u8`,
+    poster: `https://image.mux.com/${row.mux_playback_id}/thumbnail.jpg?time=1&width=960&fit_mode=preserve`,
+    playerUrl: `https://player.mux.com/${row.mux_playback_id}`,
+    description: row.alt_text || label,
+  };
   return null;
 }
 
-export function useManagedGalleryMedia() {
-  const slots = usePublishedSlots();
-  return useMemo(() => {
-    const grouped = empty();
-    for (const slot of slots) {
-      if (!slot.placement?.startsWith('gallery-')) continue;
-      if (!Object.prototype.hasOwnProperty.call(grouped, slot.category)) continue;
-      const item = slotToItem(slot);
-      if (item) grouped[slot.category].push(item);
-    }
-    return grouped;
-  }, [slots]);
+function toItems(references: PublishedReference[], pageKey: string) {
+  const groups = new Map<string, PublishedReference[]>();
+  for (const reference of references.filter((item) => item.page_key === pageKey)) {
+    groups.set(reference.reference_key, [...(groups.get(reference.reference_key) || []), reference]);
+  }
+  return [...groups.values()].map(referenceToItem).filter((item): item is GalleryItem => item !== null);
 }
 
-export function useManagedPlacementMedia(placement: string) {
-  const slots = usePublishedSlots();
-  return useMemo(() => slots.filter((slot) => slot.placement === placement).map(slotToItem).filter((item): item is GalleryItem => item !== null), [slots, placement]);
+export function useManagedPageMedia(pageKey: string) {
+  const references = usePublishedReferences();
+  return useMemo(() => toItems(references, pageKey), [references, pageKey]);
+}
+
+export function useManagedWebsiteMedia(slotKey: string) {
+  const items = useManagedPageMedia(slotKey);
+  return items[0] || null;
+}
+
+export function useManagedGalleryMedia() {
+  const references = usePublishedReferences();
+  return useMemo(() => {
+    const grouped = empty();
+    grouped.carpet = toItems(references, 'gallery-carpet');
+    grouped['sofa-upholstery'] = toItems(references, 'gallery-sofa');
+    grouped['end-of-tenancy'] = toItems(references, 'gallery-end-of-tenancy');
+    return grouped;
+  }, [references]);
 }

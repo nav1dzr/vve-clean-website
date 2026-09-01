@@ -99,7 +99,7 @@ export default function SofaGallerySection() {
             <LazyVideo key={video.id} video={video} className="aspect-[4/3] w-full min-w-0" />
           ))}
         </div>
-        <div className="mt-10"><ManagedServiceMedia placement="sofa-page" dark /></div>
+        <div className="mt-10"><ManagedServiceMedia pageKey="sofa-main-results" dark /></div>
       </div>
 
       <PhotoLightbox
