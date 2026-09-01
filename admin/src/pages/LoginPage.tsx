@@ -54,6 +54,26 @@ export default function LoginPage() {
     navigate('/', { replace: true });
   }
 
+  async function handleGoogleSignIn() {
+    if (submitting) return;
+
+    setError(null);
+    setSubmitting(true);
+
+    // The Preview administrator is provisioned through the project's Google
+    // provider. Returning to this exact origin keeps Preview and Production
+    // sessions separate once each origin is allow-listed in Supabase Auth.
+    const { error: signInError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
+
+    if (signInError) {
+      setSubmitting(false);
+      setError('Google sign-in could not be started. Please try again.');
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-silver-100 px-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm">
@@ -113,6 +133,21 @@ export default function LoginPage() {
             className="flex min-h-11 w-full items-center justify-center rounded-lg bg-navy-950 px-4 text-sm font-semibold text-white transition-colors hover:bg-navy-900 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? 'Signing in…' : 'Sign in'}
+          </button>
+
+          <div className="my-5 flex items-center gap-3" aria-hidden="true">
+            <span className="h-px flex-1 bg-silver-200" />
+            <span className="text-xs text-navy-700">or</span>
+            <span className="h-px flex-1 bg-silver-200" />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={submitting}
+            className="flex min-h-11 w-full items-center justify-center rounded-lg border border-silver-300 bg-white px-4 text-sm font-semibold text-navy-950 transition-colors hover:bg-silver-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Continue with Google
           </button>
         </form>
       </div>

@@ -5,12 +5,14 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import LoginPage from './LoginPage';
 
 const signInWithPasswordMock = vi.fn();
+const signInWithOAuthMock = vi.fn();
 const useAuthMock = vi.fn();
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
     auth: {
       signInWithPassword: (...args: unknown[]) => signInWithPasswordMock(...args),
+      signInWithOAuth: (...args: unknown[]) => signInWithOAuthMock(...args),
     },
   },
 }));
@@ -33,6 +35,7 @@ function renderLoginPage() {
 describe('LoginPage', () => {
   beforeEach(() => {
     signInWithPasswordMock.mockReset();
+    signInWithOAuthMock.mockReset();
     useAuthMock.mockReturnValue({ status: 'unauthenticated' });
   });
 
@@ -84,5 +87,18 @@ describe('LoginPage', () => {
     renderLoginPage();
 
     expect(screen.getByText('Dashboard Home')).toBeInTheDocument();
+  });
+
+  it('starts Google sign-in with the current app origin as the callback', async () => {
+    signInWithOAuthMock.mockResolvedValue({ error: null });
+    const user = userEvent.setup();
+    renderLoginPage();
+
+    await user.click(screen.getByRole('button', { name: /continue with google/i }));
+
+    expect(signInWithOAuthMock).toHaveBeenCalledWith({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
   });
 });
