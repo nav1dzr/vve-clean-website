@@ -234,6 +234,14 @@ async function assignMedia(res, headers, supabase, asset, body, adminId) {
     const { error: insertError } = await supabase.from(MEDIA_ASSIGNMENTS_TABLE).insert(row);
     if (insertError) throw insertError;
   }
+  // Uploads are private and unassigned by default. An explicit assignment is
+  // the deliberate publication action: it makes this asset eligible for the
+  // tightly scoped public RPC, while the old asset remains in the library.
+  if (!asset.website_visible) {
+    const { error: visibilityError } = await supabase.from(MEDIA_ASSETS_TABLE)
+      .update({ website_visible: true, updated_at: now }).eq('id', asset.id);
+    if (visibilityError) throw visibilityError;
+  }
   res.writeHead(200, headers);
   return res.end(JSON.stringify({ assigned: true, replaced: Boolean(replacement), impact }));
 }
