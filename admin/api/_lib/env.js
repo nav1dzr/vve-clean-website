@@ -16,11 +16,3 @@ export function checkServerEnv() {
 export function isProduction() {
   return process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
 }
-
-// The media-system branch is a deliberately narrow Preview-only surface. Its
-// temporary media database is VVE OS, but neither the CRM browser nor normal
-// CRM API routes may use that project. Keeping the switch server-only avoids
-// shipping the implementation detail to the browser bundle.
-export function isMediaPreview() {
-  return process.env.MEDIA_PREVIEW_MODE === 'true';
-}

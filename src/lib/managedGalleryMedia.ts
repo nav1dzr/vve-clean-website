@@ -23,7 +23,7 @@ function usePublishedReferences() {
     if (!mediaSupabase) return () => { live = false; };
     void (async () => {
       try {
-        const { data, error } = await mediaSupabase.rpc('public_media_preview_references');
+        const { data, error } = await mediaSupabase.rpc('public_media_references');
         if (!live || error || !Array.isArray(data)) return;
         setReferences(data as PublishedReference[]);
       } catch {

@@ -16,33 +16,9 @@ export function getServiceClient() {
   );
 }
 
-// This client is used exclusively by the Preview media handlers. It has its
-// own server-only URL so the temporary VVE OS data connection can never leak
-// into a browser configuration. During the transition, the existing
-// branch-scoped service key remains the fallback: it is server-only and is
-// removed from the browser-facing VITE variables by the accompanying Preview
-// environment change.
+// Media is stored in dedicated media_* tables in the CRM project. The same
+// server-only client is intentionally used after the normal CRM admin check;
+// no VVE OS connection or alternate browser authentication exists here.
 export function getMediaServiceClient() {
-  const url = process.env.MEDIA_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const serviceRoleKey = process.env.MEDIA_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceRoleKey) {
-    console.error('[admin/media] missing server-only media Supabase configuration');
-    return null;
-  }
-
-  return createClient(url, serviceRoleKey, { auth: { persistSession: false } });
-}
-
-// Verifying a CRM access token only needs the CRM project's public anon key;
-// it does not grant table access. This is intentionally separate from the
-// VVE OS media service client above.
-export function getCrmAuthClient() {
-  const url = process.env.VITE_SUPABASE_URL;
-  const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) {
-    console.error('[admin/media] missing CRM Auth configuration');
-    return null;
-  }
-
-  return createClient(url, anonKey, { auth: { persistSession: false } });
+  return getServiceClient();
 }

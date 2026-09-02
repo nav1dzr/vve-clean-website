@@ -11,7 +11,10 @@ This code intentionally does not create a Cloudflare bucket, Mux account, Supaba
 
 ## 1. Apply the Supabase migration
 
-Before applying anything, confirm that the target is an isolated **Preview Supabase Branch** (preferred) or a completely separate Preview project. Do not apply the original media migrations to a shared project. For the temporary `vve-os` Preview database, apply `20260901120000_create_media_preview_isolation.sql` and then `20260901200000_add_two_part_media_model.sql`. They create only separate, uniquely prefixed media objects; they do not alter VVE OS tables, functions, policies, storage, or Auth. The second migration adds the Gallery/Website/assignment/reference model and a public-safe `public_media_preview_references()` RPC.
+Apply `20260902090000_add_crm_media_library.sql` to the existing **CRM
+Supabase project** only. It adds dedicated `media_*` tables and a narrowly
+scoped `public_media_references()` RPC. It does not modify CRM business
+tables, CRM Auth, VVE OS, Storage, policies on existing tables, or Production.
 
 ## Two-part media manager
 
@@ -26,7 +29,10 @@ four videos (`VIDEO01`–`VIDEO04`) and ten grid photos (`PHOTO01`–`PHOTO10`).
 Gallery positions can be referenced by the Gallery itself, a main service page,
 or later a local page. They are pointers to one original asset, never copies.
 
-Do not add browser RLS policies to the Preview media tables; the admin API uses `media_preview_admin_users`, a dedicated empty-by-default allow-list, and the service role. Add a row only after an administrator already exists in the Preview project's Auth users. The public RPC returns only ready, website-enabled delivery records.
+Do not add browser RLS policies to the media tables. The admin API uses the
+existing CRM `admin_users` allow-list and its service role after validating the
+normal CRM session. The public RPC returns only ready, website-enabled delivery
+records and never exposes originals or CRM business data.
 
 ## 2. Private R2 and Cloudflare Worker image delivery
 
@@ -68,18 +74,15 @@ Create a Mux API token with video read/write permissions. The code requests `vid
 
 ## 4. Preview environment variables
 
-Keep `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` pointed at the CRM's
-normal Supabase project: they are the browser's CRM Auth client. Set these
-media-only names only on the `codex/media-system` branch in the **admin Vercel
-project Preview environment**:
+Keep `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and
+`SUPABASE_SERVICE_ROLE_KEY` pointed at the CRM Supabase project: they are the
+normal CRM browser-auth and server data connection. Set these media-hosting
+names only on the Media feature branch in the **admin Vercel Preview**
+environment:
 
 ```text
 CLOUDFLARE_ACCOUNT_ID
 CLOUDFLARE_MEDIA_ORIGIN
-MEDIA_SUPABASE_URL
-MEDIA_SUPABASE_SERVICE_ROLE_KEY
-MEDIA_PREVIEW_MODE=true
-MEDIA_PREVIEW_ADMIN_EMAIL
 R2_BUCKET_NAME
 R2_ACCESS_KEY_ID
 R2_SECRET_ACCESS_KEY
@@ -87,18 +90,22 @@ MUX_TOKEN_ID
 MUX_TOKEN_SECRET
 ```
 
-None of these starts with `VITE_`. They must never be included in the browser bundle or committed. `MEDIA_PREVIEW_ADMIN_EMAIL` is the one CRM admin permitted to use the Preview media manager. `CLOUDFLARE_MEDIA_ORIGIN` is the HTTPS origin of the dedicated Cloudflare media hostname, without a trailing slash. It is not a secret. No Cloudflare Images API token or Hosted Images delivery hash is needed.
+None of the media-hosting secrets starts with `VITE_`; they must never be
+included in the browser bundle or committed. `CLOUDFLARE_MEDIA_ORIGIN` is the
+HTTPS origin of the dedicated Cloudflare media hostname, without a trailing
+slash. It is not a secret. No Cloudflare Images API token or Hosted Images
+delivery hash is needed.
 
-The public Vercel project keeps `VITE_SUPABASE_URL` and
-`VITE_SUPABASE_ANON_KEY` on its ordinary website project. It receives only
-`VITE_MEDIA_SUPABASE_URL` and `VITE_MEDIA_SUPABASE_ANON_KEY` for the
-temporary VVE OS `public_media_preview_references()` read RPC. No Cloudflare,
-R2, Mux, or Supabase service-role secret belongs there.
+The public website Media feature branch receives only
+`VITE_MEDIA_SUPABASE_URL` and `VITE_MEDIA_SUPABASE_ANON_KEY` for the CRM
+project's `public_media_references()` RPC. Its ordinary website connection
+remains untouched. No Cloudflare, R2, Mux, or Supabase service-role secret
+belongs in the public website build.
 
 ## 5. Validate the preview
 
 1. Sign in as a Supabase user present in `admin_users`.
-2. Visit `/media` in the admin app on an iPhone. Choose Photo or Video, then the destination and an unused position.
+2. Visit `/media` in the normal CRM app on an iPhone. Use **Choose from Photos or Files** (not the camera-only control), select several items, then choose a destination and an unused position.
 3. Confirm the original appears only in R2, while the preview card uses the Worker delivery URL.
 4. Confirm it appears in the chosen preview Gallery or service page without a redeploy.
 5. Upload a short MOV/MP4. It will show as “processing” until Mux finishes; use “Refresh processing” and then test playback in the Gallery.

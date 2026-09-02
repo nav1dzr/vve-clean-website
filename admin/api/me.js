@@ -1,6 +1,5 @@
-import { verifyAdminRequest, verifyMediaAdminRequest } from './_lib/adminAuth.js';
+import { verifyAdminRequest } from './_lib/adminAuth.js';
 import { corsHeaders } from './_lib/cors.js';
-import { isMediaPreview } from './_lib/env.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -22,10 +21,7 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
   }
 
-  // /api/me is the one non-media endpoint needed to establish the CRM
-  // browser session for the dedicated media Preview. It uses CRM Auth only;
-  // regular CRM data routes remain disabled by verifyAdminRequest().
-  const result = await (isMediaPreview() ? verifyMediaAdminRequest(req) : verifyAdminRequest(req));
+  const result = await verifyAdminRequest(req);
 
   if (!result.ok) {
     res.writeHead(result.status, headers);

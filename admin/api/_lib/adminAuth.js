@@ -2,9 +2,7 @@
 // API route. Holds the only code path in this app that touches the
 // service-role key — never imported from admin/src/.
 
-import { getCrmAuthClient, getServiceClient } from './supabaseAdmin.js';
-import { isMediaPreview } from './env.js';
-import { MEDIA_ADMINS_TABLE } from './mediaTables.js';
+import { getServiceClient } from './supabaseAdmin.js';
 
 function extractBearerToken(req) {
   const header = req.headers['authorization'] || req.headers['Authorization'] || '';
@@ -25,52 +23,15 @@ function extractBearerToken(req) {
 // detail in the response body — only a generic message. Details are logged
 // server-side only.
 export async function verifyAdminRequest(req) {
-  // On the dedicated media Preview, non-media CRM routes are intentionally
-  // unavailable. This guarantees a CRM token can never cause those routes to
-  // query the temporary VVE OS project.
-  if (isMediaPreview()) {
-    return { ok: false, status: 403, error: 'CRM routes are unavailable on the media Preview' };
-  }
   return verifyAdminRequestForTable(req, 'admin_users');
 }
 
-// The temporary VVE OS Preview database has no shared CRM allow-list. Media
-// routes use a dedicated, empty-by-default allow-list created by the Preview
-// media migration. This keeps authorisation isolated without changing VVE OS
-// tables, policies, or auth configuration.
+// Media is one protected CRM section, not a separate application. It uses the
+// exact same CRM Supabase session and established admin_users allow-list as
+// Customers, Bookings, Invoices, and every other CRM route. The media tables
+// are isolated separately at the database layer.
 export async function verifyMediaAdminRequest(req) {
-  if (isMediaPreview()) return verifyMediaPreviewAdminRequest(req);
-  return verifyAdminRequestForTable(req, MEDIA_ADMINS_TABLE);
-}
-
-// Preview-only bridge: authenticate against the CRM project, then allow only
-// the explicitly configured CRM administrator into /media. VVE OS Auth is
-// never consulted and its Auth settings are never changed.
-async function verifyMediaPreviewAdminRequest(req) {
-  const token = extractBearerToken(req);
-  if (!token) return { ok: false, status: 401, error: 'Missing bearer token' };
-
-  const allowedEmail = (process.env.MEDIA_PREVIEW_ADMIN_EMAIL || '').trim().toLowerCase();
-  const crmAuth = getCrmAuthClient();
-  if (!allowedEmail || !crmAuth) {
-    return { ok: false, status: 500, error: 'Server misconfiguration' };
-  }
-
-  const { data: userData, error: userErr } = await crmAuth.auth.getUser(token);
-  const user = userData?.user;
-  if (userErr || !user) return { ok: false, status: 401, error: 'Invalid or expired token' };
-  if ((user.email || '').trim().toLowerCase() !== allowedEmail) {
-    return { ok: false, status: 403, error: 'Not an authorised media admin' };
-  }
-
-  return {
-    ok: true,
-    admin: {
-      id: user.id,
-      email: user.email || '',
-      displayName: user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'CRM admin',
-    },
-  };
+  return verifyAdminRequest(req);
 }
 
 async function verifyAdminRequestForTable(req, adminTable) {

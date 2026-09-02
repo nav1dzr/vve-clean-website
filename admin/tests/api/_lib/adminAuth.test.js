@@ -28,8 +28,6 @@ describe('verifyAdminRequest', () => {
     fromMock.mockClear();
     process.env.VITE_SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
-    delete process.env.MEDIA_PREVIEW_MODE;
-    delete process.env.MEDIA_PREVIEW_ADMIN_EMAIL;
   });
 
   afterEach(() => {
@@ -127,28 +125,21 @@ describe('verifyAdminRequest', () => {
     expect(JSON.stringify(result)).not.toContain('test-service-role-key');
   });
 
-  it('keeps normal CRM routes off the media Preview and validates media access with CRM Auth only', async () => {
-    process.env.MEDIA_PREVIEW_MODE = 'true';
-    process.env.MEDIA_PREVIEW_ADMIN_EMAIL = 'owner@example.com';
-    process.env.VITE_SUPABASE_URL = 'https://crm.example.supabase.co';
-    process.env.VITE_SUPABASE_ANON_KEY = 'crm-anon-key';
+  it('uses the same authorised CRM user for Media and every existing CRM route', async () => {
     getUserMock.mockResolvedValue({
-      data: { user: { id: 'crm-user-1', email: 'owner@example.com', user_metadata: { full_name: 'Owner' } } },
+      data: { user: { id: 'crm-user-1', email: 'owner@example.com' } },
       error: null,
     });
+    maybeSingleMock.mockResolvedValue({ data: { id: 'crm-user-1', display_name: 'Owner' }, error: null });
 
     const normalRoute = await verifyAdminRequest(makeReq({ authorization: 'Bearer crm-token' }));
     const mediaRoute = await verifyMediaAdminRequest(makeReq({ authorization: 'Bearer crm-token' }));
 
-    expect(normalRoute).toEqual({
-      ok: false,
-      status: 403,
-      error: 'CRM routes are unavailable on the media Preview',
-    });
+    expect(normalRoute).toEqual({ ok: true, admin: { id: 'crm-user-1', email: 'owner@example.com', displayName: 'Owner' } });
     expect(mediaRoute).toEqual({
       ok: true,
       admin: { id: 'crm-user-1', email: 'owner@example.com', displayName: 'Owner' },
     });
-    expect(fromMock).not.toHaveBeenCalled();
+    expect(fromMock).toHaveBeenCalledTimes(2);
   });
 });
