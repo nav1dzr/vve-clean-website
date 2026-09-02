@@ -68,11 +68,18 @@ Create a Mux API token with video read/write permissions. The code requests `vid
 
 ## 4. Preview environment variables
 
-Set the isolated Preview Supabase variables plus these names only on the `codex/media-system` branch in the **admin Vercel project Preview environment**:
+Keep `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` pointed at the CRM's
+normal Supabase project: they are the browser's CRM Auth client. Set these
+media-only names only on the `codex/media-system` branch in the **admin Vercel
+project Preview environment**:
 
 ```text
 CLOUDFLARE_ACCOUNT_ID
 CLOUDFLARE_MEDIA_ORIGIN
+MEDIA_SUPABASE_URL
+MEDIA_SUPABASE_SERVICE_ROLE_KEY
+MEDIA_PREVIEW_MODE=true
+MEDIA_PREVIEW_ADMIN_EMAIL
 R2_BUCKET_NAME
 R2_ACCESS_KEY_ID
 R2_SECRET_ACCESS_KEY
@@ -80,9 +87,13 @@ MUX_TOKEN_ID
 MUX_TOKEN_SECRET
 ```
 
-None of these starts with `VITE_`. They must never be included in the browser bundle or committed. `CLOUDFLARE_MEDIA_ORIGIN` is the HTTPS origin of the dedicated Cloudflare media hostname, without a trailing slash. It is not a secret. No Cloudflare Images API token or Hosted Images delivery hash is needed.
+None of these starts with `VITE_`. They must never be included in the browser bundle or committed. `MEDIA_PREVIEW_ADMIN_EMAIL` is the one CRM admin permitted to use the Preview media manager. `CLOUDFLARE_MEDIA_ORIGIN` is the HTTPS origin of the dedicated Cloudflare media hostname, without a trailing slash. It is not a secret. No Cloudflare Images API token or Hosted Images delivery hash is needed.
 
-The public Vercel project needs only the isolated Preview `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` on that branch. No Cloudflare, R2, Mux, or Supabase service-role secret belongs there.
+The public Vercel project keeps `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY` on its ordinary website project. It receives only
+`VITE_MEDIA_SUPABASE_URL` and `VITE_MEDIA_SUPABASE_ANON_KEY` for the
+temporary VVE OS `public_media_preview_references()` read RPC. No Cloudflare,
+R2, Mux, or Supabase service-role secret belongs there.
 
 ## 5. Validate the preview
 

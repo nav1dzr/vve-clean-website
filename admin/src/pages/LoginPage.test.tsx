@@ -5,14 +5,12 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import LoginPage from './LoginPage';
 
 const signInWithPasswordMock = vi.fn();
-const signInWithOAuthMock = vi.fn();
 const useAuthMock = vi.fn();
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
     auth: {
       signInWithPassword: (...args: unknown[]) => signInWithPasswordMock(...args),
-      signInWithOAuth: (...args: unknown[]) => signInWithOAuthMock(...args),
     },
   },
 }));
@@ -35,7 +33,6 @@ function renderLoginPage() {
 describe('LoginPage', () => {
   beforeEach(() => {
     signInWithPasswordMock.mockReset();
-    signInWithOAuthMock.mockReset();
     useAuthMock.mockReturnValue({ status: 'unauthenticated' });
   });
 
@@ -46,6 +43,7 @@ describe('LoginPage', () => {
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
     expect(screen.queryByText(/sign up/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/register/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /google/i })).not.toBeInTheDocument();
   });
 
   it('does not attempt sign-in when required fields are left empty', async () => {
@@ -89,16 +87,4 @@ describe('LoginPage', () => {
     expect(screen.getByText('Dashboard Home')).toBeInTheDocument();
   });
 
-  it('starts Google sign-in with the current app origin as the callback', async () => {
-    signInWithOAuthMock.mockResolvedValue({ error: null });
-    const user = userEvent.setup();
-    renderLoginPage();
-
-    await user.click(screen.getByRole('button', { name: /continue with google/i }));
-
-    expect(signInWithOAuthMock).toHaveBeenCalledWith({
-      provider: 'google',
-      options: { redirectTo: window.location.origin },
-    });
-  });
 });

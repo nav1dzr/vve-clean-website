@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { verifyMediaAdminRequest } from './adminAuth.js';
 import { corsHeaders } from './cors.js';
 import { readJsonBody } from './body.js';
-import { getServiceClient } from './supabaseAdmin.js';
+import { getMediaServiceClient } from './supabaseAdmin.js';
 import { createR2Key, createUploadUrl, getMediaConfig } from './mediaConfig.js';
 import { toMediaSummary, validateNewAsset } from './mediaFields.js';
 import {
@@ -32,7 +32,7 @@ export async function mediaCollectionHandler(req, res) {
     res.writeHead(auth.status, headers);
     return res.end(JSON.stringify({ error: auth.error }));
   }
-  const supabase = getServiceClient();
+  const supabase = getMediaServiceClient();
   if (!supabase) {
     res.writeHead(500, headers);
     return res.end(JSON.stringify({ error: 'Server misconfiguration' }));

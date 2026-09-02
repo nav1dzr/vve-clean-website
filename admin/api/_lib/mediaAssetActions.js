@@ -1,7 +1,7 @@
 import { verifyMediaAdminRequest } from '../_lib/adminAuth.js';
 import { corsHeaders } from '../_lib/cors.js';
 import { readJsonBody } from '../_lib/body.js';
-import { getServiceClient } from '../_lib/supabaseAdmin.js';
+import { getMediaServiceClient } from '../_lib/supabaseAdmin.js';
 import { createDownloadUrl, createImageDeliveryTemplate, getMediaConfig, muxAuthHeader, originalExists } from '../_lib/mediaConfig.js';
 import { normaliseMetadata, toMediaSummary } from '../_lib/mediaFields.js';
 import {
@@ -30,7 +30,7 @@ export async function mediaAssetHandler(req, res) {
     res.writeHead(auth.status, headers);
     return res.end(JSON.stringify({ error: auth.error }));
   }
-  const supabase = getServiceClient();
+  const supabase = getMediaServiceClient();
   if (!supabase) {
     res.writeHead(500, headers);
     return res.end(JSON.stringify({ error: 'Server misconfiguration' }));

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { GalleryCategory, GalleryItem } from '../data/galleryMedia';
 import { managedImageSizes, mediaImageSrcSet, mediaImageUrl } from './responsiveMediaImage';
+import { mediaSupabase } from './mediaSupabase';
 
 type PublishedReference = {
   reference_key: string; page_key: string; page_label: string; component_label: string; sort_order: number;
@@ -19,11 +20,10 @@ function usePublishedReferences() {
   const [references, setReferences] = useState<PublishedReference[]>([]);
   useEffect(() => {
     let live = true;
-    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) return () => { live = false; };
+    if (!mediaSupabase) return () => { live = false; };
     void (async () => {
       try {
-        const { supabase } = await import('./supabase');
-        const { data, error } = await supabase.rpc('public_media_preview_references');
+        const { data, error } = await mediaSupabase.rpc('public_media_preview_references');
         if (!live || error || !Array.isArray(data)) return;
         setReferences(data as PublishedReference[]);
       } catch {
