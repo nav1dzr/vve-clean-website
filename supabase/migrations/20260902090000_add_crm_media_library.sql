@@ -152,14 +152,14 @@ VALUES
 ON CONFLICT (slot_key) DO NOTHING;
 
 INSERT INTO public.media_page_references (reference_key, page_key, page_label, component_label, gallery_slot_id, sort_order)
-SELECT format('gallery-%s-%s', t.topic_key, s.slot_code),
+SELECT format('gallery-%s-%s', t.topic_key, lower(s.slot_code)),
   format('gallery-%s', CASE t.topic_key WHEN 'end-of-tenancy' THEN 'end-of-tenancy' ELSE t.topic_key END),
   t.label || ' Gallery', s.label, s.id, s.sort_order
 FROM public.media_gallery_slots s JOIN public.media_gallery_topics t ON t.topic_key = s.topic_key
 ON CONFLICT (reference_key) DO NOTHING;
 
 INSERT INTO public.media_page_references (reference_key, page_key, page_label, component_label, gallery_slot_id, sort_order)
-SELECT format('%s-featured-%s', t.topic_key, s.slot_code),
+SELECT format('%s-featured-%s', t.topic_key, lower(s.slot_code)),
   CASE t.topic_key WHEN 'carpet' THEN 'carpet-page' WHEN 'sofa' THEN 'sofa-page' ELSE 'end-of-tenancy-page' END,
   t.label || ' Service', 'Featured Gallery ' || s.slot_code, s.id, s.sort_order
 FROM public.media_gallery_slots s JOIN public.media_gallery_topics t ON t.topic_key = s.topic_key
