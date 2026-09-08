@@ -1,0 +1,20 @@
+name = "vve-media-preview"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+# The Worker can read originals only through this private binding. Do not add a
+# custom R2 domain or enable r2.dev for this bucket.
+[[r2_buckets]]
+binding = "MEDIA_ORIGINALS"
+bucket_name = "vve-media-originals"
+
+# Cloudflare Images transforms raw R2 bytes in the Worker; this is not Hosted
+# Images and does not need a delivery hash or Images API token in Vercel.
+[images]
+binding = "IMAGES"
+
+# Cloudflare recommends Workers Cache for Images binding responses. Immutable
+# asset IDs make a long TTL safe after a slot replacement.
+[cache]
+enabled = true

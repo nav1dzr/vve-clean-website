@@ -64,6 +64,6 @@ export default defineConfig({
     // every non-underscore-prefixed file under api/ as a deployable Serverless
     // Function, so a co-located *.test.js file would be deployed (and error,
     // having no default-exported handler) rather than just being test-only.
-    include: ['src/**/*.{test,spec}.{ts,tsx}', 'tests/**/*.{test,spec}.js'],
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'tests/**/*.{test,spec}.js', 'cloudflare/**/*.{test,spec}.js'],
   },
 });

@@ -13,7 +13,7 @@ vi.mock('@supabase/supabase-js', () => ({
   })),
 }));
 
-const { verifyAdminRequest } = await import('../../../api/_lib/adminAuth.js');
+const { verifyAdminRequest, verifyMediaAdminRequest } = await import('../../../api/_lib/adminAuth.js');
 
 function makeReq(headers) {
   return { headers };
@@ -25,6 +25,7 @@ describe('verifyAdminRequest', () => {
   beforeEach(() => {
     getUserMock.mockReset();
     maybeSingleMock.mockReset();
+    fromMock.mockClear();
     process.env.VITE_SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
   });
@@ -122,5 +123,23 @@ describe('verifyAdminRequest', () => {
     const result = await verifyAdminRequest(makeReq({ authorization: 'Bearer good-token' }));
 
     expect(JSON.stringify(result)).not.toContain('test-service-role-key');
+  });
+
+  it('uses the same authorised CRM user for Media and every existing CRM route', async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'crm-user-1', email: 'owner@example.com' } },
+      error: null,
+    });
+    maybeSingleMock.mockResolvedValue({ data: { id: 'crm-user-1', display_name: 'Owner' }, error: null });
+
+    const normalRoute = await verifyAdminRequest(makeReq({ authorization: 'Bearer crm-token' }));
+    const mediaRoute = await verifyMediaAdminRequest(makeReq({ authorization: 'Bearer crm-token' }));
+
+    expect(normalRoute).toEqual({ ok: true, admin: { id: 'crm-user-1', email: 'owner@example.com', displayName: 'Owner' } });
+    expect(mediaRoute).toEqual({
+      ok: true,
+      admin: { id: 'crm-user-1', email: 'owner@example.com', displayName: 'Owner' },
+    });
+    expect(fromMock).toHaveBeenCalledTimes(2);
   });
 });

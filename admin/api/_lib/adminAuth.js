@@ -23,6 +23,18 @@ function extractBearerToken(req) {
 // detail in the response body — only a generic message. Details are logged
 // server-side only.
 export async function verifyAdminRequest(req) {
+  return verifyAdminRequestForTable(req, 'admin_users');
+}
+
+// Media is one protected CRM section, not a separate application. It uses the
+// exact same CRM Supabase session and established admin_users allow-list as
+// Customers, Bookings, Invoices, and every other CRM route. The media tables
+// are isolated separately at the database layer.
+export async function verifyMediaAdminRequest(req) {
+  return verifyAdminRequest(req);
+}
+
+async function verifyAdminRequestForTable(req, adminTable) {
   const supabase = getServiceClient();
   if (!supabase) {
     return { ok: false, status: 500, error: 'Server misconfiguration' };
@@ -41,13 +53,13 @@ export async function verifyAdminRequest(req) {
   const user = userData.user;
 
   const { data: adminRow, error: adminErr } = await supabase
-    .from('admin_users')
+    .from(adminTable)
     .select('id, display_name')
     .eq('id', user.id)
     .maybeSingle();
 
   if (adminErr) {
-    console.error('[admin/api] admin_users lookup failed:', adminErr.code, adminErr.message);
+    console.error('[admin/api] admin allow-list lookup failed:', adminErr.code, adminErr.message);
     return { ok: false, status: 500, error: 'Authorisation check failed' };
   }
 

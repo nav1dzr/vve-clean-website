@@ -14,6 +14,7 @@ import {
   GALLERY_MEDIA,
   type GalleryCategory,
 } from '../data/galleryMedia';
+import { useManagedGalleryMedia } from '../lib/managedGalleryMedia';
 
 function isGalleryCategory(value: string | null): value is GalleryCategory {
   return !!value && GALLERY_CATEGORIES.some((c) => c.key === value);
@@ -33,6 +34,7 @@ export default function GalleryPage() {
       : GALLERY_CATEGORIES[0].key;
 
   const [active, setActive] = useState<GalleryCategory>(initial);
+  const managedMedia = useManagedGalleryMedia();
 
   // Keep the active tab in sync if the URL changes under us (e.g. a service
   // page's "View full Gallery" link is clicked while this page is already
@@ -60,7 +62,10 @@ export default function GalleryPage() {
     tabRefs.current[next.key]?.focus();
   };
 
-  const items = GALLERY_MEDIA[active];
+  // Managed entries are loaded at runtime from the approved gallery slots, so
+  // an admin can add or replace them without changing a file name or deploying.
+  // Existing curated local proof remains available as a resilient fallback.
+  const items = useMemo(() => [...managedMedia[active], ...GALLERY_MEDIA[active]], [managedMedia, active]);
   const activeMeta = GALLERY_CATEGORIES.find((c) => c.key === active)!;
 
   // One flat photo list per category, so "Photo 4 of 13" counts across the
@@ -172,6 +177,8 @@ export default function GalleryPage() {
                     >
                       <img
                         src={item.src}
+                        srcSet={item.srcSet}
+                        sizes={item.sizes}
                         alt={item.alt}
                         width={600}
                         height={450}

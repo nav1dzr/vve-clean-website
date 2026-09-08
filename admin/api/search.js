@@ -4,6 +4,8 @@ import { getServiceClient } from './_lib/supabaseAdmin.js';
 import { readJsonBody } from './_lib/body.js';
 import { validateSearchQuery } from './_lib/normalise.js';
 import { toCard } from './_lib/bookingFields.js';
+import { mediaCollectionHandler } from './_lib/mediaCollectionActions.js';
+import { mediaAssetHandler } from './_lib/mediaAssetActions.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -17,6 +19,13 @@ const RESULT_LIMIT = 50;
 // never builds a query string by hand and never returns confirmation_token
 // or any field outside the result-card shape.
 export default async function handler(req, res) {
+  // Media shares this already protected serverless function because the Vercel
+  // Hobby project is at its route cap. Both handlers verify the same admin
+  // token and validate their own request data before any provider action.
+  const params = new URL(req.url, 'https://admin.local').searchParams;
+  if (params.get('resource') === 'media') {
+    return params.get('id') ? mediaAssetHandler(req, res) : mediaCollectionHandler(req, res);
+  }
   const origin = req.headers.origin || '';
   const headers = { ...corsHeaders(origin), 'Cache-Control': 'no-store', 'Content-Type': 'application/json' };
 
