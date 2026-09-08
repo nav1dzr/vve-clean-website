@@ -1,48 +1,15 @@
 import { Star } from 'lucide-react';
 import { GOOGLE_PROFILE_LINK, GoogleIcon } from './Reviews';
-import {
-  GOOGLE_RATING_ARIA_LABEL,
-  GOOGLE_RATING_LABEL,
-  SHOW_AGGREGATE_STARS,
-  VERIFIED_GOOGLE_RATING,
-} from '../data/googleRating';
+import { useGoogleRating } from '../hooks/useGoogleRating';
 
-// Compact Google trust badge — shown directly below hero CTAs on the homepage
-// and service landing pages.
-//
-// Everything shown here is driven by src/data/googleRating.ts, which is
-// currently unverified. That means: no number, no star row, and an accessible
-// name that makes no rating claim. It used to hardcode "5.0" and announce
-// "rated 5.0 out of 5 on Google" to screen readers, with nothing in the project
-// substantiating either; dropping the digits alone still left five filled gold
-// stars saying the same thing to sighted visitors. Set VERIFIED_GOOGLE_RATING
-// once the real figures are read off the live profile and both return here
-// automatically.
 export default function GoogleBadge({ className = '' }: { className?: string }) {
-  return (
-    <a
-      href={GOOGLE_PROFILE_LINK}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={GOOGLE_RATING_ARIA_LABEL}
-      className={`inline-flex items-center gap-2.5 bg-white rounded-full pl-3 pr-4 py-2 min-h-[44px] shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-400 ${className}`}
-    >
-      <GoogleIcon size={18} />
-      {SHOW_AGGREGATE_STARS && (
-        <span className="flex gap-0.5" aria-hidden="true">
-          {[1, 2, 3, 4, 5].map((k) => (
-            <Star key={k} size={13} className="text-yellow-400 fill-yellow-400" />
-          ))}
-        </span>
-      )}
-      {VERIFIED_GOOGLE_RATING && (
-        <span className="text-navy-900 text-sm font-bold leading-none">
-          {VERIFIED_GOOGLE_RATING.value}
-        </span>
-      )}
-      <span className="text-slate-500 text-xs font-semibold leading-none">
-        {VERIFIED_GOOGLE_RATING ? 'on Google' : GOOGLE_RATING_LABEL}
-      </span>
-    </a>
-  );
+  const rating = useGoogleRating();
+  const label = rating ? `VVE Clean is rated ${rating.value.toFixed(1)} out of 5 from ${rating.count} Google reviews — read our Google reviews (opens in a new tab)` : 'Read our reviews on Google (opens in a new tab)';
+  return <a href={GOOGLE_PROFILE_LINK} target="_blank" rel="noopener noreferrer" aria-label={label}
+    title={rating ? `${rating.live ? 'Updated from Google' : 'Checked on Google'}: ${rating.verifiedOn.slice(0, 10)}` : undefined}
+    className={`inline-flex flex-wrap items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 min-h-[44px] shadow-sm hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-royal-600 ${className}`}>
+    <GoogleIcon size={20} />
+    {rating && <><span className="text-sm font-bold text-navy-950">{rating.value.toFixed(1)}</span><Star size={15} className="fill-amber-400 text-amber-400" aria-hidden="true" /></>}
+    <span className="text-xs font-semibold text-slate-600">{rating ? `Google · ${rating.count} reviews` : 'Google Reviews'}</span>
+  </a>;
 }

@@ -1,3 +1,4 @@
+import { useGoogleRating } from '../hooks/useGoogleRating';
 import { Shield, CheckCircle, Star, Lock } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
 
@@ -15,6 +16,7 @@ const badges = [
 
 export default function TrustBadges() {
   const { ref, visible } = useReveal();
+  const rating = useGoogleRating();
 
   return (
     <section ref={ref} className="bg-surface py-10 border-b border-line">
@@ -30,7 +32,7 @@ export default function TrustBadges() {
             >
               <badge.icon className="text-royal-500 mb-2" size={22} />
               <div className="text-navy-800 text-xs font-semibold mb-0.5">{badge.label}</div>
-              <div className="text-slate-500 text-[10px]">{badge.sub}</div>
+              <div className="text-slate-500 text-[10px]">{badge.icon === Star && rating ? `${rating.value.toFixed(1)} from ${rating.count} Google reviews` : badge.sub}</div>
             </div>
           ))}
         </div>

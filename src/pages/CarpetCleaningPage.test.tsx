@@ -98,7 +98,7 @@ describe('CarpetCleaningPage — quote placement and proof placeholders', () => 
     expect(document.querySelectorAll('video')).toHaveLength(4);
 
     expect(
-      screen.getByRole('heading', { name: /Watch the equipment work/i }),
+      screen.getByRole('heading', { name: /How we clean your carpets/i }),
     ).toBeInTheDocument();
   });
 

@@ -1,3 +1,4 @@
+import CarpetProcessSection from '../components/carpet/CarpetProcessSection';
 import { Fragment } from 'react';
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
 import AreaProofSection from '../components/areas/AreaProofSection';
@@ -137,7 +138,8 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
       </Fragment>
     ) : <AreaProofSection area={area} />,
 
-    sectionOrder: covered ? ['intro', 'proof', 'why', 'pricing', 'faq', 'related'] : ['intro', 'why', 'faq', 'related'],
+    processSection: <CarpetProcessSection compact />,
+    sectionOrder: covered ? ['intro', 'proof', 'process', 'why', 'pricing', 'faq', 'related'] : ['intro', 'why', 'faq', 'related'],
 
     faqs: buildAreaFaqs(area),
 

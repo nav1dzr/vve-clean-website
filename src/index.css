@@ -305,3 +305,16 @@ details[open] > .faq-summary .faq-icon {
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
+
+/* Clear service actions, restrained backdrop and native basket dialog. */
+.service-hero { background: radial-gradient(ellipse at 95% 10%, #d7ecf5 0, transparent 55%), linear-gradient(135deg, #f7fbff, #edf5fb); }
+.whatsapp-text-link, .whatsapp-text-link:hover { color: #128c45; text-decoration-color: #25d366; }
+.quote-basket-dialog { width: min(94vw, 480px); max-height: 85dvh; border: 0; border-radius: 20px; padding: 0; color: #10243e; box-shadow: 0 24px 80px #07172d40; }
+.quote-basket-dialog::backdrop { background: #06142b80; }
+@media (max-width: 639px) {
+  .service-hero-compact { padding-top: 1.25rem; padding-bottom: 1.5rem; }
+  .service-hero-compact h1 { font-size: 1.9rem; }
+  .service-hero-compact .service-photo > img { max-height: 220px; width: 100%; object-fit: cover; }
+}
+
+@media (max-width: 419px) { .nav-brand-divider, .nav-brand-descriptor { display: none; } }

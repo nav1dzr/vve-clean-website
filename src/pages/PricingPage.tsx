@@ -1,58 +1,22 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Check, ChevronRight } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import FaqSchema from '../components/FaqSchema';
+import GoogleBadge from '../components/GoogleBadge';
 import {
-  EOT_BASE_PRICES_P,
-  EOT_PRICES_P,
-  EOT_EXTRA_BATH_P,
-  EOT_EXTRA_WC_P,
-  MOVEIN_BASE_PRICES_P,
-  MOVEIN_EXTRA_BATH_P,
-  MOVEIN_EXTRA_WC_P,
-  EOT_CARPET_PACKAGE_DISCOUNT_PCT,
-  EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS,
-  AFTER_BUILDERS_START_FROM_P,
-  CARPET_ITEM_PRICES_P,
-  STAIRS_FIRST_P,
-  STAIRS_EXTRA_P,
-  CARPET_MIN_BOOKING_P,
-  ADDON_PRICES_P,
-  CARPET_BUNDLE_BANDS,
-  WINDOW_CLEANING_FROM_P,
-  WINDOW_CLEANING_MIN_P,
-  WINDOW_CLEANING_SCOPE,
-  GARDEN_SERVICES_FROM_P,
-  GARDEN_SERVICES_MIN_P,
-  PRESSURE_WASHING_FROM_P,
-  EOT_GUARANTEE_HOURS,
-  EOT_TAILORED_START_PRICES_P,
+ EOT_BASE_PRICES_P, EOT_TAILORED_START_PRICES_P, EOT_EXTRA_BATH_P, EOT_EXTRA_WC_P,
+ MOVEIN_BASE_PRICES_P, MOVEIN_EXTRA_BATH_P, MOVEIN_EXTRA_WC_P,
+ CARPET_ITEM_PRICES_P, CARPET_MIN_BOOKING_P, STAIRS_FIRST_P, STAIRS_EXTRA_P,
+ ADDON_PRICES_P, AFTER_BUILDERS_START_FROM_P, WINDOW_CLEANING_FROM_P, WINDOW_CLEANING_MIN_P,
+ WINDOW_CLEANING_SCOPE, GARDEN_SERVICES_FROM_P, GARDEN_SERVICES_MIN_P, PRESSURE_WASHING_FROM_P,
+ EOT_CARPET_PACKAGE_DISCOUNT_PCT, EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS, EOT_GUARANTEE_HOURS,
 } from '../data/pricing';
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const WA_BASE   = 'https://wa.me/447845451111';
-const WA_SIMPLE = `${WA_BASE}?text=${encodeURIComponent("Hi VVE Clean! I'd like to book a clean.")}`;
-const WA_PHOTO  = `${WA_BASE}?text=${encodeURIComponent("Hi VVE Clean! I'd like to send a photo for a quote.")}`;
-
-const p = (pence: number) => `£${pence / 100}`;  // display helper
-
-const WA_SVG = (
-  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 flex-shrink-0">
-    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-  </svg>
-);
-
-// ─── Price tables ─────────────────────────────────────────────────────────────
-
-const EOT_ROWS: [string, number, number][] = [
-  ['Studio',    EOT_BASE_PRICES_P.studio / 100,  MOVEIN_BASE_PRICES_P.studio / 100],
-  ['1 Bed',     EOT_BASE_PRICES_P.bed1   / 100,  MOVEIN_BASE_PRICES_P.bed1   / 100],
-  ['2 Bed',     EOT_BASE_PRICES_P.bed2   / 100,  MOVEIN_BASE_PRICES_P.bed2   / 100],
-  ['3 Bed',     EOT_BASE_PRICES_P.bed3   / 100,  MOVEIN_BASE_PRICES_P.bed3   / 100],
-  ['4+ Bed',    EOT_BASE_PRICES_P.bed4   / 100,  MOVEIN_BASE_PRICES_P.bed4   / 100],
-];
-
+const money = (pence: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: pence % 100 ? 2 : 0 }).format(pence / 100);
+const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20please%20help%20me%20choose%20the%20right%20clean.';
+const SIZES = [['studio','Studio'],['bed1','1 bedroom'],['bed2','2 bedrooms'],['bed3','3 bedrooms'],['bed4','4 bedrooms']] as const;
+const categories = ['End of tenancy', 'Carpets', 'Sofas & upholstery', 'Other cleans'] as const;
 const PRICING_FAQS = [
   { q: 'When do I pay?', a: 'Request a preferred time free. After we agree the scope, total and time with you, we send a £30 deposit link. Paying confirms the booking; the deposit counts towards the total and the remaining balance is normally due after the service.' },
   { q: 'What do the published prices cover?', a: 'The tables show the standard scope for normally maintained properties. Select the service and property details to see the applicable price and included work.' },
@@ -61,400 +25,75 @@ const PRICING_FAQS = [
   { q: 'Do you clean occupied homes?', a: 'Tell us whether the property is occupied when you enquire. VVE Clean will confirm whether the requested service and access arrangements are suitable before booking.' },
 ];
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
+function PriceRows({ rows }: { rows: [string, number | string][] }) {
+ return <dl className="divide-y divide-slate-100">{rows.map(([label, price]) => <div key={label} className="flex items-start justify-between gap-5 py-3.5"><dt className="text-sm text-slate-700">{label}</dt><dd className="shrink-0 text-sm font-bold text-navy-950">{typeof price === 'number' ? money(price) : price}</dd></div>)}</dl>;
+}
+function QuoteLink({ to, children }: { to: string; children: React.ReactNode }) {
+ return <Link to={to} className="mt-6 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-royal-600 px-6 py-3 text-sm font-bold text-white hover:bg-royal-700">{children}<ChevronRight size={18} /></Link>;
+}
 export default function PricingPage() {
-  return (
-    <div className="min-h-screen bg-[#f5f6f8] mobile-page-bottom lg:pb-0">
-      <FaqSchema items={PRICING_FAQS} />
-      <Navbar />
-      <main id="main-content">
-
-      {/* ── Hero ── */}
-      <div className="navy-gradient pt-32 pb-16 px-4">
-        <div className="max-w-5xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-5">
-            <span className="text-silver-300 text-xs tracking-widest font-medium uppercase">Transparent Pricing</span>
-          </div>
-          {/* "Zero Surprises" promised something the FAQ below then qualifies
-              ("Can the price change?" — yes, if condition or scope differs on
-              arrival). The heading now says what is actually true: the prices
-              are published, and anything on top is shown before you commit. */}
-          <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight">
-            Published Prices,<br />
-            <span className="text-white">Shown Before You Book</span>
-          </h1>
-          <p className="text-white text-lg max-w-xl mx-auto">
-            Professional cleaning with clear, upfront pricing. Prices shown apply to normally maintained properties, and any extra is confirmed with you before the booking is accepted.
-          </p>
-          <div className="mt-6">
-            <Link to="/booking"
-              className="inline-flex items-center justify-center gap-2 bg-royal-500 hover:bg-royal-600 text-white font-semibold text-sm sm:text-base px-6 py-3 min-h-[44px] rounded-lg transition-all duration-200 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-              Get my price
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 1. VACANT PROPERTY CLEANS TABLE ── */}
-      <section className="max-w-5xl mx-auto px-4 py-14">
-        <div className="text-center mb-8">
-          <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 mb-2">Vacant Property Cleans</h2>
-          <p className="text-silver-700">Fixed prices for normally maintained, vacant properties.</p>
-        </div>
-
-        {/* Desktop table */}
-        <div className="hidden md:block overflow-x-auto rounded-2xl border border-silver-200 shadow-sm">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-navy-950 text-white">
-                <th className="text-left px-6 py-4 font-semibold text-silver-300 uppercase tracking-widest text-xs w-36">Property size</th>
-                <th className="px-6 py-4 font-semibold text-silver-300 uppercase tracking-widest text-xs">
-                  <div className="flex flex-col items-center gap-1">
-                    End of Tenancy — Complete
-                    <span className="text-green-400 text-[10px] font-normal normal-case tracking-normal">Oven, fridge/freezer &amp; internal storage included — no surprise appliance charges</span>
-                  </div>
-                </th>
-                <th className="px-6 py-4 font-semibold text-silver-300 uppercase tracking-widest text-xs">Move-in Deep Clean</th>
-              </tr>
-            </thead>
-            <tbody>
-              {EOT_ROWS.map(([size, eot, movein], i) => (
-                <tr key={size} className={i % 2 === 0 ? 'bg-white' : 'bg-silver-100/60'}>
-                  <td className="px-6 py-4 font-bold text-navy-900">{size}</td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="font-display font-bold text-xl text-royal-600">£{eot}</span>
-                  </td>
-                  <td className="px-6 py-4 text-center font-semibold text-navy-800">£{movein}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mobile cards */}
-        <div className="md:hidden space-y-4">
-          {EOT_ROWS.map(([size, eot, movein]) => (
-            <div key={size} className="bg-white rounded-2xl border border-silver-200 p-5 shadow-sm">
-              <div className="font-bold text-navy-900 text-base mb-3">{size}</div>
-              <div className="grid grid-cols-2 gap-3 text-center text-xs">
-                <div className="bg-royal-50 rounded-xl p-3">
-                  <div className="text-royal-600 font-bold text-lg">£{eot}</div>
-                  <div className="text-silver-700 mt-0.5">End of Tenancy</div>
-                  <div className="text-green-600 text-[9px] font-semibold mt-0.5">Complete package</div>
-                </div>
-                <div className="bg-silver-100 rounded-xl p-3">
-                  <div className="text-navy-900 font-bold text-lg">£{movein}</div>
-                  <div className="text-silver-700 mt-0.5">Move-in</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <details data-disclosure="pricing-not-faq" className="group mx-auto mt-5 max-w-3xl overflow-hidden rounded-2xl border border-silver-200 bg-white shadow-sm">
-          <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-4 px-5 py-3.5 text-left text-sm font-semibold text-navy-900">
-            How bathrooms, property type and package choice affect the price
-            <span aria-hidden="true" className="text-xl text-royal-600 transition-transform group-open:rotate-45">+</span>
-          </summary>
-          <div className="space-y-3 border-t border-silver-200 px-5 py-4 text-sm leading-relaxed text-silver-600">
-            <p>
-              Each extra bathroom: <strong className="text-navy-700">+{p(EOT_EXTRA_BATH_P)}</strong> end of tenancy or <strong className="text-navy-700">+{p(MOVEIN_EXTRA_BATH_P)}</strong> move-in. Additional WC: <strong className="text-navy-700">+{p(EOT_EXTRA_WC_P)}</strong> (EOT) or <strong className="text-navy-700">+{p(MOVEIN_EXTRA_WC_P)}</strong> (move-in).
-            </p>
-            <p>
-              House and maisonette prices are set separately — from <strong className="text-navy-700">£{EOT_PRICES_P.house.bed1!.tailored / 100}</strong> for a one-bedroom Tailored clean — and are confirmed in the calculator.
-            </p>
-            <p>
-              The Tailored Checklist Clean starts from <strong className="text-navy-700">£{EOT_TAILORED_START_PRICES_P.studio / 100}</strong>. The full agency-ready guarantee applies to the Complete package; the Tailored guarantee covers the tasks in the confirmed quote.
-            </p>
-          </div>
-        </details>
-
-        {/* Condition note */}
-        <div
-          className="flex items-start gap-3 rounded-xl px-4 py-3.5 mt-4"
-          style={{ background: '#dbeafe', borderLeft: '4px solid #0284c7' }}
-        >
-          <span className="flex-shrink-0 font-bold text-base leading-none mt-0.5" style={{ color: '#0284c7' }}>ℹ</span>
-          <p className="text-navy-900 text-xs leading-relaxed font-medium">
-            Prices assume the property is vacant and in normal condition. Heavy soiling, mould, excessive rubbish, biohazard contamination, pet accidents, strong odours, or large permanent stains require photo or video review and a revised quote agreed with you before work starts. Congestion zone and parking charges are passed through at cost where applicable.
-          </p>
-        </div>
-
-        {/* After Builders callout */}
-        <div className="mt-6 bg-amber-50 border border-amber-200 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-          <div>
-            <div className="font-display text-lg font-bold text-navy-900 mb-1">After Builders Clean</div>
-            <div className="text-amber-700 text-sm font-semibold mb-2">From £{AFTER_BUILDERS_START_FROM_P / 100} — estimated price confirmed after a photo</div>
-            <p className="text-silver-600 text-sm leading-relaxed max-w-lg">
-              Post-construction results depend heavily on scope. Send us a photo and we'll confirm your price before any work starts.
-            </p>
-          </div>
-          <a href={WA_PHOTO} target="_blank" rel="noopener noreferrer"
-            className="flex-shrink-0 inline-flex items-center gap-2 btn-whatsapp font-bold px-5 py-3 rounded-xl transition-all duration-200 text-sm whitespace-nowrap">
-            {WA_SVG}
-            WhatsApp a photo
-          </a>
-        </div>
-
-        {/* CTA */}
-        <div className="flex justify-center mt-8">
-          <a href={WA_SIMPLE} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2.5 btn-whatsapp font-bold px-8 py-4 rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base">
-            {WA_SVG}
-            Ask on WhatsApp
-          </a>
-        </div>
-      </section>
-
-      {/* ── 2. CARPET & UPHOLSTERY TABLE ── */}
-      <section className="bg-white border-y border-silver-200 py-14 px-4">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 mb-2">Carpet &amp; Upholstery</h2>
-            <p className="text-silver-600">Hot-water extraction for suitable carpet and upholstery. £{CARPET_MIN_BOOKING_P / 100} minimum visit.</p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-6 mb-6">
-            {/* Carpets */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-navy-700 font-bold text-xs uppercase tracking-widest">Carpets</span>
-                <div className="flex-1 h-px bg-silver-200" />
-              </div>
-              <div className="space-y-2">
-                {([
-                  ['Bedroom',                 CARPET_ITEM_PRICES_P.bedroom       / 100, null],
-                  ['Living / dining room',    CARPET_ITEM_PRICES_P.living_room   / 100, null],
-                  ['Large or through lounge', CARPET_ITEM_PRICES_P.large_lounge  / 100, null],
-                  ['Hallway',                 CARPET_ITEM_PRICES_P.hallway        / 100, null],
-                  ['Landing',                 CARPET_ITEM_PRICES_P.landing        / 100, null],
-                  ['Stairs — first flight',   STAIRS_FIRST_P                     / 100, null],
-                  ['Stairs — each extra',     STAIRS_EXTRA_P                     / 100, null],
-                  ['Rug cleaning',             null, 'Add-on only with carpet, upholstery or relevant EOT cleaning · photo quote'],
-                ] as [string, number | null, string | null][]).map(([label, price, note]) => (
-                  <div key={label} className="flex items-start justify-between bg-silver-100 rounded-xl px-4 py-3 border border-silver-200">
-                    <div>
-                      <div className="text-navy-800 text-sm font-medium">{label}</div>
-                      {note && <div className="text-silver-600 text-[11px] mt-0.5">{note}</div>}
-                    </div>
-                    <div className="font-display font-bold text-lg text-royal-600 ml-4 whitespace-nowrap">{price === null ? 'Ask us' : `£${price}`}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Sofas & Upholstery */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-navy-700 font-bold text-xs uppercase tracking-widest">Sofas &amp; Upholstery</span>
-                <div className="flex-1 h-px bg-silver-200" />
-              </div>
-              <div className="space-y-2">
-                {([
-                  ['Armchair',               CARPET_ITEM_PRICES_P.armchair        / 100],
-                  ['2-seater sofa',          CARPET_ITEM_PRICES_P.sofa_2          / 100],
-                  ['3-seater sofa',          CARPET_ITEM_PRICES_P.sofa_3          / 100],
-                  ['Corner / L-shaped sofa', CARPET_ITEM_PRICES_P.sofa_corner     / 100],
-                  ['Mattress (single)',       CARPET_ITEM_PRICES_P.mattress_single / 100],
-                  ['Mattress (double)',       CARPET_ITEM_PRICES_P.mattress_double / 100],
-                  ['Mattress (king)',         CARPET_ITEM_PRICES_P.mattress_king / 100],
-                ] as [string, number][]).map(([label, price]) => (
-                  <div key={label} className="flex items-center justify-between bg-silver-100 rounded-xl px-4 py-3 border border-silver-200">
-                    <div className="text-navy-800 text-sm font-medium">{label}</div>
-                    <div className="font-display font-bold text-lg text-royal-600 ml-4">£{price}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* EOT carpet package */}
-              <div className="mt-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-navy-700 font-bold text-xs uppercase tracking-widest">EOT carpet package</span>
-                  <div className="flex-1 h-px bg-silver-200" />
-                </div>
-                <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3">
-                  <p className="text-green-800 text-sm font-semibold leading-relaxed">
-                    Save up to {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% on professional carpet cleaning when added to your End of Tenancy clean.
-                  </p>
-                  <details data-disclosure="pricing-not-faq" className="group mt-2">
-                    <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold text-green-800 underline decoration-green-300 underline-offset-4">
-                      See exactly how this package discount works
-                      <span aria-hidden="true" className="text-lg transition-transform group-open:rotate-45">+</span>
-                    </summary>
-                    <p className="pb-1 text-xs leading-relaxed text-green-700">
-                      Applies once {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS}+ bedrooms, reception rooms, hallways, landings or flights of stairs are added. It is calculated from the standard carpet prices above and applies only to the carpet portion, never the End of Tenancy price. Rugs, delicate fibres and photo-assessment items remain quote-required. The calculator confirms it room by room.
-                    </p>
-                  </details>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Minimum booking notice */}
-          <div className="flex items-center justify-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 max-w-md mx-auto mb-4">
-            <span className="text-amber-700 text-sm font-semibold">£{CARPET_MIN_BOOKING_P / 100} minimum booking</span>
-          </div>
-
-          <p className="text-center text-[#1a5c3a] text-sm font-semibold bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 max-w-md mx-auto">
-            Book multiple items together and save automatically — {CARPET_BUNDLE_BANDS.filter((b) => b.amountP > 0).map((b) => `${b.display} at ${b.minItems}+ items`).join(', ')}.
-          </p>
-        </div>
-      </section>
-
-      {/* ── 3. EXTRAS GRID ── */}
-      <section className="max-w-5xl mx-auto px-4 py-14">
-        <div className="text-center mb-8">
-          <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 mb-2">Optional Extras</h2>
-          <p className="text-silver-600">Select these in the quote calculator when they apply.</p>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {[
-            { label: 'Oven, hob & extractor',      price: `Included with every Complete EOT · +£${ADDON_PRICES_P.oven / 100} on its own`, highlight: true },
-            { label: 'Inside fridge / freezer',    price: `Included with every Complete EOT · +£${ADDON_PRICES_P.fridge / 100} on its own`, highlight: true },
-            { label: 'Exterior windows',           price: `+£${ADDON_PRICES_P.ext_windows / 100}` },
-            { label: 'Wall marks & scuffs',        price: `+£${ADDON_PRICES_P.wall_marks / 100}` },
-            { label: 'Key collection/return',      price: `+£${ADDON_PRICES_P.key_collect / 100}` },
-            { label: 'Rubbish removal (small load)', price: `+£${ADDON_PRICES_P.rubbish / 100}` },
-          ].map((item) => (
-            <div key={item.label}
-              className={`rounded-2xl px-4 py-4 border text-sm transition-all duration-200 ${item.highlight ? 'bg-amber-50 border-amber-200' : 'bg-white border-silver-200'}`}>
-              <div className="font-semibold text-navy-800 mb-1 leading-snug">{item.label}</div>
-              <div className={`text-xs font-bold ${item.highlight ? 'text-amber-700' : 'text-royal-600'}`}>{item.price}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── 4. QUOTE-ONLY SERVICES ── */}
-      <section className="bg-navy-950 py-14 px-4">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-2">Quote-Only Services</h2>
-            <p className="text-silver-400">Send a photo via WhatsApp so we can review the scope.</p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { title: 'Window Cleaning',       from: `From £${WINDOW_CLEANING_FROM_P / 100}`,  desc: WINDOW_CLEANING_SCOPE,            minNote: WINDOW_CLEANING_MIN_P / 100  },
-              { title: 'Pressure Washing',       from: `From £${PRESSURE_WASHING_FROM_P / 100}`, desc: 'Driveways, patios & paths.',       minNote: 0 },
-              { title: 'Garden Services',        from: `From £${GARDEN_SERVICES_FROM_P / 100}`,  desc: 'Clearance, tidy & maintenance.',   minNote: GARDEN_SERVICES_MIN_P / 100  },
-              { title: 'Commercial & Communal',  from: 'Free site visit', desc: 'Written quote after the site and scope are reviewed.', minNote: 0 },
-            ].map((card) => (
-              <div key={card.title} className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col gap-3">
-                <div>
-                  <div className="text-white font-bold text-base mb-1">{card.title}</div>
-                  <div className="text-silver-400 text-xs leading-relaxed">{card.desc}</div>
-                </div>
-                <div className="font-display font-bold text-2xl text-amber-400">{card.from}</div>
-                {card.minNote > 0 && (
-                  <p className="text-silver-400 text-[10px] leading-snug -mt-1">Minimum call-out £{card.minNote} on standalone visits</p>
-                )}
-                <a href={WA_PHOTO} target="_blank" rel="noopener noreferrer"
-                  className="mt-auto inline-flex items-center gap-1.5 text-xs font-semibold text-green-400 hover:text-green-300 transition-colors">
-                  {WA_SVG}
-                  WhatsApp a photo for review
-                </a>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── 5. WHAT'S ALWAYS INCLUDED ── */}
-      <section className="py-14 px-4" style={{ backgroundColor: '#1a3d2b' }}>
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-10">
-            <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-2">What is clear before you accept</h2>
-            <p className="text-green-300 text-sm">Your scope, price and next steps in one place.</p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              '67-point checklist on Complete end of tenancy cleans',
-              'Photographic cleaning receipt for end of tenancy cleans',
-              'No payment when you first request a preferred time',
-              `Report missed agreed tasks within ${EOT_GUARANTEE_HOURS / 24} days for one covered re-clean`,
-              'Reschedule without charge until 12pm the day before',
-              'Price and scope confirmed before the booking is accepted',
-            ].map((item) => (
-              <div key={item} className="flex items-start gap-3 bg-white/5 rounded-xl px-5 py-4 border border-white/10">
-                <span className="text-amber-400 font-bold text-base flex-shrink-0 mt-0.5">✓</span>
-                <span className="text-white text-sm leading-relaxed">{item}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── 6. MINI FAQ ── */}
-      <section className="bg-white py-14 px-4 border-t border-silver-200">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="font-display text-3xl font-bold text-navy-900 mb-2">Common Questions</h2>
-          </div>
-          <div className="space-y-3">
-            {PRICING_FAQS.map((faq) => (
-              <details key={faq.q}
-                className="group bg-silver-100 rounded-2xl border border-silver-200 overflow-hidden">
-                <summary className="flex items-center justify-between px-5 py-4 cursor-pointer list-none font-semibold text-navy-900 text-sm select-none">
-                  {faq.q}
-                  <span aria-hidden="true" className="text-silver-500 group-open:rotate-45 transition-transform duration-200 text-xl leading-none">+</span>
-                </summary>
-                <div className="px-5 pb-4 text-silver-600 text-sm leading-relaxed border-t border-silver-200 pt-3">
-                  {faq.a}
-                </div>
-              </details>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── 7. FINAL CTA ── */}
-      <section className="bg-navy-950 py-16 px-4">
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-3">Ready to request a cleaning time?</h2>
-          <p className="text-silver-300 mb-2 text-base">Choose a preferred date and VVE Clean will confirm availability separately.</p>
-          <p className="text-sky-100 mb-8 text-sm font-semibold">No payment to send a request. We check availability, scope and the final price first.</p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/#quote"
-              className="inline-flex items-center justify-center gap-2.5 bg-royal-500 hover:bg-royal-600 text-white font-bold px-8 py-4 min-h-[44px] rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-              Request a time — no payment
-            </Link>
-            <a href={WA_SIMPLE} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2.5 btn-whatsapp font-bold px-8 py-4 min-h-[44px] rounded-full transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-              {WA_SVG}
-              Ask on WhatsApp
-            </a>
-            <a href="tel:02080502233"
-              className="inline-flex items-center justify-center gap-2 border-2 border-white/30 hover:border-white text-white font-bold px-8 py-4 min-h-[44px] rounded-full transition-all duration-300 hover:bg-white hover:text-navy-900 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-              Call 020 8050 2233
-            </a>
-          </div>
-        </div>
-      </section>
-
-      </main>
-      <Footer />
-
-      {/* ── 8. MOBILE STICKY BOTTOM BAR ──
-          No `bottom` transition: animating up to the cookie banner's height
-          slid this bar through the banner on a fresh visit. See
-          MobileStickyFooter for the full note. */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-silver-200 shadow-xl"
-        style={{ bottom: 'var(--vve-cookie-banner-h, 0px)' }}>
-        <div className="flex items-stretch">
-          <Link to="/#quote"
-            className="flex-[1.6] flex min-h-[48px] items-center justify-center gap-2 border-r border-navy-950/15 bg-sky-500 py-4 text-sm font-bold text-navy-950 transition-colors hover:bg-sky-400 active:bg-sky-600">
-            Get my price
-          </Link>
-          <a href={WA_SIMPLE} target="_blank" rel="noopener noreferrer"
-            className="flex-1 flex min-h-[48px] items-center justify-center gap-2 bg-[#25d366] py-4 text-sm font-bold text-navy-950 transition-colors hover:bg-[#31df72] active:bg-[#1ebe5d]">
-            {WA_SVG}
-            Need help?
-          </a>
-        </div>
-      </div>
+ const [category, setCategory] = useState<typeof categories[number]>('End of tenancy');
+ return <div className="min-h-screen bg-slate-50 mobile-page-bottom lg:pb-0">
+  <FaqSchema items={PRICING_FAQS} /><Navbar />
+  <main id="main-content">
+   <section className="service-hero px-4 pb-10 pt-28 sm:pb-14 sm:pt-36">
+    <div className="mx-auto max-w-5xl">
+     <p className="mb-3 text-xs font-bold uppercase tracking-[.18em] text-royal-700">Prices &amp; what is included</p>
+     <h1 className="font-display text-4xl font-bold tracking-tight text-navy-950 sm:text-5xl">Find the right clean.<br />See a clear price.</h1>
+     <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-600">Choose your service below. Check the scope, build your quote and request a preferred time with no payment.</p>
+     <div className="mt-5"><GoogleBadge /></div>
     </div>
-  );
+   </section>
+   <section className="mx-auto max-w-5xl px-4 py-9 sm:py-12" aria-label="Service prices">
+    <h2 className="font-display text-xl font-bold text-navy-950">What would you like cleaned?</h2>
+    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Choose a pricing service">
+     {categories.map(item => <button key={item} type="button" aria-pressed={category === item} onClick={() => setCategory(item)} className={`min-h-[52px] rounded-xl border px-3 py-3 text-sm font-semibold transition-colors ${category === item ? 'border-royal-600 bg-royal-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-royal-500'}`}>{item}</button>)}
+    </div>
+    <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-8">
+     <div hidden={category !== 'End of tenancy'}>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-display text-2xl font-bold text-navy-950">End of tenancy cleaning</h3><p className="mt-2 text-sm text-slate-600">Flat prices · one bathroom · vacant, normally maintained property</p></div><span className="rounded-full bg-sky-50 px-3 py-2 text-xs font-semibold text-royal-800">Oven cleaning included in both</span></div>
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+       <div className="rounded-xl bg-sky-50 p-4"><h4 className="font-bold text-navy-950">Complete</h4><p className="mt-1 text-sm leading-relaxed text-slate-600">Our full 67-point checklist, including internal appliances, cupboards and storage. For a full move-out clean.</p></div>
+       <div className="rounded-xl bg-slate-50 p-4"><h4 className="font-bold text-navy-950">Tailored</h4><p className="mt-1 text-sm leading-relaxed text-slate-600">Selected internal tasks with oven cleaning included. Choose any additional work in your quote.</p></div>
+      </div>
+      <table className="mt-5 w-full text-sm"><caption className="sr-only">End of tenancy flat prices by property size and package</caption><thead><tr className="border-b border-slate-200"><th className="py-3 text-left font-medium text-slate-500">Property</th><th className="py-3 text-right text-royal-800">Complete</th><th className="py-3 text-right text-slate-600">Tailored from</th></tr></thead><tbody>{SIZES.map(([key,label]) => <tr key={key} className="border-b border-slate-100"><th className="py-4 text-left font-medium text-slate-700">{label}</th><td className="py-4 text-right font-bold text-navy-950">{money(EOT_BASE_PRICES_P[key])}</td><td className="py-4 text-right font-semibold text-slate-600">{money(EOT_TAILORED_START_PRICES_P[key])}</td></tr>)}</tbody></table>
+      <p className="mt-4 text-sm leading-relaxed text-slate-600">Extra bathroom {money(EOT_EXTRA_BATH_P)} · extra WC {money(EOT_EXTRA_WC_P)}. Houses and maisonettes have their own prices in the calculator. For 5+ bedrooms, contact us for an individual quote.</p>
+      <p className="mt-4 flex gap-2 text-sm leading-relaxed text-slate-700"><Check size={18} className="mt-0.5 shrink-0 text-emerald-700" />Report missed agreed work within {EOT_GUARANTEE_HOURS / 24} days for one covered re-clean. Complete covers the full checklist; Tailored covers your selected tasks.</p>
+      <QuoteLink to="/end-of-tenancy-cleaning-london#quote">Build my end of tenancy quote</QuoteLink>
+      <details data-disclosure="pricing-not-faq" className="mt-5 border-t border-slate-100 pt-2"><summary className="cursor-pointer py-3 text-sm font-semibold text-navy-900">Adding professional carpet cleaning?</summary><p className="pb-3 text-sm leading-relaxed text-slate-600">Save {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% on qualifying carpet cleaning with your end of tenancy service when you select {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS}+ qualifying areas. Smaller selections use the standard carpet add-on prices. The calculator shows the actual saving before you request a time.</p></details>
+     </div>
+     <div hidden={category !== 'Carpets'}>
+      <h3 className="font-display text-2xl font-bold text-navy-950">Carpet cleaning</h3><p className="mt-2 text-sm text-slate-600">Choose your rooms and areas. {money(CARPET_MIN_BOOKING_P)} minimum per visit.</p>
+      <PriceRows rows={[[ 'Bedroom',CARPET_ITEM_PRICES_P.bedroom],['Living / dining room',CARPET_ITEM_PRICES_P.living_room],['Large or through lounge',CARPET_ITEM_PRICES_P.large_lounge],['Hallway',CARPET_ITEM_PRICES_P.hallway],['Landing',CARPET_ITEM_PRICES_P.landing],['Stairs — first flight',STAIRS_FIRST_P],['Stairs — each extra flight',STAIRS_EXTRA_P],['Rugs','Photo assessment']]} />
+      <p className="mt-4 rounded-xl bg-sky-50 p-4 text-sm leading-relaxed text-slate-700">Your total includes any applicable same-visit saving, subject to the minimum visit charge. Rugs need a photo assessment and are available alongside carpet, upholstery or relevant end of tenancy cleaning.</p>
+      <QuoteLink to="/carpet-cleaning-london#quote">Choose my rooms</QuoteLink>
+     </div>
+     <div hidden={category !== 'Sofas & upholstery'}>
+      <h3 className="font-display text-2xl font-bold text-navy-950">Sofas &amp; upholstery</h3><p className="mt-2 text-sm text-slate-600">Prices per item. {money(CARPET_MIN_BOOKING_P)} minimum per visit, including mixed carpet and upholstery selections.</p>
+      <PriceRows rows={[[ 'Armchair',CARPET_ITEM_PRICES_P.armchair],['2-seater sofa',CARPET_ITEM_PRICES_P.sofa_2],['3-seater sofa',CARPET_ITEM_PRICES_P.sofa_3],['Corner / L-shaped sofa',CARPET_ITEM_PRICES_P.sofa_corner],['Mattress (single)',CARPET_ITEM_PRICES_P.mattress_single],['Mattress (double)',CARPET_ITEM_PRICES_P.mattress_double],['Mattress (king)',CARPET_ITEM_PRICES_P.mattress_king]]} />
+      <p className="mt-4 text-sm leading-relaxed text-slate-600">Suitable fabrics are assessed before treatment. For delicate materials or uncertain fabric types, send a photograph first.</p><QuoteLink to="/sofa-cleaning-london#quote">Choose my furniture</QuoteLink>
+     </div>
+     <div hidden={category !== 'Other cleans'}>
+      <h3 className="font-display text-2xl font-bold text-navy-950">Move-in deep cleaning</h3><p className="mt-2 text-sm text-slate-600">For a normally maintained, vacant property with one bathroom.</p>
+      <PriceRows rows={SIZES.map(([key,label]) => [label, MOVEIN_BASE_PRICES_P[key]])} />
+      <p className="mt-3 text-sm text-slate-600">Extra bathroom {money(MOVEIN_EXTRA_BATH_P)} · extra WC {money(MOVEIN_EXTRA_WC_P)}.</p>
+      <h3 className="mt-8 font-display text-xl font-bold text-navy-950">Services quoted after a scope review</h3>
+      <div className="mt-4 divide-y divide-slate-100">{[
+       ['After Builders Clean',`From ${money(AFTER_BUILDERS_START_FROM_P)}`,'Send photos of the work and dust so we can confirm the scope.'],
+       ['Window Cleaning',`From ${money(WINDOW_CLEANING_FROM_P)}`,`${WINDOW_CLEANING_SCOPE} Minimum standalone visit ${money(WINDOW_CLEANING_MIN_P)}.`],
+       ['Pressure Washing',`From ${money(PRESSURE_WASHING_FROM_P)}`,'Driveways, patios and paths.'],
+       ['Garden Services',`From ${money(GARDEN_SERVICES_FROM_P)}`,`Clearance, tidy and maintenance. Minimum standalone visit ${money(GARDEN_SERVICES_MIN_P)}.`],
+       ['Commercial & Communal','Written quote','Site, access and cleaning scope reviewed before agreement.'],
+      ].map(([title,price,description]) => <div key={title} className="py-4"><div className="flex flex-wrap justify-between gap-2"><h4 className="font-semibold text-navy-900">{title}</h4><p className="text-sm font-bold text-royal-800">{price}</p></div><p className="mt-1 text-sm leading-relaxed text-slate-600">{description}</p></div>)}</div>
+      <a href={WA} target="_blank" rel="noopener noreferrer" className="whatsapp-text-link mt-5 inline-flex min-h-[44px] items-center font-bold underline underline-offset-4">Ask about another clean</a>
+     </div>
+    </div>
+    <details data-disclosure="pricing-not-faq" className="mt-4 rounded-xl border border-slate-200 bg-white px-5"><summary className="cursor-pointer py-4 font-semibold text-navy-900">Optional extras and access costs</summary><div className="pb-5"><p className="mb-2 text-sm leading-relaxed text-slate-600">Add only what you need. Oven cleaning is already included in both end of tenancy packages; Complete also includes internal fridge/freezer cleaning. The calculator applies the selected service's inclusions.</p><PriceRows rows={[[ 'Oven, hob & extractor add-on',ADDON_PRICES_P.oven],['Inside fridge / freezer add-on',ADDON_PRICES_P.fridge],['Exterior windows',ADDON_PRICES_P.ext_windows],['Wall marks & scuffs',ADDON_PRICES_P.wall_marks],['Key collection/return',ADDON_PRICES_P.key_collect],['Rubbish removal (small load)',ADDON_PRICES_P.rubbish]]} /><p className="mt-3 text-sm leading-relaxed text-slate-600">Parking and any applicable Congestion Charge are shown separately and agreed with you. Heavy soiling, mould, excessive rubbish, contamination or strong odours require photo review and an agreed scope before work starts.</p></div></details>
+   </section>
+   <section className="border-y border-slate-200 bg-white px-4 py-10"><div className="mx-auto max-w-5xl"><h2 className="font-display text-2xl font-bold text-navy-950">Know what happens next</h2><ol className="mt-5 grid gap-6 sm:grid-cols-3">{[['01','Request free','Choose the service and your preferred time. No payment is taken.'],['02','Agree the details','We confirm availability, scope, price and any access costs with you.'],['03','Confirm with £30','Pay the deposit from your agreed offer. It counts towards your total; the balance is normally due after cleaning.']].map(([number,title,text]) => <li key={number}><span className="text-xs font-bold text-royal-600">{number}</span><h3 className="mt-2 font-bold text-navy-950">{title}</h3><p className="mt-2 text-sm leading-relaxed text-slate-600">{text}</p></li>)}</ol></div></section>
+   <section className="mx-auto max-w-3xl px-4 py-12"><h2 className="mb-5 font-display text-2xl font-bold text-navy-950">A few useful answers</h2><div className="divide-y divide-slate-200">{PRICING_FAQS.map(faq => <details key={faq.q}><summary className="cursor-pointer py-4 font-semibold text-navy-900">{faq.q}</summary><div className="faq-answer pb-5 text-sm leading-relaxed text-slate-600">{faq.a}</div></details>)}</div><p className="mt-6 text-sm text-slate-600">Need help choosing? <a className="whatsapp-text-link font-semibold underline underline-offset-4" href={WA} target="_blank" rel="noopener noreferrer">Message us on WhatsApp</a> or <a href="tel:02080502233" className="underline underline-offset-4">call 020 8050 2233</a>.</p></section>
+  </main><Footer />
+  <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-slate-200" style={{ bottom: 'var(--vve-cookie-banner-h, 0px)' }}><div className="flex items-stretch pb-[env(safe-area-inset-bottom)]"><Link to="/#quote" className="flex flex-1 min-h-[52px] items-center justify-center bg-royal-600 px-4 text-sm font-bold text-white">Get my price</Link><a href={WA} target="_blank" rel="noopener noreferrer" className="whatsapp-text-link flex flex-1 min-h-[52px] items-center justify-center px-4 text-sm font-bold">WhatsApp us</a></div></div>
+ </div>;
 }

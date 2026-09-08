@@ -210,7 +210,7 @@ function CtaButton({
   // rendered in the "secondary" hero slot, rather than the plain outlined
   // style used for non-WhatsApp secondary actions.
   const secondaryCls = isWa
-    ? `${base} service-help-link`
+    ? `${base} service-help-link whatsapp-text-link`
     : `${base} service-help-link`;
   const external = href.startsWith('http') || href.startsWith('tel:') || href.startsWith('mailto:');
 
@@ -491,7 +491,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
           </ol>
         </nav>
 
-        <section className="service-hero px-4 py-8 sm:py-12">
+        <section className={`service-hero px-4 py-8 sm:py-12 ${data.heroCompactMobile ? 'service-hero-compact' : ''}`}>
           <div className={`mx-auto max-w-7xl ${data.heroAside || data.heroBgImage ? 'grid items-center gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14' : 'max-w-4xl'}`}>
             <div>
               <Eyebrow align="start">{data.eyebrow}</Eyebrow>

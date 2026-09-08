@@ -98,8 +98,8 @@ const DATA: ServiceLandingData = {
   eyebrow: 'End of Tenancy Cleaning',
   h1: 'End of Tenancy Cleaning London',
   h1Highlight: '',
-  heroSubtitle: 'Moving out? Choose Complete for our full 67-point checklist, or Tailored for selected internal tasks. Oven cleaning is included in both.',
-  heroAside: <ServiceHeroPhoto src="/end_of_tenancy/before-after/kitchen1_after.jpg" alt="Kitchen hob after cleaning" caption="Kitchen hob, after cleaning" detail="See the full before-and-after pair below. Cleaning does not repair existing scratches or wear." />,
+  heroSubtitle: 'Leave the cleaning to us. Choose a full move-out clean or just the internal tasks you need. Oven cleaning is included in both packages.',
+  heroAside: <ServiceHeroPhoto src="/end_of_tenancy/before-after/kitchen1_after.jpg" alt="Kitchen hob after cleaning" caption="A real end of tenancy result" detail="See the full before-and-after pair below. Cleaning does not repair existing scratches or wear." />,
   heroAsideOnMobile: true,
   heroPriceChip: `Complete from ${pDisplay(EOT_BASE_PRICES_P.studio)} · Tailored from ${pDisplay(EOT_TAILORED_START_PRICES_P.studio)}`,
   heroBadges: [

@@ -1,42 +1,5 @@
-// The single source of truth for what the site may claim about Google reviews.
-//
-// ── Why this file exists ─────────────────────────────────────────────────────
-// A hardcoded "5.0" was rendered in three separate places (the hero badge, the
-// Reviews section header, and a QuoteCalculator bullet reading "Rated 5.0 by
-// genuine Google reviewers"), plus an accessibility label announcing "rated 5.0
-// out of 5 on Google". Nothing in the project stored a verified rating or a
-// review count, and the component carrying it admitted as much in a comment.
-//
-// An unsubstantiated rating is the most trust-damaging thing a service site can
-// display: it is exactly the claim a customer checks first, and under the UK
-// CAP Code an objective claim like this has to be substantiated.
-//
-// ── Verification attempt (2026-08-03) ────────────────────────────────────────
-// GOOGLE_PROFILE_LINK (share.google/tZEyXUs0J0SxXZlDi) was followed
-// programmatically. It 302s to a google.com search URL, which in turn 302s to
-// consent.google.com — a cookie-consent interstitial. No rating or review count
-// is reachable without accepting that interstitial, and a web search returned
-// no rating for VVE Clean either. So the real values COULD NOT be verified.
-//
-// The honest response to "we cannot verify it" is to stop asserting it, not to
-// keep the number and hope. No rating or count is invented here.
-//
-// ── Stars are a claim too ────────────────────────────────────────────────────
-// Removing the digits was not enough. A row of five filled gold stars beside a
-// Google logo states "5.0" to any reader — more forcefully than the number did,
-// because it is read at a glance and is not qualified by any wording. Marking
-// it aria-hidden hides it from screen readers; it does not stop it being a
-// claim to everyone else. So while VERIFIED_GOOGLE_RATING is null NO aggregate
-// star row is rendered anywhere, and the badges fall back to the Google logo
-// plus neutral wording. Stars return automatically the moment a real rating is
-// entered below. SHOW_AGGREGATE_STARS is the single flag that governs this.
-//
-// ── How to publish a real rating later ───────────────────────────────────────
-// Open the Google Business Profile, read the actual rating and review count,
-// and replace `null` below with e.g. `{ value: 4.9, count: 27 }`. Every surface
-// picks it up automatically and the tests in googleRating.test.ts start
-// enforcing that the same numbers appear everywhere.
-
+// Shared checked Google rating. Public profile observed 8 September 2026: 5.0, 26 reviews.
+// Runtime badges can refresh through the official Places API; never label a snapshot as live.
 export interface VerifiedGoogleRating {
   /** The star rating shown on the live Google Business Profile. */
   value: number;
@@ -61,8 +24,7 @@ export interface VerifiedGoogleRating {
  * the code that restores the number once it is verified.
  */
 function readVerifiedRating(): VerifiedGoogleRating | null {
-  // Example once verified: { value: 4.9, count: 27, verifiedOn: '2026-08-03' }
-  return null;
+  return { value: 5.0, count: 26, verifiedOn: '2026-09-08' };
 }
 
 export const VERIFIED_GOOGLE_RATING: VerifiedGoogleRating | null = readVerifiedRating();

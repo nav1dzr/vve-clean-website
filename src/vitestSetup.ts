@@ -1,3 +1,4 @@
+import { beforeEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 
 // jsdom has no IntersectionObserver implementation. Several components (e.g.
@@ -22,3 +23,6 @@ if (!Element.prototype.scrollIntoView) {
 // every route change without a hash, which otherwise logs a "Not
 // implemented" error to stderr in every test that exercises navigation.
 window.scrollTo = function scrollTo() {} as typeof window.scrollTo;
+
+// Every test represents a fresh visitor unless it explicitly restores a basket.
+beforeEach(() => localStorage.removeItem('vve_quote_basket_v1'));

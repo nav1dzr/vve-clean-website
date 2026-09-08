@@ -1,3 +1,4 @@
+import { clearQuoteBasket } from '../lib/quoteBasket';
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
@@ -761,6 +762,7 @@ export default function BookingPage() {
       } catch {
         /* Storage can be blocked. */
       }
+      clearQuoteBasket();
       clearSubmissionIdentity("booking");
       try {
         trackBookingRequestSubmitted(selection.serviceName, data.requestId);

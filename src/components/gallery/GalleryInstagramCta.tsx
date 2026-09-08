@@ -1,5 +1,6 @@
+import GoogleBadge from '../GoogleBadge';
 import { Link } from 'react-router-dom';
-import { FACEBOOK_URL, GOOGLE_PROFILE_URL, INSTAGRAM_URL } from '../../data/social';
+import { FACEBOOK_URL, INSTAGRAM_URL } from '../../data/social';
 import type { GalleryCategory } from '../../data/galleryMedia';
 
 const IG_SVG = (
@@ -70,15 +71,7 @@ export default function GalleryInstagramCta({
           >
             Facebook
           </a>
-          <a
-            href={GOOGLE_PROFILE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="See VVE Clean on Google"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-full border-2 border-silver-200 bg-white px-5 py-2.5 text-sm font-semibold text-navy-900 transition-colors hover:border-royal-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"
-          >
-            Google reviews
-          </a>
+          <GoogleBadge />
         </>
       )}
     </div>

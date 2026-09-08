@@ -6,6 +6,8 @@ The media foundation was pushed as `a0c1c31`. The validated second phase was com
 
 ## Approved customer journey
 
+The subsequent [customer refinements](customer-refinements.md) simplify Pricing, improve the EOT mobile hero, add a persistent quote basket and inline carpet steps, and display the newly verified Google score. Automatic Google refresh is implemented but awaits its provider configuration.
+
 1. A customer chooses the service/items and requests a preferred time free. The saved reference is not a confirmed appointment.
 2. Staff agree availability and edit service, scope/items, total, address, date, arrival window and preparation in CRM. Saving a draft does not replace a current offer.
 3. Staff preview and send the agreed offer with a £30 deposit request. The normal business hold is 48 hours, with explicit earlier deadlines for near-term work. The deposit is part of the total.

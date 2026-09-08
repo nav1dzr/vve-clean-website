@@ -115,7 +115,8 @@ describe('once a rating is verified, the stars come back', () => {
 
   it.runIf(!unverified)('renders the verified value beside them', () => {
     const { container } = render(<GoogleBadge />);
-    expect(largestIconRun(container)).toBe(5);
+    expect(container.querySelector('.lucide-star')).toBeInTheDocument();
+    expect(container.querySelector('a')).toHaveAttribute('aria-label', expect.stringContaining(`${VERIFIED_GOOGLE_RATING!.value.toFixed(1)} out of 5`));
     expect(container.textContent).toContain(String(VERIFIED_GOOGLE_RATING!.value));
   });
 });

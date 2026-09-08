@@ -119,9 +119,9 @@ describe('§11 — hand-rolled bars meet the same standards as the shared one', 
 
   it('gives the pricing page a wider, accessible price action and a secondary WhatsApp action', () => {
     const source = read(pagesDir, 'PricingPage.tsx');
-    expect(source).toContain('flex-[1.6]');
-    expect(source).toContain('bg-sky-500');
-    expect(source).toContain('bg-[#25d366]');
+    expect(source).toContain('min-h-[52px]');
+    expect(source).toContain('bg-royal-600');
+    expect(source).toContain('whatsapp-text-link');
     expect(source).not.toMatch(/bg-\[#25d366\][^\n]*text-white/);
   });
 });

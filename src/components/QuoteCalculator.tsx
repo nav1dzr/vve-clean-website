@@ -1,3 +1,5 @@
+import GoogleBadge from './GoogleBadge';
+import { readQuoteBasket, saveQuoteBasket, clearQuoteBasket, restoreShape } from '../lib/quoteBasket';
 import { useState, useCallback, useRef, useEffect, useId, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trackBookingInitiated, trackFunnelStep } from '../lib/analytics';
@@ -320,8 +322,15 @@ const TRUST_ITEMS = [
 // vve_restore_quote flag is present (set by "Back to quote" in BookingPage).
 
 function getRestoreConfig(): BookingSelection['quoteConfig'] | null {
+  const draft = readQuoteBasket();
   try {
-    if (!sessionStorage.getItem('vve_restore_quote')) return null;
+    if (!sessionStorage.getItem('vve_restore_quote')) {
+      if (draft?.kind === 'eot') return { deepService: 'end_of_tenancy' } as BookingSelection['quoteConfig'];
+      if (draft?.kind !== 'standard') return null;
+      const config = draft.config;
+      if (!['carpet_upholstery', 'move_in', 'after_builders'].includes(String(config.deepService))) return null;
+      return restoreShape({ service: 'deep', deepService: 'carpet_upholstery', deepSize: 'bed2', deepBaths: 1, addOnCounts: Object.fromEntries(addOnDefs.map(a => [a.key, 0])), carpetCounts: Object.fromEntries(CARPET_GROUPS.flatMap(g => g.items).map(i => [i.key, 0])), carpetCondition: 'normal', windowSize: 'small', gutterType: 'terraced', officeHours: 2, propertyType: 'flat' }, config) as BookingSelection['quoteConfig'];
+    }
     const raw = sessionStorage.getItem('vve_booking');
     if (!raw) return null;
     return (JSON.parse(raw) as BookingSelection).quoteConfig ?? null;
@@ -359,7 +368,7 @@ export default function QuoteCalculator({
   // Clear the restore flag immediately after we've read it so a future
   // direct homepage visit doesn't unexpectedly hydrate an old quote.
   useEffect(() => {
-    sessionStorage.removeItem('vve_restore_quote');
+    try { sessionStorage.removeItem('vve_restore_quote'); } catch { /* Optional browser storage. */ }
   }, []);
 
   const isEotFocused        = mode === 'eot';
@@ -637,6 +646,18 @@ export default function QuoteCalculator({
     return `${DEEP_SERVICE_LABELS[deepService]} — ${deepSizeLabel}`;
   })();
 
+  useEffect(() => {
+    if (isEot || !quoteStarted.current) return;
+    if (isCarpet && !carpetResult?.totalItems) {
+      if (readQuoteBasket()?.kind === 'standard') clearQuoteBasket();
+      return;
+    }
+    saveQuoteBasket({ kind: 'standard', label: bookingServiceName, href: '', config: {
+      service, deepService, deepSize, deepBaths, addOnCounts, windowSize, gutterType, officeHours,
+      propertyType, carpetCounts, carpetCondition,
+    } });
+  }, [isEot, isCarpet, carpetResult?.totalItems, bookingServiceName, service, deepService, deepSize, deepBaths, addOnCounts, windowSize, gutterType, officeHours, propertyType, carpetCounts, carpetCondition]);
+
   const handleBookNow = () => {
     const bundle = carpetResult?.bundle;
     // Only claim a discount when the minimum booking charge hasn't overridden
@@ -831,6 +852,7 @@ export default function QuoteCalculator({
                     </li>
                   ))}
                 </ul>
+                <div className="mt-5"><GoogleBadge /></div>
               </aside>
             </div>
           </div>
@@ -847,7 +869,7 @@ export default function QuoteCalculator({
   // hook above has already run on every render (rules-of-hooks safe — this
   // only changes what JSX is returned, never which hooks fire).
   if (isEot) {
-    const eotRestoreConfig: EotBookingResult['quoteConfig'] | null = _restore && _restore.deepService === 'end_of_tenancy'
+    const eotRestoreConfig: EotBookingResult['quoteConfig'] | null = _restore && _restore.deepService === 'end_of_tenancy' && _restore.deepSize
       ? {
           service: 'deep',
           deepService: 'end_of_tenancy',

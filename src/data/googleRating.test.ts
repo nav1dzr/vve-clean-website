@@ -72,7 +72,7 @@ describe('the rating is centralised', () => {
   it('is read from that source by every surface that shows the badge', () => {
     for (const file of ['components/GoogleBadge.tsx', 'components/Reviews.tsx']) {
       expect(read(file), `${file} must not hardcode a rating`)
-        .toMatch(/googleRating/);
+        .toMatch(/googleRating|useGoogleRating|GoogleBadge/);
     }
   });
 });

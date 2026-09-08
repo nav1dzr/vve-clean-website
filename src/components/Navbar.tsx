@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Menu, X, Phone } from 'lucide-react';
 import { Link, NavLink } from 'react-router-dom';
 import BrandLogo from './BrandLogo';
+import BasketButton from './BasketButton';
 
 // Max 5 links per the design spec — Reviews and Areas stay reachable by
 // scrolling the homepage (not removed), just not repeated in the nav.
@@ -74,13 +75,13 @@ export default function Navbar() {
 
             <span
               aria-hidden="true"
-              className="mx-2 h-8 w-px bg-slate-300 sm:mx-3"
+              className="nav-brand-divider mx-2 h-8 w-px bg-slate-300 sm:mx-3"
             />
 
             {/* 7px was unreadable on a phone. At 10px/11px the two-word wrap
                 still fits the header without pushing the call, WhatsApp and
                 menu controls, which keep their 44px targets. */}
-            <span className="max-w-[76px] text-[10px] font-bold uppercase leading-[1.3] tracking-[0.06em] text-navy-700 sm:max-w-[96px] sm:text-[11px]">
+            <span className="nav-brand-descriptor max-w-[76px] text-[10px] font-bold uppercase leading-[1.3] tracking-[0.06em] text-navy-700 sm:max-w-[96px] sm:text-[11px]">
               Cleaning &amp; Property Services
             </span>
           </Link>
@@ -153,6 +154,7 @@ export default function Navbar() {
           {/* Right side — phone/WhatsApp stay visibly secondary; "Get my
               price" is the one visually dominant CTA (solid brand blue). */}
           <div className="hidden xl:flex items-center gap-3">
+            <BasketButton />
             <a href="tel:02080502233" data-track-location="navbar-phone"
               className={`flex items-center gap-1.5 text-slate-700 hover:text-sky-600 text-sm transition-colors ${FOCUS_RING}`}>
               <Phone size={13} />
@@ -172,7 +174,8 @@ export default function Navbar() {
           {/* Mobile: compact header — logo + call/WhatsApp shortcuts +
               hamburger. Urgent mobile visitors can reach us in one tap;
               the persistent booking CTA stays in MobileStickyFooter. */}
-          <div className="xl:hidden flex items-center gap-1">
+          <div className="xl:hidden flex items-center gap-0 sm:gap-1">
+            <BasketButton />
             <a href="tel:02080502233"
               className={`text-slate-800 p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center ${FOCUS_RING}`}
               aria-label="Call VVE Clean on 020 8050 2233">

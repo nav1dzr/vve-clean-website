@@ -90,7 +90,7 @@ const DATA: ServiceLandingData = {
 
   proofSection: <CarpetResultsSection />,
   processSection: <CarpetProcessSection />,
-  sectionOrder: ['intro', 'proof', 'process', 'faq', 'related'],
+  sectionOrder: ['process', 'intro', 'proof', 'faq', 'related'],
 
   faqs: FAQS,
 

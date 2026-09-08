@@ -1,3 +1,4 @@
+import { readQuoteBasket, saveQuoteBasket, restoreShape } from '../lib/quoteBasket';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BadgeCheck, Bath, Building2, CheckCircle2, ChevronLeft, ChevronRight, CircleOff, Home, Info,
@@ -419,8 +420,32 @@ const FLOOR_CARE_OPTIONS: { key: 'professional' | 'standard' | 'none'; title: st
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig }: Props) {
-  const [state, setState] = useState<EotWizardState>(() => makeInitialState(restoreConfig));
-  const [step, setStep] = useState(1);
+  const [savedBasket] = useState(() => readQuoteBasket());
+  const [state, setState] = useState<EotWizardState>(() => {
+    const defaults = makeInitialState(restoreConfig);
+    if (restoreConfig?.eotPackage || savedBasket?.kind !== 'eot') return defaults;
+    const restored = restoreShape(defaults, savedBasket.config);
+    if (!['flat', 'house', 'maisonette'].includes(restored.propertyType) || !eotPropertySizeValid(restored.propertyType, restored.size)
+      || !['complete', 'tailored'].includes(restored.pkg) || !['professional', 'standard', 'none'].includes(restored.floorCareChoice)
+      || !['unset', 'whole', 'manual'].includes(restored.carpetMode) || !['normal', 'heavy', 'clutter', 'biohazard'].includes(restored.condition)) return defaults;
+    const rooms = savedBasket.config.rooms;
+    if (Array.isArray(rooms) && rooms.length <= 80 && rooms.every(room => room && typeof room === 'object'
+      && typeof room.id === 'string' && room.id.length < 100 && typeof room.label === 'string' && room.label.length < 120
+      && ['bedroom', 'living_room', 'dining_room', 'large_lounge', 'hallway', 'landing', 'stairs'].includes(room.addonKey)
+      && ['unset', 'carpet', 'hard', 'na'].includes(room.floor) && typeof room.steamClean === 'boolean'
+      && (room.stairFlights === undefined || (Number.isInteger(room.stairFlights) && room.stairFlights >= 1 && room.stairFlights <= 100)))
+      && new Set(rooms.map(room => room.id)).size === rooms.length) {
+      restored.rooms = rooms.map(room => ({ id: room.id, label: room.label, addonKey: room.addonKey, floor: room.floor, steamClean: room.steamClean, removable: !!room.removable, stairFlights: room.stairFlights }));
+    } else restored.rooms = defaultRooms(restored.size, restored.propertyType);
+    restored.fullBathrooms = Math.max(1, restored.fullBathrooms);
+    return restored;
+  });
+  const [step, setStep] = useState(() => savedBasket?.kind === 'eot' ? Math.min(4, Math.max(1, savedBasket.step || 1)) : 1);
+  const basketChanged = useRef(false);
+  useEffect(() => {
+    if (!basketChanged.current) return;
+    saveQuoteBasket({ kind: 'eot', label: `End of tenancy · ${state.is5Plus ? '5+ bedrooms' : state.size === 'studio' ? 'Studio' : state.size.replace('bed', '') + ' bedrooms'} · ${state.pkg === 'complete' ? 'Complete' : 'Tailored'}`, href: '', config: { ...state }, step });
+  }, [state, step]);
   const [bookError, setBookError] = useState('');
   const [upholsteryOpen, setUpholsteryOpen] = useState(false);
   const wizardRootRef = useRef<HTMLDivElement>(null);
@@ -644,7 +669,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         : isQuoteReviewCondition ? 'Photo review required before a fixed price can be confirmed' : null;
 
   return (
-    <div ref={wizardRootRef} className="rounded-[28px] bg-white shadow-[0_28px_80px_rgba(2,11,36,0.28)] ring-1 ring-white/20">
+    <div onClickCapture={() => { basketChanged.current = true; }} onChangeCapture={() => { basketChanged.current = true; }} ref={wizardRootRef} className="rounded-[28px] bg-white shadow-[0_28px_80px_rgba(2,11,36,0.28)] ring-1 ring-white/20">
       {/* Header / progress */}
       <div className="rounded-t-[28px] bg-gradient-to-br from-sky-700 via-sky-700 to-royal-700 px-5 sm:px-8 lg:px-10 py-6 sm:py-7 relative overflow-hidden">
         <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.24),transparent_42%)]" />
