@@ -2,11 +2,9 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  CARPET_ITEM_PRICES_P,
-  CARPET_MIN_BOOKING_P,
-  penceToDisplay,
-} from './shared/pricingCatalogue.js';
+import { createPricingCatalogue } from './shared/pricingCatalogue.js';
+import pricebookSnapshot from './shared/publishedPricebookSnapshot.js';
+const { CARPET_ITEM_PRICES_P, CARPET_MIN_BOOKING_P, penceToDisplay } = createPricingCatalogue(pricebookSnapshot.overrides);
 
 // Prices quoted in route metadata come from the canonical catalogue, never
 // typed as literals. The sofa description said "from £75", which matched
@@ -127,6 +125,12 @@ const routes = [
     changefreq: 'yearly',
     priority: '0.3',
     sources: ['src/pages/TermsOfServicePage.tsx'],
+  },
+  {
+    path: '/manage-booking',
+    title: 'Manage your booking | VVE Clean',
+    description: 'Your private VVE Clean booking details.',
+    robots: 'noindex, nofollow',
   },
   {
     path: '/leaflet',

@@ -34,10 +34,16 @@
 </script>
 
 <!-- Google tag (gtag.js) — AW-18214693277 -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18214693277"></script>
 <script>
-  gtag('js', new Date());
-  gtag('config', 'AW-18214693277');
+  window.vveProductionTrackingHost = ['vveclean.co.uk', 'www.vveclean.co.uk'].includes(location.hostname);
+  if (window.vveProductionTrackingHost) {
+    var googleTag = document.createElement('script');
+    googleTag.async = true;
+    googleTag.src = 'https://www.googletagmanager.com/gtag/js?id=AW-18214693277';
+    document.head.appendChild(googleTag);
+    gtag('js', new Date());
+    gtag('config', 'AW-18214693277');
+  }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -646,6 +652,7 @@
   (function () {
     var SEND_TO   = "AW-18214693277/hUwdCK68gswcEJ3TuO1D";
     var PROD_HOST = "www.vveclean.co.uk";
+    if (!window.vveProductionTrackingHost) return;
 
     // ── Diagnostics (no PII logged) ────────────────────────────────────────
     var txId       = ref || sid;
@@ -706,7 +713,7 @@
           return;
         }
 
-        var isProductionHost = location.hostname === PROD_HOST;
+        var isProductionHost = window.vveProductionTrackingHost === true;
         var isLiveSession    = data.livemode === true;
         console.log("[VVE conv] hostname === " + PROD_HOST + ":", isProductionHost);
         console.log("[VVE conv] livemode === true           :", isLiveSession);

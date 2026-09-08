@@ -10,7 +10,7 @@ const badges = [
   // claim — see src/data/googleRating.ts. The reviews themselves are real and
   // public, which is what this badge now says.
   { icon: Star,        label: 'Real Google Reviews',    sub: 'From our public profile' },
-  { icon: Lock,        label: 'Secure Stripe Payment',  sub: 'Your card is never stored' },
+  { icon: Lock,        label: 'Secure Stripe Payment',  sub: 'Card details handled by Stripe' },
 ];
 
 export default function TrustBadges() {

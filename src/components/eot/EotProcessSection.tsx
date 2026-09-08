@@ -30,8 +30,8 @@ const STEPS = [
   },
   {
     icon: RefreshCw,
-    title: `${EOT_GUARANTEE_HOURS}-hour re-clean guarantee`,
-    body: `If your agent or landlord flags anything within ${EOT_GUARANTEE_HOURS} hours of completion, we return and fix it for free.`,
+    title: `${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee`,
+    body: `Report missed tasks from the agreed scope within ${EOT_GUARANTEE_HOURS / 24} days, with photos or an inspection report. We arrange one free return for covered work; the return date is agreed separately.`,
   },
 ];
 

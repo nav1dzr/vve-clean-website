@@ -4,6 +4,7 @@ import { getServiceClient } from '../_lib/supabaseAdmin.js';
 import {
   CARD_SELECT, toCard, BOOKING_STATUS_VALUES, PAYMENT_STATUS_VALUES, BALANCE_STATUS_VALUES, SORT_VALUES,
   NOTIFICATION_FILTER_VALUES,
+  applyJourneyReadState,
 } from '../_lib/bookingFields.js';
 import { sanitiseFreeTextFilter, isValidDateString } from '../_lib/normalise.js';
 
@@ -35,14 +36,13 @@ function buildQuery(supabase, filters) {
   if (filters.dateFrom) query = query.gte('service_date', filters.dateFrom);
   if (filters.dateTo) query = query.lte('service_date', filters.dateTo);
 
-  // Paid bookings whose confirmation email did not send. Mirrors
+  // Paid bookings and free requests whose acknowledgement did not send. Mirrors
   // hasFailedNotification() in bookingFields.js: only an explicit `false`
   // counts, so rows predating the notification columns (null) are not
   // reported as failures.
   if (filters.notifications === 'failed') {
     query = query
-      .eq('payment_status', 'paid')
-      .or('email_customer_sent.is.false,email_business_sent.is.false');
+      .or('and(payment_status.eq.paid,or(email_customer_sent.is.false,email_business_sent.is.false)),and(payment_status.eq.pending_payment,deposit_amount.eq.0,or(email_customer_sent.is.false,email_business_sent.is.false))');
   }
 
   switch (filters.sort) {
@@ -121,7 +121,7 @@ function serviceCategoryKey(value) {
 }
 
 async function markSupersededPendingBookings(supabase, cards) {
-  const pendingIds = cards.filter((c) => c.paymentStatus === 'pending_payment').map((c) => c.id);
+  const pendingIds = cards.filter((c) => c.paymentStatus === 'pending_payment' && !c.isFreeRequest && !c.journeyState).map((c) => c.id);
   if (pendingIds.length === 0) return cards.map((c) => ({ ...c, superseded: false }));
 
   const DETAIL_COLUMNS = 'id, phone, email, postcode, preferred_date, service, created_at';
@@ -302,7 +302,7 @@ export default async function handler(req, res) {
     }
 
     const totalCount = count ?? 0;
-    const results = await markSupersededPendingBookings(supabase, (data || []).map(toCard));
+    const results = await markSupersededPendingBookings(supabase, await applyJourneyReadState(supabase, (data || []).map(toCard)));
 
     res.writeHead(200, headers);
     res.end(

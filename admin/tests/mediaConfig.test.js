@@ -48,3 +48,11 @@ it("rejects a different asset object path", () => {
   ).toThrow();
   expect(() => createR2Key("../unsafe", "photo.jpg")).toThrow();
 });
+it('requires explicit preview destinations before constructing any image or video upload configuration', () => {
+  for (const key of ['CLOUDFLARE_ACCOUNT_ID','R2_BUCKET_NAME','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','MUX_TOKEN_ID','MUX_TOKEN_SECRET']) vi.stubEnv(key, 'synthetic');
+  vi.stubEnv('CLOUDFLARE_MEDIA_ORIGIN', 'https://preview-media.example.com'); vi.stubEnv('VERCEL_ENV', 'preview');
+  expect(getMediaConfig('image')).toBeNull(); expect(getMediaConfig('video')).toBeNull();
+  vi.stubEnv('VVE_PREVIEW_R2_BUCKET_NAME', 'synthetic'); vi.stubEnv('VVE_PREVIEW_MEDIA_ORIGIN', 'https://preview-media.example.com');
+  expect(getMediaConfig('image')).not.toBeNull(); expect(getMediaConfig('video')).toBeNull();
+  vi.stubEnv('VVE_PREVIEW_MUX_TOKEN_ID', 'synthetic'); expect(getMediaConfig('video')).not.toBeNull();
+});

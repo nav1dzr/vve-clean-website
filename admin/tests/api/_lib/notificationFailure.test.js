@@ -26,6 +26,10 @@ describe('hasFailedNotification', () => {
     expect(hasFailedNotification(paidRow)).toBe(false);
   });
 
+  it('shows a failed acknowledgement for a saved free request', () => {
+    expect(hasFailedNotification({ ...paidRow, payment_status: 'pending_payment', deposit_amount: 0, email_customer_sent: false })).toBe(true);
+  });
+
   // A null is "we do not know", not "it failed". Rows created before
   // 20260712000000_add_security_columns.sql have null flags, and treating
   // those as failures would bury the real ones in historical noise.

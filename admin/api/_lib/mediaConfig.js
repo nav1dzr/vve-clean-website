@@ -5,6 +5,7 @@ import {
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { isHostedPreview } from './previewIsolation.js';
 
 const REQUIRED_MEDIA_ENV = [
   "CLOUDFLARE_ACCOUNT_ID",
@@ -14,6 +15,14 @@ const REQUIRED_MEDIA_ENV = [
 ];
 
 export function getMediaConfig(mediaType = "image") {
+  // Inherited provider credentials do not authorise a preview upload. Each
+  // destination must be selected explicitly alongside the isolated database.
+  if (isHostedPreview() && (
+    !process.env.VVE_PREVIEW_R2_BUCKET_NAME || process.env.VVE_PREVIEW_R2_BUCKET_NAME !== process.env.R2_BUCKET_NAME ||
+    (mediaType === 'video'
+      ? !process.env.VVE_PREVIEW_MUX_TOKEN_ID || process.env.VVE_PREVIEW_MUX_TOKEN_ID !== process.env.MUX_TOKEN_ID
+      : !process.env.VVE_PREVIEW_MEDIA_ORIGIN || process.env.VVE_PREVIEW_MEDIA_ORIGIN !== process.env.CLOUDFLARE_MEDIA_ORIGIN)
+  )) return null;
   const required =
     mediaType === "video"
       ? [...REQUIRED_MEDIA_ENV, "MUX_TOKEN_ID", "MUX_TOKEN_SECRET"]

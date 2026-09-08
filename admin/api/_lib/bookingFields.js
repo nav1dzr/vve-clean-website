@@ -71,12 +71,12 @@ export const DETAIL_SELECT = [
  * any email is attempted, so their flags are legitimately false.
  */
 export function hasFailedNotification(row) {
-  if (row.payment_status !== 'paid') return false;
+  if (row.payment_status !== 'paid' && !(row.payment_status === 'pending_payment' && row.deposit_amount === 0)) return false;
   return row.email_customer_sent === false || row.email_business_sent === false;
 }
 
 export function toCard(row) {
-  const awaitingAvailabilityReview = row.payment_status === 'pending_payment' && row.deposit_amount === 0;
+  const awaitingAvailabilityReview = row.payment_status === 'pending_payment' && row.deposit_amount === 0 && ['new', null, undefined].includes(row.status) && !['paid','waived'].includes(row.balance_status);
   return {
     id: row.id,
     bookingRef: row.booking_ref,
@@ -92,6 +92,7 @@ export function toCard(row) {
     balanceStatus: row.balance_status,
     totalPrice: row.total_price,
     awaitingAvailabilityReview,
+    isFreeRequest: row.payment_status === 'pending_payment' && row.deposit_amount === 0,
     createdAt: row.created_at,
     emailCustomerSent: row.email_customer_sent ?? null,
     emailBusinessSent: row.email_business_sent ?? null,
@@ -116,7 +117,7 @@ export function toNote(row) {
 
 export function toDetail(row) {
   const hasBalanceInputs = row.total_price != null && row.deposit_amount != null;
-  const awaitingAvailabilityReview = row.payment_status === 'pending_payment' && row.deposit_amount === 0;
+  const awaitingAvailabilityReview = row.payment_status === 'pending_payment' && row.deposit_amount === 0 && ['new', null, undefined].includes(row.status) && !['paid','waived'].includes(row.balance_status);
 
   return {
     id: row.id,
@@ -134,7 +135,7 @@ export function toDetail(row) {
     notes: row.notes,
     totalPrice: row.total_price,
     depositAmount: row.deposit_amount,
-    balance: hasBalanceInputs ? row.total_price - row.deposit_amount : null,
+    balance: hasBalanceInputs ? Math.max(0, row.total_price - row.deposit_amount) : null,
     paymentStatus: row.payment_status,
     awaitingAvailabilityReview,
     balanceStatus: row.balance_status,
@@ -169,4 +170,16 @@ export function toDetail(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+// The legacy booking row cannot express the provisional offer state. Enrich
+// free-request cards from the optional journey table without adding a required
+// column to pre-migration SELECT lists. Missing migration keeps old CRM usable.
+export async function applyJourneyReadState(supabase, cards) {
+  const ids=cards.filter(c=>c.awaitingAvailabilityReview).map(c=>c.id);
+  if(!ids.length) return cards;
+  const {data,error}=await supabase.from('booking_journeys').select('booking_id,state').in('booking_id',ids);
+  if(error) return cards;
+  const states=new Map((data||[]).map(j=>[j.booking_id,j.state]));
+  return cards.map(c=>states.has(c.id)?{...c,journeyState:states.get(c.id),awaitingAvailabilityReview:states.get(c.id)==='draft',superseded:false}:c);
 }

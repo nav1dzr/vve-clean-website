@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import GoogleBadge from './GoogleBadge';
 import { useManagedWebsiteMedia } from '../lib/managedGalleryMedia';
 
@@ -6,129 +6,35 @@ export default function Hero() {
   const managedHero = useManagedWebsiteMedia('homepage-hero-image');
   const heroImage = managedHero?.type === 'photo' ? managedHero : null;
   return (
-    <section className="relative min-h-screen flex items-start sm:items-center overflow-hidden pb-24 sm:pb-0">
-
-      {/* Background image — full bleed */}
-      <div className="absolute inset-0">
-        {/* LCP element — eager-loaded (no loading="lazy") with fetchPriority
-            "high" and explicit dimensions so it doesn't compete with
-            below-fold images and doesn't cause layout shift. */}
-        <picture className="block h-full w-full">
-          {!heroImage && <><source type="image/avif" srcSet="/hero-cleaning-768.avif 768w, /hero-cleaning-1280.avif 1280w" sizes="100vw" /><source type="image/webp" srcSet="/hero-cleaning-768.webp 768w, /hero-cleaning-1280.webp 1280w" sizes="100vw" /></>}
-          <img
-            src={heroImage?.src || '/photo_2026-06-02_16-48-38.jpg'}
-            srcSet={heroImage?.srcSet}
-            sizes={heroImage?.sizes || '100vw'}
-            alt={heroImage?.alt || 'VVE Clean technician working at a London property'}
-            width={1536}
-            height={1024}
-            // @ts-expect-error — fetchpriority is a valid HTML attribute; this
-            // React/react-dom version doesn't type it yet, but passes lowercase
-            // attribute names through to the DOM untouched.
-            fetchpriority="high"
-            decoding="async"
-            className="h-full w-full object-cover object-center"
-          />
-        </picture>
-      </div>
-
-      {/* Overlay — on mobile the copy spans the full width, so use a
-          vertical navy wash that keeps the photo visible but readable;
-          from sm up keep the left-to-right gradient so more of the image
-          shows on larger screens. */}
-      <div className="absolute inset-0 bg-gradient-to-b from-navy-950/85 via-navy-950/60 to-navy-950/45 sm:bg-gradient-to-r sm:from-navy-950 sm:via-navy-950/90 sm:via-50% sm:to-navy-950/10 lg:to-transparent" />
-      {/* Extra top gradient for readability */}
-      <div className="absolute inset-0 bg-gradient-to-b from-navy-950/60 via-transparent to-navy-950/40" />
-
-      {/* Content */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-[82px] sm:pt-[90px] lg:pt-[80px]">
-        <div className="max-w-2xl">
-
-          {/* Badge — shortened to one line on mobile so it takes less
-              vertical space; the full wording returns from sm up. */}
-          <div className="inline-flex items-center gap-2 glass-card rounded-full px-3 py-1 sm:px-4 sm:py-1.5 mb-3 sm:mb-6" style={{ animationDelay: '0.1s' }}>
-            <span className="w-2 h-2 rounded-full bg-royal-400 animate-pulse" />
-            <span className="text-silver-200 text-[10px] sm:text-xs tracking-widest font-medium uppercase">
-              <span>London cleaning &amp; property services</span>
-            </span>
-          </div>
-
-          {/* H1 — Bricolage Grotesque 800. Two deliberate lines, so the break
-              is forced rather than left to the container width. Scaled up from
-              the previous headline: that one was a long sentence that had to
-              wrap into several lines, this one is two short ones and can carry
-              more weight in the same space. */}
-          <h1
-            className="font-hero font-extrabold text-[2rem] sm:text-5xl lg:text-[3.1rem] xl:text-6xl text-white leading-[1.12] sm:leading-[1.06] mb-3 sm:mb-6 animate-fade-in-up text-shadow-hero"
-            style={{ animationDelay: '0.2s', opacity: 0 }}
-          >
-            Professional cleaning,
-            <br />
-            <span className="text-sky-300">without the runaround.</span>
+    <section className="home-hero px-4 pb-10 pt-28 sm:px-6 sm:pb-16 sm:pt-36 lg:px-8">
+      <div className="mx-auto grid max-w-7xl items-center gap-8 lg:grid-cols-[1fr_1fr] lg:gap-14">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-royal-700">VVE Clean · East &amp; North London</p>
+          <h1 className="mt-4 font-hero text-[2.3rem] font-extrabold leading-[1.08] tracking-tight text-navy-950 sm:text-5xl lg:text-6xl">
+            A cleaner home.<br /><span className="text-royal-700">A clear plan.</span>
           </h1>
-
-          {/* Supporting text — one version at every breakpoint now: the copy
-              names the full service range, which does not shorten usefully. */}
-          <p
-            className="text-silver-100 text-[15px] sm:text-lg leading-relaxed mb-4 sm:mb-5 max-w-xl animate-fade-in-up text-shadow-hero"
-            style={{ animationDelay: '0.45s', opacity: 0 }}
-          >
-            Clear prices, professional equipment and a team you can contact directly for carpets,
-            upholstery, end of tenancy, move-in and after-builders cleaning across East &amp; North London.
+          <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-700 sm:text-lg">
+            Carpet, upholstery and end of tenancy cleaning, with a clear scope and a team you can speak to directly.
           </p>
-
-          {/* Benefit checklist — company-wide credentials rather than
-              service-specific detail, so each reads the same at every width. */}
-          <ul
-            className="space-y-1.5 sm:space-y-2 mb-4 sm:mb-7 animate-fade-in-up"
-            style={{ animationDelay: '0.52s', opacity: 0 }}
-          >
-            {[
-              '£5m public liability insurance',
-              'Published prices for standard services',
-              '72-hour re-clean on Complete end of tenancy cleans',
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-2.5">
-                <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0 mt-0.5" />
-                <span className="text-white text-[13px] sm:text-sm font-medium leading-snug">
-                  {item}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          {/* CTAs */}
-          <div
-            className="flex flex-col sm:flex-row gap-3 animate-fade-in-up"
-            style={{ animationDelay: '0.6s', opacity: 0 }}
-          >
-            <a
-              href="#quote"
-              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 min-h-[44px] bg-royal-500 hover:bg-royal-600 text-white font-semibold rounded-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 text-base w-full sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-            >
-              Get my price
-              <ArrowRight size={18} />
+          <div className="mt-7 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+            <a href="#quote" className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-royal-600 px-6 py-3.5 font-semibold text-white hover:bg-royal-700 sm:w-auto">
+              Get my price <ArrowRight size={18} aria-hidden="true" />
             </a>
-            <a
-              href="/pricing"
-              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 min-h-[44px] border-2 border-white/60 text-white font-semibold rounded-lg transition-all duration-300 hover:bg-white hover:text-navy-900 hover:border-white text-base w-full sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-            >
-              See all prices
-            </a>
+            <a href="#services" className="inline-flex min-h-[44px] items-center px-2 text-sm font-semibold text-navy-900 underline decoration-slate-300 underline-offset-4 hover:decoration-royal-600">Explore our services</a>
           </div>
-
-          {/* Google trust badge — directly below the CTAs */}
-          <div
-            className="mt-4 animate-fade-in-up"
-            style={{ animationDelay: '0.7s', opacity: 0 }}
-          >
-            <GoogleBadge />
-          </div>
-
+          <p className="mt-4 text-sm leading-relaxed text-slate-600">Request a preferred time free. We agree the details with you before asking for a deposit.</p>
+          <div className="mt-5"><GoogleBadge /></div>
+          <p className="mt-4 text-sm text-slate-600">£5m public liability insurance · Professional equipment</p>
         </div>
+        <figure className="service-photo">
+          <img src={heroImage?.src || '/images/carpet-cleaning-hero.webp'} srcSet={heroImage?.srcSet} sizes={heroImage?.sizes || '(min-width: 1024px) 50vw, 100vw'} alt={heroImage?.alt || 'Extraction equipment cleaning a blue carpet'} width={1672} height={941} loading="eager" decoding="async" />
+          <figcaption>
+            <p className="font-display text-lg font-bold text-navy-950">{heroImage?.label || 'Carpet extraction in progress'}</p>
+            <p className="mt-1 text-sm leading-relaxed text-slate-600">See the work behind the service, with full before-and-after photographs in our gallery.</p>
+            <a href="/gallery?category=carpet" className="mt-3 inline-flex min-h-[44px] items-center text-sm font-semibold text-royal-700 underline underline-offset-4">Explore our cleaning work →</a>
+          </figcaption>
+        </figure>
       </div>
-
-
     </section>
   );
 }

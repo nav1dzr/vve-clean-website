@@ -1,6 +1,6 @@
 import { CheckCircle, XCircle, Shield } from 'lucide-react';
 import { EOT_GUARANTEE_HOURS } from '../data/pricing';
-import { GUARANTEE_COVERED, GUARANTEE_NOT_COVERED, GUARANTEE_SUMMARY } from '../data/guarantee';
+import { GUARANTEE_COVERED, GUARANTEE_NOT_COVERED, GUARANTEE_SUMMARY, GUARANTEE_LIMIT } from '../data/guarantee';
 
 /**
  * The full re-clean guarantee terms, on the page the guarantee belongs to.
@@ -19,11 +19,12 @@ export default function GuaranteeTerms() {
         <div className="flex items-center gap-3">
           <Shield className="shrink-0 text-royal-500" size={26} aria-hidden="true" />
           <h2 className="font-display text-2xl font-bold text-navy-900 sm:text-3xl">
-            {EOT_GUARANTEE_HOURS}-hour re-clean guarantee: the full terms
+            {EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee: the full terms
           </h2>
         </div>
 
         <p className="mt-4 leading-7 text-muted">{GUARANTEE_SUMMARY}</p>
+        <p className="mt-3 text-sm leading-7 text-slate-600">{GUARANTEE_LIMIT}</p>
 
         <div className="mt-8 grid gap-5 md:grid-cols-2">
           <div className="rounded-2xl border border-line bg-white p-6">

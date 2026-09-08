@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -81,10 +81,19 @@ describe('cookie consent — the paid-booking conversion pipeline is untouched',
     expect(html).toMatch(/if\s*\(\s*!data\.paid\s*\)/);
   });
 
-  it('still requires livemode === true and the exact production hostname', () => {
+  it('still requires livemode === true and one of the exact production hostnames', () => {
     expect(html).toMatch(/var\s+PROD_HOST\s*=\s*"www\.vveclean\.co\.uk"/);
     expect(html).toMatch(/data\.livemode\s*===\s*true/);
-    expect(html).toMatch(/location\.hostname\s*===\s*PROD_HOST/);
+    expect(html).toMatch(/window\.vveProductionTrackingHost\s*===\s*true/);
+    expect(html).toContain("['vveclean.co.uk', 'www.vveclean.co.uk'].includes(location.hostname)");
+  });
+
+  it.each(['localhost','127.0.0.1','preview.vercel.app','evil.vveclean.co.uk','www.vveclean.co.uk.attacker.invalid'])('never loads Google on %s', (hostname) => {
+    const start=html.indexOf('window.vveProductionTrackingHost =');
+    const block=html.slice(start,html.indexOf('</script>',start));
+    const appendChild=vi.fn(),gtag=vi.fn();
+    new Function('window','document','location','gtag',block)({}, {createElement:()=>({}),head:{appendChild}}, {hostname},gtag);
+    expect(appendChild).not.toHaveBeenCalled();expect(gtag).not.toHaveBeenCalled();
   });
 
   it('still uses the exact conversion label AW-18214693277/hUwdCK68gswcEJ3TuO1D', () => {

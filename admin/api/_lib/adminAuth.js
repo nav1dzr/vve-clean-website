@@ -1,3 +1,4 @@
+import { previewIsolation } from './previewIsolation.js';
 // Reusable server-side authentication/authorisation helper for every admin
 // API route. Holds the only code path in this app that touches the
 // service-role key — never imported from admin/src/.
@@ -23,6 +24,8 @@ function extractBearerToken(req) {
 // detail in the response body — only a generic message. Details are logged
 // server-side only.
 export async function verifyAdminRequest(req) {
+  const isolation = previewIsolation();
+  if (!isolation.ok) return { ok: false, status: 403, error: isolation.error };
   return verifyAdminRequestForTable(req, 'admin_users');
 }
 

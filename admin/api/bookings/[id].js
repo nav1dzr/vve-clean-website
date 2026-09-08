@@ -5,6 +5,7 @@ import { DETAIL_SELECT, toDetail, toNote, BOOKING_STATUS_VALUES } from '../_lib/
 import { isValidUuid, validateNote } from '../_lib/normalise.js';
 import { extractIdParam } from '../_lib/routeParams.js';
 import { readJsonBody } from '../_lib/body.js';
+import { handleBookingJourney } from '../_lib/bookingJourneyAction.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -40,6 +41,7 @@ export default async function handler(req, res) {
   // unauthenticated caller sending the wrong method still gets 405, not
   // 401) — this only needs req.method/req.url, not a verified admin.
   const action = new URL(req.url, 'https://x').searchParams.get('action');
+  if (action === 'journey') return handleBookingJourney(req, res, headers);
   if (action === 'status') return handleStatus(req, res, headers);
   if (action === 'notes') return handleNotes(req, res, headers);
   if (req.method !== 'GET') {
@@ -83,8 +85,13 @@ export default async function handler(req, res) {
       return res.end(JSON.stringify({ error: 'Booking not found' }));
     }
 
+    const detail=toDetail(data);
+    if(detail.awaitingAvailabilityReview) {
+      const {data:journey}=await supabase.from('booking_journeys').select('state').eq('booking_id',id).maybeSingle();
+      if(journey?.state) {detail.journeyState=journey.state;detail.awaitingAvailabilityReview=journey.state==='draft';}
+    }
     res.writeHead(200, headers);
-    res.end(JSON.stringify(toDetail(data)));
+    res.end(JSON.stringify(detail));
   } catch (err) {
     console.error('[admin/api] booking detail unexpected error:', err?.message);
     res.writeHead(500, headers);
@@ -137,6 +144,15 @@ async function handleStatus(req, res, headers) {
   }
 
   try {
+    const { data: managed, error: journeyError } = await supabase.from('booking_journeys').select('booking_id,state').eq('booking_id', bookingId).maybeSingle();
+    if (journeyError && !['42P01','PGRST205'].includes(journeyError.code)) {
+      res.writeHead(503, headers);
+      return res.end(JSON.stringify({ error: 'Could not check the booking agreement. Please retry.' }));
+    }
+    if (managed?.booking_id) {
+      res.writeHead(409, headers);
+      return res.end(JSON.stringify({ error: 'Use Arrange and confirm this booking to change this managed booking and keep customer messages and payments consistent.' }));
+    }
     const { data, error } = await supabase
       .from('bookings')
       .update({ status: body.status, updated_at: new Date().toISOString() })

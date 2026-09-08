@@ -4,12 +4,14 @@ import {
   COVERAGE_POSTCODE_LIST,
   EOT_CARPET_PACKAGE_DISCOUNT_PCT,
   EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS,
+  CARPET_MIN_BOOKING_P,
+  penceToDisplay,
 } from '../data/pricing';
 
 export const FAQS = [
   {
     q: 'How does the end of tenancy re-clean guarantee work?',
-    a: `The Complete End of Tenancy package follows our 67-point checklist. If your agent or landlord reports a cleaning issue covered by that package within ${EOT_GUARANTEE_HOURS} hours of the visit, contact us with their report and we will arrange one free re-clean of the affected area. The guarantee covers cleaning only and does not guarantee the return of a tenancy deposit.`,
+    a: `The Complete End of Tenancy package follows our 67-point checklist. If your agent or landlord reports a cleaning issue covered by that package within ${EOT_GUARANTEE_HOURS / 24} days of the visit, contact us with their report and we will arrange one free re-clean of the affected area. The guarantee covers cleaning only and does not guarantee the return of a tenancy deposit.`,
   },
   {
     q: "What's included in an end of tenancy clean?",
@@ -33,7 +35,7 @@ export const FAQS = [
   },
   {
     q: 'When do I pay?',
-    a: 'There is no payment when you request a preferred time. We check availability, scope and the final price, then contact you to confirm the appointment. For standard residential work, payment is normally due after the service unless a different arrangement is agreed in writing.',
+    a: 'Request your preferred time free. After we agree the scope, total and time with you, we send a £30 deposit link. Paying the deposit confirms the booking and counts towards the total. The remaining balance is normally due after the service, unless a different arrangement is agreed in writing.',
   },
   {
     q: 'Can the price change?',
@@ -65,11 +67,11 @@ export const FAQS = [
   },
   {
     q: `How does the "up to ${EOT_CARPET_PACKAGE_DISCOUNT_PCT}% off carpet cleaning" work?`,
-    a: `It applies when carpet cleaning is booked together with an end of tenancy clean, and only once you select at least ${EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS} qualifying areas. Qualifying areas are bedrooms, living rooms, large lounges, hallways, landings and stairs. Fewer than ${EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS} areas are charged at the normal standalone price. We say "up to" because the £85 carpet minimum still applies, so a small selection may be discounted by less than ${EOT_CARPET_PACKAGE_DISCOUNT_PCT}%. Rugs, wool, silk and other delicate fibres, severe pet or biohazard contamination and exceptional staining are not included and are quoted separately after a photo review. The exact price is always shown before you pay.`,
+    a: `It applies when carpet cleaning is booked together with an end of tenancy clean, and only once you select at least ${EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS} qualifying areas. Qualifying areas are bedrooms, living rooms, large lounges, hallways, landings and stairs. Fewer than ${EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS} areas are charged at the normal standalone price. We say "up to" because the ${penceToDisplay(CARPET_MIN_BOOKING_P)} carpet minimum still applies, so a small selection may be discounted by less than ${EOT_CARPET_PACKAGE_DISCOUNT_PCT}%. Rugs, wool, silk and other delicate fibres, severe pet or biohazard contamination and exceptional staining are not included and are quoted separately after a photo review. The exact price is always shown before you pay.`,
   },
   {
     q: 'What happens if my agent or landlord flags a cleaning issue?',
-    a: `Send us their report. If the issue is covered by the Complete End of Tenancy package and you contact us within ${EOT_GUARANTEE_HOURS} hours of the visit, we arrange one free re-clean of the affected area. Tell us as soon as you can, since the ${EOT_GUARANTEE_HOURS}-hour window runs from the clean. The guarantee covers cleaning work only — it does not guarantee that a tenancy deposit will be returned, and it does not cover damage, repairs or issues outside the booked scope.`,
+    a: `Send us their report. If the issue is covered by the Complete End of Tenancy package and you contact us within ${EOT_GUARANTEE_HOURS / 24} days of the visit, we arrange one free re-clean of the affected area. Tell us as soon as you can, since the ${EOT_GUARANTEE_HOURS / 24}-day window runs from the clean. The guarantee covers cleaning work only — it does not guarantee that a tenancy deposit will be returned, and it does not cover damage, repairs or issues outside the booked scope.`,
   },
 ];
 

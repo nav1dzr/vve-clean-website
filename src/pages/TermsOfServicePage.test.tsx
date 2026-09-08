@@ -18,18 +18,18 @@ function renderPage() {
   return (document.body.textContent || '').replace(/\s+/g, ' ');
 }
 
-describe('TermsOfServicePage — no-deposit booking request clarity', () => {
+describe('TermsOfServicePage — free request and agreed deposit clarity', () => {
   it('explains the request is free and creates no payment obligation', () => {
     const text = renderPage();
     expect(text).toMatch(/No payment is taken when you send that request/i);
     expect(text).toMatch(/does not create a payment obligation/i);
-    expect(text).not.toMatch(/£30 deposit|Stripe secure checkout/i);
+    expect(text).toMatch(/After we agree the time, scope and final price with you, we send an offer with a £30 deposit link/i);
   });
 
   it('explains the preferred time is a request until time, scope and price are agreed', () => {
     const text = renderPage();
     expect(text).toMatch(/is a\s*booking request, not a confirmed appointment/i);
-    expect(text).toMatch(/confirm the appointment only after we have agreed the time, scope and final price/i);
+    expect(text).toMatch(/booking is confirmed when the deposit payment is verified/i);
   });
 
   it('states when the remaining balance is due', () => {

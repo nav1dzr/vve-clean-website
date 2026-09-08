@@ -70,7 +70,7 @@ describe('Carpet page — optional upholstery disclosure', () => {
     expect(onBook).not.toHaveBeenCalled();
   });
 
-  it('allows a rug after a qualifying carpet item is added', async () => {
+  it('requires a photo assessment when a rug accompanies a carpet item', async () => {
     const onBook = vi.fn();
     const u = user();
     renderCalc('carpet', onBook);
@@ -79,7 +79,9 @@ describe('Carpet page — optional upholstery disclosure', () => {
     await add(u, 'Bedroom');
 
     expect(screen.queryByText('Add-on only')).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /Request a time — no payment/i }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /Request a time — no payment/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Rug photo assessment')).toBeInTheDocument();
+    expect(onBook).not.toHaveBeenCalled();
   });
 
   it('hides the upholstery controls until the customer asks for them', () => {

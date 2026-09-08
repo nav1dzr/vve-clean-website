@@ -1,3 +1,4 @@
+import { rejectUnsafePreview } from './_lib/previewIsolation.js';
 // Read-only payment verification for Google Ads conversion gating.
 // Never modifies any data — only reads from Supabase and Stripe.
 //
@@ -34,6 +35,7 @@ function isValidTokenFormat(t) {
 }
 
 export default async function handler(req, res) {
+  if (rejectUnsafePreview(res, { legacy: true })) return;
   if (req.method !== 'GET') {
     res.writeHead(405);
     return res.end();

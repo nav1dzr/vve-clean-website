@@ -67,7 +67,8 @@ const DATA: ServiceLandingData = {
 
   eyebrow: 'Commercial Carpet Cleaning',
   h1: 'Commercial Carpet Cleaning London',
-  h1Highlight: '— Offices, Hotels & Retail',
+  h1Highlight: '',
+  heroSubtitle: 'Carpet cleaning for offices, hotels and retail sites, planned around your access and written scope.',
   heroBadges: [
     // Was "Out-of-hours visits available" — an unqualified standing claim.
     // The schema on this same page already says such visits "can be

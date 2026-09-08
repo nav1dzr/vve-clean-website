@@ -20,11 +20,14 @@ describe('customer email brand wordmark', () => {
     expect(html).not.toContain('#b8960c');
   });
 
-  it.each(['api/contact.js', 'api/stripe-webhook.js'])(
+  it.each([
+    ['admin/api/_lib/enquiryNotifications.js', "import { emailWordmarkHtml } from './brandWordmark.js';"],
+    ['api/stripe-webhook.js', "import { emailWordmarkHtml } from './_lib/emailBrand.js';"],
+  ])(
     '%s uses the shared email wordmark',
-    (path) => {
+    (path, sharedImport) => {
       const source = readFileSync(resolve(process.cwd(), path), 'utf8');
-      expect(source).toContain("import { emailWordmarkHtml } from './_lib/emailBrand.js';");
+      expect(source).toContain(sharedImport);
       expect(source).toContain('emailWordmarkHtml({ inverse: true })');
     },
   );

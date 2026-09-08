@@ -10,8 +10,8 @@ const FAQS = [
     a: 'Yes, on our Complete Agency-Ready package. We follow a 67-point checklist based on standard letting agency inventory requirements and provide a photographic cleaning receipt you can share with your agent.',
   },
   {
-    q: `What is the ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee?`,
-    a: `If your letting agent or landlord flags an area of the clean within ${EOT_GUARANTEE_HOURS} hours of completion, send us their written feedback. We will return to address the relevant cleaning points for free.`,
+    q: `What is the ${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee?`,
+    a: `Report a missed task from the agreed cleaning scope within ${EOT_GUARANTEE_HOURS / 24} days of completion, with photos or a written inspection report. We arrange one free return for covered work. Complete covers the full checklist; Tailored covers selected tasks. Permanent damage, wear and tear, and new mess are excluded.`,
   },
   {
     q: 'What is included in the Complete package?',
@@ -52,7 +52,7 @@ const SCHEMA = JSON.stringify({
     {
       '@type': 'Service',
       name: 'How We Clean for End of Tenancy',
-      description: `How VVE Clean carries out an end of tenancy clean in London — the 67-point checklist, free oven clean, photographic receipt and ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee.`,
+      description: `How VVE Clean carries out an end of tenancy clean in London — the 67-point checklist, free oven clean, photographic receipt and ${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee.`,
       provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
       url: 'https://www.vveclean.co.uk/how-we-clean-end-of-tenancy',
@@ -74,8 +74,9 @@ const DATA: ServiceLandingData = {
 
   eyebrow: 'Our Process',
   h1: 'How We Clean for End of Tenancy',
-  h1Highlight: ' — the process, step by step.',
-  heroBadges: ['67-point checklist', 'Free oven clean', `${EOT_GUARANTEE_HOURS}-hour guarantee`],
+  h1Highlight: '',
+  heroSubtitle: 'See the preparation, cleaning method and scope before choosing your service.',
+  heroBadges: ['67-point checklist', 'Free oven clean', `${EOT_GUARANTEE_HOURS / 24}-day guarantee`],
   heroGoogleBadge: true,
   primaryHref: '/end-of-tenancy-cleaning-london#quote',
   primaryLabel: 'Get an end of tenancy quote',
@@ -83,8 +84,8 @@ const DATA: ServiceLandingData = {
   secondaryLabel: 'WhatsApp for a quote',
   secondaryIsWa: true,
 
-  introH2: 'The same checklist your letting agent uses',
-  introText: `Letting agents work from a detailed inventory checklist, and so do we — on our Complete Agency-Ready package. Here is exactly what happens from arrival to the ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee.`,
+  introH2: 'A clear checklist for your end of tenancy clean',
+  introText: `Letting agents work from a detailed inventory checklist, and so do we — on our Complete Agency-Ready package. Here is exactly what happens from arrival to the ${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee.`,
 
   benefitsH2: '',
   benefits: [],
@@ -104,7 +105,7 @@ const DATA: ServiceLandingData = {
   ],
 
   ctaH2: 'Ready to book your end of tenancy clean?',
-  ctaBody: 'Send your preferred date online with no payment. We check availability, scope and the final price, then contact you to confirm the appointment.',
+  ctaBody: 'Send your preferred date free. We agree the scope, total and time, then send a £30 deposit link. Payment confirms the booking and counts towards the total.',
   ctaPrimary: { href: '/booking', label: 'Request a time' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };

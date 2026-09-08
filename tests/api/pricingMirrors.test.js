@@ -143,14 +143,14 @@ describe('server-side price authority still holds with the new architecture', ()
     expect(result).toBe(shared.CARPET_MIN_BOOKING_P / 100);
   });
 
-  it('rejects a rug-only online checkout but allows a rug with a qualifying service', () => {
+  it('requires assessment for both rug-only and mixed-rug baskets', () => {
     const base = {
       service: 'deep', deepService: 'carpet_upholstery', carpetCondition: 'normal',
     };
 
     expect(serverComputePrice({ ...base, carpetCounts: { rug: 1 } })).toBeNull();
     expect(serverComputePrice({ ...base, carpetCounts: { rug: 1, bedroom: 1 } }))
-      .toBeGreaterThanOrEqual(shared.CARPET_MIN_BOOKING_P / 100);
+      .toBeNull();
   });
 
   it('rejects an unrecognised deep service by returning null', () => {

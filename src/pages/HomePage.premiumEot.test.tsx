@@ -12,7 +12,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import HomePage from './HomePage';
 import EndOfTenancyPage from './EndOfTenancyPage';
 import { CookieConsentProvider } from '../context/CookieConsentContext';
@@ -39,7 +39,7 @@ beforeEach(() => {
 function renderHome() {
   return render(
     <MemoryRouter initialEntries={['/']}>
-      <CookieConsentProvider><HomePage /></CookieConsentProvider>
+      <CookieConsentProvider><Routes><Route path="/" element={<HomePage />} /><Route path="/end-of-tenancy-cleaning-london" element={<EndOfTenancyPage />} /></Routes></CookieConsentProvider>
     </MemoryRouter>,
   );
 }
@@ -62,7 +62,7 @@ function quote() {
 async function chooseCard(user: ReturnType<typeof userEvent.setup>, title: string) {
   const grid = document.getElementById('services') as HTMLElement;
   const card = within(grid).getByText(title).closest('article');
-  await user.click(within(card as HTMLElement).getByRole('button', { name: /Get your price/i }));
+  await user.click(within(card as HTMLElement).getByRole('link', { name: /Build my estimate/i }));
 }
 
 describe('End of Tenancy quote — identical on the homepage and the service page', () => {

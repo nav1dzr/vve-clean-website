@@ -88,6 +88,15 @@ export default async function handler(req, res) {
   }
 
   try {
+    const { data: managed, error: journeyError } = await supabase.from('booking_journeys').select('booking_id').eq('booking_id', bookingId).maybeSingle();
+    if (journeyError && !['42P01','PGRST205'].includes(journeyError.code)) {
+      res.writeHead(503, headers);
+      return res.end(JSON.stringify({ error: 'Could not check the booking payment ledger. Please retry.' }));
+    }
+    if (managed?.booking_id) {
+      res.writeHead(409, headers);
+      return res.end(JSON.stringify({ error: 'Record this booking payment in Arrange and confirm this booking so the ledger and receipt stay consistent.' }));
+    }
     const { data, error } = await supabase
       .from('bookings')
       .update({

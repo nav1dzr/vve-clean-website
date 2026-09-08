@@ -9,12 +9,12 @@ describe('EotProcessSection', () => {
     const items = screen.getAllByRole('listitem');
     expect(items).toHaveLength(5);
     expect(items[0]).toHaveTextContent('Arrival & walkthrough');
-    expect(items[4]).toHaveTextContent(`${EOT_GUARANTEE_HOURS}-hour re-clean guarantee`);
+    expect(items[4]).toHaveTextContent(`${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee`);
   });
 
   it('states the real, published guarantee hours rather than a hardcoded number', () => {
     render(<EotProcessSection />);
-    expect(screen.getByText(`${EOT_GUARANTEE_HOURS}-hour re-clean guarantee`)).toBeInTheDocument();
+    expect(screen.getByText(`${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee`)).toBeInTheDocument();
   });
 
   it('mentions the 67-point checklist and free appliance cleaning, both already published elsewhere', () => {

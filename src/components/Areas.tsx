@@ -1,4 +1,7 @@
 import { MapPin } from 'lucide-react';
+import { AREAS } from '../data/areas';
+import { COVERAGE_POSTCODE_LIST } from '../data/pricing';
+import { Link } from 'react-router-dom';
 import { useReveal } from '../hooks/useReveal';
 
 const areas = [
@@ -7,7 +10,7 @@ const areas = [
   'Bethnal Green', 'Dalston', 'Bow',
   // North London
   'Islington', 'Stoke Newington', 'Finsbury Park', 'Highbury', 'Holloway',
-  'Tottenham', 'Crouch End', 'Wood Green', 'Camden', 'Highgate',
+  'Tottenham', 'Crouch End', 'Wood Green', 'Camden',
 ];
 
 export default function Areas() {
@@ -25,7 +28,7 @@ export default function Areas() {
           </div>
           <h2 className="section-heading mb-4">Areas We Cover</h2>
           <p className="section-subheading mx-auto">
-            East &amp; North London specialists — from Hackney and Canary Wharf to Islington, Camden, Highgate and Tottenham.
+            East &amp; North London specialists — from Hackney and Canary Wharf to Islington, Camden and Tottenham.
           </p>
         </div>
 
@@ -39,12 +42,14 @@ export default function Areas() {
               style={{ transitionDelay: `${i * 30}ms` }}
             >
               <MapPin size={12} className="text-royal-500 flex-shrink-0" />
-              <span className="text-navy-800 text-xs font-medium">{area}</span>
+              {AREAS.find((entry) => entry.name === area) ? <Link to={`/cleaning-${AREAS.find((entry) => entry.name === area)!.slug}`} className="text-navy-800 text-xs font-medium underline underline-offset-4 hover:text-royal-700">{area}</Link> : <span className="text-navy-800 text-xs font-medium">{area}</span>}
             </div>
           ))}
         </div>
 
-        {/* Map placeholder / CTA strip */}
+        <p className="mb-8 text-center text-sm leading-relaxed text-slate-600">Published postcode areas: {COVERAGE_POSTCODE_LIST}.</p>
+
+        {/* Coverage enquiry */}
         <div
           className={`relative overflow-hidden rounded-2xl cyan-gradient p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-6 transition-all duration-700 delay-500 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
         >
@@ -53,7 +58,7 @@ export default function Areas() {
               Don't see your area?
             </h3>
             <p className="text-slate-600 text-base">
-              We also cover wider London — message us to confirm your postcode.
+              Send your full postcode so we can confirm whether we can travel to you.
             </p>
           </div>
           <div className="flex-shrink-0 flex flex-col sm:flex-row gap-3">

@@ -63,7 +63,8 @@ const SCHEMA = JSON.stringify({
         { '@type': 'Offer', name: '2-seater sofa', price: p(CARPET_ITEM_PRICES_P.sofa_2), priceCurrency: 'GBP' },
         { '@type': 'Offer', name: '3-seater sofa', price: p(CARPET_ITEM_PRICES_P.sofa_3), priceCurrency: 'GBP' },
         { '@type': 'Offer', name: 'Corner / L-shaped sofa', price: p(CARPET_ITEM_PRICES_P.sofa_corner), priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: 'Mattress (double/king)', price: p(CARPET_ITEM_PRICES_P.mattress_double), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: 'Mattress (double)', price: p(CARPET_ITEM_PRICES_P.mattress_double), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: 'Mattress (king)', price: p(CARPET_ITEM_PRICES_P.mattress_king), priceCurrency: 'GBP' },
       ],
     },
     {
@@ -83,7 +84,7 @@ const DATA: ServiceLandingData = {
 
   eyebrow: 'Professional Upholstery Cleaning',
   h1: 'Sofa & Upholstery Cleaning London',
-  h1Highlight: ' — cleaned with care, not guesswork.',
+  h1Highlight: '',
   heroHighlightClassName: 'text-gradient-sofa',
   heroSubtitle: 'A fabric-first clean for sofas, armchairs, mattresses and dining chairs across East & North London.',
   heroPriceChip: `2-seater sofa ${pd(CARPET_ITEM_PRICES_P.sofa_2)} · ${pd(CARPET_MIN_BOOKING_P)} minimum booking`,
@@ -91,7 +92,6 @@ const DATA: ServiceLandingData = {
   heroAsideOnMobile: true,
   heroBadges: [
     'Hot-water extraction',
-    'Colour-safe on most fabrics',
     'Fabric checked before treatment',
   ],
   heroGoogleBadge: true,
@@ -100,7 +100,7 @@ const DATA: ServiceLandingData = {
   primaryHref: '/sofa-cleaning-london#quote',
   primaryLabel: 'Build my upholstery quote',
   secondaryHref: WA,
-  secondaryLabel: 'WhatsApp for a quote',
+  secondaryLabel: 'Ask about your fabric',
   secondaryIsWa: true,
 
   afterHeroSection: <QuoteCalculator mode="upholstery" />,
@@ -141,20 +141,21 @@ const DATA: ServiceLandingData = {
     'Deodourising treatment included as standard',
     'All equipment and cleaning products supplied',
     'Post-clean inspection — we check every cushion with you',
-    '£15 off if we arrive more than an hour late',
-    'Free reschedule until 12pm the day before',
+    'An agreed arrival window in your booking confirmation',
+    'Request a date change through your booking link; we confirm availability with you',
   ],
 
   pricingH2: 'Fixed sofa cleaning prices',
   pricingIntro:
-    `Every price below is fixed — the price you book is the price you pay. £${CARPET_MIN_BOOKING_P / 100} minimum booking applies.`,
+    `Standard item prices are shown below. We agree suitability, scope and the final total before confirming your booking. £${CARPET_MIN_BOOKING_P / 100} minimum booking applies.`,
   pricingRows: [
     { label: 'Armchair', price: pd(CARPET_ITEM_PRICES_P.armchair) },
     { label: '2-seater sofa', price: pd(CARPET_ITEM_PRICES_P.sofa_2) },
     { label: '3-seater sofa', price: pd(CARPET_ITEM_PRICES_P.sofa_3) },
     { label: 'Corner / L-shaped sofa', price: pd(CARPET_ITEM_PRICES_P.sofa_corner) },
     { label: 'Mattress (single)', price: pd(CARPET_ITEM_PRICES_P.mattress_single) },
-    { label: 'Mattress (double / king)', price: pd(CARPET_ITEM_PRICES_P.mattress_double) },
+    { label: 'Mattress (double)', price: pd(CARPET_ITEM_PRICES_P.mattress_double) },
+    { label: 'Mattress (king)', price: pd(CARPET_ITEM_PRICES_P.mattress_king) },
   ],
   pricingNote:
     'Combine a sofa and carpet clean on the same visit to save automatically on bundle discount tiers — see all prices for details.',
@@ -173,6 +174,7 @@ const DATA: ServiceLandingData = {
   faqs: FAQS,
 
   relatedLinks: [
+    { href: '/how-we-clean-sofas-upholstery', label: 'How we clean upholstery' },
     { href: '/carpet-cleaning-london', label: 'Carpet Cleaning' },
     { href: '/end-of-tenancy-cleaning-london', label: 'End of Tenancy Cleaning' },
     { href: '/after-builders-cleaning-london', label: 'After Builders Cleaning' },
@@ -187,12 +189,12 @@ const DATA: ServiceLandingData = {
   // Media used to sit below pricing, five screens down, which buried it.
   sectionOrder: [
     'proof', 'reviews', 'benefits', 'process', 'media',
-    'intro', 'why', 'pricing', 'faq', 'related',
+    'why', 'pricing', 'faq', 'related',
   ],
 
   ctaH2: 'Ready to book your sofa clean?',
   ctaBody:
-    'Send your preferred date online with no payment. We check availability, scope and the final price, then contact you to confirm the appointment.',
+    'Request your preferred date free. We agree the scope, total and time with you, then send a £30 deposit link. Payment confirms your booking and counts towards the total.',
   ctaPrimary: { href: '/booking', label: 'Request a time' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };

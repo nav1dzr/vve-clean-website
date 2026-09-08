@@ -4,6 +4,8 @@ import { getServiceClient } from './_lib/supabaseAdmin.js';
 import { readJsonBody } from './_lib/body.js';
 import { validateSearchQuery } from './_lib/normalise.js';
 import { toCard } from './_lib/bookingFields.js';
+import { websitePricebookHandler } from './_lib/websitePricebookActions.js';
+import { enquiriesHandler } from './_lib/enquiries.js';
 import { mediaCollectionHandler } from './_lib/mediaCollectionActions.js';
 import { mediaAssetHandler } from './_lib/mediaAssetActions.js';
 
@@ -23,6 +25,8 @@ export default async function handler(req, res) {
   // Hobby project is at its route cap. Both handlers verify the same admin
   // token and validate their own request data before any provider action.
   const params = new URL(req.url, 'https://admin.local').searchParams;
+  if (params.get('resource') === 'website-pricebook') return websitePricebookHandler(req, res);
+  if (params.get('resource') === 'enquiries') return enquiriesHandler(req, res);
   if (params.get('resource') === 'media') {
     return params.get('id') ? mediaAssetHandler(req, res) : mediaCollectionHandler(req, res);
   }

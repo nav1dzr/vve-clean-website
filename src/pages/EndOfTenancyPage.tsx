@@ -1,4 +1,5 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import ServiceHeroPhoto from '../components/ServiceHeroPhoto';
 import QuoteCalculator from '../components/QuoteCalculator';
 import EotResultsSection from '../components/gallery/EotResultsSection';
 import GuaranteeTerms from '../components/GuaranteeTerms';
@@ -35,8 +36,8 @@ const FAQS = [
     a: 'The Complete price includes the oven, hob, grill, extractor, inside an emptied fridge and defrosted freezer, and accessible dishwasher and washing-machine compartments. Appliances must be empty and accessible; repairs and dismantling are not included. On the Tailored package these are priced individually and shown in full before you select them.',
   },
   {
-    q: `What is the ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee?`,
-    a: `If your letting agent or landlord flags any area within ${EOT_GUARANTEE_HOURS} hours of completion, we return to address it for free. We ask that you send us a copy of the agent's written feedback so we can prioritise the right areas. The guarantee does not cover permanent damage, wear and tear, permanent stains, or new mess created after the team leaves. Complete gets the full agency-ready guarantee; Tailored is covered for the tasks you selected.`,
+    q: `What is the ${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee?`,
+    a: `If you, your letting agent or landlord report a missed task from the agreed cleaning scope within ${EOT_GUARANTEE_HOURS / 24} days of completion, we arrange one free return to re-clean that task. Send photographs or the written inspection report so we can review the missed work and agree access for the return. The guarantee does not cover permanent damage, wear and tear, permanent stains, or new mess created after the team leaves. Complete gets the full agency-ready guarantee; Tailored is covered for the tasks you selected.`,
   },
   {
     q: 'What is the difference between Complete and Tailored?',
@@ -66,7 +67,7 @@ const SCHEMA = JSON.stringify({
       '@type': 'Service',
       name: 'End of Tenancy Cleaning London',
       description:
-        `Inventory-grade end of tenancy cleaning across East and North London. 67-point agency checklist, free oven clean, ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee and photographic receipt included as standard. Complete Agency-Ready and Tailored Checklist packages available.`,
+        `Inventory-grade end of tenancy cleaning across East and North London. 67-point agency checklist, free oven clean, ${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee and photographic receipt included as standard. Complete Agency-Ready and Tailored Checklist packages available.`,
       provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
       url: 'https://www.vveclean.co.uk/end-of-tenancy-cleaning-london',
@@ -96,16 +97,19 @@ const DATA: ServiceLandingData = {
 
   eyebrow: 'End of Tenancy Cleaning',
   h1: 'End of Tenancy Cleaning London',
-  h1Highlight: ': 67-Point Agency Checklist',
+  h1Highlight: '',
+  heroSubtitle: 'Moving out? Choose Complete for our full 67-point checklist, or Tailored for selected internal tasks. Oven cleaning is included in both.',
+  heroAside: <ServiceHeroPhoto src="/end_of_tenancy/before-after/kitchen1_after.jpg" alt="Kitchen hob after cleaning" caption="Kitchen hob, after cleaning" detail="See the full before-and-after pair below. Cleaning does not repair existing scratches or wear." />,
+  heroAsideOnMobile: true,
   heroPriceChip: `Complete from ${pDisplay(EOT_BASE_PRICES_P.studio)} · Tailored from ${pDisplay(EOT_TAILORED_START_PRICES_P.studio)}`,
   heroBadges: [
     'Free oven clean included',
-    `${EOT_GUARANTEE_HOURS}-hour re-clean guarantee`,
+    `${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee`,
     'Photographic receipt for your agent',
   ],
   heroGoogleBadge: true,
   heroCompactMobile: true,
-  heroTrustLine: '£5m public liability insurance · DBS checked',
+  heroTrustLine: '£5m public liability insurance · scope agreed with you',
   primaryHref: '/end-of-tenancy-cleaning-london#quote',
   primaryLabel: 'Build my quote',
   secondaryHref: WA,
@@ -132,8 +136,8 @@ const DATA: ServiceLandingData = {
     },
     {
       icon: <RefreshCw size={28} />,
-      title: `${EOT_GUARANTEE_HOURS}-hour re-clean guarantee`,
-      body: `If your agent flags anything within ${EOT_GUARANTEE_HOURS} hours of your clean, we return to fix it for free. We ask only for a copy of the agent's written feedback.`,
+      title: `${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee`,
+      body: `Report missed work from the agreed scope within ${EOT_GUARANTEE_HOURS / 24} days, with photos or an inspection report. We arrange one free return for covered areas. See the full terms below.`,
     },
     {
       icon: <Camera size={28} />,
@@ -144,19 +148,19 @@ const DATA: ServiceLandingData = {
 
   whyH2: 'What every Complete end of tenancy clean includes',
   whyPoints: [
-    '67-point agency checklist — the same one your agent uses',
+    'Our published 67-point Complete cleaning checklist',
     'Inside oven, hob, extractor filter and grill — free',
     'Inside all cupboards, drawers and wardrobes',
     'Bathrooms fully descaled, tiles, grouting and fixtures',
     'Internal windows cleaned streak-free',
     'Skirting boards, light switches and door frames wiped',
-    `${EOT_GUARANTEE_HOURS}-hour free re-clean if your agent flags anything`,
+    `${EOT_GUARANTEE_HOURS / 24} days to report missed work from the agreed scope`,
     'Photographic cleaning receipt emailed on completion',
   ],
 
   pricingH2: 'Fixed end of tenancy cleaning prices',
   pricingIntro:
-    `Prices are fixed by property size for normally maintained, vacant flats. Complete Agency-Ready is our recommended, fully-inclusive package. Prefer to choose only what you need? Tailored Checklist starts from £${EOT_TAILORED_START_PRICES_P.studio / 100} — build it in the quote above.`,
+    `Prices are fixed by property size for normally maintained, vacant flats. Complete Agency-Ready covers our full published cleaning checklist; optional extras remain separate. Prefer to choose only what you need? Tailored Checklist starts from £${EOT_TAILORED_START_PRICES_P.studio / 100} — build it in the quote above.`,
   pricingRows: [
     { label: 'Studio — Complete',                  price: pDisplay(EOT_BASE_PRICES_P.studio) },
     { label: '1 Bedroom — Complete',                price: pDisplay(EOT_BASE_PRICES_P.bed1) },
@@ -190,9 +194,10 @@ const DATA: ServiceLandingData = {
   // 'proof' carries the full re-clean guarantee terms (GuaranteeTerms). It
   // sits after pricing and before the FAQ: the guarantee answers the
   // objection the price raises, and the FAQ then handles everything else.
-  sectionOrder: ['media', 'reviews', 'benefits', 'intro', 'why', 'pricing', 'proof', 'faq', 'related'],
+  sectionOrder: ['media', 'reviews', 'benefits', 'why', 'pricing', 'proof', 'faq', 'related'],
 
   relatedLinks: [
+    { href: '/how-we-clean-end-of-tenancy', label: 'See the end of tenancy checklist and process' },
     { href: '/carpet-cleaning-london', label: 'Carpet Cleaning' },
     { href: '/sofa-cleaning-london', label: 'Sofa Cleaning' },
     { href: '/after-builders-cleaning-london', label: 'After Builders Cleaning' },
@@ -203,7 +208,7 @@ const DATA: ServiceLandingData = {
 
   ctaH2: 'Book your end of tenancy clean today.',
   ctaBody:
-    'Send your preferred date online with no payment. We check availability, scope and the final price, then contact you to confirm the appointment.',
+    'Request your preferred date free. We agree the scope, total and time with you, then send a £30 deposit link. Payment confirms your booking and counts towards the total.',
   ctaPrimary: { href: '/booking', label: 'Request a time' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };

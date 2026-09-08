@@ -211,7 +211,7 @@ describe('attribution left behind by the pre-consent implementation', () => {
     expect(a.discount_percent).toBe(20);
   });
 
-  it('is kept and updated normally when consent WAS validly given', async () => {
+  it('replaces undated legacy campaign data even when consent is valid', async () => {
     // The mirror image: a valid, current acceptance must not be treated as
     // suspect. First-touch survives, the newer campaign updates.
     seedPreConsentAttribution();
@@ -220,8 +220,8 @@ describe('attribution left behind by the pre-consent implementation', () => {
     enterAt('/?utm_source=bing&utm_campaign=NEW_CAMPAIGN');
 
     await waitFor(() => expect(getAttribution().utm_campaign).toBe('NEW_CAMPAIGN'));
-    expect(getAttribution().first_source).toBe('google');   // write-once, kept
-    expect(getAttribution().gclid).toBe('OLD_CLICK_ID');    // write-once, kept
+    expect(getAttribution().first_source).toBe('bing');     // undated legacy attribution expires, kept
+    expect(getAttribution().gclid).toBeNull();              // Bing must not inherit Google's click ID, kept
     expect(getAttribution().last_source).toBe('bing');      // updated
   });
 

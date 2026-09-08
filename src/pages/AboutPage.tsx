@@ -42,11 +42,11 @@ export default function AboutPage() {
         </section>
 
         <section className="border-b border-line bg-surface px-4 py-14 sm:py-16">
-          <div className="mx-auto grid max-w-5xl gap-6 rounded-3xl border border-sky-200 bg-white p-7 shadow-[0_18px_55px_rgba(16,80,130,0.10)] sm:p-10 lg:grid-cols-[0.32fr_1fr] lg:items-center">
-            <div className="flex items-center gap-4 lg:block">
-              <span className="font-display text-6xl font-extrabold leading-none text-royal-600 sm:text-7xl">3</span>
-              <p className="max-w-[9rem] text-xs font-bold uppercase tracking-[0.16em] text-navy-700 lg:mt-3">friends started VVE Clean</p>
-            </div>
+          <div className="mx-auto grid max-w-5xl gap-6 rounded-3xl border border-sky-200 bg-white p-7 shadow-[0_18px_55px_rgba(16,80,130,0.10)] sm:p-10 lg:grid-cols-[0.8fr_1fr] lg:items-center">
+            <figure className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+              <img src="/gallery/van-equipment.webp" alt="VVE Clean van and cleaning equipment" width={800} height={600} loading="lazy" decoding="async" className="h-auto w-full" />
+              <figcaption className="px-4 py-3 text-xs leading-relaxed text-slate-600">VVE Clean van and cleaning equipment.</figcaption>
+            </figure>
             <div>
               <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-royal-700">Our story</p>
               <h2 className="font-display text-3xl font-bold text-navy-900">We started together</h2>
@@ -63,7 +63,7 @@ export default function AboutPage() {
               <p className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-royal-600">How we work</p>
               <h2 className="font-display text-3xl font-bold text-navy-900 sm:text-4xl">A local team you can contact directly</h2>
               <p className="mt-5 leading-7 text-muted">
-                You can call, email or message VVE Clean before booking. Send the service, property details and preferred date with no payment. We check availability, scope and the final price, then contact you to confirm the appointment.
+                You can call, email or message VVE Clean before booking. Send the service, property details and preferred date with no payment. We agree availability, scope and the final price with you, then send a £30 deposit link. Your booking is confirmed when the payment is verified.
               </p>
               <ul className="mt-7 space-y-4">
                 {principles.map((item) => (
@@ -99,7 +99,7 @@ export default function AboutPage() {
 
         <section className="px-4 pb-16">
           <div className="mx-auto max-w-5xl rounded-3xl border border-line bg-surface p-7 sm:p-10">
-            <h2 className="font-display text-2xl font-bold text-navy-900">Checked and reviewed independently</h2>
+            <h2 className="font-display text-2xl font-bold text-navy-900">Check our Checkatrade profile</h2>
             <p className="mt-4 leading-7 text-muted">
               VVE Limited is a Checkatrade member. Checkatrade verifies its members
               independently and publishes customer reviews that VVE Clean cannot edit,

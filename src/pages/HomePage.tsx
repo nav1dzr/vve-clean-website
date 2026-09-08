@@ -64,14 +64,6 @@ export default function HomePage() {
       {/* 2. Primary services */}
       <Services onChoose={chooseService} />
 
-      {/* 3. Trust — who we are and what we bring */}
-      <TrustBadges />
-      <OurKit />
-
-      {/* 4. Reviews and real results */}
-      <Reviews />
-      <Gallery />
-
       {/* 5. Price / quote entry — the conversion point */}
       {/* Remounts on service change so every branch of the calculator starts
           from clean state rather than carrying the previous service's counts. */}
@@ -85,6 +77,27 @@ export default function HomePage() {
           objection the price raises. Detailed exclusions moved to
           /end-of-tenancy-cleaning-london#guarantee. */}
       <Guarantee />
+
+      <section className="border-y border-slate-200 bg-white px-4 py-12" aria-labelledby="booking-steps-heading">
+        <div className="mx-auto max-w-6xl">
+          <h2 id="booking-steps-heading" className="font-display text-3xl font-bold text-navy-950">From request to confirmed visit</h2>
+          <ol className="mt-7 grid gap-6 sm:grid-cols-3">
+            {[
+              ['01', 'Send your request', 'Choose the service and a preferred time. No payment is taken.'],
+              ['02', 'Agree the details', 'We discuss the scope, final price and arrival window with you.'],
+              ['03', 'Confirm with £30', 'Pay the deposit from your agreed offer. It counts towards the total; the remaining balance is normally due after the clean.'],
+            ].map(([step, title, body]) => <li key={step}><p className="text-sm font-bold text-royal-700">{step}</p><h3 className="mt-2 font-display text-lg font-bold text-navy-950">{title}</h3><p className="mt-2 text-sm leading-relaxed text-slate-600">{body}</p></li>)}
+          </ol>
+        </div>
+      </section>
+
+      {/* Trust — who we are and what we bring */}
+      <TrustBadges />
+      <OurKit />
+
+      {/* 4. Reviews and real results */}
+      <Reviews />
+      <Gallery />
 
       {/* 6. Coverage */}
       <Areas />

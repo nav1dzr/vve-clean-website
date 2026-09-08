@@ -64,7 +64,7 @@ function expectOrder(entries: [string, number][]) {
 }
 
 describe('Sofa & Upholstery page order', () => {
-  it('runs hero → quote → results → extraction clip → reviews → benefits → process → gallery → intro → includes → pricing → FAQs → related → CTA', () => {
+  it('runs hero → quote → results → extraction clip → reviews → benefits → process → gallery → includes → pricing → FAQs → related → CTA', () => {
     const { container } = renderPage(<SofaCleaningPage />, '/sofa-cleaning-london');
     const at = locator(container);
 
@@ -77,7 +77,6 @@ describe('Sofa & Upholstery page order', () => {
       ['benefits', at.heading('Why customers book sofa cleaning with us')],
       ['process', at.sel('[aria-labelledby="sofa-process-heading"]')],
       ['supporting gallery', at.sel('#gallery')],
-      ['intro', at.heading('Sofa cleaning that goes deeper than vacuuming')],
       ['what every clean includes', at.heading('What every sofa clean includes')],
       ['pricing', at.heading('Fixed sofa cleaning prices')],
       ['FAQs', at.heading('Common questions')],
@@ -119,7 +118,7 @@ describe('Sofa & Upholstery page order', () => {
 });
 
 describe('Carpet page order', () => {
-  it('runs hero → quote → results → reviews → benefits → process footage → intro → includes → pricing', () => {
+  it('runs hero → quote → results → reviews → benefits → process footage → includes → pricing', () => {
     const { container } = renderPage(<CarpetCleaningPage />, '/carpet-cleaning-london');
     const at = locator(container);
 
@@ -166,7 +165,7 @@ describe('End of Tenancy page order', () => {
   // The section order itself is unchanged by the Complete/Tailored wizard
   // migration; the assertions exist so future shared-layout edits cannot
   // regress it.
-  it('runs hero → guided quote → proof → reviews → benefits → intro → includes → pricing', () => {
+  it('runs hero → guided quote → proof → reviews → benefits → includes → pricing', () => {
     const { container } = renderPage(<EndOfTenancyPage />, '/end-of-tenancy-cleaning-london');
     const at = locator(container);
 
@@ -176,7 +175,6 @@ describe('End of Tenancy page order', () => {
       ['proof media', at.heading('See the difference')],
       ['reviews', at.sel('#reviews')],
       ['benefits', at.heading('Why tenants and landlords choose VVE Clean')],
-      ['intro', at.heading('The clean your agent actually checks for')],
       ['what every clean includes', at.heading('What every Complete end of tenancy clean includes')],
       ['pricing', at.heading('Fixed end of tenancy cleaning prices')],
     ]);

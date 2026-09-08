@@ -1,35 +1,54 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { CheckCircle2 } from 'lucide-react';
-import QuoteCalculator, { type BookingSelection } from '../components/QuoteCalculator';
-import BrandLogo from '../components/BrandLogo';
-import { getAttribution } from '../lib/attribution';
-import { getQuoteOriginHref } from '../lib/quoteOrigin';
-import { trackBookingRequestSubmitted } from '../lib/analytics';
-import { CARPET_MIN_BOOKING, DISCOUNT_MIN_NOTE } from '../data/carpetPricing';
-import { PARKING_ESTIMATE_P, CONGESTION_CHARGE_P, PARKING_CHARGED_AT_ACTUAL_COST_NOTE } from '../data/pricing';
+import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
+import { CheckCircle2 } from "lucide-react";
+import QuoteCalculator, {
+  type BookingSelection,
+} from "../components/QuoteCalculator";
+import BrandLogo from "../components/BrandLogo";
+import { getAttribution } from "../lib/attribution";
+import { getQuoteOriginHref } from "../lib/quoteOrigin";
+import { PRICEBOOK_VERSION } from "../data/pricing";
+import {
+  submissionIdentity,
+  clearSubmissionIdentity,
+} from "../lib/submissionIdentity";
+import {
+  trackBookingRequestSubmitted,
+  trackFunnelStep,
+} from "../lib/analytics";
+import { CARPET_MIN_BOOKING, DISCOUNT_MIN_NOTE } from "../data/carpetPricing";
+import {
+  PARKING_ESTIMATE_P,
+  CONGESTION_CHARGE_P,
+  PARKING_CHARGED_AT_ACTUAL_COST_NOTE,
+} from "../data/pricing";
 
-const PARKING_ESTIMATE    = PARKING_ESTIMATE_P / 100;
-const CONGESTION_CHARGE   = CONGESTION_CHARGE_P / 100;
+const PARKING_ESTIMATE = PARKING_ESTIMATE_P / 100;
+const CONGESTION_CHARGE = CONGESTION_CHARGE_P / 100;
 
-type ParkingAnswer    = '' | 'yes' | 'no' | 'not_sure';
-type CongestionAnswer = '' | 'no' | 'yes' | 'not_sure';
+type ParkingAnswer = "" | "yes" | "no" | "not_sure";
+type CongestionAnswer = "" | "no" | "yes" | "not_sure";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STORAGE_KEY  = 'vve_booking';
+const STORAGE_KEY = "vve_booking";
 
 // ─── Booking-form draft ───────────────────────────────────────────────────────
 // Persists contact/scheduling fields across page refreshes. Cleared only after
 // the manager-visible request has been saved successfully.
 
-const DRAFT_KEY = 'vve_form_draft_v1';
+const DRAFT_KEY = "vve_form_draft_v1";
 const DRAFT_TTL = 48 * 60 * 60 * 1000; // 48 hours
 
 function saveDraft(form: FormData): void {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ expires: Date.now() + DRAFT_TTL, form }));
-  } catch { /* storage unavailable or full — silently ignore */ }
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ expires: Date.now() + DRAFT_TTL, form }),
+    );
+  } catch {
+    /* storage unavailable or full — silently ignore */
+  }
 }
 
 function loadDraft(): FormData | null {
@@ -42,10 +61,12 @@ function loadDraft(): FormData | null {
       return null;
     }
     return parsed.form ?? null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
-const BACKEND_URL  = '/api/create-booking-request';
-const WA_NUMBER    = '447845451111';
+const BACKEND_URL = "/api/create-booking-request";
+const WA_NUMBER = "447845451111";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -55,16 +76,29 @@ function money(n: number) {
   // exact pence value the customer is actually charged.
   const rounded = Math.round(n * 100) / 100;
   const hasPence = Math.abs(rounded % 1) > 1e-9;
-  return '£' + rounded.toLocaleString('en-GB', { minimumFractionDigits: hasPence ? 2 : 0, maximumFractionDigits: 2 });
+  return (
+    "£" +
+    rounded.toLocaleString("en-GB", {
+      minimumFractionDigits: hasPence ? 2 : 0,
+      maximumFractionDigits: 2,
+    })
+  );
 }
 
-function validEmail(v: string)    { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
-function validPhone(v: string)    { return v.replace(/\D/g, '').length >= 10; }
-function validPostcode(v: string) { return /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i.test(v.trim()); }
+function validEmail(v: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
+function validPhone(v: string) {
+  return v.replace(/\D/g, "").length >= 10;
+}
+function validPostcode(v: string) {
+  return /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i.test(v.trim());
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-const BOOKING_WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20help%20with%20my%20booking.';
+const BOOKING_WA =
+  "https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20help%20with%20my%20booking.";
 
 function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
   // Where the quote was actually built — the Carpet page, the Sofa page, the
@@ -72,8 +106,13 @@ function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
   // hard-coded destination when nothing was recorded.
   const backHref = getQuoteOriginHref(isLeaflet);
   return (
-    <header className="sticky top-0 z-50 border-b border-black/[0.08]"
-      style={{ background: 'rgba(249,249,245,0.96)', backdropFilter: 'blur(10px)' }}>
+    <header
+      className="sticky top-0 z-50 border-b border-black/[0.08]"
+      style={{
+        background: "rgba(249,249,245,0.96)",
+        backdropFilter: "blur(10px)",
+      }}
+    >
       <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-2">
         {/* Keep checkout branding in sync with the shared site wordmark. */}
         <a
@@ -100,20 +139,33 @@ function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
               back: browser-back does not set the restore flag, so it returned
               them to an empty calculator. Now shown at every width, with the
               label shortened below sm so the header row still fits. */}
-          <Link to={backHref}
-            onClick={() => sessionStorage.setItem('vve_restore_quote', '1')}
+          <Link
+            to={backHref}
+            onClick={() => sessionStorage.setItem("vve_restore_quote", "1")}
             aria-label="Back to quote"
-            className="flex min-h-[44px] items-center gap-1 rounded-full border border-[#E3E7EE] px-2.5 py-2 text-xs font-semibold text-navy-800 transition-colors hover:border-navy-300 sm:px-3 sm:text-sm whitespace-nowrap">
+            className="flex min-h-[44px] items-center gap-1 rounded-full border border-[#E3E7EE] px-2.5 py-2 text-xs font-semibold text-navy-800 transition-colors hover:border-navy-300 sm:px-3 sm:text-sm whitespace-nowrap"
+          >
             <span aria-hidden="true">←</span>
             <span className="hidden sm:inline">Back to quote</span>
             <span className="sm:hidden">Quote</span>
           </Link>
 
           {/* Need help */}
-          <a href={BOOKING_WA} target="_blank" rel="noopener noreferrer"
+          <a
+            href={BOOKING_WA}
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex min-h-[44px] items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-colors btn-whatsapp sm:text-sm"
-            aria-label="Need help? Chat on WhatsApp">
-            <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            aria-label="Need help? Chat on WhatsApp"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              className="w-3.5 h-3.5 flex-shrink-0"
+              aria-hidden="true"
+            >
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+            </svg>
             <span>Need help?</span>
           </a>
 
@@ -121,15 +173,42 @@ function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
           <details className="relative">
             <summary
               className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E3E7EE] text-navy-700 cursor-pointer hover:border-navy-300 transition-colors list-none"
-              aria-label="Site navigation menu">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden="true">
-                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+              aria-label="Site navigation menu"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-4 h-4"
+                aria-hidden="true"
+              >
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
               </svg>
             </summary>
             <div className="absolute right-0 top-full mt-1.5 bg-white border border-[#E3E7EE] rounded-xl shadow-lg py-2 min-w-[150px] z-50">
-              <a href="/"          className="flex min-h-[44px] items-center px-4 py-2.5 text-sm text-navy-800 hover:bg-slate-50 transition-colors">Home</a>
-              <a href="/#services" className="flex min-h-[44px] items-center px-4 py-2.5 text-sm text-navy-800 hover:bg-slate-50 transition-colors">Services</a>
-              <a href="/pricing"   className="flex min-h-[44px] items-center px-4 py-2.5 text-sm text-navy-800 hover:bg-slate-50 transition-colors">Pricing</a>
+              <a
+                href="/"
+                className="flex min-h-[44px] items-center px-4 py-2.5 text-sm text-navy-800 hover:bg-slate-50 transition-colors"
+              >
+                Home
+              </a>
+              <a
+                href="/#services"
+                className="flex min-h-[44px] items-center px-4 py-2.5 text-sm text-navy-800 hover:bg-slate-50 transition-colors"
+              >
+                Services
+              </a>
+              <a
+                href="/pricing"
+                className="flex min-h-[44px] items-center px-4 py-2.5 text-sm text-navy-800 hover:bg-slate-50 transition-colors"
+              >
+                Pricing
+              </a>
             </div>
           </details>
         </div>
@@ -143,36 +222,52 @@ function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
 // phases so visitors always know where they are and what comes next.
 function StepIndicator({ current }: { current: 1 | 2 }) {
   const steps: Array<{ n: 1 | 2; label: string }> = [
-    { n: 1, label: 'Service & price' },
-    { n: 2, label: 'Details & preferred time' },
+    { n: 1, label: "Service & price" },
+    { n: 2, label: "Details & preferred time" },
   ];
   return (
-    <ol aria-label="Booking progress" className="max-w-5xl mx-auto px-4 pt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-xs sm:text-sm">
+    <ol
+      aria-label="Booking progress"
+      className="max-w-5xl mx-auto px-4 pt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-xs sm:text-sm"
+    >
       {steps.map((step, i) => {
         const active = step.n === current;
         const done = step.n < current;
         return (
-          <li key={step.n} className="flex items-center gap-2 min-w-0" aria-current={active ? 'step' : undefined}>
-            {i > 0 && <span className="w-6 sm:w-10 h-px bg-silver-300 flex-shrink-0" aria-hidden="true" />}
+          <li
+            key={step.n}
+            className="flex items-center gap-2 min-w-0"
+            aria-current={active ? "step" : undefined}
+          >
+            {i > 0 && (
+              <span
+                className="w-6 sm:w-10 h-px bg-silver-300 flex-shrink-0"
+                aria-hidden="true"
+              />
+            )}
             <span
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full font-semibold sm:whitespace-nowrap ${
                 active
-                  ? 'bg-navy-900 text-white'
+                  ? "bg-navy-900 text-white"
                   : done
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-silver-100 text-silver-500'
+                    ? "bg-green-100 text-green-800"
+                    : "bg-silver-100 text-silver-500"
               }`}
             >
               <span
                 className={`w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center flex-shrink-0 ${
-                  active ? 'bg-white text-navy-900' : done ? 'bg-green-600 text-white' : 'bg-silver-300 text-white'
+                  active
+                    ? "bg-white text-navy-900"
+                    : done
+                      ? "bg-green-600 text-white"
+                      : "bg-silver-300 text-white"
                 }`}
                 aria-hidden="true"
               >
-                {done ? '✓' : step.n}
+                {done ? "✓" : step.n}
               </span>
               <span className="leading-tight">
-                <span className="sr-only">{`Step ${step.n} of 2${active ? ', current' : done ? ', completed' : ''}: `}</span>
+                <span className="sr-only">{`Step ${step.n} of 2${active ? ", current" : done ? ", completed" : ""}: `}</span>
                 {step.label}
               </span>
             </span>
@@ -183,41 +278,64 @@ function StepIndicator({ current }: { current: 1 | 2 }) {
   );
 }
 
-function ServiceCard({ selection, onChangeService }: {
+function ServiceCard({
+  selection,
+  onChangeService,
+}: {
   selection: BookingSelection;
   onChangeService: () => void;
 }) {
-  const hasOffer  = !!selection.offerCode && (selection.discountAmount ?? 0) > 0;
-  const isLeaflet = selection.offerCode === 'LEAFLET20';
+  const hasOffer = !!selection.offerCode && (selection.discountAmount ?? 0) > 0;
+  const isLeaflet = selection.offerCode === "LEAFLET20";
 
   return (
     <div className="bg-white border border-[#E3E7EE] rounded-2xl shadow-sm overflow-hidden mb-5">
       <div className="flex items-center justify-between px-5 py-4 gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ background: '#EDFCF2' }}>
-            <CheckCircle2 size={18} style={{ color: '#22C55E' }} />
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ background: "#EDFCF2" }}
+          >
+            <CheckCircle2 size={18} style={{ color: "#22C55E" }} />
           </div>
           <div className="min-w-0">
-            <div className="text-[9px] font-bold tracking-widest uppercase mb-0.5" style={{ color: '#adb5bd' }}>
+            <div
+              className="text-[9px] font-bold tracking-widest uppercase mb-0.5"
+              style={{ color: "#adb5bd" }}
+            >
               Selected service
             </div>
-            <div className="text-navy-900 font-bold text-sm leading-tight truncate">{selection.serviceName}</div>
+            <div className="text-navy-900 font-bold text-sm leading-tight break-words">
+              {selection.serviceName}
+            </div>
             {hasOffer && selection.standardPrice ? (
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="line-through text-silver-400 text-sm">{money(selection.standardPrice)}</span>
-                <span className="font-bold" style={{ color: '#16a34a', fontSize: '1.1rem' }}>{money(selection.price)}</span>
+                <span className="line-through text-silver-400 text-sm">
+                  {money(selection.standardPrice)}
+                </span>
+                <span
+                  className="font-bold"
+                  style={{ color: "#15803d", fontSize: "1.1rem" }}
+                >
+                  {money(selection.price)}
+                </span>
               </div>
             ) : (
-              <div className="font-bold mt-0.5" style={{ color: '#0369a1', fontSize: '1.1rem' }}>
+              <div
+                className="font-bold mt-0.5"
+                style={{ color: "#0369a1", fontSize: "1.1rem" }}
+              >
                 {money(selection.price)}
               </div>
             )}
           </div>
         </div>
-        <button type="button" onClick={onChangeService}
+        <button
+          type="button"
+          onClick={onChangeService}
           className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border border-[#0369a1] transition-colors hover:bg-[#f0f9ff]"
-          style={{ color: '#0369a1' }}>
+          style={{ color: "#0369a1" }}
+        >
           Change service
         </button>
       </div>
@@ -226,16 +344,21 @@ function ServiceCard({ selection, onChangeService }: {
           the final price (QuoteCalculator omits offerCode/discountAmount
           entirely when the £85 minimum booking charge overrode it) */}
       {hasOffer && (
-        <div className="px-5 py-3 border-t border-[#E3E7EE] space-y-1" style={{ background: '#f0fdf4' }}>
+        <div
+          className="px-5 py-3 border-t border-[#E3E7EE] space-y-1"
+          style={{ background: "#f0fdf4" }}
+        >
           <div className="flex justify-between text-xs text-silver-600">
             <span>Service subtotal</span>
-            <span className="line-through">{money(selection.standardPrice ?? selection.price)}</span>
+            <span className="line-through">
+              {money(selection.standardPrice ?? selection.price)}
+            </span>
           </div>
           <div className="flex justify-between text-xs font-semibold text-green-700">
             <span>
               {isLeaflet
                 ? `Leaflet discount ${selection.discountPercent ?? 20}%`
-                : 'Same-visit bundle saving'}
+                : "Same-visit bundle saving"}
             </span>
             <span>−{money(selection.discountAmount ?? 0)}</span>
           </div>
@@ -244,7 +367,9 @@ function ServiceCard({ selection, onChangeService }: {
             <span>{money(selection.price)}</span>
           </div>
           {isLeaflet && (
-            <p className="text-[10px] text-silver-500 pt-1">{DISCOUNT_MIN_NOTE}</p>
+            <p className="text-[10px] text-silver-500 pt-1">
+              {DISCOUNT_MIN_NOTE}
+            </p>
           )}
         </div>
       )}
@@ -253,10 +378,15 @@ function ServiceCard({ selection, onChangeService }: {
           breakdown above when the £85 floor is what actually set the price,
           so no discount is claimed that the customer didn't receive. */}
       {!hasOffer && selection.minimumApplied && (
-        <div className="px-5 py-3 border-t border-[#E3E7EE] space-y-1" style={{ background: '#fffbeb' }}>
+        <div
+          className="px-5 py-3 border-t border-[#E3E7EE] space-y-1"
+          style={{ background: "#fffbeb" }}
+        >
           <div className="flex justify-between text-xs text-silver-600">
             <span>Service subtotal</span>
-            <span>{money(selection.subtotalBeforeMinimum ?? selection.price)}</span>
+            <span>
+              {money(selection.subtotalBeforeMinimum ?? selection.price)}
+            </span>
           </div>
           <div className="flex justify-between text-xs font-semibold text-amber-700">
             <span>Minimum booking charge</span>
@@ -267,13 +397,20 @@ function ServiceCard({ selection, onChangeService }: {
             <span>{money(selection.price)}</span>
           </div>
           {isLeaflet && (
-            <p className="text-[10px] text-amber-700 pt-1">{DISCOUNT_MIN_NOTE}</p>
+            <p className="text-[10px] text-amber-700 pt-1">
+              {DISCOUNT_MIN_NOTE}
+            </p>
           )}
         </div>
       )}
 
-      <div className="px-5 py-2.5 border-t border-[#E3E7EE]" style={{ background: '#F7F8FA' }}>
-        <span className="text-xs font-semibold text-green-800">No payment now — request a preferred time first</span>
+      <div
+        className="px-5 py-2.5 border-t border-[#E3E7EE]"
+        style={{ background: "#F7F8FA" }}
+      >
+        <span className="text-xs font-semibold text-green-800">
+          No payment now — request a preferred time first
+        </span>
       </div>
     </div>
   );
@@ -283,31 +420,33 @@ function ServiceCard({ selection, onChangeService }: {
 
 interface FormData {
   fullName: string;
-  address:  string;
+  address: string;
   postcode: string;
-  phone:    string;
-  email:    string;
-  date:     string;
-  time:     string;
-  message:  string;
+  phone: string;
+  email: string;
+  date: string;
+  time: string;
+  message: string;
   parkingAvailable: ParkingAnswer;
-  congestionZone:   CongestionAnswer;
+  congestionZone: CongestionAnswer;
 }
 
-const REQUIRED_DATE_ERROR       = 'Please choose your preferred date.';
-const PAST_DATE_ERROR           = 'Please choose a date that has not already passed.';
-const REQUIRED_TIME_ERROR       = 'Please choose your preferred arrival window.';
-const REQUIRED_PARKING_ERROR    = 'Please tell us whether free parking is available for our cleaning team.';
-const REQUIRED_CONGESTION_ERROR = 'Please tell us whether the property is inside the Congestion Charge zone.';
+const REQUIRED_DATE_ERROR = "Please choose your preferred date.";
+const PAST_DATE_ERROR = "Please choose a date that has not already passed.";
+const REQUIRED_TIME_ERROR = "Please choose your preferred arrival window.";
+const REQUIRED_PARKING_ERROR =
+  "Please tell us whether free parking is available for our cleaning team.";
+const REQUIRED_CONGESTION_ERROR =
+  "Please tell us whether the property is inside the Congestion Charge zone.";
 
 // Surcharge for a given parking/Congestion Charge answer — £0 for the
 // no-extra-cost answer, the centralised estimate otherwise (mirrors
 // api/servicePrices.js's accessSurcharge, the server-side authority).
 function parkingSurcharge(answer: ParkingAnswer): number {
-  return answer === 'no' || answer === 'not_sure' ? PARKING_ESTIMATE : 0;
+  return answer === "no" || answer === "not_sure" ? PARKING_ESTIMATE : 0;
 }
 function congestionSurcharge(answer: CongestionAnswer): number {
-  return answer === 'yes' || answer === 'not_sure' ? CONGESTION_CHARGE : 0;
+  return answer === "yes" || answer === "not_sure" ? CONGESTION_CHARGE : 0;
 }
 
 // YYYY-MM-DD for today in the visitor's local time zone — matches the
@@ -316,7 +455,7 @@ function congestionSurcharge(answer: CongestionAnswer): number {
 // past" check with no Date-object time zone handling needed.
 function todayIsoDate(): string {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
@@ -339,29 +478,43 @@ const SUMMARY_FIELDS: ReadonlyArray<{
   label: string;
   target?: string;
 }> = [
-  { key: 'fullName', label: 'Full name',                 target: 'booking-fullName' },
-  { key: 'address',  label: 'Address',                   target: 'booking-address' },
-  { key: 'postcode', label: 'Postcode',                  target: 'booking-postcode' },
-  { key: 'phone',    label: 'Phone number',              target: 'booking-phone' },
-  { key: 'email',    label: 'Email address',             target: 'booking-email' },
-  { key: 'date',     label: 'Preferred date',            target: 'booking-date' },
-  { key: 'time',     label: 'Preferred arrival window',  target: 'booking-time' },
-  { key: 'parkingAvailable', label: 'Parking availability' },
-  { key: 'congestionZone',   label: 'Congestion Charge zone' },
+  { key: "fullName", label: "Full name", target: "booking-fullName" },
+  { key: "address", label: "Address", target: "booking-address" },
+  { key: "postcode", label: "Postcode", target: "booking-postcode" },
+  { key: "phone", label: "Phone number", target: "booking-phone" },
+  { key: "email", label: "Email address", target: "booking-email" },
+  { key: "date", label: "Preferred date", target: "booking-date" },
+  { key: "time", label: "Preferred arrival window", target: "booking-time" },
+  { key: "parkingAvailable", label: "Parking availability" },
+  { key: "congestionZone", label: "Congestion Charge zone" },
 ];
 
 export default function BookingPage() {
-  const [selection,    setSelection]    = useState<BookingSelection | null>(null);
+  const requestStarted = useRef(false);
+  const [selection, setSelection] = useState<BookingSelection | null>(null);
   const [showSelector, setShowSelector] = useState(false);
-  const [form,         setForm]         = useState<FormData>({
-    fullName: '', address: '', postcode: '', phone: '', email: '', date: '', time: '', message: '',
-    parkingAvailable: '', congestionZone: '',
+  const [form, setForm] = useState<FormData>({
+    fullName: "",
+    address: "",
+    postcode: "",
+    phone: "",
+    email: "",
+    date: "",
+    time: "",
+    message: "",
+    parkingAvailable: "",
+    congestionZone: "",
   });
-  const [errors,        setErrors]        = useState<FormErrors>({});
-  const [submitting,    setSubmitting]    = useState(false);
-  const [submitError,   setSubmitError]   = useState('');
-  const [requestComplete, setRequestComplete] = useState<string | null>(null);
-  const [honeypot, setHoneypot] = useState('');
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [quoteNeedsReview, setQuoteNeedsReview] = useState(false);
+  const [currentEstimate, setCurrentEstimate] = useState<number | null>(null);
+  const [requestComplete, setRequestComplete] = useState<{
+    reference: string;
+    total: number;
+  } | null>(null);
+  const [honeypot, setHoneypot] = useState("");
   const formTopRef = useRef<HTMLDivElement>(null);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   // Only true after a blocked submit. Without this the summary would appear
@@ -375,8 +528,8 @@ export default function BookingPage() {
       setForm((current) => ({
         ...current,
         ...draft,
-        parkingAvailable: draft.parkingAvailable ?? '',
-        congestionZone: draft.congestionZone ?? '',
+        parkingAvailable: draft.parkingAvailable ?? "",
+        congestionZone: draft.congestionZone ?? "",
       }));
     }
   }, []);
@@ -395,7 +548,9 @@ export default function BookingPage() {
         }
         sessionStorage.removeItem(STORAGE_KEY);
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     // Legacy URL params (?service=X&price=Y) are no longer accepted because they
     // carry no quoteConfig and the server now requires one for price authority.
@@ -404,7 +559,7 @@ export default function BookingPage() {
     // No query values are price-authoritative. Remove all of them after the
     // legacy hand-off has been handled so stale prices, tracking parameters and
     // unsupported service names are not left in the address bar.
-    if (window.location.search) window.history.replaceState({}, '', '/booking');
+    if (window.location.search) window.history.replaceState({}, "", "/booking");
   }, []);
 
   // ── Callbacks ──────────────────────────────────────────────────────────────
@@ -412,47 +567,60 @@ export default function BookingPage() {
     setSelection(sel);
     setShowSelector(false);
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(sel));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleChangeService = () => {
     setShowSelector(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const setField = (field: keyof FormData) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const setField =
+    (field: keyof FormData) =>
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >,
+    ) => {
       const next = { ...form, [field]: e.target.value };
       setForm(next);
       saveDraft(next);
-      setErrors(err => ({ ...err, [field]: undefined, contact: undefined }));
-      setSubmitError('');
+      setErrors((err) => ({ ...err, [field]: undefined, contact: undefined }));
+      setSubmitError("");
     };
 
   // Button-group choices (parking / congestion) aren't native form inputs,
   // so they set a value directly rather than reading e.target.value.
-  const setChoice = <K extends 'parkingAvailable' | 'congestionZone'>(field: K, value: FormData[K]) => {
+  const setChoice = <K extends "parkingAvailable" | "congestionZone">(
+    field: K,
+    value: FormData[K],
+  ) => {
     const next = { ...form, [field]: value };
     setForm(next);
     saveDraft(next);
-    setErrors(err => ({ ...err, [field]: undefined }));
-    setSubmitError('');
+    setErrors((err) => ({ ...err, [field]: undefined }));
+    setSubmitError("");
   };
 
   const validate = (): boolean => {
     const e: FormErrors = {};
-    if (!form.fullName.trim())          e.fullName = 'Please enter your full name.';
-    if (!form.address.trim())           e.address  = 'Please enter your address.';
-    if (!validPostcode(form.postcode))  e.postcode = 'Please enter a valid UK postcode.';
-    if (!form.phone.trim())            e.phone = 'Please enter a phone number so we can confirm availability.';
-    else if (!validPhone(form.phone))    e.phone = 'Please enter a valid phone number.';
-    if (!form.email.trim())              e.email = 'Please enter an email address for your booking confirmation.';
-    else if (!validEmail(form.email))    e.email = 'Please enter a valid email address.';
-    if (!form.date)                     e.date = REQUIRED_DATE_ERROR;
+    if (!form.fullName.trim()) e.fullName = "Please enter your full name.";
+    if (!form.address.trim()) e.address = "Please enter your address.";
+    if (!validPostcode(form.postcode))
+      e.postcode = "Please enter a valid UK postcode.";
+    if (!form.phone.trim())
+      e.phone = "Please enter a phone number so we can confirm availability.";
+    else if (!validPhone(form.phone))
+      e.phone = "Please enter a valid phone number.";
+    if (!form.email.trim())
+      e.email = "Please enter an email address for your booking confirmation.";
+    else if (!validEmail(form.email))
+      e.email = "Please enter a valid email address.";
+    if (!form.date) e.date = REQUIRED_DATE_ERROR;
     else if (form.date < todayIsoDate()) e.date = PAST_DATE_ERROR;
-    if (!form.time)                     e.time = REQUIRED_TIME_ERROR;
-    if (!form.parkingAvailable)          e.parkingAvailable = REQUIRED_PARKING_ERROR;
-    if (!form.congestionZone)            e.congestionZone = REQUIRED_CONGESTION_ERROR;
+    if (!form.time) e.time = REQUIRED_TIME_ERROR;
+    if (!form.parkingAvailable) e.parkingAvailable = REQUIRED_PARKING_ERROR;
+    if (!form.congestionZone) e.congestionZone = REQUIRED_CONGESTION_ERROR;
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -477,14 +645,15 @@ export default function BookingPage() {
       ? document.getElementById(item.target)
       : formTopRef.current
           ?.querySelector<HTMLElement>(`[data-summary-target="${item.key}"]`)
-          ?.querySelector<HTMLElement>('input, select, textarea, button');
+          ?.querySelector<HTMLElement>("input, select, textarea, button");
 
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
     el?.focus();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting || quoteNeedsReview) return;
 
     const fieldsValid = validate();
 
@@ -498,15 +667,19 @@ export default function BookingPage() {
       requestAnimationFrame(() => {
         const summary = errorSummaryRef.current;
         if (summary) {
-          summary.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          summary.scrollIntoView({ behavior: "smooth", block: "center" });
           summary.focus();
           return;
         }
         // Fallback if the summary is not rendered for any reason: preserve the
         // previous scroll-and-focus-first-invalid behaviour.
-        const el = formTopRef.current?.querySelector<HTMLElement>('[data-error="true"]');
-        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el?.querySelector<HTMLElement>('input, select, textarea, button')?.focus();
+        const el = formTopRef.current?.querySelector<HTMLElement>(
+          '[data-error="true"]',
+        );
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        el?.querySelector<HTMLElement>(
+          "input, select, textarea, button",
+        )?.focus();
       });
       return;
     }
@@ -514,77 +687,118 @@ export default function BookingPage() {
     setShowErrorSummary(false);
 
     setSubmitting(true);
-    setSubmitError('');
+    setSubmitError("");
 
     const attribution = getAttribution();
     const payload = {
-      service:     selection.serviceName,
-      price:       totalWithAccessCharges,
+      pricebookVersion: PRICEBOOK_VERSION,
+      service: selection.serviceName,
+      price: totalWithAccessCharges,
       quoteConfig: {
         ...selection.quoteConfig,
         parkingAvailable: form.parkingAvailable,
-        congestionZone:   form.congestionZone,
+        congestionZone: form.congestionZone,
       },
-      fullName:    form.fullName.trim(),
-      address:     form.address.trim(),
-      postcode:    form.postcode.trim().toUpperCase(),
-      phone:       form.phone.trim(),
-      email:       form.email.trim(),
-      date:        form.date,
-      time:        form.time,
-      message:     form.message.trim(),
-      _honeypot:   honeypot,
+      fullName: form.fullName.trim(),
+      address: form.address.trim(),
+      postcode: form.postcode.trim().toUpperCase(),
+      phone: form.phone.trim(),
+      email: form.email.trim(),
+      date: form.date,
+      time: form.time,
+      message: form.message.trim(),
+      _honeypot: honeypot,
       // Offer data (present when a discount was applied)
-      ...(selection.offerCode ? {
-        offer_code:                 selection.offerCode,
-        discount_percent:           selection.discountPercent ?? null,
-        standard_total:             selection.standardPrice ?? null,
-        discount_amount:            selection.discountAmount ?? null,
-        final_total_after_discount: selection.price,
-      } : {}),
+      ...(selection.offerCode
+        ? {
+            offer_code: selection.offerCode,
+            discount_percent: selection.discountPercent ?? null,
+            standard_total: selection.standardPrice ?? null,
+            discount_amount: selection.discountAmount ?? null,
+            final_total_after_discount: selection.price,
+          }
+        : {}),
       // Attribution
       first_source: attribution.first_source,
-      last_source:  attribution.last_source,
+      last_source: attribution.last_source,
       landing_page: attribution.landing_page,
-      utm_source:   attribution.utm_source,
-      utm_medium:   attribution.utm_medium,
+      utm_source: attribution.utm_source,
+      utm_medium: attribution.utm_medium,
       utm_campaign: attribution.utm_campaign,
-      utm_content:  attribution.utm_content,
-      gclid:        attribution.gclid,
+      utm_content: attribution.utm_content,
+      gclid: attribution.gclid,
     };
 
     try {
-      const res  = await fetch(BACKEND_URL, {
-        method:  'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body:    JSON.stringify(payload),
+      const requestKey = await submissionIdentity("booking", payload);
+      const res = await fetch(BACKEND_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ ...payload, requestKey }),
+        signal: AbortSignal.timeout(45000),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok || !data.bookingRef) throw new Error(data.error || 'Request could not be saved.');
+      if (res.status === 409) {
+        setQuoteNeedsReview(true);
+        setCurrentEstimate(
+          Number.isFinite(data.currentTotal) ? data.currentTotal : null,
+        );
+      }
+      if (!res.ok || !data.ok || !data.bookingRef)
+        throw new Error(data.error || "Request could not be saved.");
 
-      localStorage.removeItem(DRAFT_KEY);
-      trackBookingRequestSubmitted(selection.serviceName);
-      setRequestComplete(data.bookingRef);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setRequestComplete({
+        reference: data.bookingRef,
+        total: Number.isFinite(data.total)
+          ? data.total
+          : totalWithAccessCharges,
+      });
+      setSubmitting(false);
+      // Once the server saved the request, optional local cleanup or analytics
+      // must never turn that success into an invitation to submit it again.
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+      } catch {
+        /* Storage can be blocked. */
+      }
+      clearSubmissionIdentity("booking");
+      try {
+        trackBookingRequestSubmitted(selection.serviceName, data.requestId);
+      } catch {
+        /* The saved request is authoritative. */
+      }
+      try {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } catch {
+        /* Success does not require scrolling. */
+      }
     } catch (err) {
       setSubmitting(false);
-      setSubmitError('Sorry, something went wrong. Please try again or message us on WhatsApp.');
-      console.error(err);
+      setSubmitError(
+        "Sorry, something went wrong. Please try again or message us on WhatsApp.",
+      );
+      trackFunnelStep("form_error", selection.serviceName);
+      if (
+        err instanceof Error &&
+        !/fetch|network|json|timeout|abort/i.test(err.message)
+      )
+        setSubmitError(err.message);
     }
   };
 
   const waLink = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(
     selection
       ? `Hi VVE Clean, I'd like to book: ${selection.serviceName} (${money(selection.price)}).`
-      : "Hi VVE Clean, I'd like to book a cleaning service."
+      : "Hi VVE Clean, I'd like to book a cleaning service.",
   )}`;
 
   // Access charges (parking / Congestion Charge) are answered on this page,
   // after the quote calculator already produced selection.price — so the
   // displayed estimate must account for them here.
-  const parkingCharge    = parkingSurcharge(form.parkingAvailable);
+  const parkingCharge = parkingSurcharge(form.parkingAvailable);
   const congestionCharge = congestionSurcharge(form.congestionZone);
-  const totalWithAccessCharges = (selection?.price ?? 0) + parkingCharge + congestionCharge;
+  const totalWithAccessCharges =
+    (selection?.price ?? 0) + parkingCharge + congestionCharge;
 
   // ── CSS helpers ────────────────────────────────────────────────────────────
   const inputCls = (field: keyof FormData) =>
@@ -592,18 +806,20 @@ export default function BookingPage() {
     // focus, which is jarring mid-checkout.
     `w-full rounded-xl border-[1.5px] px-3.5 py-3 text-[16px] outline-none transition-colors font-sans ${
       errors[field]
-        ? 'border-[#D14343] bg-red-50 text-navy-900'
-        : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0369a1]'
+        ? "border-[#D14343] bg-red-50 text-navy-900"
+        : "border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0369a1]"
     }`;
 
   // ─── Show quote selector (no selection yet, or user clicked Change service) ─
   if (!selection || showSelector) {
     return (
-      <div className="min-h-screen" style={{ background: '#f9f9f5' }}>
-        <BookingHeader isLeaflet={selection?.offerCode === 'LEAFLET20'} />
-        <StepIndicator current={1} />
+      <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
+        <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} />
         <main id="main-content">
-          <h1 className="sr-only">Choose a cleaning service and see your price</h1>
+          <StepIndicator current={1} />
+          <h1 className="sr-only">
+            Choose a cleaning service and see your price
+          </h1>
           {showSelector && selection && (
             <div className="max-w-5xl mx-auto px-4 pt-5 pb-1 text-center">
               <p className="text-sm text-silver-600">
@@ -620,29 +836,65 @@ export default function BookingPage() {
   // ─── Show booking form ─────────────────────────────────────────────────────
   if (requestComplete) {
     return (
-      <div className="min-h-screen" style={{ background: '#f9f9f5' }}>
-        <BookingHeader isLeaflet={selection?.offerCode === 'LEAFLET20'} />
+      <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
+        <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} />
         <main id="main-content" className="mx-auto max-w-xl px-4 py-16">
           <div className="rounded-3xl border border-green-200 bg-white p-7 text-center shadow-xl sm:p-10">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-700" aria-hidden="true">
+            <div
+              className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-700"
+              aria-hidden="true"
+            >
               <CheckCircle2 size={30} />
             </div>
-            <h1 className="mt-5 font-display text-3xl font-bold text-navy-900">Your request is with our team</h1>
+            <h1 className="mt-5 font-display text-3xl font-bold text-navy-900">
+              Your request is with our team
+            </h1>
             <p className="mt-3 text-base leading-relaxed text-silver-700">
-              No payment has been taken. We will check your preferred time during opening hours and contact you to confirm what is available.
+              No payment has been taken. We will check your preferred time
+              during opening hours and contact you to confirm what is available.
             </p>
             <div className="mt-5 rounded-2xl bg-silver-100 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-widest text-silver-600">Request reference</p>
-              <p className="mt-1 font-display text-xl font-bold text-navy-900">{requestComplete}</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-silver-600">
+                Request reference
+              </p>
+              <p className="mt-1 font-display text-xl font-bold text-navy-900">
+                {requestComplete.reference}
+              </p>
             </div>
+            <dl className="mt-5 space-y-2 text-left text-sm">
+              <div>
+                <dt className="font-semibold">Service requested</dt>
+                <dd>{selection.serviceName}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold">Preferred visit</dt>
+                <dd>
+                  {form.date} · {form.time}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold">Estimated total</dt>
+                <dd>{money(requestComplete.total)}</dd>
+              </div>
+            </dl>
             <p className="mt-5 text-sm leading-relaxed text-silver-600">
-              Your appointment becomes confirmed when we agree the time, scope and final price with you.
+              After we agree the time, scope and final price, we send a £30
+              deposit request. Your appointment is confirmed when that deposit
+              is paid. The £30 comes off your total.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <a href={waLink} target="_blank" rel="noopener noreferrer" className="btn-whatsapp inline-flex min-h-[48px] items-center justify-center rounded-xl px-6 font-bold">
+              <a
+                href={waLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-whatsapp inline-flex min-h-[48px] items-center justify-center rounded-xl px-6 font-bold"
+              >
                 Message us on WhatsApp
               </a>
-              <Link to="/" className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-2 border-royal-600 px-6 font-bold text-royal-700 hover:bg-royal-50">
+              <Link
+                to="/"
+                className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-2 border-royal-600 px-6 font-bold text-royal-700 hover:bg-royal-50"
+              >
                 Return home
               </Link>
             </div>
@@ -653,23 +905,46 @@ export default function BookingPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: '#f9f9f5' }}>
-      <BookingHeader isLeaflet={selection?.offerCode === 'LEAFLET20'} />
-      <StepIndicator current={2} />
+    <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
+      <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} />
+      <nav aria-label="Booking progress">
+        <StepIndicator current={2} />
+      </nav>
 
-      <main id="main-content" className="max-w-xl mx-auto px-4 py-7 pb-24" ref={formTopRef}>
+      <main
+        id="main-content"
+        className="max-w-xl mx-auto px-4 py-7 pb-24"
+        ref={formTopRef}
+      >
         {/* Page title */}
         <div className="mb-5">
-          <h1 className="font-display text-2xl font-bold text-navy-900 mb-1">Request a preferred cleaning time</h1>
+          <h1 className="font-display text-2xl font-bold text-navy-900 mb-1">
+            Request a preferred cleaning time
+          </h1>
           <p className="text-silver-600 text-sm">
-            Send your preferred date with no payment. Our team will check availability, the final scope and price, then contact you to confirm the appointment.
+            Send your preferred date with no payment. Our team will check
+            availability, the final scope and price, then contact you to agree
+            the arrangements.
           </p>
         </div>
 
         {/* Selected service card */}
-        <ServiceCard selection={selection} onChangeService={handleChangeService} />
+        <ServiceCard
+          selection={selection}
+          onChangeService={handleChangeService}
+        />
 
-        <form onSubmit={handleSubmit} noValidate className="space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          onFocusCapture={() => {
+            if (!requestStarted.current) {
+              requestStarted.current = true;
+              trackFunnelStep("request_start", selection.serviceName);
+            }
+          }}
+          noValidate
+          className="space-y-4"
+        >
           <input
             type="text"
             name="companyWebsite"
@@ -698,20 +973,20 @@ export default function BookingPage() {
               <h2
                 id="booking-error-summary-heading"
                 className="font-display text-base font-bold"
-                style={{ color: '#8C2020' }}
+                style={{ color: "#8C2020" }}
               >
                 {errorSummaryItems.length === 1
-                  ? 'There is 1 problem with your booking request'
+                  ? "There is 1 problem with your booking request"
                   : `There are ${errorSummaryItems.length} problems with your booking request`}
               </h2>
               <ul className="mt-2 space-y-1.5">
                 {errorSummaryItems.map((item) => (
                   <li key={item.key}>
                     <a
-                      href={item.target ? `#${item.target}` : '#main-content'}
+                      href={item.target ? `#${item.target}` : "#main-content"}
                       onClick={(event) => focusSummaryTarget(event, item)}
                       className="text-sm underline underline-offset-2 hover:no-underline"
-                      style={{ color: '#8C2020' }}
+                      style={{ color: "#8C2020" }}
                     >
                       {item.label}
                     </a>
@@ -724,146 +999,312 @@ export default function BookingPage() {
           {/* ── Step 1: Property details ────────────────────────────────────── */}
           <div className="bg-white border border-[#E3E7EE] rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-[#0369a1] text-white text-xs font-bold flex items-center justify-center">1</span>
-              <span className="text-navy-900 text-sm font-semibold">Property details</span>
+              <span className="w-6 h-6 rounded-full bg-[#0369a1] text-white text-xs font-bold flex items-center justify-center">
+                1
+              </span>
+              <span className="text-navy-900 text-sm font-semibold">
+                Property details
+              </span>
             </div>
 
             <div data-error={!!errors.fullName}>
-              <label htmlFor="booking-fullName" className="block text-navy-900 font-semibold text-sm mb-1.5">
-                Full name <span style={{ color: '#D14343' }}>*</span>
+              <label
+                htmlFor="booking-fullName"
+                className="block text-navy-900 font-semibold text-sm mb-1.5"
+              >
+                Full name <span style={{ color: "#D14343" }}>*</span>
               </label>
-              <input id="booking-fullName" type="text" value={form.fullName} onChange={setField('fullName')}
-                placeholder="Jane Smith" autoComplete="name"
-                required aria-required="true"
+              <input
+                id="booking-fullName"
+                type="text"
+                value={form.fullName}
+                onChange={setField("fullName")}
+                placeholder="Jane Smith"
+                autoComplete="name"
+                required
+                aria-required="true"
                 aria-invalid={!!errors.fullName}
-                aria-describedby={errors.fullName ? 'fullName-error' : undefined}
-                className={inputCls('fullName')} />
-              {errors.fullName && <p id="fullName-error" role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.fullName}</p>}
+                aria-describedby={
+                  errors.fullName ? "fullName-error" : undefined
+                }
+                className={inputCls("fullName")}
+              />
+              {errors.fullName && (
+                <p
+                  id="fullName-error"
+                  role="alert"
+                  className="text-xs mt-1"
+                  style={{ color: "#D14343" }}
+                >
+                  {errors.fullName}
+                </p>
+              )}
             </div>
 
             <div data-error={!!errors.address}>
-              <label htmlFor="booking-address" className="block text-navy-900 font-semibold text-sm mb-1.5">
-                Address <span style={{ color: '#D14343' }}>*</span>
+              <label
+                htmlFor="booking-address"
+                className="block text-navy-900 font-semibold text-sm mb-1.5"
+              >
+                Address <span style={{ color: "#D14343" }}>*</span>
               </label>
-              <input id="booking-address" type="text" value={form.address} onChange={setField('address')}
-                placeholder="12 High Street, London" autoComplete="street-address"
-                required aria-required="true"
+              <input
+                id="booking-address"
+                type="text"
+                value={form.address}
+                onChange={setField("address")}
+                placeholder="12 High Street, London"
+                autoComplete="street-address"
+                required
+                aria-required="true"
                 aria-invalid={!!errors.address}
-                aria-describedby={errors.address ? 'address-error' : undefined}
-                className={inputCls('address')} />
-              {errors.address && <p id="address-error" role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.address}</p>}
+                aria-describedby={errors.address ? "address-error" : undefined}
+                className={inputCls("address")}
+              />
+              {errors.address && (
+                <p
+                  id="address-error"
+                  role="alert"
+                  className="text-xs mt-1"
+                  style={{ color: "#D14343" }}
+                >
+                  {errors.address}
+                </p>
+              )}
             </div>
 
             <div data-error={!!errors.postcode}>
-              <label htmlFor="booking-postcode" className="block text-navy-900 font-semibold text-sm mb-1.5">
-                Postcode <span style={{ color: '#D14343' }}>*</span>
+              <label
+                htmlFor="booking-postcode"
+                className="block text-navy-900 font-semibold text-sm mb-1.5"
+              >
+                Postcode <span style={{ color: "#D14343" }}>*</span>
               </label>
-              <input id="booking-postcode" type="text" value={form.postcode} onChange={setField('postcode')}
-                placeholder="E8 1AA" autoComplete="postal-code" inputMode="text"
-                required aria-required="true"
-                style={{ textTransform: 'uppercase' }}
+              <input
+                id="booking-postcode"
+                type="text"
+                value={form.postcode}
+                onChange={setField("postcode")}
+                placeholder="E8 1AA"
+                autoComplete="postal-code"
+                inputMode="text"
+                required
+                aria-required="true"
+                style={{ textTransform: "uppercase" }}
                 aria-invalid={!!errors.postcode}
-                aria-describedby={errors.postcode ? 'postcode-error' : undefined}
-                className={inputCls('postcode')} />
-              {errors.postcode && <p id="postcode-error" role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.postcode}</p>}
+                aria-describedby={
+                  errors.postcode ? "postcode-error" : undefined
+                }
+                className={inputCls("postcode")}
+              />
+              {errors.postcode && (
+                <p
+                  id="postcode-error"
+                  role="alert"
+                  className="text-xs mt-1"
+                  style={{ color: "#D14343" }}
+                >
+                  {errors.postcode}
+                </p>
+              )}
             </div>
           </div>
 
           {/* ── Step 2: Contact ─────────────────────────────────────────────── */}
           <div className="bg-white border border-[#E3E7EE] rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-[#0369a1] text-white text-xs font-bold flex items-center justify-center">2</span>
-              <span className="text-navy-900 text-sm font-semibold">Contact</span>
+              <span className="w-6 h-6 rounded-full bg-[#0369a1] text-white text-xs font-bold flex items-center justify-center">
+                2
+              </span>
+              <span className="text-navy-900 text-sm font-semibold">
+                Contact
+              </span>
             </div>
 
             <div data-error={!!errors.phone}>
-              <label htmlFor="booking-phone" className="block text-navy-900 font-semibold text-sm mb-1.5">
-                Phone number <span style={{ color: '#D14343' }}>*</span>
+              <label
+                htmlFor="booking-phone"
+                className="block text-navy-900 font-semibold text-sm mb-1.5"
+              >
+                Phone number <span style={{ color: "#D14343" }}>*</span>
               </label>
-              <input id="booking-phone" type="tel" value={form.phone} onChange={setField('phone')}
-                placeholder="07700 900000" autoComplete="tel" inputMode="tel"
-                required aria-required="true"
+              <input
+                id="booking-phone"
+                type="tel"
+                value={form.phone}
+                onChange={setField("phone")}
+                placeholder="07700 900000"
+                autoComplete="tel"
+                inputMode="tel"
+                required
+                aria-required="true"
                 aria-invalid={!!errors.phone}
-                aria-describedby={errors.phone ? 'phone-error' : undefined}
-                className={inputCls('phone')} />
-              {errors.phone && <p id="phone-error" role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.phone}</p>}
+                aria-describedby={errors.phone ? "phone-error" : undefined}
+                className={inputCls("phone")}
+              />
+              {errors.phone && (
+                <p
+                  id="phone-error"
+                  role="alert"
+                  className="text-xs mt-1"
+                  style={{ color: "#D14343" }}
+                >
+                  {errors.phone}
+                </p>
+              )}
             </div>
 
             <div data-error={!!errors.email}>
-              <label htmlFor="booking-email" className="block text-navy-900 font-semibold text-sm mb-1.5">
-                Email address <span style={{ color: '#D14343' }}>*</span>
+              <label
+                htmlFor="booking-email"
+                className="block text-navy-900 font-semibold text-sm mb-1.5"
+              >
+                Email address <span style={{ color: "#D14343" }}>*</span>
               </label>
-              <input id="booking-email" type="email" value={form.email} onChange={setField('email')}
-                placeholder="you@example.com" autoComplete="email" inputMode="email"
-                required aria-required="true"
+              <input
+                id="booking-email"
+                type="email"
+                value={form.email}
+                onChange={setField("email")}
+                placeholder="you@example.com"
+                autoComplete="email"
+                inputMode="email"
+                required
+                aria-required="true"
                 aria-invalid={!!errors.email}
-                aria-describedby={errors.email ? 'email-error' : undefined}
-                className={inputCls('email')} />
-              {errors.email && <p id="email-error" role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.email}</p>}
+                aria-describedby={errors.email ? "email-error" : undefined}
+                className={inputCls("email")}
+              />
+              {errors.email && (
+                <p
+                  id="email-error"
+                  role="alert"
+                  className="text-xs mt-1"
+                  style={{ color: "#D14343" }}
+                >
+                  {errors.email}
+                </p>
+              )}
             </div>
           </div>
 
           {/* ── Step 3: When ────────────────────────────────────────────────── */}
           <div className="bg-white border border-[#E3E7EE] rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-[#0369a1] text-white text-xs font-bold flex items-center justify-center">3</span>
+              <span className="w-6 h-6 rounded-full bg-[#0369a1] text-white text-xs font-bold flex items-center justify-center">
+                3
+              </span>
               <span className="text-navy-900 text-sm font-semibold">When?</span>
             </div>
 
             <p className="text-silver-600 text-xs -mt-2">
-              Choose the time that suits you best. This is a request, not a confirmed appointment,
-              and no payment is taken at this stage.
+              Choose the time that suits you best. This is a request, not a
+              confirmed appointment, and no payment is taken at this stage.
             </p>
 
-            <div data-testid="booking-schedule-fields" className="grid min-w-0 grid-cols-1 sm:grid-cols-2 gap-3">
+            <div
+              data-testid="booking-schedule-fields"
+              className="grid min-w-0 grid-cols-1 sm:grid-cols-2 gap-3"
+            >
               <div className="min-w-0" data-error={!!errors.date}>
-                <label htmlFor="booking-date" className="block text-navy-900 font-semibold text-sm mb-1.5">
-                  Preferred date <span style={{ color: '#D14343' }}>*</span>
+                <label
+                  htmlFor="booking-date"
+                  className="block text-navy-900 font-semibold text-sm mb-1.5"
+                >
+                  Preferred date <span style={{ color: "#D14343" }}>*</span>
                 </label>
-                <input id="booking-date" type="date" value={form.date} onChange={setField('date')}
+                <input
+                  id="booking-date"
+                  type="date"
+                  value={form.date}
+                  onChange={setField("date")}
                   min={todayIsoDate()}
-                  required aria-required="true"
+                  required
+                  aria-required="true"
                   aria-invalid={!!errors.date}
-                  aria-describedby={errors.date ? 'date-error' : undefined}
+                  aria-describedby={errors.date ? "date-error" : undefined}
                   className={`block h-12 w-full min-w-0 max-w-full box-border rounded-xl border-[1.5px] px-3.5 text-[16px] outline-none transition-colors font-sans ${
                     errors.date
-                      ? 'border-[#D14343] bg-red-50 text-navy-900'
-                      : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0369a1]'
-                  }`} />
-                {errors.date && <p id="date-error" role="alert" aria-live="assertive" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.date}</p>}
+                      ? "border-[#D14343] bg-red-50 text-navy-900"
+                      : "border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0369a1]"
+                  }`}
+                />
+                {errors.date && (
+                  <p
+                    id="date-error"
+                    role="alert"
+                    aria-live="assertive"
+                    className="text-xs mt-1"
+                    style={{ color: "#D14343" }}
+                  >
+                    {errors.date}
+                  </p>
+                )}
               </div>
               <div className="min-w-0" data-error={!!errors.time}>
-                <label htmlFor="booking-time" className="block text-navy-900 font-semibold text-sm mb-1.5">
-                  Preferred arrival window <span style={{ color: '#D14343' }}>*</span>
+                <label
+                  htmlFor="booking-time"
+                  className="block text-navy-900 font-semibold text-sm mb-1.5"
+                >
+                  Preferred arrival window{" "}
+                  <span style={{ color: "#D14343" }}>*</span>
                 </label>
-                <select id="booking-time" value={form.time} onChange={setField('time')}
-                  required aria-required="true"
+                <select
+                  id="booking-time"
+                  value={form.time}
+                  onChange={setField("time")}
+                  required
+                  aria-required="true"
                   aria-invalid={!!errors.time}
-                  aria-describedby={errors.time ? 'time-error' : undefined}
+                  aria-describedby={errors.time ? "time-error" : undefined}
                   className={`block h-12 w-full min-w-0 max-w-full box-border rounded-xl border-[1.5px] pl-3.5 pr-10 text-[16px] outline-none transition-colors font-sans ${
                     errors.time
-                      ? 'border-[#D14343] bg-red-50 text-navy-900'
-                      : 'border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0369a1]'
-                  }`}>
+                      ? "border-[#D14343] bg-red-50 text-navy-900"
+                      : "border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0369a1]"
+                  }`}
+                >
                   <option value="">Select a window</option>
                   <option value="Morning (8am–12pm)">Morning (8am–12pm)</option>
-                  <option value="Afternoon (12pm–5pm)">Afternoon (12pm–5pm)</option>
+                  <option value="Afternoon (12pm–5pm)">
+                    Afternoon (12pm–5pm)
+                  </option>
                   <option value="Flexible">Flexible</option>
                 </select>
-                {errors.time && <p id="time-error" role="alert" aria-live="assertive" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.time}</p>}
+                {errors.time && (
+                  <p
+                    id="time-error"
+                    role="alert"
+                    aria-live="assertive"
+                    className="text-xs mt-1"
+                    style={{ color: "#D14343" }}
+                  >
+                    {errors.time}
+                  </p>
+                )}
               </div>
             </div>
 
             <div>
-              <label htmlFor="booking-notes" className="block text-navy-900 font-semibold text-sm mb-1.5">
-                Anything else? <span className="font-normal text-silver-500">(optional)</span>
+              <label
+                htmlFor="booking-notes"
+                className="block text-navy-900 font-semibold text-sm mb-1.5"
+              >
+                Anything else?{" "}
+                <span className="font-normal text-silver-500">(optional)</span>
               </label>
-              <textarea id="booking-notes" value={form.message} onChange={setField('message')} rows={3}
+              <textarea
+                id="booking-notes"
+                value={form.message}
+                onChange={setField("message")}
+                rows={3}
                 maxLength={500}
                 placeholder="Access notes, number of rooms, pets, parking, anything we should know…"
-                className="block w-full min-w-0 max-w-full box-border rounded-xl border-[1.5px] border-[#E3E7EE] bg-white px-3.5 py-3 text-[16px] text-navy-900 outline-none focus:border-[#0369a1] transition-colors font-sans resize-none" />
+                className="block w-full min-w-0 max-w-full box-border rounded-xl border-[1.5px] border-[#E3E7EE] bg-white px-3.5 py-3 text-[16px] text-navy-900 outline-none focus:border-[#0369a1] transition-colors font-sans resize-none"
+              />
               <div className="flex justify-end mt-1">
-                <span className="text-xs text-silver-600">{form.message.length}/500</span>
+                <span className="text-xs text-silver-600">
+                  {form.message.length}/500
+                </span>
               </div>
             </div>
           </div>
@@ -871,63 +1312,39 @@ export default function BookingPage() {
           {/* ── Step 4: Parking & Congestion Charge ─────────────────────────── */}
           <div className="bg-white border border-[#E3E7EE] rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-[#0369a1] text-white text-xs font-bold flex items-center justify-center">4</span>
-              <span className="text-navy-900 text-sm font-semibold">Parking &amp; Congestion Charge</span>
+              <span className="w-6 h-6 rounded-full bg-[#0369a1] text-white text-xs font-bold flex items-center justify-center">
+                4
+              </span>
+              <span className="text-navy-900 text-sm font-semibold">
+                Parking &amp; Congestion Charge
+              </span>
             </div>
 
-            <fieldset data-error={!!errors.parkingAvailable} data-summary-target="parkingAvailable">
+            <fieldset
+              data-error={!!errors.parkingAvailable}
+              data-summary-target="parkingAvailable"
+            >
               <legend className="block text-navy-900 font-semibold text-sm mb-1.5">
-                Is free parking available for our cleaning team? <span style={{ color: '#D14343' }}>*</span>
+                Is free parking available for our cleaning team?{" "}
+                <span style={{ color: "#D14343" }}>*</span>
               </legend>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {([
-                  ['yes', 'Yes'],
-                  ['no', 'No'],
-                  ['not_sure', 'Not sure'],
-                ] as [ParkingAnswer, string][]).map(([value, label]) => (
+                {(
+                  [
+                    ["yes", "Yes"],
+                    ["no", "No"],
+                    ["not_sure", "Not sure"],
+                  ] as [ParkingAnswer, string][]
+                ).map(([value, label]) => (
                   <button
                     key={value}
                     type="button"
-                    onClick={() => setChoice('parkingAvailable', value)}
+                    onClick={() => setChoice("parkingAvailable", value)}
                     aria-pressed={form.parkingAvailable === value}
                     className={`min-h-[44px] py-2.5 px-3 rounded-xl border-[1.5px] text-sm font-semibold transition-colors ${
                       form.parkingAvailable === value
-                        ? 'border-[#0369a1] bg-[#f0f9ff] text-[#0369a1]'
-                        : 'border-[#E3E7EE] text-navy-800 hover:border-navy-300'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <p className="text-silver-600 text-xs mt-1.5">{PARKING_CHARGED_AT_ACTUAL_COST_NOTE}</p>
-              {parkingCharge > 0 && (
-                <p className="text-xs font-semibold mt-1" style={{ color: '#0369a1' }}>
-                  +{money(parkingCharge)} estimated parking allowance
-                </p>
-              )}
-              {errors.parkingAvailable && <p role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.parkingAvailable}</p>}
-            </fieldset>
-
-            <fieldset data-error={!!errors.congestionZone} data-summary-target="congestionZone">
-              <legend className="block text-navy-900 font-semibold text-sm mb-1.5">
-                Is the property inside the Congestion Charge zone? <span style={{ color: '#D14343' }}>*</span>
-              </legend>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {([
-                  ['no', 'No'],
-                  ['yes', 'Yes'],
-                  ['not_sure', 'Not sure'],
-                ] as [CongestionAnswer, string][]).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setChoice('congestionZone', value)}
-                    aria-pressed={form.congestionZone === value}
-                    className={`min-h-[44px] py-2.5 px-3 rounded-xl border-[1.5px] text-sm font-semibold transition-colors ${
-                      form.congestionZone === value
-                        ? 'border-[#0369a1] bg-[#f0f9ff] text-[#0369a1]'
-                        : 'border-[#E3E7EE] text-navy-800 hover:border-navy-300'
+                        ? "border-[#0369a1] bg-[#f0f9ff] text-[#0369a1]"
+                        : "border-[#E3E7EE] text-navy-800 hover:border-navy-300"
                     }`}
                   >
                     {label}
@@ -935,29 +1352,110 @@ export default function BookingPage() {
                 ))}
               </div>
               <p className="text-silver-600 text-xs mt-1.5">
-                This is a pass-through Congestion Charge, not a cleaning-service fee.
+                {PARKING_CHARGED_AT_ACTUAL_COST_NOTE}
               </p>
-              {congestionCharge > 0 && (
-                <p className="text-xs font-semibold mt-1" style={{ color: '#0369a1' }}>
-                  +{money(congestionCharge)} {form.congestionZone === 'not_sure' ? 'estimated pending address confirmation' : 'Congestion Charge'}
+              {parkingCharge > 0 && (
+                <p
+                  className="text-xs font-semibold mt-1"
+                  style={{ color: "#0369a1" }}
+                >
+                  +{money(parkingCharge)} estimated parking allowance
                 </p>
               )}
-              {errors.congestionZone && <p role="alert" className="text-xs mt-1" style={{ color: '#D14343' }}>{errors.congestionZone}</p>}
+              {errors.parkingAvailable && (
+                <p
+                  role="alert"
+                  className="text-xs mt-1"
+                  style={{ color: "#D14343" }}
+                >
+                  {errors.parkingAvailable}
+                </p>
+              )}
+            </fieldset>
+
+            <fieldset
+              data-error={!!errors.congestionZone}
+              data-summary-target="congestionZone"
+            >
+              <legend className="block text-navy-900 font-semibold text-sm mb-1.5">
+                Is the property inside the Congestion Charge zone?{" "}
+                <span style={{ color: "#D14343" }}>*</span>
+              </legend>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {(
+                  [
+                    ["no", "No"],
+                    ["yes", "Yes"],
+                    ["not_sure", "Not sure"],
+                  ] as [CongestionAnswer, string][]
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setChoice("congestionZone", value)}
+                    aria-pressed={form.congestionZone === value}
+                    className={`min-h-[44px] py-2.5 px-3 rounded-xl border-[1.5px] text-sm font-semibold transition-colors ${
+                      form.congestionZone === value
+                        ? "border-[#0369a1] bg-[#f0f9ff] text-[#0369a1]"
+                        : "border-[#E3E7EE] text-navy-800 hover:border-navy-300"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-silver-600 text-xs mt-1.5">
+                This is a pass-through Congestion Charge, not a cleaning-service
+                fee.
+              </p>
+              {congestionCharge > 0 && (
+                <p
+                  className="text-xs font-semibold mt-1"
+                  style={{ color: "#0369a1" }}
+                >
+                  +{money(congestionCharge)}{" "}
+                  {form.congestionZone === "not_sure"
+                    ? "estimated pending address confirmation"
+                    : "Congestion Charge"}
+                </p>
+              )}
+              {errors.congestionZone && (
+                <p
+                  role="alert"
+                  className="text-xs mt-1"
+                  style={{ color: "#D14343" }}
+                >
+                  {errors.congestionZone}
+                </p>
+              )}
             </fieldset>
 
             {form.parkingAvailable && form.congestionZone && (
-              <div className="rounded-xl border border-[#E3E7EE] px-3.5 py-3 space-y-1" style={{ background: '#F7F8FA' }}>
+              <div
+                className="rounded-xl border border-[#E3E7EE] px-3.5 py-3 space-y-1"
+                style={{ background: "#F7F8FA" }}
+              >
                 <div className="flex justify-between text-xs text-silver-600">
                   <span>Service subtotal</span>
                   <span>{money(selection.price)}</span>
                 </div>
                 <div className="flex justify-between gap-3 text-xs text-navy-700">
-                  <span>{parkingCharge > 0 ? 'Estimated parking allowance' : 'Free parking available'}</span>
-                  <span>{parkingCharge > 0 ? `+${money(parkingCharge)}` : '£0'}</span>
+                  <span>
+                    {parkingCharge > 0
+                      ? "Estimated parking allowance"
+                      : "Free parking available"}
+                  </span>
+                  <span>
+                    {parkingCharge > 0 ? `+${money(parkingCharge)}` : "£0"}
+                  </span>
                 </div>
                 <div className="flex justify-between gap-3 text-xs text-navy-700">
                   <span>Congestion Charge (pass-through)</span>
-                  <span>{congestionCharge > 0 ? `+${money(congestionCharge)}` : '£0'}</span>
+                  <span>
+                    {congestionCharge > 0
+                      ? `+${money(congestionCharge)}`
+                      : "£0"}
+                  </span>
                 </div>
                 <div className="flex justify-between text-xs font-bold text-navy-900 border-t border-[#E3E7EE] pt-1 mt-1">
                   <span>Estimated total</span>
@@ -969,49 +1467,115 @@ export default function BookingPage() {
 
           {/* ── Manager handoff ─────────────────────────────────────────────── */}
           <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5">
-            <h2 className="font-display text-lg font-bold text-navy-900">What happens next</h2>
+            <h2 className="font-display text-lg font-bold text-navy-900">
+              What happens next
+            </h2>
             <ol className="mt-3 space-y-2 text-sm leading-relaxed text-navy-800">
-              <li><strong>1.</strong> Your request goes to the VVE manager queue.</li>
-              <li><strong>2.</strong> We check the date, access details and final price, then contact you.</li>
-              <li><strong>3.</strong> We confirm the appointment after you agree the time, scope and final price.</li>
+              <li>
+                <strong>1.</strong> Your request goes to the VVE manager queue.
+              </li>
+              <li>
+                <strong>2.</strong> We check the date, access details and final
+                price, then contact you.
+              </li>
+              <li>
+                <strong>3.</strong> After you agree the details, we send a £30
+                deposit request. Payment confirms the appointment and comes off
+                your total.
+              </li>
             </ol>
           </div>
 
           {/* ── Submit error ────────────────────────────────────────────────── */}
-          {submitError && (
-            <div className="rounded-xl px-4 py-3 text-sm border"
-              style={{ background: '#FCEDED', borderColor: '#F3C9C9', color: '#D14343' }}>
-              {submitError}
+          {(submitError || quoteNeedsReview) && (
+            <div
+              role="alert"
+              className="rounded-xl px-4 py-3 text-sm border"
+              style={{
+                background: "#FCEDED",
+                borderColor: "#F3C9C9",
+                color: "#D14343",
+              }}
+            >
+              <p>
+                {submitError ||
+                  "Please refresh and review your quote before sending."}
+              </p>
+              {quoteNeedsReview && (
+                <>
+                  {currentEstimate !== null && (
+                    <p className="mt-2 font-semibold">
+                      Current estimate: {money(currentEstimate)}
+                    </p>
+                  )}
+                  <p className="mt-2">
+                    Review the latest price before sending a new request. Your
+                    contact and scheduling details stay in your draft when
+                    browser storage is available.
+                  </p>
+                  <a
+                    href={getQuoteOriginHref(
+                      selection.offerCode === "LEAFLET20",
+                    )}
+                    onClick={() => {
+                      saveDraft(form);
+                      try {
+                        sessionStorage.setItem("vve_restore_quote", "1");
+                      } catch {
+                        /* Refresh still works without storage. */
+                      }
+                    }}
+                    className="mt-3 inline-flex min-h-[44px] items-center font-bold underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                  >
+                    Refresh and review quote
+                  </a>
+                </>
+              )}
             </div>
           )}
 
           {/* ── Submit button ───────────────────────────────────────────────── */}
-          <button type="submit" disabled={submitting}
+          <button
+            type="submit"
+            disabled={submitting || quoteNeedsReview}
             className="w-full py-4 min-h-[44px] rounded-full font-bold text-white text-base transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
-            style={{ backgroundColor: '#0369a1' }}>
+            style={{ backgroundColor: "#0369a1" }}
+          >
             {submitting ? (
-              'Sending your request…'
+              "Sending your request…"
             ) : (
               <>
-                <CheckCircle2 className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+                <CheckCircle2
+                  className="h-5 w-5 flex-shrink-0"
+                  aria-hidden="true"
+                />
                 Send request — no payment
               </>
             )}
           </button>
 
           <p className="text-center text-xs leading-relaxed text-silver-600">
-            By sending this request, you agree that VVE Clean may contact you about it. See our{' '}
-            <Link to="/privacy-policy" className="font-semibold text-[#0369a1] hover:underline">
+            By sending this request, you agree that VVE Clean may contact you
+            about it. See our{" "}
+            <Link
+              to="/privacy-policy"
+              className="font-semibold text-[#0369a1] hover:underline"
+            >
               Privacy Policy
             </Link>
-            . Booking and cancellation terms apply once an appointment is confirmed.
+            . Booking and cancellation terms apply once an appointment is
+            confirmed.
           </p>
 
           {/* ── WhatsApp alternative ────────────────────────────────────────── */}
           <p className="text-center text-sm text-silver-600">
-            Prefer to ask first?{' '}
-            <a href={waLink} target="_blank" rel="noopener noreferrer"
-              className="font-semibold text-green-700 hover:underline">
+            Prefer to ask first?{" "}
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-green-700 hover:underline"
+            >
               WhatsApp us →
             </a>
           </p>
@@ -1019,27 +1583,48 @@ export default function BookingPage() {
       </main>
 
       {/* Footer */}
-      <footer style={{ background: '#020b24', borderTop: '1px solid rgba(255,255,255,0.05)' }}
-        className="py-8 px-6">
+      <footer
+        style={{
+          background: "#020b24",
+          borderTop: "1px solid rgba(255,255,255,0.05)",
+        }}
+        className="py-8 px-6"
+      >
         <div className="max-w-xl mx-auto flex flex-col items-center gap-4 text-center">
           <div>
             <div className="font-display font-bold text-2xl tracking-widest text-white">
-              V<span style={{ color: '#b8960c' }}>V</span>E
+              V<span style={{ color: "#b8960c" }}>V</span>E
             </div>
-            <div className="text-[9px] tracking-[0.25em] font-semibold uppercase mt-0.5"
-              style={{ color: 'rgba(255,255,255,0.65)' }}>CLEAN</div>
+            <div
+              className="text-[9px] tracking-[0.25em] font-semibold uppercase mt-0.5"
+              style={{ color: "rgba(255,255,255,0.65)" }}
+            >
+              CLEAN
+            </div>
           </div>
           <nav className="flex gap-4 flex-wrap justify-center">
-            {[['/', 'Home'], ['/pricing', 'Pricing'], ['/commercial', 'Commercial'], ['/#contact', 'Contact']].map(([href, label]) => (
-              <a key={href} href={href}
+            {[
+              ["/", "Home"],
+              ["/pricing", "Pricing"],
+              ["/commercial", "Commercial"],
+              ["/#contact", "Contact"],
+            ].map(([href, label]) => (
+              <a
+                key={href}
+                href={href}
                 className="text-xs transition-colors hover:text-white"
-                style={{ color: 'rgba(255,255,255,0.8)' }}>
+                style={{ color: "rgba(255,255,255,0.8)" }}
+              >
                 {label}
               </a>
             ))}
           </nav>
-          <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.65)' }}>
-            © {new Date().getFullYear()} VVE Limited trading as VVE Clean. Registered in England and Wales. Company No. 17234391.
+          <p
+            className="text-[11px]"
+            style={{ color: "rgba(255,255,255,0.65)" }}
+          >
+            © {new Date().getFullYear()} VVE Limited trading as VVE Clean.
+            Registered in England and Wales. Company No. 17234391.
           </p>
         </div>
       </footer>

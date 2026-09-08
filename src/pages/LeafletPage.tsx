@@ -1,3 +1,4 @@
+import { computeCarpetPrice, DEPOSIT_P, formatPrice } from '../data/pricing';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Shield, Star } from 'lucide-react';
@@ -53,6 +54,7 @@ function LeafletHeader() {
 }
 
 export default function LeafletPage() {
+  const example = computeCarpetPrice({ sofa_2: 1, sofa_3: 1 }, 'normal', 1, 'LEAFLET20');
   const navigate = useNavigate();
 
   // Writes the discount this leaflet promised straight away — that is what the
@@ -179,15 +181,16 @@ export default function LeafletPage() {
         <div className="max-w-xl mx-auto">
           <div className="bg-white rounded-2xl border border-[#E3E7EE] p-5 shadow-sm">
             <div className="text-[11px] font-bold tracking-widest uppercase mb-3" style={{ color: '#adb5bd' }}>
-              Example saving
+              Example: a 2-seater and 3-seater sofa
             </div>
             <div className="space-y-1.5 text-sm">
               {[
-                { label: 'Standard price',         value: '£175',  muted: true },
-                { label: 'Leaflet discount 20%',   value: '−£35',  green: true },
-                { label: 'Total after discount',   value: '£140',  bold: true },
+                { label: 'Standard price',         value: formatPrice(example.bundle.preDiscount * 100),  muted: true },
+                { label: 'Leaflet discount 20%',   value: '−' + formatPrice((example.bundle.preDiscount - example.finalTotal) * 100),  green: true },
+                { label: 'Total after discount',   value: formatPrice(example.finalTotal * 100),  bold: true },
                 { label: 'To request a time',      value: '£0' },
-                { label: 'Balance after clean',    value: '£110' },
+                { label: 'Deposit after agreement', value: formatPrice(DEPOSIT_P) },
+                { label: 'Balance after £30 deposit', value: formatPrice(example.finalTotal * 100 - DEPOSIT_P) },
               ].map(({ label, value, muted, green, bold }) => (
                 <div key={label} className={`flex justify-between items-center ${bold ? 'border-t border-[#E3E7EE] pt-1.5 mt-1' : ''}`}>
                   <span className={muted ? 'text-silver-500' : green ? 'text-green-700 font-semibold' : bold ? 'text-navy-900 font-bold' : 'text-navy-800'}>

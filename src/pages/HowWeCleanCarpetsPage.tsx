@@ -70,8 +70,9 @@ const DATA: ServiceLandingData = {
 
   eyebrow: 'Our Process',
   h1: 'How We Clean Carpets',
-  h1Highlight: ' — the process, step by step.',
-  heroBadges: ['Hot-water extraction', 'Dry in 2–4 hours', 'Fully insured'],
+  h1Highlight: '',
+  heroSubtitle: 'See the preparation, cleaning method and scope before choosing your service.',
+  heroBadges: ['Hot-water extraction', 'Typical drying: 2–4 hours', 'Fully insured'],
   heroGoogleBadge: true,
   primaryHref: '/carpet-cleaning-london#quote',
   primaryLabel: 'Get a carpet quote',
@@ -101,7 +102,7 @@ const DATA: ServiceLandingData = {
   ],
 
   ctaH2: 'Ready to book your carpet clean?',
-  ctaBody: 'Send your preferred date online with no payment. We check availability, scope and the final price, then contact you to confirm the appointment.',
+  ctaBody: 'Send your preferred date free. We agree the scope, total and time, then send a £30 deposit link. Payment confirms the booking and counts towards the total.',
   ctaPrimary: { href: '/booking', label: 'Request a time' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };

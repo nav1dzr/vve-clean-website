@@ -90,6 +90,10 @@ describe('only a genuinely completed, paid booking is eligible', () => {
       .toBe('not_paid');
   });
 
+  it('accepts a completed free-request job whose balance was settled without an online deposit', () => {
+    expect(reviewRequestBlockedReason({ ...completedBooking, payment_status: 'pending_payment', balance_status: 'paid' })).toBeNull();
+  });
+
   it('refuses a booking with no usable email', () => {
     expect(reviewRequestBlockedReason({ ...completedBooking, email: null })).toBe('no_email');
     expect(reviewRequestBlockedReason({ ...completedBooking, email: '' })).toBe('no_email');

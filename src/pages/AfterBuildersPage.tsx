@@ -73,7 +73,9 @@ const DATA: ServiceLandingData = {
 
   eyebrow: 'Post-Construction Cleaning',
   h1: 'After Builders Cleaning London',
-  h1Highlight: `— From £${AFTER_BUILDERS_START_FROM_P / 100}, Quote by Photo`,
+  h1Highlight: '',
+  heroSubtitle: 'Post-renovation cleaning, quoted from your photos and the scope of the work.',
+  heroPriceChip: `From £${AFTER_BUILDERS_START_FROM_P / 100} · final quote after photo review`,
   heroBadges: [
     'Fine dust & debris removal',
     'Paint splashes & sticker residue',
@@ -87,7 +89,7 @@ const DATA: ServiceLandingData = {
 
   introH2: 'Post-construction cleaning done properly',
   introText:
-    'Builders sweep up — we deep-clean. After construction or renovation, fine plaster dust settles on every horizontal surface (including inside cupboards and light fittings), paint splashes dry on glass and tiles, and protective stickers leave adhesive residue on fixtures. A standard clean will not remove these — they require specialist techniques and equipment. We work across East London (E1–E17) and North London (N1–N19) and price every job by photo so you get an accurate fixed quote, not a surprise on the day.',
+    'Builders sweep up — we deep-clean. After construction or renovation, fine plaster dust settles on every horizontal surface (including inside cupboards and light fittings), paint splashes dry on glass and tiles, and protective stickers leave adhesive residue on fixtures. A standard clean will not remove these — they require specialist techniques and equipment. We work within our published East and North London postcode areas and price every job by photo so you get an accurate fixed quote, not a surprise on the day.',
 
   benefitsH2: 'What makes after-builders cleaning a specialist job',
   benefits: [
@@ -99,7 +101,7 @@ const DATA: ServiceLandingData = {
     {
       icon: <Paintbrush size={28} />,
       title: 'Paint & adhesive removal',
-      body: 'Paint splashes on glass, tiles and chrome — and adhesive from protective stickers on windows and fittings — need specialist scrapers and solvents. We remove them without scratching.',
+      body: 'Paint splashes on glass, tiles and chrome — and adhesive from protective stickers on windows and fittings — need specialist scrapers and solvents. We assess the surface and residue before choosing a suitable tool or treatment. Existing damage and permanent marks cannot be cleaned away.',
     },
     {
       icon: <Droplets size={28} />,

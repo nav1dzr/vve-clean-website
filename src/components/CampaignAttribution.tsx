@@ -1,3 +1,4 @@
+import { initialiseOptionalAnalytics } from '../lib/analytics';
 import { useEffect } from 'react';
 import { useCookieConsent } from '../context/CookieConsentContext';
 import { rememberEntry, setAdvertisingConsent } from '../lib/attribution';
@@ -41,6 +42,7 @@ export default function CampaignAttribution() {
 
   useEffect(() => {
     rememberEntry();
+    initialiseOptionalAnalytics();
   }, []);
 
   useEffect(() => {

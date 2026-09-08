@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { trackPhoneClick, trackWhatsAppClick } from '../lib/analytics';
+import { trackPhoneClick, trackWhatsAppClick, trackEmailClick } from '../lib/analytics';
 
-function trackingLocation(link: HTMLAnchorElement, channel: 'phone' | 'whatsapp'): string {
+function trackingLocation(link: HTMLAnchorElement, channel: 'phone' | 'whatsapp' | 'email'): string {
   const explicit = link.dataset.trackLocation?.trim();
   if (explicit) return explicit;
 
@@ -20,11 +20,13 @@ function trackingLocation(link: HTMLAnchorElement, channel: 'phone' | 'whatsapp'
 export default function ContactLinkTracking() {
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
+      if (/^\/manage-booking\/?$/.test(window.location.pathname)) return;
       if (!(event.target instanceof Element)) return;
       const link = event.target.closest<HTMLAnchorElement>('a[href]');
       if (!link) return;
 
       const href = link.getAttribute('href') ?? '';
+      if (/^mailto:/i.test(href)) { trackEmailClick(trackingLocation(link, 'email')); return; }
       if (/^tel:/i.test(href)) {
         trackPhoneClick(trackingLocation(link, 'phone'));
         return;

@@ -87,7 +87,7 @@ describe('the carpet discount is stated with its qualifying conditions', () => {
 
 describe('the guarantee and refund answers match the real process', () => {
   it('states the guarantee window from the canonical constant', () => {
-    expect(answerFor(/agent or landlord flags/i)).toContain(String(EOT_GUARANTEE_HOURS));
+    expect(answerFor(/agent or landlord flags/i)).toContain(String(EOT_GUARANTEE_HOURS / 24));
   });
 
   it('keeps the guarantee exclusions visible', () => {

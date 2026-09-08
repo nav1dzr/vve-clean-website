@@ -83,8 +83,7 @@
   }
   .navy-gradient {
     background:
-      radial-gradient(circle at 12% 18%, rgba(165, 243, 252, 0.22), transparent 34%),
-      linear-gradient(135deg, #0f766e 0%, #0369a1 52%, #0b7199 100%);
+      linear-gradient(135deg, #10243e 0%, #173d61 100%);
   }
   .cyan-gradient {
     background: linear-gradient(135deg, #ecfeff 0%, #cffafe 50%, #a5f3fc 100%);
@@ -262,3 +261,47 @@ details[open] > .faq-summary .faq-icon {
   }
 }
 
+
+/* Calm, service-led presentation: useful photographs and captions stay separate. */
+.home-hero,
+.service-hero {
+  background: #f3f7fb;
+  border-bottom: 1px solid #dbe5ef;
+}
+.service-photo {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #d7e1ec;
+  border-radius: 1.25rem;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(16, 36, 62, .07);
+}
+.service-photo > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 470px;
+  object-fit: contain;
+  background: #e8eef3;
+}
+.service-photo > figcaption { padding: 1.1rem 1.25rem; }
+.service-help-link {
+  color: #173550;
+  background: transparent;
+  padding-left: .5rem;
+  padding-right: .5rem;
+  font-size: .875rem;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: #8b9cae;
+  box-shadow: none;
+}
+.service-help-link:hover { color: #1d4ed8; background: transparent; box-shadow: none; transform: none; }
+.service-hero-actions :focus-visible { outline-color: #1d4ed8; }
+@media (max-width: 639px) {
+  .service-photo > figcaption { padding: .9rem 1rem; }
+  .service-hero-actions .service-help-link { width: auto; min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}

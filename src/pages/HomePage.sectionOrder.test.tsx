@@ -34,9 +34,9 @@ describe('homepage section order', () => {
     expect(before('OurKit', 'Reviews')).toBe(true);
   });
 
-  it('shows proof before the price entry', () => {
-    expect(before('Reviews', 'QuoteCalculator')).toBe(true);
-    expect(before('Gallery', 'QuoteCalculator')).toBe(true);
+  it('puts the price entry before extended proof so visitors can start early', () => {
+    expect(before('QuoteCalculator', 'Reviews')).toBe(true);
+    expect(before('QuoteCalculator', 'Gallery')).toBe(true);
   });
 
   it('puts coverage after the price entry', () => {

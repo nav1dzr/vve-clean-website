@@ -54,7 +54,7 @@ const EOT_ROWS: [string, number, number][] = [
 ];
 
 const PRICING_FAQS = [
-  { q: 'When do I pay?', a: 'Request a preferred time online with no payment. We confirm availability, scope and the final price with you first. For standard residential work, payment is normally due after the service unless a different arrangement is agreed in writing.' },
+  { q: 'When do I pay?', a: 'Request a preferred time free. After we agree the scope, total and time with you, we send a £30 deposit link. Paying confirms the booking; the deposit counts towards the total and the remaining balance is normally due after the service.' },
   { q: 'What do the published prices cover?', a: 'The tables show the standard scope for normally maintained properties. Select the service and property details to see the applicable price and included work.' },
   { q: 'Can the price change?', a: 'If the information supplied does not match the condition or scope on arrival, VVE Clean will explain the difference and agree any revised price before additional work starts.' },
   { q: 'Can I request a same-day or next-day visit?', a: 'You can send any preferred date, but availability varies by service, area and property size. Contact VVE Clean first if the timing is critical.' },
@@ -257,7 +257,8 @@ export default function PricingPage() {
                   ['3-seater sofa',          CARPET_ITEM_PRICES_P.sofa_3          / 100],
                   ['Corner / L-shaped sofa', CARPET_ITEM_PRICES_P.sofa_corner     / 100],
                   ['Mattress (single)',       CARPET_ITEM_PRICES_P.mattress_single / 100],
-                  ['Mattress (double/king)',  CARPET_ITEM_PRICES_P.mattress_double / 100],
+                  ['Mattress (double)',       CARPET_ITEM_PRICES_P.mattress_double / 100],
+                  ['Mattress (king)',         CARPET_ITEM_PRICES_P.mattress_king / 100],
                 ] as [string, number][]).map(([label, price]) => (
                   <div key={label} className="flex items-center justify-between bg-silver-100 rounded-xl px-4 py-3 border border-silver-200">
                     <div className="text-navy-800 text-sm font-medium">{label}</div>
@@ -366,14 +367,14 @@ export default function PricingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-2">What is clear before you accept</h2>
-            <p className="text-green-300 text-sm">The important terms, without unsupported promises.</p>
+            <p className="text-green-300 text-sm">Your scope, price and next steps in one place.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               '67-point checklist on Complete end of tenancy cleans',
               'Photographic cleaning receipt for end of tenancy cleans',
               'No payment when you first request a preferred time',
-              `${EOT_GUARANTEE_HOURS}-hour free re-clean if anything is flagged (Complete package)`,
+              `Report missed agreed tasks within ${EOT_GUARANTEE_HOURS / 24} days for one covered re-clean`,
               'Reschedule without charge until 12pm the day before',
               'Price and scope confirmed before the booking is accepted',
             ].map((item) => (

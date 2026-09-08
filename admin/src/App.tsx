@@ -19,6 +19,8 @@ import CustomerFormPage from './pages/CustomerFormPage';
 import CustomerDetailPage from './pages/CustomerDetailPage';
 import CatalogueListPage from './pages/CatalogueListPage';
 import MediaManagerPage from './pages/MediaManagerPage';
+import EnquiriesPage from './pages/EnquiriesPage';
+import WebsitePricebookPage from './pages/WebsitePricebookPage';
 
 export default function App() {
   return (
@@ -44,6 +46,8 @@ export default function App() {
             <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
             <Route path="/catalogue" element={<CatalogueListPage />} />
             <Route path="/media" element={<MediaManagerPage />} />
+            <Route path="/enquiries" element={<EnquiriesPage />} />
+            <Route path="/website-prices" element={<WebsitePricebookPage />} />
             <Route path="/receipts" element={<ReceiptListPage />} />
             <Route path="/receipts/new" element={<ReceiptEditorPage />} />
             <Route path="/receipts/:id" element={<ReceiptDetailPage />} />

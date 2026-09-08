@@ -1,4 +1,4 @@
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useReveal } from '../hooks/useReveal';
 import GoogleBadge from './GoogleBadge';
@@ -7,6 +7,7 @@ import Footer from './Footer';
 import MobileStickyFooter from './MobileStickyFooter';
 import Gallery from './Gallery';
 import Reviews from './Reviews';
+import ServiceHeroPhoto from './ServiceHeroPhoto';
 import { BookingProvider } from '../context/BookingContext';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -59,6 +60,8 @@ export interface ServiceLandingData {
   heroPriceChip?: string;
   heroBadges: string[];
   heroBgImage?: string;
+  heroImageAlt?: string;
+  heroImageCaption?: string;
   // Optional higher-resolution desktop variant of heroBgImage (served at
   // ≥1024px via <picture>). If the file is missing the <img> error handler
   // falls back to heroBgImage, so the hero never renders broken.
@@ -167,12 +170,6 @@ const CAL_SVG = (
   </svg>
 );
 
-const SHIELD_SVG = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0 text-sky-300" aria-hidden="true">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    <polyline points="9 12 11 14 15 10" />
-  </svg>
-);
 
 function Eyebrow({ children, dark = false, align = 'center' }: { children: React.ReactNode; dark?: boolean; align?: 'center' | 'start' }) {
   return (
@@ -213,8 +210,8 @@ function CtaButton({
   // rendered in the "secondary" hero slot, rather than the plain outlined
   // style used for non-WhatsApp secondary actions.
   const secondaryCls = isWa
-    ? `${base} btn-whatsapp`
-    : `${base} border-2 border-white/40 hover:border-white text-white hover:bg-white/10`;
+    ? `${base} service-help-link`
+    : `${base} service-help-link`;
   const external = href.startsWith('http') || href.startsWith('tel:') || href.startsWith('mailto:');
 
   return external ? (
@@ -238,26 +235,6 @@ function CtaButton({
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-
-// Hero photo with an optional desktop-resolution variant. The <source> is
-// removed on error so a missing desktop asset falls back to the mobile image
-// instead of rendering a broken hero.
-function HeroBackground({ mobile, desktop }: { mobile: string; desktop: string }) {
-  const [desktopOk, setDesktopOk] = useState(true);
-  return (
-    <picture>
-      {desktopOk && <source media="(min-width: 1024px)" srcSet={desktop} />}
-      <img
-        src={mobile}
-        alt=""
-        aria-hidden="true"
-        decoding="async"
-        onError={() => setDesktopOk(false)}
-        className="absolute inset-0 w-full h-full object-cover object-[center_35%]"
-      />
-    </picture>
-  );
-}
 
 export default function ServiceLandingLayout({ data }: { data: ServiceLandingData }) {
   // No reveal on the hero. useReveal starts at `visible: false` and only flips
@@ -514,82 +491,29 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
           </ol>
         </nav>
 
-        {/* ── 1. HERO ── */}
-        <section
-          className={`relative ${data.heroCompactMobile ? 'pt-6 pb-16 sm:pt-8 sm:pb-20' : 'pt-8 pb-20'} px-4${!data.heroBgImage ? ' navy-gradient' : ''}`}
-          style={data.heroBgImage && !data.heroBgImageDesktop ? {
-            backgroundImage: `url(${data.heroBgImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center 35%',
-          } : undefined}
-        >
-          {data.heroBgImage && data.heroBgImageDesktop && (
-            <HeroBackground mobile={data.heroBgImage} desktop={data.heroBgImageDesktop} />
-          )}
-          {data.heroBgImage && (
-            <div className="absolute inset-0 bg-gradient-to-b from-navy-900/90 via-navy-900/80 to-navy-900/88" aria-hidden="true" />
-          )}
-          <div
-            className={`relative z-10 mx-auto ${data.heroAside ? 'grid max-w-7xl items-center gap-10 text-left lg:grid-cols-[1.08fr_0.92fr]' : 'max-w-4xl text-center'}`}
-          >
+        <section className="service-hero px-4 py-8 sm:py-12">
+          <div className={`mx-auto max-w-7xl ${data.heroAside || data.heroBgImage ? 'grid items-center gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14' : 'max-w-4xl'}`}>
             <div>
-              <Eyebrow dark align={data.heroAside ? 'start' : 'center'}>{data.eyebrow}</Eyebrow>
-              <h1 className={`font-display text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight ${data.heroSubtitle ? 'mb-3' : 'mb-5'}`}>
+              <Eyebrow align="start">{data.eyebrow}</Eyebrow>
+              <h1 className="font-display text-[2.1rem] font-bold leading-[1.1] tracking-tight text-navy-950 sm:text-5xl lg:text-[3.5rem]">
                 {data.h1}
-                {data.h1Highlight && (
-                  <>
-                    <br className="hidden sm:block" />
-                    <span className={data.heroHighlightClassName ?? 'text-gradient-metallic'}>{data.h1Highlight}</span>
-                  </>
-                )}
+                {data.h1Highlight && <span className="mt-2 block text-royal-700">{data.h1Highlight}</span>}
               </h1>
-              {data.heroSubtitle && (
-                <p className={`max-w-2xl text-silver-200 text-base sm:text-lg ${data.heroPriceChip ? 'mb-3' : data.heroCompactMobile ? 'mb-4 sm:mb-6' : 'mb-6'}`}>{data.heroSubtitle}</p>
-              )}
-
-              {data.heroPriceChip && (
-                <div className={`flex ${data.heroAside ? 'justify-start' : 'justify-center'} ${data.heroCompactMobile ? 'mb-4 sm:mb-5' : 'mb-5'}`}>
-                  <span className="inline-flex items-center rounded-full border border-sky-300/45 bg-sky-400/15 px-3.5 py-2 text-sm font-bold text-white shadow-sm backdrop-blur-sm">
-                    {data.heroPriceChip}
-                  </span>
-                </div>
-              )}
-
-              <div className={`flex flex-wrap gap-x-6 gap-y-2 ${data.heroAside ? 'justify-start' : 'justify-center'} ${data.heroCompactMobile ? 'mb-5 sm:mb-8' : 'mb-8'} text-sky-100 text-sm`}>
-                {data.heroBadges.map((badge) => (
-                  <span key={badge} className="flex items-center gap-1.5">
-                    <span className="text-sky-400 font-bold">✓</span> {badge}
-                  </span>
-                ))}
-              </div>
-
-              <div className={`flex flex-col sm:flex-row items-center ${data.heroAside ? 'sm:justify-start' : 'justify-center'} ${data.heroCompactMobile ? 'gap-3 sm:gap-4' : 'gap-4'}`}>
+              {data.heroSubtitle && <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-700 sm:text-lg">{data.heroSubtitle}</p>}
+              {data.heroPriceChip && <p className="mt-5 text-base font-bold text-navy-950">{data.heroPriceChip}</p>}
+              <div className="service-hero-actions mt-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
                 <CtaButton href={data.primaryHref} label={data.primaryLabel} isWa={data.primaryIsWa} variant="primary" />
                 <CtaButton href={data.secondaryHref} label={data.secondaryLabel} isWa={data.secondaryIsWa} variant="secondary" />
               </div>
-              {data.heroGoogleBadge && (
-                <div className={`${data.heroCompactMobile ? 'mt-4 sm:mt-5' : 'mt-5'} flex ${data.heroAside ? 'justify-start' : 'justify-center'}`}>
-                  <GoogleBadge />
-                </div>
-              )}
-              {/* Credentials line. Previously plain silver-200 text at text-xs,
-                  which all but disappeared against the photographic hero. It is
-                  now a bordered chip in solid white so it reads as a credential
-                  rather than fine print, and stays legible over any hero image. */}
-              {data.heroTrustLine && (
-                <div className={`${data.heroCompactMobile ? 'mt-3 sm:mt-4' : 'mt-4'} flex ${data.heroAside ? 'justify-start' : 'justify-center'}`}>
-                  <p className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-navy-950/50 px-3.5 py-1.5 text-sm font-semibold text-white">
-                    {SHIELD_SVG}
-                    {data.heroTrustLine}
-                  </p>
-                </div>
-              )}
+              <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-700">
+                {data.heroBadges.map((badge) => <li key={badge} className="flex items-start gap-2"><span className="font-bold text-royal-700" aria-hidden="true">✓</span>{badge}</li>)}
+              </ul>
+              {data.heroGoogleBadge && <div className="mt-5"><GoogleBadge /></div>}
+              {data.heroTrustLine && <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-600">{data.heroTrustLine}</p>}
             </div>
-            {data.heroAside && (
-              <div className={data.heroAsideOnMobile ? 'block min-w-0' : 'hidden lg:block'}>
-                {data.heroAside}
-              </div>
-            )}
+            {data.heroAside ? <div className={data.heroAsideOnMobile ? 'min-w-0' : 'hidden min-w-0 lg:block'}>{data.heroAside}</div> : data.heroBgImage ? (
+              <ServiceHeroPhoto src={data.heroBgImage} alt={data.heroImageAlt ?? ''} caption={data.heroImageCaption ?? data.breadcrumb} />
+            ) : null}
           </div>
         </section>
 

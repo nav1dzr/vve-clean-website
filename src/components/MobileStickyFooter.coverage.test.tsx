@@ -40,6 +40,8 @@ function rendersBar(source: string): boolean {
 const INTENTIONAL_SUPPRESSIONS: Record<string, RegExp> = {
   // Owns the payment button itself; a second booking CTA would compete with it.
   'BookingPage.tsx': /Send request — no payment/,
+  // Private appointment actions replace public quote acquisition.
+  'BookingManagementPage.tsx': /Pay.*deposit|Manage your booking/,
   // Sets state 'hidden' via BookingContext and renders its own fixed bar.
   'LeafletPage.tsx': /wa\.me|tel:/,
   // Not a conversion page; offers a route back plus a quote link.

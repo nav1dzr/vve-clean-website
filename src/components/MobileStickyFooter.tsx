@@ -30,7 +30,11 @@ export default function MobileStickyFooter() {
     }
     // Scroll to calculator, then trigger inline validation
     const el = document.getElementById('quote');
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!el) {
+      window.location.assign('/#quote');
+      return;
+    }
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setTimeout(() => {
       document.dispatchEvent(new CustomEvent('vve:validate-book'));
     }, 500);
@@ -39,7 +43,8 @@ export default function MobileStickyFooter() {
   const helpLink = state === 'manual' ? waLink : WA_HELP;
 
   return (
-    <div
+    <nav
+      aria-label="Quick booking and help"
       // No transition on `bottom`. The cookie banner mounts a few hundred ms
       // after this bar, and animating from bottom:0 up to the banner's height
       // slid the whole bar *through* the banner for ~200ms on every fresh
@@ -98,6 +103,6 @@ export default function MobileStickyFooter() {
           <span>Need help?</span>
         </a>
       </div>
-    </div>
+    </nav>
   );
 }

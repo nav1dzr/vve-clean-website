@@ -35,6 +35,7 @@ export default function GalleryPage() {
 
   const [active, setActive] = useState<GalleryCategory>(initial);
   const managedMedia = useManagedGalleryMedia();
+  const [visibleCount, setVisibleCount] = useState(20);
 
   // Keep the active tab in sync if the URL changes under us (e.g. a service
   // page's "View full Gallery" link is clicked while this page is already
@@ -46,6 +47,7 @@ export default function GalleryPage() {
 
   const selectCategory = (key: GalleryCategory) => {
     setActive(key);
+    setVisibleCount(20);
     setSearchParams({ category: key }, { replace: true });
   };
 
@@ -153,7 +155,7 @@ export default function GalleryPage() {
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {items.map((item) => {
+              {items.slice(0, visibleCount).map((item) => {
                 if (item.type === 'before-after') {
                   return (
                     <BeforeAfterTile
@@ -201,12 +203,13 @@ export default function GalleryPage() {
               })}
             </div>
           )}
+          {items.length > visibleCount && <button type="button" onClick={() => setVisibleCount(v => v + 20)} className="mx-auto mt-8 block min-h-11 rounded-xl border-2 border-royal-500 px-6 py-3 font-semibold text-royal-700">Show more results ({items.length - visibleCount} remaining)</button>}
         </div>
 
         <div className="mt-12 rounded-2xl border border-silver-200 bg-white px-5 py-7 text-center shadow-sm">
           <h2 className="font-display text-2xl font-bold text-navy-900">See new work as we publish it</h2>
           <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-silver-600">
-            Follow the verified profiles below. A YouTube link will only be added after the official channel address is confirmed.
+            Follow our latest cleaning results and read what customers say about their experience.
           </p>
           <GalleryInstagramCta galleryCategory={active} showGalleryLink={false} showAllNetworks />
         </div>

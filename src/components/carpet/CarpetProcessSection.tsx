@@ -29,9 +29,8 @@ export default function CarpetProcessSection() {
             Watch the equipment work
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-silver-300">
-            Hot water and cleaning solution go into the pile under pressure, then come straight
-            back out with the dirt. Every pass leaves a visibly cleaner stripe — and takes most
-            of the moisture with it, which is why the carpet is dry in hours, not days.
+            The machine applies suitable cleaning solution and extracts loosened dirt and moisture
+            from the carpet. The result and drying time depend on the fibre, condition and ventilation.
           </p>
         </div>
 

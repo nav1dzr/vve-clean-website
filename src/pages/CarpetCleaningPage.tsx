@@ -1,4 +1,5 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import ServiceHeroPhoto from '../components/ServiceHeroPhoto';
 import QuoteCalculator from '../components/QuoteCalculator';
 import CarpetResultsSection from '../components/carpet/CarpetResultsSection';
 import CarpetProcessSection from '../components/carpet/CarpetProcessSection';
@@ -24,7 +25,7 @@ const FAQS = [
   },
   {
     q: 'How long before the carpet is dry?',
-    a: 'Carpets are usually dry within 2–4 hours. We use powerful extraction equipment that removes most of the moisture at the end of the clean, so drying is much faster than older steam methods.',
+    a: 'Carpets typically dry in 2–4 hours. Fibre, ventilation and room conditions affect the time. We explain drying and safe use after the clean.',
   },
   {
     q: 'Will you remove all stains?',
@@ -78,32 +79,7 @@ const SCHEMA = JSON.stringify({
 });
 
 function CarpetHeroPanel() {
-  return (
-    <figure className="relative isolate overflow-hidden rounded-[2rem] border border-white/15 bg-navy-950 shadow-2xl shadow-black/35 aspect-[16/10] sm:aspect-[3/2] lg:aspect-[4/3]">
-      <img
-        src="/images/carpet-cleaning-hero.webp"
-        alt="Professional hot-water extraction cleaning on a deep blue carpet"
-        width={1672}
-        height={941}
-        loading="eager"
-        decoding="async"
-        className="h-full w-full object-cover object-center"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-navy-950 via-navy-950/5 to-transparent" aria-hidden="true" />
-      <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-sky-400/20 blur-3xl" aria-hidden="true" />
-
-      <figcaption className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-navy-950/75 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-sky-200 backdrop-blur-md">
-          <Droplets size={15} aria-hidden="true" />
-          Professional extraction
-        </div>
-        <p className="font-display text-2xl font-bold text-white sm:text-3xl">Deep clean, visible results</p>
-        <p className="mt-1 max-w-md text-sm leading-relaxed text-silver-200 sm:text-base">
-          Hot-water extraction lifts embedded dirt, stains and odours from deep in the carpet pile.
-        </p>
-      </figcaption>
-    </figure>
-  );
+  return <ServiceHeroPhoto src="/images/carpet-cleaning-hero.webp" alt="Extraction equipment working on a blue carpet" caption="Carpet extraction in progress" detail="We inspect the fibre and condition before choosing a suitable treatment. Stain removal varies by carpet and mark." />;
 }
 
 const DATA: ServiceLandingData = {
@@ -112,9 +88,9 @@ const DATA: ServiceLandingData = {
 
   eyebrow: 'Professional Carpet Cleaning',
   h1: 'Carpet Cleaning London',
-  h1Highlight: ' — deeper than the surface.',
+  h1Highlight: '',
   heroHighlightClassName: 'text-gradient-carpet',
-  heroSubtitle: 'Deep steam cleaning and stain removal',
+  heroSubtitle: 'Professional extraction for bedrooms, living rooms, stairs and hallways. Choose your rooms and see your estimate.',
   heroPriceChip: `From ${pd(CARPET_ITEM_PRICES_P.bedroom)} per room · ${pd(CARPET_MIN_BOOKING_P)} minimum booking`,
   heroAside: <CarpetHeroPanel />,
   heroAsideOnMobile: true,
@@ -122,8 +98,8 @@ const DATA: ServiceLandingData = {
   // no surprises" benefit card and the fixed price table further down).
   heroBadges: [
     'Hot-water extraction',
-    'Dry in 2–4 hours',
-    'Fixed prices, no surprises',
+    'Typical drying: 2–4 hours',
+    'Clear standard room prices',
   ],
   heroGoogleBadge: true,
   heroCompactMobile: true,
@@ -131,7 +107,7 @@ const DATA: ServiceLandingData = {
   primaryHref: '/carpet-cleaning-london#quote',
   primaryLabel: 'Build my carpet quote',
   secondaryHref: WA,
-  secondaryLabel: 'WhatsApp for a quote',
+  secondaryLabel: 'Ask us on WhatsApp',
   secondaryIsWa: true,
 
   afterHeroSection: <QuoteCalculator mode="carpet" />,
@@ -154,12 +130,12 @@ const DATA: ServiceLandingData = {
     },
     {
       icon: <Clock size={28} />,
-      title: 'Dry in 2–4 hours',
-      body: 'Our high-powered extraction equipment removes most of the water immediately. Your carpet is walkable far sooner than with cheaper, low-powered machines.',
+      title: 'Typical drying: 2–4 hours',
+      body: 'Extraction removes loosened soil and moisture. Allow around 2–4 hours for typical drying; fibre, ventilation and room conditions can extend this.',
     },
     {
       icon: <Tag size={28} />,
-      title: 'Fixed prices, no surprises',
+      title: 'Clear standard room prices',
       body: 'Every standard price is listed clearly. Rugs are assessed separately and can be added to a qualifying carpet, upholstery or end of tenancy clean.',
     },
   ],
@@ -173,13 +149,13 @@ const DATA: ServiceLandingData = {
     'Post-clean grooming to restore carpet pile direction',
     'Furniture slides to protect floors while we work',
     'All equipment and cleaning products supplied',
-    '£15 off if we arrive more than an hour late',
-    'Free reschedule until 12pm the day before',
+    'An agreed arrival window in your booking confirmation',
+    'Request a date change through your booking link; we confirm availability with you',
   ],
 
   pricingH2: 'Fixed carpet cleaning prices',
   pricingIntro:
-    `Every room price below is fixed — the price you book is the price you pay. £${CARPET_MIN_BOOKING_P / 100} minimum booking applies.`,
+    `Standard room prices are shown below. We agree the scope and final total before confirming your booking. £${CARPET_MIN_BOOKING_P / 100} minimum booking applies.`,
   pricingRows: [
     { label: 'Bedroom', price: pd(CARPET_ITEM_PRICES_P.bedroom) },
     { label: 'Living / dining room', price: pd(CARPET_ITEM_PRICES_P.living_room) },
@@ -210,12 +186,13 @@ const DATA: ServiceLandingData = {
   // already shown above and mixes in unrelated services.
   sectionOrder: [
     'media', 'reviews', 'benefits', 'process',
-    'intro', 'why', 'pricing', 'faq', 'related',
+    'why', 'pricing', 'faq', 'related',
   ],
 
   faqs: FAQS,
 
   relatedLinks: [
+    { href: '/how-we-clean-carpets', label: 'How we clean carpets' },
     { href: '/sofa-cleaning-london', label: 'Sofa & Upholstery Cleaning' },
     { href: '/end-of-tenancy-cleaning-london', label: 'End of Tenancy Cleaning' },
     { href: '/after-builders-cleaning-london', label: 'After Builders Cleaning' },
@@ -226,7 +203,7 @@ const DATA: ServiceLandingData = {
 
   ctaH2: 'Ready to book your carpet clean?',
   ctaBody:
-    'Send your preferred date online with no payment. We check availability, scope and the final price, then contact you to confirm the appointment.',
+    'Request your preferred date free. We agree the scope, total and time with you, then send a £30 deposit link. Payment confirms your booking and counts towards the total.',
   ctaPrimary: { href: '/booking', label: 'Request a time' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };

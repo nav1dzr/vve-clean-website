@@ -90,8 +90,9 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
     breadcrumb: `Cleaning in ${area.name}`,
 
     eyebrow: 'East & North London Cleaning',
-    h1: `Cleaning in ${area.name}`,
-    h1Highlight: ' — end of tenancy, carpet & sofa.',
+    h1: covered ? `Cleaning in ${area.name}` : `Check cleaning availability in ${area.name}`,
+    h1Highlight: '',
+    heroSubtitle: covered ? `End of tenancy, carpet and upholstery cleaning in ${area.postcodes.join(', ')}. Check the scope and request your preferred time.` : 'Send your full postcode and the service you need. Coverage must be confirmed first.',
     heroBadges: covered ? ['Published prices', 'Fully insured', 'Check your preferred date'] : ['Check your postcode first', 'Fully insured', 'Direct confirmation'],
     heroGoogleBadge: true,
     heroTrustLine: '£5m public liability insurance · direct contact',
@@ -126,7 +127,7 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
 
     pricingH2: 'Fixed prices, wherever you are in our coverage area',
     pricingIntro: covered ? `Our published service prices do not change by postcode within the confirmed coverage area.` : 'The service price can be reviewed once the full postcode and visit availability are confirmed.',
-    pricingNote: `See the full, itemised price list for every service on our pricing page. The only extras that can apply to any booking are the same disclosed ones every customer sees — a Congestion Charge zone pass-through and a parking estimate — added only when they genuinely apply, never because of where you live.`,
+    pricingNote: `We use the same published service prices throughout our confirmed coverage area. Your total depends on the property, the work selected and its condition. Any parking or Congestion Charge is shown separately and agreed before the appointment.`,
     pricingCta: { href: '/pricing', label: 'See all prices' },
 
     proofSection: covered ? (
@@ -149,7 +150,7 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
     ],
 
     ctaH2: covered ? `Ready to request a cleaning time in ${area.name}?` : `Need cleaning in ${area.name}?`,
-    ctaBody: covered ? 'Send your details and preferred date online with no payment. We check availability first and contact you with the closest suitable time.' : 'Send your full postcode on WhatsApp before booking so VVE Clean can confirm whether the visit is possible.',
+    ctaBody: covered ? 'Send your details and preferred date online with no payment. We check your preferred time and confirm what we can offer. If it is unavailable, we discuss alternatives with you.' : 'Send your full postcode on WhatsApp before booking so VVE Clean can confirm whether the visit is possible.',
     ctaPrimary: covered ? { href: '/booking', label: 'Request a time' } : { href: WA, label: 'Check my postcode' },
     ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
   };

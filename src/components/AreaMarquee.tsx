@@ -4,7 +4,7 @@ const AREAS = [
   'Hackney Wick', 'Hoxton', 'Poplar', 'Whitechapel', 'Clapton',
   'London Fields', 'Leyton', 'Finsbury Park', 'Angel', 'Old Street',
   'Mile End', 'Limehouse', 'Homerton', 'Forest Gate', 'Tottenham',
-  'Highbury', 'Holloway', 'Crouch End', 'Wood Green', 'Camden', 'Highgate',
+  'Highbury', 'Holloway', 'Crouch End', 'Wood Green', 'Camden',
 ];
 
 function AreaList({ hidden }: { hidden?: boolean }) {

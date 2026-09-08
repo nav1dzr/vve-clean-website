@@ -4,18 +4,20 @@ import { useAuth } from '../auth/useAuth';
 const navItems = [
   { to: '/', label: 'Home' },
   { to: '/bookings', label: 'Bookings' },
+  { to: '/enquiries', label: 'Enquiries' },
   { to: '/invoices', label: 'Invoices' },
   { to: '/receipts', label: 'Receipts' },
   { to: '/catalogue', label: 'Catalogue' },
   { to: '/media', label: 'Media' },
+  { to: '/website-prices', label: 'Website prices' },
   { to: '/customers', label: 'Customers' },
   { to: '/search', label: 'Search' },
 ];
 
-const mobileNavItems = navItems.filter((item) => ['/', '/bookings', '/media', '/search'].includes(item.to));
+const mobileNavItems = navItems;
 
 function navLinkClasses(isActive: boolean) {
-  return `flex min-h-11 flex-1 items-center justify-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-inset ${
+  return `flex min-h-11 min-w-24 flex-1 items-center justify-center px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-inset ${
     isActive ? 'text-sky-600' : 'text-navy-700 hover:text-navy-950'
   }`;
 }
@@ -46,7 +48,7 @@ export default function ProtectedShell() {
           mobile logout affordance, since the mobile bottom nav is
           deliberately Home/Bookings/Search only — matching what the spec
           lists for mobile vs. desktop navigation. */}
-      <nav className="hidden border-b border-silver-300 bg-white px-4 sm:flex" aria-label="Primary">
+      <nav className="hidden overflow-x-auto border-b border-silver-300 bg-white px-4 sm:flex" aria-label="Primary">
         {navItems.map((item) => (
           <NavLink key={item.to} to={item.to} end={item.to === '/'} className={({ isActive }) => navLinkClasses(isActive)}>
             {item.label}
@@ -66,7 +68,7 @@ export default function ProtectedShell() {
       </main>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-20 flex border-t border-silver-300 bg-white pb-[env(safe-area-inset-bottom)] sm:hidden"
+        className="fixed inset-x-0 bottom-0 z-20 flex overflow-x-auto border-t border-silver-300 bg-white pb-[env(safe-area-inset-bottom)] sm:hidden"
         aria-label="Primary"
       >
         {mobileNavItems.map((item) => (

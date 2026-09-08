@@ -36,11 +36,11 @@ describe('CarpetCleaningPage — quote placement and proof placeholders', () => 
     renderPage();
 
     const heroImage = screen.getByRole('img', {
-      name: 'Professional hot-water extraction cleaning on a deep blue carpet',
+      name: 'Extraction equipment working on a blue carpet',
     });
     expect(heroImage).toHaveAttribute('src', '/images/carpet-cleaning-hero.webp');
-    expect(screen.getByText('Deep clean, visible results')).toBeInTheDocument();
-    expect(screen.getByText(/deeper than the surface/i)).toHaveClass('text-gradient-carpet');
+    expect(screen.getByText('Carpet extraction in progress')).toBeInTheDocument();
+    expect(heroImage.closest('figure')?.querySelector('figcaption')).toHaveTextContent(/stain removal varies/i);
   });
 
   it('surfaces a carpet-focused instant quote calculator directly after the hero, and the hero CTA reaches it', () => {

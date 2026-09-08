@@ -851,7 +851,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   </div>
                   <p className="text-navy-700 text-xs leading-relaxed mt-3"><strong>Best for:</strong> tenants, landlords and agents preparing for final inspection.</p>
                   <div className="mt-4 rounded-xl bg-white border border-green-200 px-3 py-2.5 flex items-start gap-2 text-green-800 text-xs font-bold">
-                    <ShieldCheck size={16} className="flex-shrink-0" /> Full {EOT_GUARANTEE_HOURS}-hour agency-ready guarantee
+                    <ShieldCheck size={16} className="flex-shrink-0" /> {EOT_GUARANTEE_HOURS / 24}-day reporting window on the agreed checklist
                   </div>
                   <div className="mt-5">
                     <p className="text-navy-800 text-xs font-bold uppercase tracking-[0.12em] mb-2.5">Included in your price</p>
@@ -1292,7 +1292,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                     <strong>No payment now.</strong> Send your preferred time first. We check availability, scope and the final price, then contact you to confirm the appointment.
                   </div>
                   <div className="mt-4 inline-flex items-center gap-1.5 text-green-800 bg-green-50 border border-green-200 rounded-full px-3 py-1.5 text-xs font-semibold">
-                    <ShieldCheck size={13} /> {state.pkg === 'complete' ? `Full ${EOT_GUARANTEE_HOURS}-hour agency-ready guarantee` : `${EOT_GUARANTEE_HOURS}-hour guarantee on selected tasks`}
+                    <ShieldCheck size={13} /> {state.pkg === 'complete' ? `${EOT_GUARANTEE_HOURS / 24}-day reporting window on the agreed checklist` : `${EOT_GUARANTEE_HOURS / 24}-day reporting window on selected tasks`}
                   </div>
                   <p className="text-navy-600 text-[11px] mt-3 leading-relaxed">
                     Your preferred time is a request until our team confirms it. The remaining balance is due after the work is completed and you have had the opportunity to inspect it.

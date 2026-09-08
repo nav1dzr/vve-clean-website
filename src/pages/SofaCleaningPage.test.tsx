@@ -35,12 +35,12 @@ describe('SofaCleaningPage — quote placement and premium service guidance', ()
     renderPage();
 
     const heroImage = screen.getByRole('img', {
-      name: 'Professional upholstery cleaning on a purple armchair beside a teal sofa',
+      name: 'A technician cleaning sofa upholstery',
     });
 
-    expect(heroImage).toHaveAttribute('src', '/images/sofa-cleaning-hero.webp');
-    expect(screen.getByText('Fabric checked before cleaning')).toBeInTheDocument();
-    expect(screen.getByText(/cleaned with care, not guesswork/i)).toHaveClass('text-gradient-sofa');
+    expect(heroImage).toHaveAttribute('src', '/sofa_upholstery/web/gallery/sofa-gallery-01.webp');
+    expect(screen.getByText('Upholstery cleaning in progress')).toBeInTheDocument();
+    expect(heroImage.closest('figure')?.querySelector('figcaption')).toHaveTextContent(/Delicate fabrics need assessment first/i);
   });
 
   it('surfaces an upholstery-focused instant quote calculator directly after the hero, and the hero CTA reaches it', () => {
@@ -59,7 +59,7 @@ describe('SofaCleaningPage — quote placement and premium service guidance', ()
   it('replaces empty proof placeholders with an honest fabric-care process', () => {
     renderPage();
 
-    expect(screen.getByRole('heading', { name: /Built around the fabric/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /The right method starts with the fabric/i })).toBeInTheDocument();
     expect(screen.getByText('Inspect and test')).toBeInTheDocument();
     expect(screen.queryByText('Recent results coming soon')).not.toBeInTheDocument();
     expect(screen.queryByText('Video results coming soon')).not.toBeInTheDocument();

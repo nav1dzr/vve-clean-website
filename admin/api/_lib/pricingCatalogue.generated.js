@@ -18,6 +18,64 @@
 //
 // ─────────────────────────────────────────────────────────────────────────
 
+// Prices remain unchanged by default. Each published version creates its own immutable catalogue.
+// Server requests must call createPricingCatalogue(version.overrides), never mutate this module.
+export const PRICEBOOK_PRICE_KEYS = Object.freeze([
+  "CARPET_MIN_BOOKING_P",
+  "CARPET_ITEM_PRICES_P",
+  "STAIRS_FIRST_P",
+  "STAIRS_EXTRA_P",
+  "EOT_PRICES_P",
+  "EOT_EXTRA_BATH_P",
+  "EOT_EXTRA_WC_P",
+  "EOT_TAILORED_ADDON_PRICES_P",
+  "EOT_TAILORED_CUPBOARDS_PRICES_P",
+  "EOT_EXTRA_AREAS_P",
+  "EOT_CARPET_ADDON_PRICES_P",
+  "MOVEIN_BASE_PRICES_P",
+  "MOVEIN_EXTRA_BATH_P",
+  "MOVEIN_EXTRA_WC_P",
+  "AFTER_BUILDERS_FROM_PRICES_P",
+  "COMMERCIAL_REGULAR_HOURLY_P",
+  "COMMERCIAL_ONCEOFF_HOURLY_P",
+  "COMMERCIAL_SHOP_CAFE_FROM_P",
+  "COMMERCIAL_COMMUNAL_FROM_P",
+  "COMMERCIAL_EOL_FROM_P",
+  "COMMERCIAL_AFTER_BUILDERS_FROM_P",
+  "COMMERCIAL_CARPET_PER_SQM_P",
+  "COMMERCIAL_CARPET_MIN_P",
+  "WINDOW_CLEANING_FROM_P",
+  "WINDOW_CLEANING_MIN_P",
+  "GARDEN_SERVICES_FROM_P",
+  "GARDEN_SERVICES_MIN_P",
+  "PRESSURE_WASHING_FROM_P",
+  "WINDOW_QUICK_PRICES_P",
+  "GUTTER_QUICK_PRICES_P",
+  "QUICK_QUOTE_MIN_CHARGE_P",
+  "ADDON_PRICES_P"
+]);
+
+/** @template T @param {T} value @returns {T} */
+function freezeDeep(value) {
+  if (value && typeof value === 'object') { Object.values(value).forEach(freezeDeep); Object.freeze(value); }
+  return value;
+}
+function copyPriceValue(value, base, path) {
+  if (typeof base === 'number') {
+    if (!Number.isSafeInteger(value) || value <= 0 || value > 100000000) throw new Error(path + ': enter a positive price in whole pence (maximum £1,000,000).');
+    return value;
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) throw new Error(path + ': invalid price table.');
+  if (Object.keys(value).some(key => !Object.hasOwn(base, key))) throw new Error(path + ': unknown price field.');
+  return Object.fromEntries(Object.entries(base).map(([key, original]) => [key, Object.hasOwn(value, key) ? copyPriceValue(value[key], original, path + '.' + key) : structuredClone(original)]));
+}
+
+/** @param {Record<string, any>} overrides */
+export function createPricingCatalogue(overrides = {}) {
+  if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides) || Object.getPrototypeOf(overrides) !== Object.prototype) throw new Error('Invalid pricebook.');
+  for (const key of Object.keys(overrides)) if (!PRICEBOOK_PRICE_KEYS.includes(key)) throw new Error('This field cannot be edited: ' + key);
+  /** @template T @param {string} key @param {T} base @returns {T} */
+  function readPrice(key, base) { return /** @type {T} */ (Object.hasOwn(overrides, key) ? copyPriceValue(overrides[key], base, key) : structuredClone(base)); }
 // ─── VVE Clean Canonical Pricing Catalogue ───────────────────────────────────
 //
 // THE single authoritative source for every customer-facing price, discount
@@ -37,12 +95,11 @@
 //     Everywhere else, this file is imported directly — no copy, no drift possible.
 //
 // UPDATING PRICES
-// 1. Change the value here — this is the ONLY place prices are edited.
-// 2. Run: npm run typecheck && npm test (root) — sync + mirror tests fail
-//    loudly if admin's generated copy is stale.
-// 3. If admin/api/_lib/pricingCatalogue.generated.js is stale, run:
-//    npm run sync-admin-pricing
-// 4. Run the full suite in both root and admin/, then `npm run build` in both.
+// Use CRM Website prices to preview, save and publish a reviewed snapshot.
+// This file holds the unchanged bundled fallback and the shared calculation rules.
+// Rule/schema changes require validation in root and admin, syncing the generated
+// admin copy, and a matching database shape migration for newly editable fields.
+// See docs/website-completion-2026-09-08/managed-pricebook.md for managed rollout.
 //
 // See PRICING_SYSTEM.md for the full policy and discount rules.
 
@@ -51,10 +108,10 @@
 /** @typedef {'studio'|'bed1'|'bed2'|'bed3'|'bed4'} SizeKey */
 /** @typedef {'fixed'|'from'|'quote_required'} PricingMode */
 
-export const SIZE_KEYS = ['studio', 'bed1', 'bed2', 'bed3', 'bed4'];
+const SIZE_KEYS = ['studio', 'bed1', 'bed2', 'bed3', 'bed4'];
 
 /** @type {Record<string, string>} */
-export const SIZE_LABELS = {
+const SIZE_LABELS = {
   studio: 'Studio',
   bed1:   '1 Bedroom',
   bed2:   '2 Bedrooms',
@@ -64,10 +121,10 @@ export const SIZE_LABELS = {
 
 // ─── Carpet & upholstery ─────────────────────────────────────────────────────
 
-export const CARPET_MIN_BOOKING_P = 8500; // £85.00 minimum booking (carpet & upholstery)
+const CARPET_MIN_BOOKING_P = readPrice('CARPET_MIN_BOOKING_P', 8500); // £85.00 minimum booking (carpet & upholstery)
 
 /** @type {Record<string, number>} */
-export const CARPET_ITEM_PRICES_P = {
+const CARPET_ITEM_PRICES_P = readPrice('CARPET_ITEM_PRICES_P', {
   bedroom:         5000,  // £50
   living_room:     6000,  // £60
   large_lounge:    8000,  // £80
@@ -82,14 +139,14 @@ export const CARPET_ITEM_PRICES_P = {
   mattress_single: 4500,  // £45
   mattress_double: 5500,  // £55
   mattress_king:   6500,  // £65
-};
+});
 
 // Single source of truth for how each carpet/upholstery item is displayed —
 // reused by the frontend calculator (src/data/carpetPricing.ts) and by the
 // server-side itemised description builder (api/_lib/formatBookingItems.js),
 // eliminating what used to be two separately-maintained label maps.
 /** @type {Record<string, string>} */
-export const CARPET_ITEM_LABELS = {
+const CARPET_ITEM_LABELS = {
   bedroom:         'Bedroom',
   living_room:     'Living / dining room',
   large_lounge:    'Large or through lounge',
@@ -107,21 +164,21 @@ export const CARPET_ITEM_LABELS = {
 };
 
 // Rendering / iteration order — Carpets, then Sofas & Upholstery.
-export const CARPET_ITEM_ORDER = [
+const CARPET_ITEM_ORDER = [
   'bedroom', 'living_room', 'large_lounge', 'hallway', 'landing', 'stairs', 'rug',
   'armchair', 'sofa_2', 'sofa_3', 'sofa_corner', 'mattress_single', 'mattress_double', 'mattress_king',
 ];
 
 // Leather upholstery is not offered through the instant calculator —
 // VVE does not currently operationally support it.
-export const LEATHER_UPHOLSTERY_SUPPORTED = false;
+const LEATHER_UPHOLSTERY_SUPPORTED = false;
 
 // Stairs are non-linear: £50 first flight, £40 each additional.
-export const STAIRS_FIRST_P = 5000;  // £50
-export const STAIRS_EXTRA_P = 4000;  // £40
+const STAIRS_FIRST_P = readPrice('STAIRS_FIRST_P', 5000);  // £50
+const STAIRS_EXTRA_P = readPrice('STAIRS_EXTRA_P', 4000);  // £40
 
 /** @param {number} flights */
-export function stairsLinePricePence(flights) {
+function stairsLinePricePence(flights) {
   if (flights <= 0) return 0;
   return STAIRS_FIRST_P + (flights - 1) * STAIRS_EXTRA_P;
 }
@@ -141,7 +198,7 @@ export function stairsLinePricePence(flights) {
 /** @typedef {{minItems: number, amountP: number, display: string}} BundleBand */
 
 /** @type {BundleBand[]} Ordered highest-first so the first match (by item count) is used. */
-export const CARPET_BUNDLE_BANDS = [
+const CARPET_BUNDLE_BANDS = [
   { minItems: 7, amountP: 3500, display: '£35 off' }, // 7+ items
   { minItems: 5, amountP: 2000, display: '£20 off' }, // 5–6 items
   { minItems: 3, amountP: 1000, display: '£10 off' }, // 3–4 items
@@ -149,7 +206,7 @@ export const CARPET_BUNDLE_BANDS = [
 ];
 
 /** @param {number} itemCount */
-export function calculateBundleDiscount(itemCount) {
+function calculateBundleDiscount(itemCount) {
   const band = CARPET_BUNDLE_BANDS.find((b) => itemCount >= b.minItems) ?? CARPET_BUNDLE_BANDS[CARPET_BUNDLE_BANDS.length - 1];
   return { itemCount, amountP: band.amountP, display: band.display };
 }
@@ -169,8 +226,8 @@ const PROMO_CODES = { LEAFLET20: 20 };
  * @param {number} [multiplier] - price multiplier (default 1); e.g. 0.9 for 10% off on /leaflet
  * @param {string} [promoCode]
  */
-export function computeCarpetPrice(counts, condition, multiplier = 1, promoCode) {
-  const isPhotoQuote = condition === 'delicate';
+function computeCarpetPrice(counts, condition, multiplier = 1, promoCode) {
+  const isPhotoQuote = condition === 'delicate' || Number(counts?.rug) > 0;
 
   const lines = [];
   let subtotal = 0;
@@ -252,7 +309,7 @@ export function computeCarpetPrice(counts, condition, multiplier = 1, promoCode)
 // deliberately no `house.studio` entry — house/maisonette studios (like any
 // 5+ bedroom property) are always a manual quotation, never an instant price.
 /** @type {{flat: Record<SizeKey, {tailored: number, complete: number}>, house: Partial<Record<SizeKey, {tailored: number, complete: number}>>}} */
-export const EOT_PRICES_P = {
+const EOT_PRICES_P = readPrice('EOT_PRICES_P', {
   flat: {
     studio: { tailored: 15900, complete: 22000 },  // £159 / £220
     bed1:   { tailored: 19900, complete: 27900 },  // £199 / £279
@@ -266,7 +323,7 @@ export const EOT_PRICES_P = {
     bed3: { tailored: 38900, complete: 49900 },  // £389 / £499
     bed4: { tailored: 49900, complete: 62900 },  // £499 / £629
   },
-};
+});
 
 /**
  * True only for {propertyType, size} combinations that have a fixed instant
@@ -275,7 +332,7 @@ export const EOT_PRICES_P = {
  * @param {'flat'|'house'} propertyType
  * @param {SizeKey} size
  */
-export function eotPropertySizeValid(propertyType, size) {
+function eotPropertySizeValid(propertyType, size) {
   return Boolean(EOT_PRICES_P[propertyType]?.[size]);
 }
 
@@ -284,11 +341,11 @@ export function eotPropertySizeValid(propertyType, size) {
 // catalogue seed) keeps working unchanged. Both are DERIVED from
 // EOT_PRICES_P.flat below — never a second, separately-maintained table.
 /** @type {Record<string, number>} */
-export const EOT_COMPLETE_PRICES_P = Object.fromEntries(
+const EOT_COMPLETE_PRICES_P = Object.fromEntries(
   SIZE_KEYS.map((k) => [k, EOT_PRICES_P.flat[k].complete]),
 );
 /** @type {Record<string, number>} */
-export const EOT_TAILORED_START_PRICES_P = Object.fromEntries(
+const EOT_TAILORED_START_PRICES_P = Object.fromEntries(
   SIZE_KEYS.map((k) => [k, EOT_PRICES_P.flat[k].tailored]),
 );
 
@@ -296,34 +353,34 @@ export const EOT_TAILORED_START_PRICES_P = Object.fromEntries(
 // headline figure is needed (service cards, structured data, SEO copy). This
 // IS the Complete package price: it is VVE's flagship, guaranteed-complete
 // product and the one that should anchor comparisons.
-export const EOT_BASE_PRICES_P = EOT_COMPLETE_PRICES_P;
+const EOT_BASE_PRICES_P = EOT_COMPLETE_PRICES_P;
 
 // Per additional bathroom beyond the first (integer pence).
-export const EOT_EXTRA_BATH_P = 4000;  // £40
+const EOT_EXTRA_BATH_P = readPrice('EOT_EXTRA_BATH_P', 4000);  // £40
 // Per additional separate WC beyond the first.
-export const EOT_EXTRA_WC_P = 2000;  // £20
+const EOT_EXTRA_WC_P = readPrice('EOT_EXTRA_WC_P', 2000);  // £20
 
 // Re-clean guarantee window, in hours. Shared by both packages — only the
 // SCOPE differs (Complete = full checklist; Tailored = selected tasks only).
 // 72 hours (raised from the previously-live 48-hour window) and the
 // Complete/Tailored scope split are both owner-approved.
-export const EOT_GUARANTEE_HOURS = 72;
-export const EOT_GUARANTEE_APPROVED = true;
+const EOT_GUARANTEE_HOURS = 168;
+const EOT_GUARANTEE_APPROVED = true;
 
 // Tailored internal add-ons — priced individually so the customer can build
 // back only what they need. Never added silently; always shown before
 // selection.
 /** @type {Record<string, number>} */
-export const EOT_TAILORED_ADDON_PRICES_P = {
+const EOT_TAILORED_ADDON_PRICES_P = readPrice('EOT_TAILORED_ADDON_PRICES_P', {
   microwave_inside:       1000,  // £10 — inside microwave
   fridge_freezer_inside:  2500,  // £25 — inside standard fridge/freezer
   extra_fridge_freezer:   1500,  // £15 each — additional separate fridge or freezer
   dishwasher_inside:      1000,  // £10 — inside dishwasher compartments
   washing_machine_inside: 1000,  // £10 — inside washing-machine compartments
-};
+});
 
 /** @type {Record<string, string>} */
-export const EOT_TAILORED_ADDON_LABELS = {
+const EOT_TAILORED_ADDON_LABELS = {
   microwaveInside:      'Inside microwave',
   fridgeFreezerInside:  'Inside fridge/freezer',
   extraFridgeFreezers:  'Additional fridge/freezer',
@@ -334,13 +391,13 @@ export const EOT_TAILORED_ADDON_LABELS = {
 
 // Cupboards/drawers/wardrobes add-on scales with property size.
 /** @type {Record<string, number>} */
-export const EOT_TAILORED_CUPBOARDS_PRICES_P = {
+const EOT_TAILORED_CUPBOARDS_PRICES_P = readPrice('EOT_TAILORED_CUPBOARDS_PRICES_P', {
   studio: 2500,  // £25
   bed1:   2500,  // £25
   bed2:   3500,  // £35
   bed3:   4500,  // £45
   bed4:   5500,  // £55
-};
+});
 
 /**
  * The full price of building every Tailored add-on manually for a given
@@ -348,7 +405,7 @@ export const EOT_TAILORED_CUPBOARDS_PRICES_P = {
  * "switch to Complete" nudge). Assumes 1 fridge/freezer, no extra units.
  * @param {SizeKey} size
  */
-export function tailoredFullAddonTotalP(size) {
+function tailoredFullAddonTotalP(size) {
   return (
     EOT_TAILORED_ADDON_PRICES_P.microwave_inside +
     EOT_TAILORED_ADDON_PRICES_P.fridge_freezer_inside +
@@ -360,12 +417,12 @@ export function tailoredFullAddonTotalP(size) {
 
 // Additional areas (charged on top of the base EOT price, either package):
 /** @type {Record<string, number>} */
-export const EOT_EXTRA_AREAS_P = {
+const EOT_EXTRA_AREAS_P = readPrice('EOT_EXTRA_AREAS_P', {
   reception:    3500,  // £35 — additional reception room
   conservatory: 4000,  // £40
   balcony:      2500,  // £25 from
   utility:      2500,  // £25
-};
+});
 
 // Flat rate table backing ONLY the move-in/after-builders "whole home"
 // carpet bundle shortcut below (EOT_CARPET_BUNDLE_P) — a single flat add-on
@@ -375,7 +432,7 @@ export const EOT_EXTRA_AREAS_P = {
 // CARPET_ITEM_PRICES_P values with a 50% package discount instead — never
 // from this table, so the two features can never double-discount each other.
 /** @type {Record<string, number>} */
-export const EOT_CARPET_ADDON_PRICES_P = {
+const EOT_CARPET_ADDON_PRICES_P = readPrice('EOT_CARPET_ADDON_PRICES_P', {
   bedroom:      4000,  // £40
   living_room:  5500,  // £55
   large_lounge: 7000,  // £70
@@ -383,7 +440,7 @@ export const EOT_CARPET_ADDON_PRICES_P = {
   landing:      1500,  // £15
   stairs_first: 4500,  // £45 first flight
   stairs_extra: 3500,  // £35 each additional flight
-};
+});
 
 // Whole-home carpet bundle add-on to move-in/after-builders property cleans,
 // at reduced rates — derived from EOT_CARPET_ADDON_PRICES_P for typical room
@@ -392,7 +449,7 @@ export const EOT_CARPET_ADDON_PRICES_P = {
 // is not used by the EOT wizard (which prices carpet per selected area —
 // see calculateEotCarpetPackage).
 /** @type {Record<string, number>} */
-export const EOT_CARPET_BUNDLE_P = {
+const EOT_CARPET_BUNDLE_P = {
   studio: EOT_CARPET_ADDON_PRICES_P.hallway + EOT_CARPET_ADDON_PRICES_P.bedroom,                                                    // £60
   bed1:   EOT_CARPET_ADDON_PRICES_P.hallway + EOT_CARPET_ADDON_PRICES_P.bedroom,                                                    // £60
   bed2:   EOT_CARPET_ADDON_PRICES_P.hallway + EOT_CARPET_ADDON_PRICES_P.bedroom * 2,                                                // £100
@@ -407,7 +464,7 @@ export const EOT_CARPET_BUNDLE_P = {
  * @param {SizeKey} size
  * @param {'flat'|'house'|'maisonette'} propertyType
  */
-export function generateDefaultRooms(size, propertyType) {
+function generateDefaultRooms(size, propertyType) {
   const bedroomCount = { studio: 0, bed1: 1, bed2: 2, bed3: 3, bed4: 4 }[size] ?? 1;
   /** @type {{id: string, label: string, addonKey: keyof typeof EOT_CARPET_ADDON_PRICES_P | 'stairs', floor: 'unset'|'carpet'|'hard'|'na', removable: boolean}[]} */
   const rooms = [];
@@ -443,8 +500,8 @@ export function generateDefaultRooms(size, propertyType) {
 // CARPET_BUNDLE_BANDS (the ordinary item-count carpet discount) — the EOT
 // wizard's rooms/carpetRoomIds never feed calculateBundleDiscount.
 
-export const EOT_CARPET_PACKAGE_DISCOUNT_PCT = 50;
-export const EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS = 3;
+const EOT_CARPET_PACKAGE_DISCOUNT_PCT = 50;
+const EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS = 3;
 
 // Areas eligible for the EOT carpet-package rate. Anything else — rugs,
 // wool/silk/delicate fibres, severe pet or biohazard contamination,
@@ -452,7 +509,7 @@ export const EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS = 3;
 // calculateEotCarpetPackage silently excludes any room whose addonKey isn't
 // in this list, and those items stay photo-review / quote-required, exactly
 // as they already are on the standalone carpet & upholstery page.
-export const EOT_CARPET_QUALIFYING_KEYS = ['bedroom', 'living_room', 'large_lounge', 'hallway', 'landing', 'stairs'];
+const EOT_CARPET_QUALIFYING_KEYS = ['bedroom', 'living_room', 'large_lounge', 'hallway', 'landing', 'stairs'];
 
 /**
  * Standalone (non-EOT) value of one qualifying floor-care area, read from
@@ -462,7 +519,7 @@ export const EOT_CARPET_QUALIFYING_KEYS = ['bedroom', 'living_room', 'large_loun
  * @param {string} addonKey
  * @param {number} [stairFlights]
  */
-export function eotCarpetAreaStandalonePriceP(addonKey, stairFlights = 1) {
+function eotCarpetAreaStandalonePriceP(addonKey, stairFlights = 1) {
   if (!EOT_CARPET_QUALIFYING_KEYS.includes(addonKey)) return 0;
   if (addonKey === 'stairs') return stairsLinePricePence(Math.max(1, stairFlights));
   return CARPET_ITEM_PRICES_P[addonKey] ?? 0;
@@ -488,7 +545,7 @@ export function eotCarpetAreaStandalonePriceP(addonKey, stairFlights = 1) {
  * @param {{id: string, addonKey: string, stairFlights?: number}[]|undefined} rooms
  * @param {string[]|undefined} carpetRoomIds - ids of rooms the customer has actually confirmed for professional steam cleaning; suggested/unconfirmed rooms are never priced
  */
-export function calculateEotCarpetPackage(rooms, carpetRoomIds) {
+function calculateEotCarpetPackage(rooms, carpetRoomIds) {
   const empty = { standaloneSubtotalP: 0, itemCount: 0, eligible: false, chargedP: 0, savingP: 0 };
   if (!rooms || !carpetRoomIds || carpetRoomIds.length === 0) return empty;
 
@@ -548,7 +605,7 @@ function eotPriceEntry(propertyType, size) {
 }
 
 /** @param {EotQuoteInput} input */
-export function calculateEotQuote(input) {
+function calculateEotQuote(input) {
   const { size, isHouse, extraBathrooms, extraWcs } = input;
   const propertyType = isHouse ? 'house' : 'flat';
   const entry = eotPriceEntry(propertyType, size);
@@ -608,19 +665,19 @@ export function calculateEotQuote(input) {
 // (may cost approx 15% more, but never added automatically).
 
 /** @type {Record<string, number>} */
-export const MOVEIN_BASE_PRICES_P = {
+const MOVEIN_BASE_PRICES_P = readPrice('MOVEIN_BASE_PRICES_P', {
   studio: 15900,  // £159
   bed1:   19900,  // £199
   bed2:   24900,  // £249
   bed3:   30900,  // £309
   bed4:   38900,  // £389
-};
+});
 
-export const MOVEIN_EXTRA_BATH_P = 3000;  // £30 per extra bathroom
-export const MOVEIN_EXTRA_WC_P = 1500;  // £15 per extra WC
+const MOVEIN_EXTRA_BATH_P = readPrice('MOVEIN_EXTRA_BATH_P', 3000);  // £30 per extra bathroom
+const MOVEIN_EXTRA_WC_P = readPrice('MOVEIN_EXTRA_WC_P', 1500);  // £15 per extra WC
 
 /** @param {{size: SizeKey, extraBathrooms: number, extraWcs: number}} input */
-export function calculateMoveInQuote(input) {
+function calculateMoveInQuote(input) {
   const basePriceP = MOVEIN_BASE_PRICES_P[input.size];
   const bathroomsAddP = Math.max(0, input.extraBathrooms) * MOVEIN_EXTRA_BATH_P;
   const wcsAddP = Math.max(0, input.extraWcs) * MOVEIN_EXTRA_WC_P;
@@ -638,7 +695,7 @@ export function calculateMoveInQuote(input) {
 // competitors.
 
 /** @type {Record<string, number>} */
-export const AFTER_BUILDERS_FROM_PRICES_P = {
+const AFTER_BUILDERS_FROM_PRICES_P = readPrice('AFTER_BUILDERS_FROM_PRICES_P', {
   small:  24900,  // £249 — small renovation or one main area
   studio: 27900,  // £279
   bed1:   32900,  // £329
@@ -646,13 +703,13 @@ export const AFTER_BUILDERS_FROM_PRICES_P = {
   bed3:   49900,  // £499
   bed4:   62500,  // £625
   // 5+ bedrooms or large/commercial construction: manual site survey quote
-};
+});
 
 // Lowest displayed starting price (used for "from £X" wording).
-export const AFTER_BUILDERS_START_FROM_P = 24900;  // £249
+const AFTER_BUILDERS_START_FROM_P = AFTER_BUILDERS_FROM_PRICES_P.small;  // £249
 
 /** @param {'small'|SizeKey} size */
-export function calculateAfterBuildersEstimate(size) {
+function calculateAfterBuildersEstimate(size) {
   return {
     fromP: AFTER_BUILDERS_FROM_PRICES_P[size] ?? AFTER_BUILDERS_START_FROM_P,
     pricingMode: 'from',
@@ -663,20 +720,20 @@ export function calculateAfterBuildersEstimate(size) {
 // ─── Commercial pricing ──────────────────────────────────────────────────────
 
 // Regular contract cleaning
-export const COMMERCIAL_REGULAR_HOURLY_P = 2750;  // £27.50 per cleaner-hour
-export const COMMERCIAL_REGULAR_MIN_HOURS = 2;     // minimum hours per visit
-export const COMMERCIAL_REGULAR_MIN_CHARGE_P = 5500; // £55
+const COMMERCIAL_REGULAR_HOURLY_P = readPrice('COMMERCIAL_REGULAR_HOURLY_P', 2750);  // £27.50 per cleaner-hour
+const COMMERCIAL_REGULAR_MIN_HOURS = 2;     // minimum hours per visit
+const COMMERCIAL_REGULAR_MIN_CHARGE_P = COMMERCIAL_REGULAR_HOURLY_P * COMMERCIAL_REGULAR_MIN_HOURS; // £55
 
 // One-off commercial deep clean
-export const COMMERCIAL_ONCEOFF_HOURLY_P = 3500;  // £35 per cleaner-hour
-export const COMMERCIAL_ONCEOFF_MIN_HOURS = 6;     // minimum hours
-export const COMMERCIAL_ONCEOFF_MIN_CHARGE_P = 21000; // £210
+const COMMERCIAL_ONCEOFF_HOURLY_P = readPrice('COMMERCIAL_ONCEOFF_HOURLY_P', 3500);  // £35 per cleaner-hour
+const COMMERCIAL_ONCEOFF_MIN_HOURS = 6;     // minimum hours
+const COMMERCIAL_ONCEOFF_MIN_CHARGE_P = COMMERCIAL_ONCEOFF_HOURLY_P * COMMERCIAL_ONCEOFF_MIN_HOURS; // £210
 
 // Other commercial services
-export const COMMERCIAL_SHOP_CAFE_FROM_P = 6500;  // £65 per visit
-export const COMMERCIAL_COMMUNAL_FROM_P = 7500;  // £75 per visit
-export const COMMERCIAL_EOL_FROM_P = 29900; // £299 end-of-lease
-export const COMMERCIAL_AFTER_BUILDERS_FROM_P = 34900; // £349 after-builders
+const COMMERCIAL_SHOP_CAFE_FROM_P = readPrice('COMMERCIAL_SHOP_CAFE_FROM_P', 6500);  // £65 per visit
+const COMMERCIAL_COMMUNAL_FROM_P = readPrice('COMMERCIAL_COMMUNAL_FROM_P', 7500);  // £75 per visit
+const COMMERCIAL_EOL_FROM_P = readPrice('COMMERCIAL_EOL_FROM_P', 29900); // £299 end-of-lease
+const COMMERCIAL_AFTER_BUILDERS_FROM_P = readPrice('COMMERCIAL_AFTER_BUILDERS_FROM_P', 34900); // £349 after-builders
 
 // ── BUSINESS DECISION — REQUIRES OWNER APPROVAL BEFORE DEPLOYMENT ──────────
 // Commercial carpet: a per-sqm rate and minimum visit charge already existed
@@ -690,9 +747,9 @@ export const COMMERCIAL_AFTER_BUILDERS_FROM_P = 34900; // £349 after-builders
 // existing working functionality, but flagged explicitly here rather than
 // silently treated as approved. Confirm the rate with the business owner,
 // then set COMMERCIAL_CARPET_RATE_APPROVED to true.
-export const COMMERCIAL_CARPET_PER_SQM_P = 450;   // £4.50 per sqm
-export const COMMERCIAL_CARPET_MIN_P = 12000; // £120 minimum
-export const COMMERCIAL_CARPET_RATE_APPROVED = false; // set true once the business owner confirms
+const COMMERCIAL_CARPET_PER_SQM_P = readPrice('COMMERCIAL_CARPET_PER_SQM_P', 450);   // £4.50 per sqm
+const COMMERCIAL_CARPET_MIN_P = readPrice('COMMERCIAL_CARPET_MIN_P', 12000); // £120 minimum
+const COMMERCIAL_CARPET_RATE_APPROVED = false; // set true once the business owner confirms
 
 // ─── Window, garden & pressure washing ───────────────────────────────────────
 //
@@ -701,36 +758,36 @@ export const COMMERCIAL_CARPET_RATE_APPROVED = false; // set true once the busin
 // call-out — a misleading price indication (ASA pattern). Both now quote the
 // true floor.
 
-export const WINDOW_CLEANING_FROM_P = 7500;  // £75
-export const WINDOW_CLEANING_MIN_P = 7500;  // £75 minimum call-out on standalone visits
-export const WINDOW_CLEANING_SCOPE = 'Exterior windows, streak-free. Ground and first-floor reach.';
+const WINDOW_CLEANING_FROM_P = readPrice('WINDOW_CLEANING_FROM_P', 7500);  // £75
+const WINDOW_CLEANING_MIN_P = readPrice('WINDOW_CLEANING_MIN_P', 7500);  // £75 minimum call-out on standalone visits
+const WINDOW_CLEANING_SCOPE = 'Exterior windows, streak-free. Ground and first-floor reach.';
 
-export const GARDEN_SERVICES_FROM_P = 7500;  // £75
-export const GARDEN_SERVICES_MIN_P = 7500;  // £75 minimum call-out
+const GARDEN_SERVICES_FROM_P = readPrice('GARDEN_SERVICES_FROM_P', 7500);  // £75
+const GARDEN_SERVICES_MIN_P = readPrice('GARDEN_SERVICES_MIN_P', 7500);  // £75 minimum call-out
 
-export const PRESSURE_WASHING_FROM_P = 12000; // £120
+const PRESSURE_WASHING_FROM_P = readPrice('PRESSURE_WASHING_FROM_P', 12000); // £120
 
 // Quick-quote ladder used by the standalone window/gutter "get a rough price"
 // tool in the calculator. Every tier is now at or above the true £75 floor so
 // "from £75" is always achievable.
 /** @type {Record<string, number>} */
-export const WINDOW_QUICK_PRICES_P = {
+const WINDOW_QUICK_PRICES_P = readPrice('WINDOW_QUICK_PRICES_P', {
   small:  7500,  // £75 — 1–2 bed
   medium: 8500,  // £85 — 3 bed
   large:  9500,  // £95 — 4+ bed
-};
+});
 /** @type {Record<string, number>} */
-export const GUTTER_QUICK_PRICES_P = {
+const GUTTER_QUICK_PRICES_P = readPrice('GUTTER_QUICK_PRICES_P', {
   terraced:      7500,  // £75
   semi_detached: 11000, // £110
   detached:      16000, // £160
-};
-export const QUICK_QUOTE_MIN_CHARGE_P = 7500; // £75 — shared floor for window/gutter/office quick quotes
+});
+const QUICK_QUOTE_MIN_CHARGE_P = readPrice('QUICK_QUOTE_MIN_CHARGE_P', 7500); // £75 — shared floor for window/gutter/office quick quotes
 
 // ─── Optional add-on extras ───────────────────────────────────────────────────
 
 /** @type {Record<string, number>} */
-export const ADDON_PRICES_P = {
+const ADDON_PRICES_P = readPrice('ADDON_PRICES_P', {
   oven:        3500,  // £35 (FREE when booked with EOT)
   fridge:      2500,  // £25 (aligned with EOT_TAILORED_ADDON_PRICES_P.fridge_freezer_inside)
   ext_windows: 3500,  // £35
@@ -738,7 +795,7 @@ export const ADDON_PRICES_P = {
   wall_marks:  2500,  // £25 per wall, subject to assessment
   key_collect: 1000,  // £10
   rubbish:     4000,  // £40 (small load)
-};
+});
 
 // Upholstery/mattress items sold as simple inline EOT-visit add-ons (the
 // Step 4 "Upholstery & mattress cleaning" selector) — priced from the SAME
@@ -747,14 +804,14 @@ export const ADDON_PRICES_P = {
 // hallway, landing, etc.), which are reserved for calculateEotCarpetPackage's
 // own room-based flow and must never be reachable via a plain addOnCounts
 // entry.
-export const EOT_UPHOLSTERY_ADDON_KEYS = ['armchair', 'sofa_2', 'sofa_3', 'sofa_corner', 'mattress_single', 'mattress_double', 'mattress_king'];
+const EOT_UPHOLSTERY_ADDON_KEYS = ['armchair', 'sofa_2', 'sofa_3', 'sofa_corner', 'mattress_single', 'mattress_double', 'mattress_king'];
 
 // ─── Booking constants ────────────────────────────────────────────────────────
 
-export const DEPOSIT_P = 3000;  // £30 — deducted from final balance. Never removed, never changed here casually.
+const DEPOSIT_P = 3000;  // £30 — deducted from final balance. Never removed, never changed here casually.
 
 /** @param {number} totalP */
-export function calculateDepositAndBalance(totalP) {
+function calculateDepositAndBalance(totalP) {
   const depositP = Math.min(DEPOSIT_P, Math.max(0, totalP));
   const balanceP = Math.max(0, totalP - depositP);
   return { depositP, balanceP };
@@ -769,13 +826,13 @@ export function calculateDepositAndBalance(totalP) {
 // per-service quote calculator's own running total (including the EOT
 // wizard) for the same reason: the wizard price is a quote for the cleaning
 // itself, this is a separate, itemised pass-through applied once at booking.
-export const PARKING_ESTIMATE_P = 1500;   // £15 estimate — parking not available or unsure, charged at actual cost
-export const CONGESTION_CHARGE_P = 1800;  // £18 — Congestion Charge zone pass-through
-export const PARKING_CHARGED_AT_ACTUAL_COST_NOTE =
+const PARKING_ESTIMATE_P = 1500;   // £15 estimate — parking not available or unsure, charged at actual cost
+const CONGESTION_CHARGE_P = 1800;  // £18 — Congestion Charge zone pass-through
+const PARKING_CHARGED_AT_ACTUAL_COST_NOTE =
   'Parking is charged at the actual cost. The final balance will be adjusted if it costs less or more.';
 
 /** @param {{parkingAvailable?: string, congestionZone?: string}} quoteConfig */
-export function accessSurchargeP(quoteConfig) {
+function accessSurchargeP(quoteConfig) {
   let addP = 0;
   if (quoteConfig.parkingAvailable === 'no' || quoteConfig.parkingAvailable === 'not_sure') {
     addP += PARKING_ESTIMATE_P;
@@ -788,29 +845,29 @@ export function accessSurchargeP(quoteConfig) {
 
 // ─── Same-day / next-day policy (no surcharge) ───────────────────────────────
 
-export const SAME_DAY_POLICY_SHORT =
+const SAME_DAY_POLICY_SHORT =
   'Same-day and next-day appointments may be available at the normal price. Contact us to check availability.';
 
 // ─── Coverage area — single canonical list ───────────────────────────────────
 
-export const COVERAGE_POSTCODES = [
+const COVERAGE_POSTCODES = [
   'E1', 'E2', 'E3', 'E5', 'E8', 'E9', 'E10', 'E14', 'E15', 'E17', 'E20',
   'N1', 'N4', 'N5', 'N7', 'N8', 'N10', 'N15', 'N16', 'N17', 'N19', 'N22',
   'NW1', 'NW5',
 ];
-export const COVERAGE_SUMMARY = 'East & North London';
-export const COVERAGE_POSTCODE_LIST = COVERAGE_POSTCODES.join(', ');
+const COVERAGE_SUMMARY = 'East & North London';
+const COVERAGE_POSTCODE_LIST = COVERAGE_POSTCODES.join(', ');
 
 // ─── Helper: pounds display ───────────────────────────────────────────────────
 
 /** @param {number} pence */
-export function penceToDisplay(pence) {
+function penceToDisplay(pence) {
   return `£${(pence / 100).toFixed(pence % 100 === 0 ? 0 : 2)}`;
 }
-export const formatPrice = penceToDisplay;
+const formatPrice = penceToDisplay;
 
 /** @param {ServiceStartingPriceKey} key */
-export function getServiceStartingPrice(key) {
+function getServiceStartingPrice(key) {
   switch (key) {
     case 'eot_complete':      return { pricingMode: 'fixed', fromP: EOT_COMPLETE_PRICES_P.studio,      label: `From ${penceToDisplay(EOT_COMPLETE_PRICES_P.studio)}` };
     case 'eot_tailored':      return { pricingMode: 'fixed', fromP: EOT_TAILORED_START_PRICES_P.studio, label: `From ${penceToDisplay(EOT_TAILORED_START_PRICES_P.studio)}` };
@@ -885,7 +942,7 @@ function computeBasePrice(quoteConfig) {
         .filter((key) => key !== 'rug')
         .reduce((sum, key) => sum + Math.max(0, Number(carpetCounts[key]) || 0), 0);
       if (rugCount > 0 && companionCount === 0) return null;
-      const r = computeCarpetPrice(carpetCounts, carpetCondition || 'normal');
+      const r = computeCarpetPrice(carpetCounts, carpetCondition || 'normal', 1, quoteConfig.promoCode);
       return r.finalTotal > 0 ? r.finalTotal : null;
     }
 
@@ -956,7 +1013,7 @@ function computeBasePrice(quoteConfig) {
  * which apply once per booking regardless of service — see accessSurchargeP.
  * @param {Record<string, unknown>} quoteConfig
  */
-export function computePrice(quoteConfig) {
+function computePrice(quoteConfig) {
   const base = computeBasePrice(quoteConfig);
   if (base === null) return null;
   return base + accessSurchargeP(quoteConfig) / 100;
@@ -973,7 +1030,7 @@ const seed = (name, pence, category, description = null) => ({
   name, description, default_price_pence: pence, item_type: 'service', category,
 });
 
-export const CATALOGUE_SEED_ITEMS = [
+const CATALOGUE_SEED_ITEMS = [
   // ── End of tenancy — Complete Agency-Ready Clean ──────────────────────
   seed('End of tenancy clean (Complete) — studio',    EOT_COMPLETE_PRICES_P.studio, 'End of tenancy', 'Fixed price, full agency-ready checklist, oven clean included. 1 bathroom.'),
   seed('End of tenancy clean (Complete) — 1 bedroom', EOT_COMPLETE_PRICES_P.bed1,   'End of tenancy', 'Fixed price, full agency-ready checklist, oven clean included. 1 bathroom.'),
@@ -1070,9 +1127,9 @@ export const CATALOGUE_SEED_ITEMS = [
   seed('Internal staircase (add-on)',         EOT_CARPET_ADDON_PRICES_P.stairs_first, 'Add-ons', `First staircase; additional flights ${penceToDisplay(EOT_CARPET_ADDON_PRICES_P.stairs_extra)} each.`),
 
   // ── Windows — quick quote ladder ──────────────────────────────────────
-  seed('Window cleaning — small property',  WINDOW_QUICK_PRICES_P.small,  'Windows', 'Exterior windows, streak-free. From price; £75 minimum call-out.'),
-  seed('Window cleaning — medium property', WINDOW_QUICK_PRICES_P.medium, 'Windows', 'Exterior windows, streak-free. From price; £75 minimum call-out.'),
-  seed('Window cleaning — large property',  WINDOW_QUICK_PRICES_P.large,  'Windows', 'Exterior windows, streak-free. From price; £75 minimum call-out.'),
+  seed('Window cleaning — small property',  WINDOW_QUICK_PRICES_P.small,  'Windows', `Exterior windows, streak-free. From price; ${penceToDisplay(QUICK_QUOTE_MIN_CHARGE_P)} minimum call-out.`),
+  seed('Window cleaning — medium property', WINDOW_QUICK_PRICES_P.medium, 'Windows', `Exterior windows, streak-free. From price; ${penceToDisplay(QUICK_QUOTE_MIN_CHARGE_P)} minimum call-out.`),
+  seed('Window cleaning — large property',  WINDOW_QUICK_PRICES_P.large,  'Windows', `Exterior windows, streak-free. From price; ${penceToDisplay(QUICK_QUOTE_MIN_CHARGE_P)} minimum call-out.`),
 
   // ── Gutters ─────────────────────────────────────────────────────────────
   seed('Gutter cleaning — terraced',      GUTTER_QUICK_PRICES_P.terraced,      'Gutters'),
@@ -1080,15 +1137,42 @@ export const CATALOGUE_SEED_ITEMS = [
   seed('Gutter cleaning — detached',      GUTTER_QUICK_PRICES_P.detached,      'Gutters'),
 
   // ── Commercial ─────────────────────────────────────────────────────────
-  seed('Commercial cleaning — regular contract (per hour)', COMMERCIAL_REGULAR_HOURLY_P, 'Commercial', 'Minimum 2 hours (£55) per visit.'),
-  seed('Commercial cleaning — one-off deep (per hour)',     COMMERCIAL_ONCEOFF_HOURLY_P, 'Commercial', 'Minimum 6 hours (£210) per visit.'),
+  seed('Commercial cleaning — regular contract (per hour)', COMMERCIAL_REGULAR_HOURLY_P, 'Commercial', `Minimum ${COMMERCIAL_REGULAR_MIN_HOURS} hours (${penceToDisplay(COMMERCIAL_REGULAR_MIN_CHARGE_P)}) per visit.`),
+  seed('Commercial cleaning — one-off deep (per hour)',     COMMERCIAL_ONCEOFF_HOURLY_P, 'Commercial', `Minimum ${COMMERCIAL_ONCEOFF_MIN_HOURS} hours (${penceToDisplay(COMMERCIAL_ONCEOFF_MIN_CHARGE_P)}) per visit.`),
   seed('Commercial — shop / café clean',   COMMERCIAL_SHOP_CAFE_FROM_P, 'Commercial', 'From price; confirmed on site visit.'),
   seed('Commercial — communal area clean', COMMERCIAL_COMMUNAL_FROM_P, 'Commercial', 'From price; confirmed on site visit.'),
   seed('Commercial end of lease clean',    COMMERCIAL_EOL_FROM_P, 'Commercial', 'From price; confirmed by photo.'),
   seed('Commercial after builders clean',  COMMERCIAL_AFTER_BUILDERS_FROM_P, 'Commercial', 'From price; confirmed by photo.'),
-  seed('Commercial carpet cleaning (per sqm)', COMMERCIAL_CARPET_PER_SQM_P, 'Commercial', 'From price; £120 minimum visit charge. Rate pending owner approval — see COMMERCIAL_CARPET_RATE_APPROVED.'),
+  seed('Commercial carpet cleaning (per sqm)', COMMERCIAL_CARPET_PER_SQM_P, 'Commercial', `From price; ${penceToDisplay(COMMERCIAL_CARPET_MIN_P)} minimum visit charge. Rate pending owner approval — see COMMERCIAL_CARPET_RATE_APPROVED.`),
 
   // ── Other quote-led services ──────────────────────────────────────────
   seed('Pressure washing', PRESSURE_WASHING_FROM_P, 'Outdoor', 'From price; driveways, patios & paths.'),
-  seed('Garden services',  GARDEN_SERVICES_FROM_P,  'Outdoor', 'From price; £75 minimum call-out.'),
+  seed('Garden services',  GARDEN_SERVICES_FROM_P,  'Outdoor', `From price; ${penceToDisplay(GARDEN_SERVICES_MIN_P)} minimum call-out.`),
 ];
+
+  // A Complete package includes the Tailored scope; a lower total would misstate that comparison.
+  for (const entries of Object.values(EOT_PRICES_P)) for (const entry of Object.values(entries)) {
+    if (entry.complete < entry.tailored) throw new Error('Complete EOT prices cannot be below the matching Tailored price.');
+  }
+  return freezeDeep({SIZE_KEYS, SIZE_LABELS, CARPET_MIN_BOOKING_P, CARPET_ITEM_PRICES_P, CARPET_ITEM_LABELS, CARPET_ITEM_ORDER, LEATHER_UPHOLSTERY_SUPPORTED, STAIRS_FIRST_P, STAIRS_EXTRA_P, stairsLinePricePence, CARPET_BUNDLE_BANDS, calculateBundleDiscount, PROMO_CODES, computeCarpetPrice, EOT_PRICES_P, eotPropertySizeValid, EOT_COMPLETE_PRICES_P, EOT_TAILORED_START_PRICES_P, EOT_BASE_PRICES_P, EOT_EXTRA_BATH_P, EOT_EXTRA_WC_P, EOT_GUARANTEE_HOURS, EOT_GUARANTEE_APPROVED, EOT_TAILORED_ADDON_PRICES_P, EOT_TAILORED_ADDON_LABELS, EOT_TAILORED_CUPBOARDS_PRICES_P, tailoredFullAddonTotalP, EOT_EXTRA_AREAS_P, EOT_CARPET_ADDON_PRICES_P, EOT_CARPET_BUNDLE_P, generateDefaultRooms, EOT_CARPET_PACKAGE_DISCOUNT_PCT, EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS, EOT_CARPET_QUALIFYING_KEYS, eotCarpetAreaStandalonePriceP, calculateEotCarpetPackage, calculateEotQuote, MOVEIN_BASE_PRICES_P, MOVEIN_EXTRA_BATH_P, MOVEIN_EXTRA_WC_P, calculateMoveInQuote, AFTER_BUILDERS_FROM_PRICES_P, AFTER_BUILDERS_START_FROM_P, calculateAfterBuildersEstimate, COMMERCIAL_REGULAR_HOURLY_P, COMMERCIAL_REGULAR_MIN_HOURS, COMMERCIAL_REGULAR_MIN_CHARGE_P, COMMERCIAL_ONCEOFF_HOURLY_P, COMMERCIAL_ONCEOFF_MIN_HOURS, COMMERCIAL_ONCEOFF_MIN_CHARGE_P, COMMERCIAL_SHOP_CAFE_FROM_P, COMMERCIAL_COMMUNAL_FROM_P, COMMERCIAL_EOL_FROM_P, COMMERCIAL_AFTER_BUILDERS_FROM_P, COMMERCIAL_CARPET_PER_SQM_P, COMMERCIAL_CARPET_MIN_P, COMMERCIAL_CARPET_RATE_APPROVED, WINDOW_CLEANING_FROM_P, WINDOW_CLEANING_MIN_P, WINDOW_CLEANING_SCOPE, GARDEN_SERVICES_FROM_P, GARDEN_SERVICES_MIN_P, PRESSURE_WASHING_FROM_P, WINDOW_QUICK_PRICES_P, GUTTER_QUICK_PRICES_P, QUICK_QUOTE_MIN_CHARGE_P, ADDON_PRICES_P, EOT_UPHOLSTERY_ADDON_KEYS, DEPOSIT_P, calculateDepositAndBalance, PARKING_ESTIMATE_P, CONGESTION_CHARGE_P, PARKING_CHARGED_AT_ACTUAL_COST_NOTE, accessSurchargeP, SAME_DAY_POLICY_SHORT, COVERAGE_POSTCODES, COVERAGE_SUMMARY, COVERAGE_POSTCODE_LIST, penceToDisplay, formatPrice, getServiceStartingPrice, computePrice, CATALOGUE_SEED_ITEMS });
+}
+
+const defaultCatalogue = createPricingCatalogue();
+export const { SIZE_KEYS, SIZE_LABELS, CARPET_MIN_BOOKING_P, CARPET_ITEM_PRICES_P, CARPET_ITEM_LABELS, CARPET_ITEM_ORDER, LEATHER_UPHOLSTERY_SUPPORTED, STAIRS_FIRST_P, STAIRS_EXTRA_P, stairsLinePricePence, CARPET_BUNDLE_BANDS, calculateBundleDiscount, PROMO_CODES, computeCarpetPrice, EOT_PRICES_P, eotPropertySizeValid, EOT_COMPLETE_PRICES_P, EOT_TAILORED_START_PRICES_P, EOT_BASE_PRICES_P, EOT_EXTRA_BATH_P, EOT_EXTRA_WC_P, EOT_GUARANTEE_HOURS, EOT_GUARANTEE_APPROVED, EOT_TAILORED_ADDON_PRICES_P, EOT_TAILORED_ADDON_LABELS, EOT_TAILORED_CUPBOARDS_PRICES_P, tailoredFullAddonTotalP, EOT_EXTRA_AREAS_P, EOT_CARPET_ADDON_PRICES_P, EOT_CARPET_BUNDLE_P, generateDefaultRooms, EOT_CARPET_PACKAGE_DISCOUNT_PCT, EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS, EOT_CARPET_QUALIFYING_KEYS, eotCarpetAreaStandalonePriceP, calculateEotCarpetPackage, calculateEotQuote, MOVEIN_BASE_PRICES_P, MOVEIN_EXTRA_BATH_P, MOVEIN_EXTRA_WC_P, calculateMoveInQuote, AFTER_BUILDERS_FROM_PRICES_P, AFTER_BUILDERS_START_FROM_P, calculateAfterBuildersEstimate, COMMERCIAL_REGULAR_HOURLY_P, COMMERCIAL_REGULAR_MIN_HOURS, COMMERCIAL_REGULAR_MIN_CHARGE_P, COMMERCIAL_ONCEOFF_HOURLY_P, COMMERCIAL_ONCEOFF_MIN_HOURS, COMMERCIAL_ONCEOFF_MIN_CHARGE_P, COMMERCIAL_SHOP_CAFE_FROM_P, COMMERCIAL_COMMUNAL_FROM_P, COMMERCIAL_EOL_FROM_P, COMMERCIAL_AFTER_BUILDERS_FROM_P, COMMERCIAL_CARPET_PER_SQM_P, COMMERCIAL_CARPET_MIN_P, COMMERCIAL_CARPET_RATE_APPROVED, WINDOW_CLEANING_FROM_P, WINDOW_CLEANING_MIN_P, WINDOW_CLEANING_SCOPE, GARDEN_SERVICES_FROM_P, GARDEN_SERVICES_MIN_P, PRESSURE_WASHING_FROM_P, WINDOW_QUICK_PRICES_P, GUTTER_QUICK_PRICES_P, QUICK_QUOTE_MIN_CHARGE_P, ADDON_PRICES_P, EOT_UPHOLSTERY_ADDON_KEYS, DEPOSIT_P, calculateDepositAndBalance, PARKING_ESTIMATE_P, CONGESTION_CHARGE_P, PARKING_CHARGED_AT_ACTUAL_COST_NOTE, accessSurchargeP, SAME_DAY_POLICY_SHORT, COVERAGE_POSTCODES, COVERAGE_SUMMARY, COVERAGE_POSTCODE_LIST, penceToDisplay, formatPrice, getServiceStartingPrice, computePrice, CATALOGUE_SEED_ITEMS } = defaultCatalogue;
+
+export function validateWebsitePricebook(overrides) {
+  try { createPricingCatalogue(overrides); return { ok: true, errors: [] }; }
+  catch (error) { return { ok: false, errors: [error.message] }; }
+}
+
+/** @returns {Array<{ key: string, pence: number }>} */
+export function getWebsitePricebookFields(overrides = {}) {
+  const catalogue = createPricingCatalogue(overrides);
+  const rows = [];
+  const walk = (value, path) => {
+    if (typeof value === 'number') { rows.push({ key: path, pence: value }); return; }
+    for (const [key, child] of Object.entries(value)) walk(child, path + '.' + key);
+  };
+  for (const key of PRICEBOOK_PRICE_KEYS) walk(catalogue[key], key);
+  return rows;
+}

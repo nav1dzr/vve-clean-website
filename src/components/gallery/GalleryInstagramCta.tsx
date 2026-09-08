@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FACEBOOK_URL, GOOGLE_REVIEW_URL, INSTAGRAM_URL } from '../../data/social';
+import { FACEBOOK_URL, GOOGLE_PROFILE_URL, INSTAGRAM_URL } from '../../data/social';
 import type { GalleryCategory } from '../../data/galleryMedia';
 
 const IG_SVG = (
@@ -71,7 +71,7 @@ export default function GalleryInstagramCta({
             Facebook
           </a>
           <a
-            href={GOOGLE_REVIEW_URL}
+            href={GOOGLE_PROFILE_URL}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="See VVE Clean on Google"

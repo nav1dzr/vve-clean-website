@@ -51,11 +51,9 @@ function quoteSection() {
   return el as HTMLElement;
 }
 
-/** Clicks the quote button belonging to a named service card. */
-async function chooseCard(user: ReturnType<typeof userEvent.setup>, title: string) {
-  const card = cardGrid().getByText(title).closest('article');
-  expect(card).not.toBeNull();
-  await user.click(within(card as HTMLElement).getByRole('button'));
+/** The move-in link opens the shared calculator on this page. */
+async function chooseMoveIn(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(cardGrid().getByRole('button', { name: 'Move-in deep cleaning' }));
 }
 
 /**
@@ -127,15 +125,16 @@ describe('HomePage — fresh visit', () => {
     expect(q.queryByText(/Request booking/i)).not.toBeInTheDocument();
   });
 
-  it('shows one focused five-card service section above the quote', () => {
+  it('shows three service photo cards and matching estimate destinations above the quote', () => {
     renderHome();
     const grid = cardGrid();
-    for (const title of ['End of tenancy cleaning', 'Move-in deep clean', 'After builders clean', 'Carpet & upholstery', 'Commercial & communal']) {
+    for (const title of ['Carpet cleaning', 'Sofa & upholstery cleaning', 'End of tenancy cleaning']) {
       expect(grid.getByText(title)).toBeInTheDocument();
     }
-    expect(grid.getAllByRole('article')).toHaveLength(5);
+    expect(grid.getAllByRole('article')).toHaveLength(3);
     expect(grid.queryByText('Most booked')).not.toBeInTheDocument();
-    expect(grid.queryAllByRole('img')).toHaveLength(0);
+    expect(document.getElementById('services')?.querySelectorAll('img')).toHaveLength(3);
+    expect(grid.getAllByRole('link', { name: 'Build my estimate →' }).map((link) => link.getAttribute('href'))).toEqual(['/carpet-cleaning-london#quote', '/sofa-cleaning-london#quote', '/end-of-tenancy-cleaning-london#quote']);
 
     // Cards come first in the document, the quote below them.
     const cards = document.getElementById('services') as HTMLElement;
@@ -171,45 +170,15 @@ describe('HomePage — choosing from the dropdown', () => {
   }
 });
 
-describe('HomePage — choosing from a service card', () => {
-  const cases: Array<{ card: string; service: string }> = [
-    { card: 'Carpet & upholstery', service: 'carpet' },
-    { card: 'Move-in deep clean', service: 'move_in' },
-  ];
-
-  for (const { card, service } of cases) {
-    it(`${card} opens the ${service} calculator`, async () => {
-      const user = userEvent.setup();
-      renderHome();
-      await chooseCard(user, card);
-
-      await waitFor(() => {
-        expect(within(quoteSection()).queryByText('Service Type')).toBeInTheDocument();
-      });
-      expect(within(quoteSection()).getAllByText(DETAIL_MARKER[service]).length).toBeGreaterThan(0);
-    });
-  }
-
-  it('scrolls to the quote section when the choice came from a card', async () => {
+describe('HomePage — choosing the additional move-in service', () => {
+  it('opens the move-in calculator and scrolls to it', async () => {
     const user = userEvent.setup();
     renderHome();
-    await chooseCard(user, 'Move-in deep clean');
-
-    await waitFor(() => {
-      expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
-    });
-  });
-
-  it('keeps the light homepage surface, not the dark service-page gradient', async () => {
-    const user = userEvent.setup();
-    renderHome();
-    await chooseCard(user, 'Carpet & upholstery');
-
-    await waitFor(() => {
-      expect(within(quoteSection()).queryByText('Service Type')).toBeInTheDocument();
-    });
+    await chooseMoveIn(user);
+    await waitFor(() => expect(within(quoteSection()).queryByText('Service Type')).toBeInTheDocument());
+    expect(within(quoteSection()).getAllByText(DETAIL_MARKER.move_in).length).toBeGreaterThan(0);
+    await waitFor(() => expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalled());
     expect(quoteSection().className).toContain('bg-surface');
-    expect(quoteSection().className).not.toContain('from-navy-950');
   });
 });
 

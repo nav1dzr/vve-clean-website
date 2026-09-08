@@ -27,12 +27,9 @@ describe('computeCarpetPrice — leaflet 20% discount vs minimum booking charge'
   });
 
   it('does not show a saving just below the minimum threshold (discounted subtotal £84)', () => {
-    // bedroom (50) + rug (40) + landing (20) = 110 subtotal, 20% off = 22, discounted 88 — above threshold, so use hallway instead
-    // hallway (25) + rug (40) + landing (20) = 85; adjust to land just under £85 discounted:
-    // bedroom (50) + rug (40) = 90 subtotal, 20% off = 18, discounted 72 — below £85
-    const result = computeCarpetPrice({ bedroom: 1, rug: 1 }, 'normal', 1, 'LEAFLET20');
-
-    expect(result.discountedSubtotal).toBe(72);
+    // Living room (£60) plus single mattress (£45), less20%=£84.
+    const result = computeCarpetPrice({ living_room: 1, mattress_single: 1 }, 'normal', 1, 'LEAFLET20');
+    expect(result.discountedSubtotal).toBe(84);
     expect(result.minApplied).toBe(true);
     expect(result.finalTotal).toBe(CARPET_MIN_BOOKING);
     expect(result.showSaving).toBe(false);

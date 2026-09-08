@@ -321,7 +321,7 @@ describe('EotQuoteWizard — Step 4: Add-ons and final review', () => {
     expect(screen.getByText('No payment now.')).toBeInTheDocument();
     expect(screen.getByText(/We check availability, scope and the final price, then contact you to confirm the appointment/i)).toBeInTheDocument();
     expect(screen.queryByText('Deposit today')).not.toBeInTheDocument();
-    expect(screen.getByText(new RegExp(`${72}-hour guarantee on selected tasks`))).toBeInTheDocument();
+    expect(screen.getByText(/7-day reporting window on selected tasks/)).toBeInTheDocument();
   });
 
   it('calling onBook produces a quoteConfig with exact pence — never rounded to a whole pound', async () => {

@@ -11,6 +11,7 @@ import BalanceControl from '../components/BalanceControl';
 import InternalNotesSection from '../components/InternalNotesSection';
 import BookingInvoicesSection from '../components/BookingInvoicesSection';
 import BookingCustomerSection from '../components/BookingCustomerSection';
+import BookingJourneyPanel from '../components/BookingJourneyPanel';
 import {
   paymentStatusBadge,
   formatServiceDate,
@@ -142,7 +143,7 @@ export default function BookingDetailPage() {
         <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-relaxed text-navy-900">
           <p className="font-semibold">Preferred-time request — no payment requested yet</p>
           <p className="mt-1">
-            Check availability and the final scope, then contact the customer to agree the time and final price. No online deposit is required.
+            Check availability and the final scope, then agree the time and final price. Send the £30 deposit request below after agreement; the initial website request stays free.
           </p>
         </div>
       )}
@@ -150,6 +151,8 @@ export default function BookingDetailPage() {
       <Section title="Status">
         <StatusControl bookingId={b.id} status={b.status} onUpdated={handleStatusUpdated} />
       </Section>
+
+      <BookingJourneyPanel booking={b} onChanged={load} />
 
       <Section title="Customer">
         <p className="font-medium text-navy-950">{b.fullName || 'Name not recorded'}</p>

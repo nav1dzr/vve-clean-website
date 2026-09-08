@@ -134,12 +134,12 @@ describe('internal navigation cannot clobber a campaign source', () => {
   });
 });
 
-describe('gclid is write-once', () => {
-  it('does not replace an existing click id', () => {
+describe('gclid belongs to the latest complete campaign', () => {
+  it('replaces an old click id with the newer paid click', () => {
     // Overwriting would change which click Google credits for the conversion.
     writeAdvertisingAttribution('?gclid=first_click', '/');
     writeAdvertisingAttribution('?gclid=second_click', '/pricing');
-    expect(getAttribution().gclid).toBe('first_click');
+    expect(getAttribution().gclid).toBe('second_click');
   });
 
   it('still updates the utm set on the newer click', () => {
@@ -147,7 +147,7 @@ describe('gclid is write-once', () => {
     writeAdvertisingAttribution('?gclid=second_click&utm_campaign=new', '/');
 
     const a = getAttribution();
-    expect(a.gclid).toBe('first_click');
+    expect(a.gclid).toBe('second_click');
     expect(a.utm_campaign).toBe('new');
   });
 });
@@ -259,6 +259,8 @@ describe('reading is gated as well as writing', () => {
   it('deletes every advertising key when consent is refused, keeping the offer', () => {
     writeAdvertisingAttribution('?utm_source=google&gclid=gone', '/');
     setLeafletOffer();
+    sessionStorage.setItem('vve_measured_request_test', '1');
+    sessionStorage.setItem('vve_retry_contact', 'essential retry key');
 
     setAdvertisingConsent(false);
 
@@ -267,6 +269,16 @@ describe('reading is gated as well as writing', () => {
     }
     expect(localStorage.getItem('vve_offer_code')).toBe('LEAFLET20');
     expect(localStorage.getItem('vve_discount_percent')).toBe('20');
+    expect(sessionStorage.getItem('vve_measured_request_test')).toBeNull();
+    expect(sessionStorage.getItem('vve_retry_contact')).toBe('essential retry key');
+  });
+  it('does not store private route variants or query values in the landing-page field', () => {
+    for (const path of ['/Manage-Booking', '/%6danage-booking/']) {
+      writeAdvertisingAttribution('?gclid=private', path);
+      expect(localStorage.getItem('vve_gclid')).toBeNull();
+    }
+    writeAdvertisingAttribution('?utm_source=google', '/carpet-cleaning-london?token=private');
+    expect(localStorage.getItem('vve_landing_page')).toBe('/carpet-cleaning-london');
   });
 });
 

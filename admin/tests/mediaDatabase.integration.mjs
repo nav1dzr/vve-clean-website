@@ -38,4 +38,3 @@ const publicRows=await db.query('SELECT * FROM public_media_references()');
 if(publicRows.rows.length!==4 || 'r2_key' in publicRows.rows[0])throw new Error('Public read boundary failed');
 console.log('PASS: migration execution, complete pair publication, shared references, stale guard, rollback, archive/restore, anon write denial and public-safe reads.');
 await db.close();
-

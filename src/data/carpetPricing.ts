@@ -12,7 +12,7 @@ import {
   STAIRS_EXTRA_P,
   stairsLinePricePence,
   computeCarpetPrice as _computeCarpetPrice,
-} from '../../shared/pricingCatalogue.js';
+} from '../lib/runtimePriceCatalogue';
 
 // In pounds for components that display £ values.
 export const CARPET_MIN_BOOKING = CARPET_MIN_BOOKING_P / 100;  // 85

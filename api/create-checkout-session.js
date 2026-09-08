@@ -1,3 +1,4 @@
+import { rejectUnsafePreview } from './_lib/previewIsolation.js';
 import Stripe from 'stripe';
 import { randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
@@ -92,6 +93,7 @@ async function readBody(req) {
 }
 
 export default async function handler(req, res) {
+  if (rejectUnsafePreview(res, { legacy: true })) return;
   const origin  = req.headers.origin || '';
   const headers = corsHeaders(origin);
 
