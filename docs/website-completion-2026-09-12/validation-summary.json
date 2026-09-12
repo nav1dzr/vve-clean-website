@@ -1,0 +1,62 @@
+{
+  "date": "2026-09-12",
+  "baseline": "7e999c80826ca5a8c88af1f583c8584a746cddcb",
+  "branch": "feature/website-final-completion",
+  "routeCount": 39,
+  "routeErrors": 0,
+  "horizontalOverflow": 0,
+  "visibleBrokenImages": 0,
+  "browserPageErrors": 0,
+  "browserJourneys": [
+    {
+      "name": "basket-resume-and-reset",
+      "pass": true
+    },
+    {
+      "name": "eot-carpet-total-and-back",
+      "pass": true
+    },
+    {
+      "name": "tailored-complete-comparison",
+      "pass": true
+    },
+    {
+      "name": "fresh-booking-service-and-metadata",
+      "pass": true
+    }
+  ],
+  "automatedTests": {
+    "passed": 1861,
+    "failed": 0,
+    "skipped": 259
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 7
+  },
+  "typecheck": "pass",
+  "clientBuild": "pass",
+  "ssrBuild": "pass",
+  "sitemapIndexableUrls": 21,
+  "productionPublished": false,
+  "liveRequestDeliveryTested": false,
+  "implementationCommit": "3231a8dd2560048b00c2d154b1fd6226b888a6db",
+  "internalNavigation": {
+    "passed": 32,
+    "failed": 0,
+    "notApplicable": 5,
+    "keyboardPassed": 5,
+    "keyboardFailed": 0,
+    "layoutPassed": 10,
+    "layoutFailed": 0
+  },
+  "preview": {
+    "url": "https://vve-clean-website-1xtg9mjai-nav1dzrs-projects.vercel.app",
+    "deploymentId": "dpl_9VYeu2Qyp2yVymYejzg8QQPTUFoA",
+    "commit": "3231a8dd2560048b00c2d154b1fd6226b888a6db",
+    "platformState": "READY",
+    "target": "preview",
+    "deployedHtmlVerified": false,
+    "accessNote": "The existing Vercel authentication redirects unauthenticated and connector HTML reads; local browser verification is recorded separately."
+  }
+}
