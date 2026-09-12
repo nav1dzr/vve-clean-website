@@ -24,8 +24,8 @@ import BrandLogo from '../components/BrandLogo';
 const LINKS = [
   { to: '/', icon: Home, label: 'Home', hint: 'Start again from the top' },
   { to: '/#services', icon: Sparkles, label: 'Services', hint: 'Carpet, sofa, end of tenancy and more' },
-  { to: '/pricing', icon: Tag, label: 'Pricing', hint: 'Fixed prices, no hidden fees' },
-  { to: '/#contact', icon: Phone, label: 'Contact', hint: 'Call, WhatsApp or email us' },
+  { to: '/pricing', icon: Tag, label: 'Pricing', hint: 'Compare services and what they include' },
+  { to: '/contact', icon: Phone, label: 'Contact', hint: 'Call, WhatsApp or email us' },
 ];
 
 export default function NotFoundPage() {
@@ -33,7 +33,7 @@ export default function NotFoundPage() {
     <>
       <Navbar />
 
-      <main id="main-content" className="navy-gradient px-4 py-20 sm:py-28">
+      <main id="main-content" tabIndex={-1} className="navy-gradient px-4 py-20 sm:py-28">
         <div className="mx-auto max-w-3xl text-center">
           <div className="mb-8 flex justify-center">
             {/* inverse: the wordmark's default #1268D9 is unreadable on the
@@ -48,8 +48,8 @@ export default function NotFoundPage() {
             We couldn&rsquo;t find that page
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-silver-200 sm:text-lg">
-            The link may be out of date, or the address may have a typo in it. Everything below
-            still works &mdash; including a quote in about a minute.
+            The link may be out of date, or the address may have a typo in it.
+            Choose a service, compare prices or contact us for help.
           </p>
 
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">

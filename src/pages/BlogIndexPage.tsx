@@ -26,12 +26,13 @@ export default function BlogIndexPage() {
               VVE Clean Blog
             </h1>
             <p className="text-silver-200 text-base sm:text-lg max-w-xl mx-auto">
-              Practical guides on cleaning, tenancy deposits and moving home in London.
+              Moving out in London? Start with our guide to cleaning evidence and tenancy deposit deductions.
             </p>
           </div>
         </div>
 
         <section className="max-w-3xl mx-auto px-4 py-14">
+          <p className="mb-8 text-sm leading-relaxed text-slate-600">For the cleaning itself, see <Link to="/how-we-clean-end-of-tenancy" className="font-semibold text-royal-700 underline">our end of tenancy preparation and included tasks</Link>, or <Link to="/end-of-tenancy-cleaning-london#quote" className="font-semibold text-royal-700 underline">check your cleaning price</Link>.</p>
           <div className="grid gap-6">
             {posts.map((post) => (
               <Link

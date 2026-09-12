@@ -7,7 +7,7 @@ import MobileStickyFooter from '../components/MobileStickyFooter';
 const CONTACT_FAQS = [
   { q: 'What details should I send for a quote?', a: 'Send the service you need, the property postcode, property size or items to clean, its current condition and your preferred date. Photos are helpful for unusual staining or after-builders work.' },
   { q: 'Is the Queensway address a walk-in office?', a: 'No. It is the registered office. Cleaning services are delivered at customer premises, so contact VVE Clean before arranging anything in person.' },
-  { q: 'Can I check availability before paying?', a: 'Yes. Request your preferred time online with no payment. We check availability, scope and the final price, then contact you to confirm the appointment.' },
+  { q: 'Can I check availability before paying?', a: 'Yes. Send your request free. We check the work, final price and preferred time with you, then send a £30 deposit link. Paying the deposit confirms the booking and counts towards the total.' },
 ];
 
 export default function ContactPage() {

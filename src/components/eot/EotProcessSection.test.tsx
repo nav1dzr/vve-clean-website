@@ -17,9 +17,10 @@ describe('EotProcessSection', () => {
     expect(screen.getByText(`${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee`)).toBeInTheDocument();
   });
 
-  it('mentions the 67-point checklist and free appliance cleaning, both already published elsewhere', () => {
+  it('distinguishes included kitchen work from selected interiors without claiming a numbered agency checklist', () => {
     render(<EotProcessSection />);
-    expect(screen.getByText(/67-point agency checklist/)).toBeInTheDocument();
-    expect(screen.getByText('Appliances, included free')).toBeInTheDocument();
+    expect(screen.queryByText(/67-point|same standard letting agents|nothing gets missed/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/oven, hob, grill and extractor are included in both packages/i)).toBeInTheDocument();
+    expect(screen.getByText(/Tailored includes those you select/i)).toBeInTheDocument();
   });
 });

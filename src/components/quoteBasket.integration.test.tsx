@@ -32,6 +32,7 @@ describe('a visitor can continue a cleaning basket after leaving the page', () =
   it('restores an EOT property, package and in-progress wizard step through the main calculator', async () => {
     const user = userEvent.setup(); const first = render(<EotQuoteWizard onBook={vi.fn()} />);
     await user.click(screen.getByRole('button', { name: 'House / Maisonette' }));
+    await user.click(screen.getByRole('button', { name: /^2 beds$/ }));
     await user.click(screen.getByRole('button', { name: /^Continue$/ }));
     expect(readQuoteBasket()?.step).toBe(2); first.unmount();
     render(<MemoryRouter><BookingProvider><QuoteCalculator mode="eot" /></BookingProvider></MemoryRouter>);

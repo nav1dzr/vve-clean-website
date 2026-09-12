@@ -9,11 +9,11 @@ const WA_PHOTO = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20
 const FAQS = [
   {
     q: 'Why do you need a photo for the quote?',
-    a: 'After-builders work varies enormously from job to job. A light renovation leaves mostly fine dust; a full gut-and-rebuild can leave heavy debris, plaster dust and paint on every surface. A photo lets us assess the scope and give you an accurate fixed price, rather than underquoting and revising on the day.',
+    a: 'Photos help us assess the dust, residue, surfaces and work left by the builders. Send an overview of each room and close-ups of problem areas. We may ask for more information before confirming the tasks, price and likely time needed.',
   },
   {
     q: 'What does after-builders cleaning include?',
-    a: 'We remove fine construction dust from all surfaces (including inside cupboards, sills and light fittings), paint splashes and adhesive residue from glass and hard surfaces, deep-clean the kitchen and bathrooms, and leave the space ready to move in or hand over. All equipment and products are supplied.',
+    a: 'The quote can cover construction dust on accessible surfaces, cupboard interiors, sills and fittings, kitchen and bathroom cleaning, and suitable treatment of paint or adhesive residue. The surface and condition determine what can be removed. Your quote lists the agreed work; equipment and products for that work are supplied.',
   },
   {
     q: 'How long does an after-builders clean take?',
@@ -21,11 +21,15 @@ const FAQS = [
   },
   {
     q: 'Can you clean while builders are still on site?',
-    a: 'We need the builders to have finished their main work before we start — there is no point cleaning surfaces that will be dusty again the following day. We recommend booking us for the final clean after all trades have left.',
+    a: 'Book the final clean after the builders have finished their main work and the trades have left. Tell us if any work will still be happening, since fresh dust can settle on areas already cleaned.',
   },
   {
     q: 'Do you supply materials and equipment?',
-    a: 'Yes. We bring everything — HEPA-filter vacuums, specialist dust-extraction equipment, glass scraper tools, cleaning solutions and all protective materials. You do not need to provide anything.',
+    a: 'Yes. We bring the equipment, cleaning products and protective materials for the agreed tasks. Confirm access and parking in advance and tell us about any site restrictions when requesting the quote.',
+  },
+  {
+    q: 'Are walls, ceilings and waste removal included?',
+    a: 'Show us these areas and any remaining debris in your photos. We need to agree the surfaces, access and any waste-removal work in the quote. Do not assume that cleaning includes repairs, repainting or clearance of building waste.',
   },
 ];
 
@@ -43,7 +47,7 @@ const SCHEMA = JSON.stringify({
       '@type': 'Service',
       name: 'After Builders Cleaning London',
       description:
-        `Post-construction cleaning in London from £${AFTER_BUILDERS_START_FROM_P / 100}. We remove fine dust, paint specks, sticker residue and construction debris, leaving the space ready to move into or hand over.`,
+        `After-builders cleaning in London from £${AFTER_BUILDERS_START_FROM_P / 100}. Photo assessment of dust, paint and adhesive residue, with cleaning tasks and the final quote confirmed before work starts.`,
       provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
       url: 'https://www.vveclean.co.uk/after-builders-cleaning-london',
@@ -77,9 +81,9 @@ const DATA: ServiceLandingData = {
   heroSubtitle: 'Post-renovation cleaning, quoted from your photos and the scope of the work.',
   heroPriceChip: `From £${AFTER_BUILDERS_START_FROM_P / 100} · final quote after photo review`,
   heroBadges: [
-    'Fine dust & debris removal',
-    'Paint splashes & sticker residue',
-    'Move-in ready',
+    'Construction dust cleaning',
+    'Residue assessed before treatment',
+    'Photo quote before booking',
   ],
   primaryHref: WA_PHOTO,
   primaryLabel: 'WhatsApp a photo for a quote',
@@ -87,16 +91,16 @@ const DATA: ServiceLandingData = {
   secondaryHref: 'tel:02080502233',
   secondaryLabel: 'Call 020 8050 2233',
 
-  introH2: 'Post-construction cleaning done properly',
+  introH2: 'Tell us what the builders have left',
   introText:
-    'Builders sweep up — we deep-clean. After construction or renovation, fine plaster dust settles on every horizontal surface (including inside cupboards and light fittings), paint splashes dry on glass and tiles, and protective stickers leave adhesive residue on fixtures. A standard clean will not remove these — they require specialist techniques and equipment. We work within our published East and North London postcode areas and price every job by photo so you get an accurate fixed quote, not a surprise on the day.',
+    'Fine dust can remain in cupboards, on sills and around fittings after renovation. Paint splashes and protective stickers need a different assessment from ordinary dirt. Send the postcode, property size, photographs and intended handover date so we can quote for the work your property needs.',
 
   benefitsH2: 'What makes after-builders cleaning a specialist job',
   benefits: [
     {
       icon: <Wind size={28} />,
       title: 'Fine dust removal',
-      body: 'Construction dust is ultra-fine and gets everywhere — sills, inside cupboards, light fittings, vents. We use HEPA-filter vacuums and damp-wipe every surface, not just the obvious ones.',
+      body: 'We vacuum and wipe the accessible surfaces listed in the quote, including relevant sills, cupboard interiors and fittings. Tell us about hard-to-reach areas before booking.',
     },
     {
       icon: <Paintbrush size={28} />,
@@ -106,7 +110,7 @@ const DATA: ServiceLandingData = {
     {
       icon: <Droplets size={28} />,
       title: 'Kitchen & bathroom deep-clean',
-      body: 'Builders often leave kitchens and bathrooms in poor condition. We deep-clean all surfaces, descale fittings, clean inside appliances and remove any remaining debris.',
+      body: 'The quote identifies the kitchen, bathroom and appliance work needed after the building work. We assess scale, dust and residue before choosing suitable cleaning products.',
     },
     {
       icon: <CheckCircle2 size={28} />,
@@ -115,16 +119,16 @@ const DATA: ServiceLandingData = {
     },
   ],
 
-  whyH2: 'What every after-builders clean includes',
+  whyH2: 'Tasks to confirm in your quote',
   whyPoints: [
-    'HEPA-filter vacuuming of all surfaces, sills and vents',
-    'Damp-wipe of all walls, skirting, ceilings and light fittings',
-    'Paint splash and adhesive removal from glass and chrome',
-    'Deep-clean of kitchen including inside appliances',
-    'Full bathroom descale and sanitisation',
-    'Inside-cupboard and inside-wardrobe clean',
+    'Dust removal from accessible surfaces, sills and fittings',
+    'Wall, ceiling and high-level work assessed before inclusion',
+    'Paint and adhesive treatment where suitable for the surface',
+    'Kitchen cleaning and selected appliance interiors',
+    'Bathroom cleaning and descaling',
+    'Empty cupboard and wardrobe interiors',
     'All equipment and specialist cleaning products supplied',
-    'Fixed price confirmed before we start — no day-of surprises',
+    'Tasks and final price agreed before work starts',
   ],
 
   pricingH2: 'After-builders cleaning pricing',
@@ -147,6 +151,7 @@ const DATA: ServiceLandingData = {
   },
 
   faqs: FAQS,
+  sectionOrder: ['intro', 'benefits', 'why', 'pricing', 'faq', 'related'],
 
   relatedLinks: [
     { href: '/end-of-tenancy-cleaning-london', label: 'End of Tenancy Cleaning' },
@@ -154,9 +159,10 @@ const DATA: ServiceLandingData = {
     { href: '/sofa-cleaning-london', label: 'Sofa Cleaning' },
     { href: '/commercial-carpet-cleaning-london', label: 'Commercial Cleaning' },
     { href: '/pricing', label: 'All Prices' },
+    { href: '/contact', label: 'Send an enquiry' },
   ],
 
-  ctaH2: 'Ready to see your space properly clean?',
+  ctaH2: 'Send photos for an after-builders quote',
   ctaBody:
     'WhatsApp us a few photos and the property details so we can review the scope and confirm a price before work starts.',
   ctaPrimary: {

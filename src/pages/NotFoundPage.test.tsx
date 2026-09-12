@@ -43,7 +43,7 @@ describe('the branded Not Found page', () => {
     expect(within(popular).getByRole('link', { name: /Home/ })).toHaveAttribute('href', '/');
     expect(within(popular).getByRole('link', { name: /Services/ })).toHaveAttribute('href', '/#services');
     expect(within(popular).getByRole('link', { name: /Pricing/ })).toHaveAttribute('href', '/pricing');
-    expect(within(popular).getByRole('link', { name: /Contact/ })).toHaveAttribute('href', '/#contact');
+    expect(within(popular).getByRole('link', { name: /Contact/ })).toHaveAttribute('href', '/contact');
 
     expect(screen.getByRole('link', { name: /Get a quote/i })).toHaveAttribute('href', '/#quote');
   });

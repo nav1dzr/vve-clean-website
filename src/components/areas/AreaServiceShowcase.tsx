@@ -53,10 +53,10 @@ export default function AreaServiceShowcase({ area }: { area: AreaInfo }) {
         <div className="mx-auto mb-10 max-w-3xl text-center">
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-royal-700">Popular services</p>
           <h2 id={`${area.slug}-services-heading`} className="font-display text-3xl font-bold leading-tight text-navy-900 md:text-4xl">
-            Three straightforward ways we can help in {area.name}
+            Cleaning services in {area.name}
           </h2>
           <p className="mt-4 text-base leading-relaxed text-slate-600">
-            Compare the main services, then request a preferred time with no payment. The videos are examples from our real work across London and are not presented as {area.name}-specific jobs.
+            Choose a service to see its prices and cleaning method. The videos below show our work across London.
           </p>
         </div>
 
@@ -86,7 +86,7 @@ export default function AreaServiceShowcase({ area }: { area: AreaInfo }) {
             <div className="mb-6 flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-royal-700">Equipment in action</p>
-                <h3 className="mt-2 font-display text-2xl font-bold text-navy-900">Two real clips, refreshed daily</h3>
+                <h3 className="mt-2 font-display text-2xl font-bold text-navy-900">See our team at work</h3>
               </div>
               <Link to="/gallery" className="inline-flex min-h-[44px] items-center font-semibold text-royal-700 underline decoration-royal-300 underline-offset-4 hover:text-royal-900">
                 View the full gallery

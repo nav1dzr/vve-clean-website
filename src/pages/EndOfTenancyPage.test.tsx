@@ -17,8 +17,6 @@ import { CookieConsentProvider } from '../context/CookieConsentContext';
 import { BookingProvider } from '../context/BookingContext';
 import { EOT_COMPLETE_PRICES_P, EOT_TAILORED_START_PRICES_P } from '../data/pricing';
 
-const cheapestP = (sizeP: number, tailoredP: number) => Math.min(sizeP, tailoredP);
-
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
@@ -65,27 +63,27 @@ describe('EndOfTenancyPage — mounts the Complete/Tailored wizard directly, not
     expect(screen.queryByText('Service Type')).not.toBeInTheDocument();
   });
 
-  it('shows the cheapest starting price for the default 2-bed selection', () => {
+  it('asks a fresh visitor to choose a property size before showing a quote', () => {
     renderPage();
-    expect(quote().getByTestId('footer-total')).toHaveTextContent(`£${cheapestP(EOT_COMPLETE_PRICES_P.bed2, EOT_TAILORED_START_PRICES_P.bed2) / 100}`);
+    expect(quote().getByTestId('footer-total')).toHaveTextContent('Choose a size');
+    expect(quote().getByRole('button', { name: /^Continue$/ })).toBeDisabled();
+    expect(quote().getByRole('button', { name: /^2 beds$/ })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('changing property size updates the footer total, still on step 1', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(quote().getByRole('button', { name: /^1 bed/ }));
-    expect(quote().getByTestId('footer-total')).toHaveTextContent(`£${cheapestP(EOT_COMPLETE_PRICES_P.bed1, EOT_TAILORED_START_PRICES_P.bed1) / 100}`);
+    expect(quote().getByTestId('footer-total')).toHaveTextContent(`£${EOT_COMPLETE_PRICES_P.bed1 / 100}`);
     expect(quote().getByRole('list', { name: /Step 1 of 4/ })).toBeInTheDocument();
   });
 
   it('lets the customer change service back to carpet & upholstery from within the quote', async () => {
     const user = userEvent.setup();
     renderPage();
-    const changeService = quote().queryByRole('button', { name: /change service/i });
-    if (changeService) {
-      await user.click(changeService);
-      expect(quote().queryByRole('list', { name: /Step 1 of 4/ })).not.toBeInTheDocument();
-    }
+    await user.click(quote().getByRole('button', { name: /Choose a different service/i }));
+    expect(quote().queryByRole('list', { name: /Step 1 of 4/ })).not.toBeInTheDocument();
+    expect(quote().getByRole('button', { name: 'Increase Bedroom quantity' })).toBeInTheDocument();
   });
 
   it('reopens a pending End of Tenancy "Back to quote" restore instead of starting from step 1 defaults', () => {
@@ -100,10 +98,45 @@ describe('EndOfTenancyPage — mounts the Complete/Tailored wizard directly, not
     }));
     try {
       renderPage();
-      expect(quote().getByTestId('footer-total')).toHaveTextContent(`£${cheapestP(EOT_COMPLETE_PRICES_P.bed3, EOT_TAILORED_START_PRICES_P.bed3) / 100}`);
+      expect(quote().getByTestId('footer-total')).toHaveTextContent(`£${EOT_COMPLETE_PRICES_P.bed3 / 100}`);
     } finally {
       sessionStorage.removeItem('vve_restore_quote');
       sessionStorage.removeItem('vve_booking');
     }
+  });
+});
+
+
+describe('EndOfTenancyPage — saved package compatibility', () => {
+  it('preserves an explicit Tailored selection and its selected appliance addition', async () => {
+    const user = userEvent.setup();
+    sessionStorage.setItem('vve_restore_quote', '1');
+    sessionStorage.setItem('vve_booking', JSON.stringify({
+      serviceName: 'End of tenancy — Tailored Checklist Clean',
+      price: EOT_TAILORED_START_PRICES_P.bed1 / 100 + 25,
+      quoteConfig: {
+        service: 'deep', deepService: 'end_of_tenancy', deepSize: 'bed1', deepBaths: 1,
+        eotPackage: 'tailored', tailoredAddOns: { fridgeFreezerInside: true }, addOnCounts: {},
+      },
+    }));
+    renderPage();
+    expect(quote().getByTestId('footer-total')).toHaveTextContent('£224');
+    await user.click(quote().getByRole('button', { name: /^Continue$/ }));
+    expect(quote().getByText('Tailored Checklist Clean').closest('button')).toHaveAttribute('aria-pressed', 'true');
+    await user.click(quote().getByRole('button', { name: /^Continue$/ }));
+    await user.click(quote().getByRole('button', { name: /^Continue$/ }));
+    expect(quote().getByRole('checkbox', { name: /Inside standard fridge/ })).toBeChecked();
+    expect(quote().getByTestId('final-total')).toHaveTextContent('£224');
+  });
+
+  it('uses Complete for a legacy EOT restore without a package field, retaining the selected property', () => {
+    sessionStorage.setItem('vve_restore_quote', '1');
+    sessionStorage.setItem('vve_booking', JSON.stringify({
+      serviceName: 'End of tenancy cleaning', price: EOT_COMPLETE_PRICES_P.bed2 / 100,
+      quoteConfig: { service: 'deep', deepService: 'end_of_tenancy', deepSize: 'bed2', deepBaths: 1, addOnCounts: {} },
+    }));
+    renderPage();
+    expect(quote().getByRole('button', { name: /^2 beds$/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(quote().getByTestId('footer-total')).toHaveTextContent(`£${EOT_COMPLETE_PRICES_P.bed2 / 100}`);
   });
 });

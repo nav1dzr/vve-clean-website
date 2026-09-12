@@ -138,6 +138,33 @@ describe("private customer management journey", () => {
       ),
     );
     expect(fetch).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { level: 1, name: "Manage your booking" })).toBeInTheDocument();
+    expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+    expect(screen.getByRole("main")).toHaveAttribute("tabindex", "-1");
+    expect(screen.getByRole("link", { name: "Message us on WhatsApp" })).toHaveAttribute("href", "https://wa.me/447845451111");
+  });
+  it("keeps a heading and a recovery route when the private link is rejected", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ error: "This private link has expired. Please contact the team." }),
+    } as Response);
+    render(<BookingManagementPage />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("private link has expired");
+    expect(screen.getByRole("heading", { level: 1, name: "Manage your booking" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Refresh booking" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Pay £30 deposit" })).not.toBeInTheDocument();
+  });
+  it("explains an empty successful response rather than leaving an unexplained blank page", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => ({}) } as Response);
+    render(<BookingManagementPage />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("could not load your booking details");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Manage your booking");
+  });
+  it("does not invent a confirmed status when a newer status is not recognised", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => ({ booking: { ...booking, state: "unrecognised" } }) } as Response);
+    render(<BookingManagementPage />);
+    expect(await screen.findByRole("heading", { level: 1, name: "Please check your booking with the team" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Your booking is confirmed" })).not.toBeInTheDocument();
   });
   it("keeps an API conflict visible and offers a refresh instead of claiming success", async () => {
     const user = userEvent.setup();

@@ -12,9 +12,10 @@ import {
   EOT_GUARANTEE_HOURS,
   EOT_TAILORED_ADDON_PRICES_P,
   EOT_TAILORED_CUPBOARDS_PRICES_P,
-  EOT_CARPET_PACKAGE_DISCOUNT_PCT,
   EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS,
   CARPET_ITEM_PRICES_P,
+  CARPET_MIN_BOOKING_P,
+  computeCarpetPrice,
   STAIRS_FIRST_P,
   STAIRS_EXTRA_P,
   ADDON_PRICES_P,
@@ -98,6 +99,7 @@ export interface ManualCarpetCounts {
 export interface EotWizardState {
   propertyType: PropertyType;
   size: SizeKey;
+  propertySizeChosen: boolean;
   is5Plus: boolean; // 5+ bedrooms — always a manual quotation, never priced here
   fullBathrooms: number;   // total, minimum 1
   extraWcs: number;
@@ -237,7 +239,7 @@ function manualCarpetRooms(counts: ManualCarpetCounts): RoomState[] {
 
 function makeInitialState(restore?: EotBookingResult['quoteConfig'] | null): EotWizardState {
   const restoredPropertyType: PropertyType = restore?.isHouse ? 'house' : 'flat';
-  const restoredSize: SizeKey = (restore?.deepSize as SizeKey) ?? 'bed2';
+  const restoredSize: SizeKey = (restore?.deepSize as SizeKey) ?? 'studio';
   const size: SizeKey = eotPropertySizeValid(restoredPropertyType, restoredSize) ? restoredSize : 'bed1';
   const propertyType = restoredPropertyType;
   const restoredCarpetIds = restore?.carpetRoomIds ?? [];
@@ -268,10 +270,11 @@ function makeInitialState(restore?: EotBookingResult['quoteConfig'] | null): Eot
   return {
     propertyType,
     size,
+    propertySizeChosen: !!restore?.deepSize,
     is5Plus: false,
     fullBathrooms: restore?.deepBaths ?? 1,
     extraWcs: restore?.deepWcs ?? 0,
-    pkg: restore?.eotPackage ?? 'tailored',
+    pkg: restore?.eotPackage ?? 'complete',
     tailoredAddOns: restore?.tailoredAddOns ? { ...defaultTailoredAddOns(), ...restore.tailoredAddOns } : defaultTailoredAddOns(),
     floorCareChoice: hasCarpet ? 'professional' : 'standard',
     carpetMode: hasCarpet ? (isManualRestore ? 'manual' : 'whole') : 'unset',
@@ -346,41 +349,35 @@ function Counter({ value, onChange, min = 0, max, label }: { value: number; onCh
   );
 }
 
-// Live carpet-package breakdown — the single presentation used everywhere a
-// standalone value / package saving / today price needs to be shown, so the
-// numbers can never drift between Step 3 and the Step 4 review. Every value
-// goes through penceToDisplay, which shows exact pence (e.g. £47.50) rather
-// than rounding to a whole pound.
-function CarpetPackageBreakdown({ carpetPackage }: { carpetPackage: ReturnType<typeof calculateEotCarpetPackage> }) {
+// Use the existing standalone calculator so the comparison includes its
+// bundle saving, minimum and stair-flight rules as well as the item prices.
+function standaloneCarpetTotalP(rooms: RoomState[]) {
+  const counts: Record<string, number> = {};
+  for (const room of rooms) {
+    counts[room.addonKey] = (counts[room.addonKey] ?? 0) + (room.addonKey === 'stairs' ? (room.stairFlights ?? 1) : 1);
+  }
+  return Math.round(computeCarpetPrice(counts, 'normal').finalTotal * 100);
+}
+
+function CarpetPackageBreakdown({ carpetPackage, rooms }: { carpetPackage: ReturnType<typeof calculateEotCarpetPackage>; rooms: RoomState[] }) {
   if (carpetPackage.itemCount === 0) return null;
+  const standaloneP = standaloneCarpetTotalP(rooms);
+  const savingP = standaloneP - carpetPackage.chargedP;
   return (
-    <div className="rounded-xl bg-royal-50 border border-sky-200 px-4 py-3 space-y-1.5">
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-navy-700">Standard carpet-cleaning value</span>
-        <span className="text-navy-900 font-semibold">{penceToDisplay(carpetPackage.standaloneSubtotalP)}</span>
+    <div className="rounded-xl bg-royal-50 border border-sky-200 px-4 py-3 space-y-2" data-testid="carpet-package-breakdown">
+      <div className="flex items-center justify-between gap-3 text-base">
+        <span className="text-navy-700 font-semibold">Add carpet cleaning to this visit</span>
+        <span className="text-royal-700 font-display font-bold text-lg">{penceToDisplay(carpetPackage.chargedP)}</span>
       </div>
-      {carpetPackage.eligible ? (
-        <>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-navy-700">EOT carpet-package saving</span>
-            <span className="text-green-700 font-semibold">−{penceToDisplay(carpetPackage.savingP)}</span>
-          </div>
-          <div className="flex items-center justify-between text-base border-t border-sky-200 pt-1.5 mt-1">
-            <span className="text-navy-700 font-semibold">Professional carpet cleaning today</span>
-            <span className="text-royal-700 font-display font-bold text-lg">{penceToDisplay(carpetPackage.chargedP)}</span>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="flex items-center justify-between text-base border-t border-sky-200 pt-1.5 mt-1">
-            <span className="text-navy-700 font-semibold">Professional carpet cleaning today</span>
-            <span className="text-royal-700 font-display font-bold text-lg">{penceToDisplay(carpetPackage.chargedP)}</span>
-          </div>
-          <p className="text-navy-700 text-xs">
-            Add {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS - carpetPackage.itemCount} more qualifying area{EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS - carpetPackage.itemCount !== 1 ? 's' : ''} to unlock the {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% carpet-package discount. Your exact saving is shown live.
-          </p>
-        </>
-      )}
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="text-navy-700">Same areas as a standalone booking</span>
+        <span className="text-navy-900 font-semibold">{penceToDisplay(standaloneP)}</span>
+      </div>
+      {savingP > 0 && <p className="text-green-800 text-sm font-semibold">Save {penceToDisplay(savingP)} compared with the standalone booking, including its bundle saving.</p>}
+      <details className="border-t border-sky-200 pt-2">
+        <summary className="cursor-pointer text-xs font-semibold text-navy-800 min-h-[44px] flex items-center">How this carpet price is worked out</summary>
+        <p className="text-navy-700 text-xs leading-relaxed">The item prices total {penceToDisplay(carpetPackage.standaloneSubtotalP)} before any discounts. The EOT carpet add-on has a {penceToDisplay(CARPET_MIN_BOOKING_P)} minimum and cannot cost less than the two highest-priced selected areas combined. A package rate applies from {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS} qualifying areas; the actual saving depends on your selection. The standalone comparison includes its usual bundle saving and minimum, without a promotional code.</p>
+      </details>
     </div>
   );
 }
@@ -414,7 +411,7 @@ const TAILORED_ADD_LATER = [
 const FLOOR_CARE_OPTIONS: { key: 'professional' | 'standard' | 'none'; title: string; badge?: string; bullets: string[] }[] = [
   { key: 'standard', title: 'Standard floor care', bullets: ['Vacuuming of carpets', 'Mopping of suitable hard floors', 'Included with the End of Tenancy clean', 'No additional charge'] },
   { key: 'none', title: 'No carpeted areas', bullets: ['Property has hard floors only', 'Standard suitable floor cleaning remains included'] },
-  { key: 'professional', title: 'Professional carpet steam cleaning', badge: 'Popular', bullets: ['Deep hot-water extraction cleaning', 'Added to the same End of Tenancy visit', '50% package discount for 3+ qualifying areas'] },
+  { key: 'professional', title: 'Professional carpet steam cleaning', badge: 'Popular', bullets: ['Deep hot-water extraction cleaning', 'Added to the same End of Tenancy visit', 'Select your areas to see the actual add-on price'] },
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -438,9 +435,11 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
       restored.rooms = rooms.map(room => ({ id: room.id, label: room.label, addonKey: room.addonKey, floor: room.floor, steamClean: room.steamClean, removable: !!room.removable, stairFlights: room.stairFlights }));
     } else restored.rooms = defaultRooms(restored.size, restored.propertyType);
     restored.fullBathrooms = Math.max(1, restored.fullBathrooms);
+    // Older saved quotes already represented a selected property.
+    restored.propertySizeChosen = savedBasket.config.propertySizeChosen !== false;
     return restored;
   });
-  const [step, setStep] = useState(() => savedBasket?.kind === 'eot' ? Math.min(4, Math.max(1, savedBasket.step || 1)) : 1);
+  const [step, setStep] = useState(() => state.propertySizeChosen && savedBasket?.kind === 'eot' ? Math.min(4, Math.max(1, savedBasket.step || 1)) : 1);
   const basketChanged = useRef(false);
   useEffect(() => {
     if (!basketChanged.current) return;
@@ -488,13 +487,11 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   const wcsAddP = state.extraWcs * EOT_EXTRA_WC_P;
   const completeAtConfigP = priceEntry.complete + bathroomsAddP + wcsAddP;
   const tailoredAtConfigP = priceEntry.tailored + bathroomsAddP + wcsAddP;
-  const cheapestStartingP = Math.min(completeAtConfigP, tailoredAtConfigP);
 
   // Whole-property carpet preview — the exact same calculation the customer
-  // will get if they pick that card, shown up front so the 50% package-offer
-  // headline is always backed by a real, live number for their property.
+  // will get if they pick that card, using only the suggested checked areas.
   const wholePreviewRooms = useMemo(
-    () => wholePropertyRooms(state.size, state.propertyType),
+    () => wholePropertyRooms(state.size, state.propertyType).filter((room) => room.steamClean),
     [state.size, state.propertyType],
   );
   const wholePreview = useMemo(
@@ -539,10 +536,21 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   const isQuoteReviewCondition = state.condition === 'heavy' || state.condition === 'clutter' || state.condition === 'biohazard';
   const totalP = quote.totalP + extrasTotalP;
   const carpetPackage = quote.carpetPackage;
+  const completeTotalP = completeAtConfigP + quote.carpetAddonP + extrasTotalP;
+  const completeSavingP = totalP - completeTotalP;
+  const hasExtraFridgeFreezers = state.tailoredAddOns.extraFridgeFreezers > 0;
+  const canOfferComplete = quote.shouldOfferComplete && !hasExtraFridgeFreezers;
+
+  function selectPackage(pkg: EotPackage) {
+    // Extra units are outside the comparable standard package. The current
+    // Complete calculator ignores them, so do not silently lose that scope.
+    if (pkg === 'complete' && hasExtraFridgeFreezers) return;
+    setState((previous) => ({ ...previous, pkg }));
+  }
 
   // ── Step 1 actions ──
   function changeSize(size: SizeKey) {
-    setState((p) => ({ ...p, size, is5Plus: false, rooms: defaultRooms(size, p.propertyType) }));
+    setState((p) => ({ ...p, size, propertySizeChosen: true, is5Plus: false, rooms: defaultRooms(size, p.propertyType) }));
   }
   function changePropertyType(propertyType: PropertyType) {
     setState((p) => {
@@ -551,7 +559,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
     });
   }
   function select5Plus() {
-    setState((p) => ({ ...p, is5Plus: true }));
+    setState((p) => ({ ...p, propertySizeChosen: true, is5Plus: true }));
   }
 
   // ── Step 3 actions ──
@@ -651,19 +659,21 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   // own total would just be a repeated duplicate directly above it, so it is
   // suppressed there while Back stays fully present and accessible.
   const hideFooterTotal = step === TOTAL_STEPS && !isQuoteReviewCondition;
-  const footerPriceLabel = step === 1 ? 'Starting from' : isQuoteReviewCondition && step === 4 ? '' : 'Current total';
-  const footerPriceValue = step === 1 && state.is5Plus
+  const footerPriceLabel = step === 1 && !state.propertySizeChosen ? 'Your property' : isQuoteReviewCondition && step === 4 ? '' : 'Current total';
+  const footerPriceValue = step === 1 && !state.propertySizeChosen
+    ? 'Choose a size'
+    : step === 1 && state.is5Plus
     ? 'Quote required'
     : isQuoteReviewCondition && step === 4
       ? 'Quote review'
-      : step === 1 ? penceToDisplay(cheapestStartingP) : penceToDisplay(totalP);
+      : penceToDisplay(totalP);
   const propertySummary = `${sizeLabel} ${state.propertyType === 'flat' ? 'flat' : 'house / maisonette'} · ${state.fullBathrooms} bathroom${state.fullBathrooms !== 1 ? 's' : ''}${state.extraWcs > 0 ? ` · ${state.extraWcs} WC${state.extraWcs !== 1 ? 's' : ''}` : ''}`;
-  const packageSummary = state.pkg === 'complete' ? 'Complete Agency-Ready' : 'Tailored Checklist';
+  const packageSummary = state.pkg === 'complete' ? 'Complete' : 'Tailored';
   const floorSummary = state.floorCareChoice === 'professional'
     ? 'Professional carpet cleaning'
     : state.floorCareChoice === 'none' ? 'Hard floors only' : state.floorCareChoice === 'standard' ? 'Standard floor care' : 'Floor care not selected';
   const footerSubtext = step === 1
-    ? state.is5Plus ? `5+ bedroom ${state.propertyType === 'flat' ? 'flat' : 'house / maisonette'} · tailored quote` : propertySummary
+    ? !state.propertySizeChosen ? 'Complete clean · choose your property size to see its price' : state.is5Plus ? `5+ bedroom ${state.propertyType === 'flat' ? 'flat' : 'house / maisonette'} · tailored quote` : propertySummary
     : step === 2 ? `${propertySummary} · ${packageSummary}`
       : step === 3 ? `${packageSummary} · ${floorSummary}`
         : isQuoteReviewCondition ? 'Photo review required before a fixed price can be confirmed' : null;
@@ -694,13 +704,14 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
       )}
 
       <div className="px-5 sm:px-8 lg:px-10 py-7 sm:py-9 max-w-3xl mx-auto w-full">
+        {hasExtraFridgeFreezers && (step === 2 || step === 4) && <p id="extra-fridge-scope" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Your selection includes an additional fridge/freezer. Keep Tailored for this estimate and ask us to confirm the Complete scope before switching. Your additional units remain selected.</p>}
         {/* ══ Step 1: Property ══ */}
         {step === 1 && (
           <div className="space-y-7">
             <div>
               <p className="text-royal-700 text-[10px] font-bold uppercase tracking-[0.18em] mb-2">Your property</p>
               <h3 data-step-heading className="font-display text-2xl sm:text-3xl font-bold text-navy-900 tracking-tight">Tell us what we’re cleaning</h3>
-              <p className="text-muted text-sm sm:text-base leading-relaxed mt-2 max-w-xl">Choose the closest match. Your live starting price updates as you go.</p>
+              <p className="text-muted text-sm sm:text-base leading-relaxed mt-2 max-w-xl">Choose your property size to see its Complete clean price. You can compare Complete with selected-task cleaning on the next step.</p>
             </div>
 
             <div>
@@ -732,9 +743,9 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5" role="group" aria-label="Property size" data-testid="property-size-options">
                 {availableSizeOptions.map((s) => (
                   <button key={s.key} type="button" onClick={() => changeSize(s.key)}
-                    aria-pressed={!state.is5Plus && state.size === s.key}
+                    aria-pressed={state.propertySizeChosen && !state.is5Plus && state.size === s.key}
                     className={`relative px-2 py-4 rounded-xl border-2 text-center text-xs font-bold transition-all duration-200 min-h-[58px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 ${
-                      !state.is5Plus && state.size === s.key ? 'border-royal-500 bg-royal-50 text-royal-700 shadow-sm' : 'border-line bg-white text-navy-700 hover:border-sky-300 hover:bg-surface'
+                      state.propertySizeChosen && !state.is5Plus && state.size === s.key ? 'border-royal-500 bg-royal-50 text-royal-700 shadow-sm' : 'border-line bg-white text-navy-700 hover:border-sky-300 hover:bg-surface'
                     }`}>
                     {s.label}
                   </button>
@@ -773,14 +784,14 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
             )}
 
             <div className="grid sm:grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-line bg-surface px-4 py-4 sm:px-5 flex items-center justify-between gap-4">
+              <div className="eot-room-counter rounded-2xl border border-line bg-surface px-4 py-4 sm:px-5 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <span className="w-10 h-10 rounded-xl bg-white border border-line flex items-center justify-center text-navy-700"><Bath size={19} /></span>
                   <div><h4 className="text-navy-900 font-bold text-sm">Full bathrooms</h4><p className="text-muted text-[11px]">Bath or shower rooms</p></div>
                 </div>
                 <Counter value={state.fullBathrooms} min={1} max={6} label="full bathrooms" onChange={(v) => setState((p) => ({ ...p, fullBathrooms: v }))} />
               </div>
-              <div className="rounded-2xl border border-line bg-surface px-4 py-4 sm:px-5 flex items-center justify-between gap-4">
+              <div className="eot-room-counter rounded-2xl border border-line bg-surface px-4 py-4 sm:px-5 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <span className="w-10 h-10 rounded-xl bg-white border border-line flex items-center justify-center text-navy-700"><Layers3 size={19} /></span>
                   <div><h4 className="text-navy-900 font-bold text-sm">Separate WCs</h4><p className="text-muted text-[11px]">Toilet only, no bath</p></div>
@@ -797,82 +808,30 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
             <div>
               <p className="text-royal-700 text-[10px] font-bold uppercase tracking-[0.18em] mb-2">Your cleaning standard</p>
               <h3 data-step-heading className="font-display text-2xl sm:text-3xl font-bold text-navy-900 tracking-tight">Choose your cleaning package</h3>
-              <p className="text-muted text-sm sm:text-base leading-relaxed mt-2 max-w-xl">Start with the Tailored checklist, or choose Complete when you want every agency-ready internal task included.</p>
+              <p className="text-muted text-sm sm:text-base leading-relaxed mt-2 max-w-xl">Complete includes the full cleaning checklist for your property. Choose Tailored if you only need selected tasks, with appliance and storage interiors added separately.</p>
             </div>
             <div className="grid gap-5 items-start" role="group" aria-label="Cleaning package">
-              {/* Tailored */}
-              <article className={`rounded-3xl border-2 overflow-hidden transition-all duration-200 ${state.pkg === 'tailored' ? 'border-royal-500 shadow-[0_18px_50px_rgba(14,165,233,0.14)]' : 'border-line hover:border-sky-300'}`}>
-                <div className="bg-surface border-b border-line px-5 py-2.5 flex items-center justify-between gap-3">
-                  <span className="inline-flex items-center gap-1.5 text-navy-800 text-[10px] font-bold uppercase tracking-[0.16em]"><ListChecks size={14} className="text-royal-600" /> Build your own</span>
-                  <span className="text-[10px] font-semibold text-muted">Core clean + choices</span>
-                </div>
-                <button type="button" onClick={() => setState((p) => ({ ...p, pkg: 'tailored' }))}
-                  aria-pressed={state.pkg === 'tailored'}
-                  className={`relative w-full text-left p-5 sm:p-6 transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-royal-600 ${
-                    state.pkg === 'tailored' ? 'border-royal-500 bg-royal-50' : 'border-transparent bg-white hover:bg-surface'
-                  }`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-display font-bold text-navy-900 text-xl">Tailored Checklist Clean</div>
-                      <p className="text-muted text-xs mt-1">Core checklist with optional internal tasks</p>
-                    </div>
-                    <span className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${state.pkg === 'tailored' ? 'bg-royal-500 border-royal-500 text-white' : 'border-line text-transparent'}`}><CheckCircle2 size={16} /></span>
-                  </div>
-                  <div className="flex items-end gap-2 mt-5">
-                    <div data-testid="tailored-price" className="font-display font-bold text-4xl text-navy-900 tracking-tight">Starts at {penceToDisplay(tailoredAtConfigP)}</div>
-                  </div>
-                  <p className="text-navy-700 text-xs leading-relaxed mt-3">A core checklist clean you build up with only the internal tasks you actually need.</p>
-                  <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2 text-amber-900 text-xs font-bold">
-                    <Info size={16} className="flex-shrink-0" /> Guarantee applies only to included and selected tasks
-                  </div>
-                  <p className="text-navy-700 text-xs leading-relaxed mt-3">Other appliance and storage interiors are not silently included — add exactly what you need in the next step.</p>
-                  <div className="mt-5">
-                    <p className="text-navy-800 text-xs font-bold uppercase tracking-[0.12em] mb-2.5">Included in the core clean</p>
-                    <div className="grid grid-cols-1 gap-2">
-                      {TAILORED_CORE_INCLUDED.map((i) => (
-                        <div key={i} className="flex items-start gap-2 text-xs text-navy-800 leading-snug"><CheckCircle2 size={14} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
-                      ))}
-                    </div>
-                  </div>
-                </button>
-                <details className="group border-t border-line bg-white">
-                  <summary className="text-royal-700 text-xs font-bold cursor-pointer list-none flex items-center justify-between gap-2 px-5 sm:px-6 py-4 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-royal-600">
-                    See full details <ChevronRight size={14} className="transition-transform group-open:rotate-90" />
-                  </summary>
-                  <div className="px-5 sm:px-6 pb-5 grid grid-cols-1 gap-2">
-                    {TAILORED_MORE_INCLUDED.map((i) => (
-                      <div key={i} className="flex items-start gap-2 text-xs text-navy-800"><CheckCircle2 size={14} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
-                    ))}
-                    <div className="h-px bg-line my-1.5" />
-                    <p className="text-muted text-[11px] font-bold uppercase tracking-[0.12em] mb-0.5">Add back what you need next</p>
-                    {TAILORED_ADD_LATER.map((i) => (
-                      <div key={i} className="flex items-start gap-2 text-xs text-muted"><XCircle size={14} className="text-silver-500 mt-0.5 flex-shrink-0" />{i}</div>
-                    ))}
-                  </div>
-                </details>
-              </article>
-
               {/* Complete */}
               <article className={`rounded-3xl border-2 overflow-hidden transition-all duration-200 ${state.pkg === 'complete' ? 'border-royal-500 shadow-[0_18px_50px_rgba(14,165,233,0.16)]' : 'border-line hover:border-sky-300'}`}>
                 <div className="bg-sky-700 text-white px-5 py-2.5 flex items-center justify-between gap-3">
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em]"><BadgeCheck size={14} className="text-amber-300" /> Recommended · Best value</span>
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em]"><BadgeCheck size={14} className="text-amber-300" /> Full move-out checklist</span>
                   <span className="text-[10px] font-semibold text-white/80">Most comprehensive</span>
                 </div>
-                <button type="button" onClick={() => setState((p) => ({ ...p, pkg: 'complete' }))}
+                <button type="button" onClick={() => selectPackage('complete')} disabled={hasExtraFridgeFreezers} aria-describedby={hasExtraFridgeFreezers ? 'extra-fridge-scope' : undefined}
                   aria-pressed={state.pkg === 'complete'}
                   className={`relative w-full text-left p-5 sm:p-6 transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-royal-600 ${
                     state.pkg === 'complete' ? 'border-royal-500 bg-royal-50' : 'border-transparent bg-white hover:bg-surface'
                   }`}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="font-display font-bold text-navy-900 text-xl">Complete Agency-Ready Clean</div>
-                      <p className="text-muted text-xs mt-1">One fixed package for your selected property</p>
+                      <div className="font-display font-bold text-navy-900 text-xl">Complete Clean</div>
+                      <p className="text-muted text-xs mt-1">For your selected property and bathroom count</p>
                     </div>
                     <span className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${state.pkg === 'complete' ? 'bg-royal-500 border-royal-500 text-white' : 'border-line text-transparent'}`}><CheckCircle2 size={16} /></span>
                   </div>
                   <div className="flex items-end gap-2 mt-5">
                     <div data-testid="complete-price" className="font-display font-bold text-4xl text-navy-900 tracking-tight">{penceToDisplay(quote.completeEquivalentP)}</div>
-                    <span className="text-muted text-xs font-medium mb-1.5">fixed price</span>
+                    <span className="text-muted text-xs font-medium mb-1.5">package price</span>
                   </div>
                   <p className="text-navy-700 text-xs leading-relaxed mt-3"><strong>Best for:</strong> tenants, landlords and agents preparing for final inspection.</p>
                   <div className="mt-4 rounded-xl bg-white border border-green-200 px-3 py-2.5 flex items-start gap-2 text-green-800 text-xs font-bold">
@@ -903,6 +862,58 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   </div>
                 </details>
               </article>
+              {/* Tailored */}
+              <article className={`rounded-3xl border-2 overflow-hidden transition-all duration-200 ${state.pkg === 'tailored' ? 'border-royal-500 shadow-[0_18px_50px_rgba(14,165,233,0.14)]' : 'border-line hover:border-sky-300'}`}>
+                <div className="bg-surface border-b border-line px-5 py-2.5 flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center gap-1.5 text-navy-800 text-[10px] font-bold uppercase tracking-[0.16em]"><ListChecks size={14} className="text-royal-600" /> Build your own</span>
+                  <span className="text-[10px] font-semibold text-muted">Core clean + choices</span>
+                </div>
+                <button type="button" onClick={() => selectPackage('tailored')}
+                  aria-pressed={state.pkg === 'tailored'}
+                  className={`relative w-full text-left p-5 sm:p-6 transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-royal-600 ${
+                    state.pkg === 'tailored' ? 'border-royal-500 bg-royal-50' : 'border-transparent bg-white hover:bg-surface'
+                  }`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-display font-bold text-navy-900 text-xl">Tailored Checklist Clean</div>
+                      <p className="text-muted text-xs mt-1">Core checklist with optional internal tasks</p>
+                    </div>
+                    <span className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${state.pkg === 'tailored' ? 'bg-royal-500 border-royal-500 text-white' : 'border-line text-transparent'}`}><CheckCircle2 size={16} /></span>
+                  </div>
+                  <div className="flex items-end gap-2 mt-5">
+                    <div data-testid="tailored-price" className="font-display font-bold text-4xl text-navy-900 tracking-tight">Starts at {penceToDisplay(tailoredAtConfigP)}</div>
+                  </div>
+                  <p className="text-navy-700 text-xs leading-relaxed mt-3">A core checklist clean you build up with only the internal tasks you actually need.</p>
+                  <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2 text-amber-900 text-xs font-bold">
+                    <Info size={16} className="flex-shrink-0" /> Guarantee applies only to included and selected tasks
+                  </div>
+                  <p className="text-navy-700 text-xs leading-relaxed mt-3">Other appliance and storage interiors are optional. Choose them in the review step; each price is shown before you add it.</p>
+                  <div className="mt-5">
+                    <p className="text-navy-800 text-xs font-bold uppercase tracking-[0.12em] mb-2.5">Included in the core clean</p>
+                    <div className="grid grid-cols-1 gap-2">
+                      {TAILORED_CORE_INCLUDED.map((i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs text-navy-800 leading-snug"><CheckCircle2 size={14} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
+                      ))}
+                    </div>
+                  </div>
+                </button>
+                <details className="group border-t border-line bg-white">
+                  <summary className="text-royal-700 text-xs font-bold cursor-pointer list-none flex items-center justify-between gap-2 px-5 sm:px-6 py-4 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-royal-600">
+                    See full details <ChevronRight size={14} className="transition-transform group-open:rotate-90" />
+                  </summary>
+                  <div className="px-5 sm:px-6 pb-5 grid grid-cols-1 gap-2">
+                    {TAILORED_MORE_INCLUDED.map((i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs text-navy-800"><CheckCircle2 size={14} className="text-green-600 mt-0.5 flex-shrink-0" />{i}</div>
+                    ))}
+                    <div className="h-px bg-line my-1.5" />
+                    <p className="text-muted text-[11px] font-bold uppercase tracking-[0.12em] mb-0.5">Add back what you need next</p>
+                    {TAILORED_ADD_LATER.map((i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs text-muted"><XCircle size={14} className="text-silver-500 mt-0.5 flex-shrink-0" />{i}</div>
+                    ))}
+                  </div>
+                </details>
+              </article>
+
             </div>
           </div>
         )}
@@ -934,7 +945,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                         {opt.badge && <span className="bg-amber-400 text-amber-950 text-[9px] font-bold px-2.5 py-1 rounded-full tracking-[0.12em] uppercase">{opt.badge}</span>}
                       </div>
                       <p className={`text-xs font-semibold mt-1 ${state.floorCareChoice === opt.key || opt.key === 'professional' ? 'text-royal-700' : 'text-muted'}`}>
-                        {opt.key === 'professional' ? `${EOT_CARPET_PACKAGE_DISCOUNT_PCT}% carpet-package discount with 3+ qualifying areas` : opt.key === 'standard' ? 'Included · £0 extra' : 'Hard floors only · £0 extra'}
+                        {opt.key === 'professional' ? 'See the price for your selected carpet areas' : opt.key === 'standard' ? 'Included · £0 extra' : 'Hard floors only · £0 extra'}
                       </p>
                       <ul className={`mt-3 grid ${opt.key === 'professional' ? 'sm:grid-cols-3' : 'grid-cols-1'} gap-1.5`}>
                         {opt.bullets.map((b) => (
@@ -969,12 +980,12 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                     </div>
                     <div className="font-display font-bold text-navy-900 text-lg mt-1">Whole-property carpet cleaning</div>
                     <p className="text-green-700 text-xs font-semibold leading-relaxed mt-1.5">
-                      Add 3+ qualifying carpet areas to unlock the {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% package discount. Your exact saving is shown below.
+                      Review the suggested areas and the price to add them to your clean.
                     </p>
                     <div className="mt-4 text-xs space-y-2 bg-white rounded-xl border border-sky-200 px-4 py-3">
-                      <div className="flex justify-between gap-3 text-muted"><span>Standalone value</span><span className="line-through">{penceToDisplay(wholePreview.standaloneSubtotalP)}</span></div>
+                      <div className="flex justify-between gap-3 text-muted"><span>Standalone booking, with bundle saving</span><span>{penceToDisplay(standaloneCarpetTotalP(wholePreviewRooms))}</span></div>
                       <div className="flex justify-between gap-3 text-navy-900 font-bold text-sm"><span>Add to this visit</span><span>{penceToDisplay(wholePreview.chargedP)}</span></div>
-                      <div className="flex justify-between gap-3 text-green-700 font-bold"><span>Estimated saving</span><span>{penceToDisplay(wholePreview.savingP)}</span></div>
+                      {standaloneCarpetTotalP(wholePreviewRooms) > wholePreview.chargedP && <div className="flex justify-between gap-3 text-green-700 font-bold"><span>Saving with this visit</span><span>{penceToDisplay(standaloneCarpetTotalP(wholePreviewRooms) - wholePreview.chargedP)}</span></div>}
                     </div>
                   </button>
 
@@ -993,7 +1004,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                       Select only the carpeted areas that need professional cleaning.
                     </p>
                     <p className="text-royal-700 text-xs font-semibold mt-4 rounded-xl bg-royal-50 border border-royal-100 px-3 py-2.5">
-                      Add {EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS}+ qualifying areas to unlock the {EOT_CARPET_PACKAGE_DISCOUNT_PCT}% carpet-package discount. Your exact saving is calculated live.
+                      Your carpet add-on price updates as you choose areas. Any saving is compared with a standalone booking for the same areas.
                     </p>
                   </button>
                 </div>
@@ -1063,7 +1074,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   </div>
                 )}
 
-                {activeCarpetRooms.length > 0 && <CarpetPackageBreakdown carpetPackage={carpetPackage} />}
+                {activeCarpetRooms.length > 0 && <CarpetPackageBreakdown carpetPackage={carpetPackage} rooms={activeCarpetRooms} />}
               </div>
             )}
           </div>
@@ -1119,9 +1130,18 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
               </div>
             ) : (
               <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 font-medium">
-                Complete already includes every internal task above — nothing to reselect here. Only genuinely optional extras are shown below.
+                Complete includes the listed appliance interiors, cupboards, drawers and wardrobes. The optional extras below are priced separately.
               </div>
             )}
+
+            {canOfferComplete && (
+              <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5" data-testid="complete-comparison" aria-live="polite">
+                <h3 className="font-bold text-navy-900">{completeSavingP === 0 ? 'Complete costs the same' : `Complete saves ${penceToDisplay(completeSavingP)} on this selection`}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-navy-700">Your Tailored selection is {penceToDisplay(totalP)}. Complete is {penceToDisplay(completeTotalP)} and includes the full cleaning checklist, appliance interiors and cupboards. Your bathrooms, carpet areas and other extras stay selected.</p>
+                <button type="button" onClick={() => selectPackage('complete')} className="mt-4 min-h-[44px] rounded-xl bg-royal-600 px-5 py-3 text-sm font-bold text-white hover:bg-royal-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600">Choose Complete at {penceToDisplay(completeTotalP)}</button>
+              </div>
+            )}
+            {state.pkg === 'complete' && <button type="button" onClick={() => selectPackage('tailored')} className="min-h-[44px] text-sm font-semibold text-royal-700 underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600">Choose Tailored instead</button>}
 
             <div>
               <h3 className="text-navy-900 font-bold text-base mb-3">Other add-ons</h3>
@@ -1233,7 +1253,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                 </div>
                 <div className="px-4 py-3 flex justify-between text-sm">
                   <span className="text-navy-600">Package</span>
-                  <span className="text-navy-900 font-semibold">{state.pkg === 'complete' ? 'Complete Agency-Ready Clean' : 'Tailored Checklist Clean'}</span>
+                  <span className="text-navy-900 font-semibold">{state.pkg === 'complete' ? 'Complete Clean' : 'Tailored Checklist Clean'}</span>
                 </div>
                 <div className="px-4 py-3 flex justify-between text-sm">
                   <span className="text-navy-600">Floor care</span>
@@ -1261,11 +1281,11 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                       {activeCarpetRooms.map((r) => (
                         <li key={r.id}>
                           • {r.label}{r.addonKey === 'stairs' && (r.stairFlights ?? 1) > 1 ? ` (${r.stairFlights} flights)` : ''}
-                          {' — '}{penceToDisplay(eotCarpetAreaStandalonePriceP(r.addonKey, r.stairFlights ?? 1))} standard value
+                          {' — '}{penceToDisplay(eotCarpetAreaStandalonePriceP(r.addonKey, r.stairFlights ?? 1))} before discounts
                         </li>
                       ))}
                     </ul>
-                    <CarpetPackageBreakdown carpetPackage={carpetPackage} />
+                    <CarpetPackageBreakdown carpetPackage={carpetPackage} rooms={activeCarpetRooms} />
                   </div>
                 )}
                 {(Object.entries(state.extras).some(([, v]) => v > 0) || upholsteryTotalP > 0) && (
@@ -1365,7 +1385,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
           )}
 
           {step < TOTAL_STEPS ? (
-            <button type="button" onClick={goNext} disabled={step === 1 && state.is5Plus}
+            <button type="button" onClick={goNext} disabled={step === 1 && (state.is5Plus || !state.propertySizeChosen)}
               className="order-3 inline-flex items-center justify-center gap-1.5 text-sm font-bold text-white bg-royal-500 hover:bg-royal-600 rounded-xl px-5 min-h-[46px] min-w-[122px] shadow-[0_8px_20px_rgba(14,165,233,0.24)] transition-all duration-200 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none">
               Continue <ChevronRight size={16} />
             </button>

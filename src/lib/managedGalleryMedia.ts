@@ -129,7 +129,7 @@ function toItems(references: PublishedReference[], pageKey: string) {
   const groups = new Map<string, PublishedReference[]>();
   for (const reference of references.filter(
     (item) => item.page_key === pageKey,
-  )) {
+  ).sort((a, b) => a.sort_order - b.sort_order || a.reference_key.localeCompare(b.reference_key))) {
     groups.set(reference.reference_key, [
       ...(groups.get(reference.reference_key) || []),
       reference,

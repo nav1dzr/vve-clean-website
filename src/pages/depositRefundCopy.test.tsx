@@ -75,7 +75,7 @@ describe('Booking page — no-payment request', () => {
   it('shows the manager review and customer-agreement steps', () => {
     const { container } = renderBooking();
     const text = container.textContent ?? '';
-    expect(text).toMatch(/request goes to the VVE manager queue/i);
+    expect(text).toMatch(/Our team will review your request/i);
     expect(text).toMatch(/We check the date, access details and final price, then contact you/i);
     expect(text).toMatch(/Payment confirms the appointment and comes off your total/i);
   });

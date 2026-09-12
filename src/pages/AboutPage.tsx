@@ -33,10 +33,10 @@ export default function AboutPage() {
           <div className="mx-auto max-w-5xl">
             <p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-sky-200">About VVE Clean</p>
             <h1 className="max-w-3xl font-display text-4xl font-extrabold leading-tight sm:text-5xl">
-              Straight answers, careful work and a clear booking process.
+              Meet VVE Clean
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-sky-50 sm:text-lg">
-              VVE Clean is a London cleaning business focused on end of tenancy, carpet, upholstery, after-builders and commercial work. We keep prices and scope visible so customers know what they are requesting.
+              We clean carpets, upholstery and properties across East and North London, from a sofa at home to an empty flat ready for its next tenant.
             </p>
           </div>
         </section>
@@ -51,7 +51,7 @@ export default function AboutPage() {
               <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-royal-700">Our story</p>
               <h2 className="font-display text-3xl font-bold text-navy-900">We started together</h2>
               <p className="mt-4 text-base leading-7 text-muted">
-                VVE Clean began with three friends who had been working for different companies. We brought that experience together and started one cleaning business. Today, customers deal directly with the VVE Clean team, see the published scope and price for standard work, and can request a preferred time without paying first.
+                VVE Clean began with three friends who had been working for different companies. We brought that experience together and started one cleaning business. When you contact us, you speak directly with the VVE Clean team about the work your property needs.
               </p>
             </div>
           </div>
@@ -101,9 +101,7 @@ export default function AboutPage() {
           <div className="mx-auto max-w-5xl rounded-3xl border border-line bg-surface p-7 sm:p-10">
             <h2 className="font-display text-2xl font-bold text-navy-900">Check our Checkatrade profile</h2>
             <p className="mt-4 leading-7 text-muted">
-              VVE Limited is a Checkatrade member. Checkatrade verifies its members
-              independently and publishes customer reviews that VVE Clean cannot edit,
-              so you can check our record for yourself rather than taking our word for it.
+              You can find VVE Limited on Checkatrade and read the customer reviews published on our profile.
             </p>
             <a
               href="https://www.checkatrade.com/trades/vvelimited"

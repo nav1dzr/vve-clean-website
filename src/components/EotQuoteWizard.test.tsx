@@ -6,8 +6,17 @@ import {
   EOT_PRICES_P, EOT_EXTRA_BATH_P, CARPET_ITEM_PRICES_P,
 } from '../data/pricing';
 
+const existingTailoredQuote: EotBookingResult['quoteConfig'] = {
+  service: 'deep', deepService: 'end_of_tenancy', deepSize: 'bed2', deepBaths: 1, deepWcs: 0, isHouse: false,
+  eotPackage: 'tailored',
+  tailoredAddOns: { microwaveInside: false, fridgeFreezerInside: false, extraFridgeFreezers: 0, dishwasherInside: false, washingMachineInside: false, cupboards: false },
+  addOnCounts: {}, rooms: [], carpetRoomIds: [], windowSize: 'small', gutterType: 'terraced', officeHours: 2, condition: 'normal',
+};
+
+// Keep the existing journey coverage on an explicit restored two-bed Tailored
+// selection. Fresh visits and their new property-selection gate are tested below.
 function renderWizard(onBook = vi.fn()) {
-  const utils = render(<EotQuoteWizard onBook={onBook} />);
+  const utils = render(<EotQuoteWizard onBook={onBook} restoreConfig={existingTailoredQuote} />);
   return { onBook, ...utils };
 }
 
@@ -68,9 +77,9 @@ describe('EotQuoteWizard — Step 1: Property (no pricing breakdown shown)', () 
     expect(screen.queryByText(/Tailored from/)).not.toBeInTheDocument();
   });
 
-  it('the single bottom bar reads "Starting from £X" with a concise live property summary', () => {
+  it('the bottom bar shows the restored selection total and property summary', () => {
     renderWizard();
-    expect(screen.getByText('Starting from')).toBeInTheDocument();
+    expect(screen.getByText('Current total')).toBeInTheDocument();
     expect(footerTotal()).toHaveTextContent(`£${flatBed2Cheapest}`);
     expect(screen.getByText('2 beds flat · 1 bathroom')).toBeInTheDocument();
   });
@@ -129,24 +138,24 @@ describe('EotQuoteWizard — Step 2: Choose your cleaning package', () => {
     const user = userEvent.setup();
     renderWizard();
     await toStep2(user);
-    expect(screen.getByText('Complete Agency-Ready Clean')).toBeInTheDocument();
+    expect(screen.getByText('Complete Clean')).toBeInTheDocument();
     expect(screen.getByText('Tailored Checklist Clean')).toBeInTheDocument();
     expect(screen.getByTestId('complete-price')).toHaveTextContent(`£${EOT_PRICES_P.flat.bed2.complete / 100}`);
     expect(screen.getByTestId('tailored-price')).toHaveTextContent(`£${EOT_PRICES_P.flat.bed2.tailored / 100}`);
   });
 
-  it('shows Tailored first and selects it by default, with Complete underneath', async () => {
+  it('shows Complete first while keeping the restored Tailored choice selected', async () => {
     const user = userEvent.setup();
     renderWizard();
     await toStep2(user);
     const group = screen.getByRole('group', { name: 'Cleaning package' });
     const packageButtons = within(group).getAllByRole('button').filter((button) =>
-      /Tailored Checklist Clean|Complete Agency-Ready Clean/.test(button.textContent ?? ''),
+      /Tailored Checklist Clean|Complete Clean/.test(button.textContent ?? ''),
     );
-    expect(packageButtons[0]).toHaveTextContent('Tailored Checklist Clean');
-    expect(packageButtons[1]).toHaveTextContent('Complete Agency-Ready Clean');
-    expect(packageButtons[0]).toHaveAttribute('aria-pressed', 'true');
-    expect(packageButtons[1]).toHaveAttribute('aria-pressed', 'false');
+    expect(packageButtons[0]).toHaveTextContent('Complete Clean');
+    expect(packageButtons[1]).toHaveTextContent('Tailored Checklist Clean');
+    expect(packageButtons[0]).toHaveAttribute('aria-pressed', 'false');
+    expect(packageButtons[1]).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('Complete mentions microwave, fridge/freezer, dishwasher and washing-machine interiors', async () => {
@@ -156,12 +165,12 @@ describe('EotQuoteWizard — Step 2: Choose your cleaning package', () => {
     expect(screen.getByText(/Microwave, fridge\/freezer, dishwasher and washing-machine interiors/)).toBeInTheDocument();
   });
 
-  it('Tailored explicitly states the oven is included and other interiors are not silently included', async () => {
+  it('Tailored states the oven is included and other appliance interiors are optional', async () => {
     const user = userEvent.setup();
     renderWizard();
     await toStep2(user);
     expect(screen.getByText(/One standard oven, hob, grill and extractor clean/)).toBeInTheDocument();
-    expect(screen.getByText(/not silently included/)).toBeInTheDocument();
+    expect(screen.getByText(/Other appliance and storage interiors are optional/)).toBeInTheDocument();
   });
 
   it('longer inclusion lists are in an accessible expand/collapse section', async () => {
@@ -171,7 +180,7 @@ describe('EotQuoteWizard — Step 2: Choose your cleaning package', () => {
     const detailsList = screen.getAllByText('See full details');
     expect(detailsList.length).toBe(2);
     expect(screen.getByText('Not included')).not.toBeVisible();
-    await user.click(detailsList[1]);
+    await user.click(detailsList[0]);
     expect(screen.getByText('Not included')).toBeVisible();
   });
 
@@ -179,7 +188,7 @@ describe('EotQuoteWizard — Step 2: Choose your cleaning package', () => {
     const user = userEvent.setup();
     renderWizard();
     await toStep2(user);
-    await user.click(screen.getByText('Complete Agency-Ready Clean'));
+    await user.click(screen.getByText('Complete Clean'));
     await user.click(screen.getByText('Tailored Checklist Clean'));
     expect(screen.getByText('Tailored Checklist Clean').closest('button')).toHaveClass('border-royal-500');
     expect(footerTotal()).toHaveTextContent(`£${EOT_PRICES_P.flat.bed2.tailored / 100}`);
@@ -206,8 +215,8 @@ describe('EotQuoteWizard — Step 3: Floor care (standard choices first)', () =>
     expect(screen.getByRole('button', { name: /^Standard floor care/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: /^Professional carpet steam cleaning/ })).not.toHaveClass('border-royal-500');
     expect(footerTotal()).toHaveTextContent(`£${EOT_PRICES_P.flat.bed2.tailored / 100}`);
-    expect(screen.getByText(/50% carpet-package discount with 3\+ qualifying areas/i)).toBeInTheDocument();
-    expect(screen.queryByText(/up to 50%/i)).not.toBeInTheDocument();
+    expect(screen.getByText('See the price for your selected carpet areas')).toBeInTheDocument();
+    expect(screen.queryByText(/50%/i)).not.toBeInTheDocument();
   });
 
   it('choosing Professional still offers whole-property and manual carpet selection', async () => {
@@ -327,7 +336,7 @@ describe('EotQuoteWizard — Step 4: Add-ons and final review', () => {
   it('calling onBook produces a quoteConfig with exact pence — never rounded to a whole pound', async () => {
     const user = userEvent.setup();
     const onBook = vi.fn();
-    render(<EotQuoteWizard onBook={onBook} />);
+    renderWizard(onBook);
     await toStep3(user);
     await user.click(screen.getByRole('button', { name: /^Professional carpet steam cleaning/ }));
     await user.click(screen.getByText('Choose areas individually').closest('button')!);
@@ -348,7 +357,7 @@ describe('EotQuoteWizard — Step 4: Add-ons and final review', () => {
   it('selecting a heavy/exceptional condition shows the photo-review notice and no book button', async () => {
     const user = userEvent.setup();
     const onBook = vi.fn();
-    render(<EotQuoteWizard onBook={onBook} />);
+    renderWizard(onBook);
     await toStep4(user);
     await user.click(screen.getByRole('button', { name: /Mould, biohazard or specialist contamination/ }));
     expect(screen.getAllByText(/Photo review required/).length).toBeGreaterThanOrEqual(1);
@@ -570,7 +579,7 @@ describe('EotQuoteWizard — selectable cards expose a programmatically determin
     const user = userEvent.setup();
     renderWizard();
     await toStep2(user);
-    const completeBtn = screen.getByText('Complete Agency-Ready Clean').closest('button')!;
+    const completeBtn = screen.getByText('Complete Clean').closest('button')!;
     const tailoredBtn = screen.getByText('Tailored Checklist Clean').closest('button')!;
     expect(tailoredBtn).toHaveAttribute('aria-pressed', 'true');
     expect(completeBtn).toHaveAttribute('aria-pressed', 'false');
@@ -616,5 +625,157 @@ describe('EotQuoteWizard — selectable cards expose a programmatically determin
     await user.click(heavy);
     expect(heavy).toHaveAttribute('aria-pressed', 'true');
     expect(normal).toHaveAttribute('aria-pressed', 'false');
+  });
+});
+
+
+describe('EotQuoteWizard — Complete-first property pricing', () => {
+  it('requires a fresh visitor to choose a size before showing a property price or advancing', async () => {
+    const user = userEvent.setup();
+    render(<EotQuoteWizard onBook={vi.fn()} />);
+    expect(footerTotal()).toHaveTextContent('Choose a size');
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+    expect(within(screen.getByRole('group', { name: 'Property size' })).getAllByRole('button').every(button => button.getAttribute('aria-pressed') === 'false')).toBe(true);
+    await user.click(screen.getByRole('button', { name: '1 bed' }));
+    expect(footerTotal()).toHaveTextContent('£279');
+    await next(user);
+    const buttons = within(screen.getByRole('group', { name: 'Cleaning package' })).getAllByRole('button');
+    expect(buttons[0]).toHaveTextContent('Complete Clean');
+    expect(buttons[0]).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it.each([['Studio', 220], ['1 bed', 279], ['2 beds', 339]] as const)('shows the existing Complete price for %s', async (size, price) => {
+    const user = userEvent.setup();
+    render(<EotQuoteWizard onBook={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: size }));
+    expect(readFooterTotal()).toBe(price);
+  });
+
+  it('does not turn an unfinished fresh property selection into a priced quote after refresh', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<EotQuoteWizard onBook={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: 'House / Maisonette' }));
+    unmount();
+    render(<EotQuoteWizard onBook={vi.fn()} />);
+    expect(footerTotal()).toHaveTextContent('Choose a size');
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+  });
+});
+
+async function selectAllTailoredInteriors(user: ReturnType<typeof userEvent.setup>) {
+  for (const name of ['Inside microwave', 'Inside standard fridge/freezer', 'Inside dishwasher compartments', 'Inside washing-machine compartments', 'Cupboards, drawers & wardrobes']) {
+    await user.click(screen.getByRole('checkbox', { name: new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }));
+  }
+}
+
+describe('EotQuoteWizard — comparable Complete choice', () => {
+  it('shows £249 for one-bed Tailored with fridge and cupboards without claiming Complete is cheaper', async () => {
+    const user = userEvent.setup();
+    render(<EotQuoteWizard onBook={vi.fn()} restoreConfig={{ ...existingTailoredQuote, deepSize: 'bed1' }} />);
+    await toStep4(user);
+    await user.click(screen.getByRole('checkbox', { name: /Inside standard fridge/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Cupboards, drawers/ }));
+    expect(screen.getByTestId('final-total')).toHaveTextContent('£249');
+    expect(screen.queryByTestId('complete-comparison')).not.toBeInTheDocument();
+  });
+
+  it.each([['bed1', 279, 279, 'Complete costs the same'], ['bed2', 349, 339, 'Complete saves £10 on this selection']] as const)(
+    'offers the exact comparable Complete price for %s and preserves the request contract', async (size, tailored, complete, message) => {
+      const user = userEvent.setup();
+      const onBook = vi.fn();
+      render(<EotQuoteWizard onBook={onBook} restoreConfig={{ ...existingTailoredQuote, deepSize: size }} />);
+      await toStep4(user);
+      await selectAllTailoredInteriors(user);
+      expect(screen.getByTestId('final-total')).toHaveTextContent(`£${tailored}`);
+      const comparison = screen.getByTestId('complete-comparison');
+      expect(within(comparison).getByRole('heading')).toHaveTextContent(message);
+      expect(comparison).not.toHaveTextContent('save £0');
+      await user.click(screen.getByRole('button', { name: `Choose Complete at £${complete}` }));
+      expect(screen.getByTestId('final-total')).toHaveTextContent(`£${complete}`);
+      await user.click(screen.getByRole('button', { name: /Request a time/ }));
+      const result = onBook.mock.calls[0][0] as EotBookingResult;
+      expect(result.price).toBe(complete);
+      expect(result.serviceName).toContain('Complete Agency-Ready Clean');
+      expect(result.quoteConfig).toMatchObject({ service: 'deep', deepService: 'end_of_tenancy', deepSize: size, eotPackage: 'complete' });
+      await user.click(screen.getByRole('button', { name: 'Choose Tailored instead' }));
+      expect(screen.getByTestId('final-total')).toHaveTextContent(`£${tailored}`);
+      expect(screen.getAllByRole('checkbox').every(checkbox => (checkbox as HTMLInputElement).checked)).toBe(true);
+    },
+  );
+
+  it('retains bathrooms, WCs, carpet areas, upholstery and exterior windows when switching in either direction', async () => {
+    const user = userEvent.setup();
+    const onBook = vi.fn();
+    const rooms = ['bedroom', 'living_room', 'hallway'].map(addonKey => ({ id: `manual-${addonKey === 'bedroom' ? 'bed' : addonKey === 'living_room' ? 'lr' : 'hall'}-1`, addonKey, floor: 'carpet' }));
+    const restore = { ...existingTailoredQuote, deepBaths: 2, deepWcs: 1, rooms, carpetRoomIds: rooms.map(room => room.id), addOnCounts: { ext_windows: 1, sofa_2: 1 } };
+    render(<EotQuoteWizard onBook={onBook} restoreConfig={restore} />);
+    await toStep4(user);
+    await selectAllTailoredInteriors(user);
+    const before = Number(screen.getByTestId('final-total').textContent!.replace('£', ''));
+    await user.click(screen.getByRole('button', { name: /Choose Complete at/ }));
+    expect(Number(screen.getByTestId('final-total').textContent!.replace('£', ''))).toBe(before - 10);
+    await user.click(screen.getByRole('button', { name: /Request a time/ }));
+    expect(onBook.mock.calls[0][0].quoteConfig).toMatchObject({ deepBaths: 2, deepWcs: 1, carpetRoomIds: restore.carpetRoomIds, addOnCounts: { ext_windows: 1, sofa_2: 1 } });
+    await user.click(screen.getByRole('button', { name: 'Choose Tailored instead' }));
+    expect(Number(screen.getByTestId('final-total').textContent!.replace('£', ''))).toBe(before);
+    await user.click(screen.getByRole('button', { name: /Request a time/ }));
+    expect(onBook.mock.calls[1][0].quoteConfig).toMatchObject({ deepBaths: 2, deepWcs: 1, carpetRoomIds: restore.carpetRoomIds, addOnCounts: { ext_windows: 1, sofa_2: 1 } });
+  });
+
+  it('keeps additional fridge/freezers selected and withholds a misleading comparable switch', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await toStep4(user);
+    await selectAllTailoredInteriors(user);
+    await user.click(screen.getByRole('button', { name: /Increase additional fridge/ }));
+    expect(screen.getByTestId('final-total')).toHaveTextContent('£364');
+    expect(screen.queryByRole('button', { name: /Choose Complete at/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/Your selection includes an additional fridge/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByText('Complete Clean').closest('button')).toBeDisabled();
+    await next(user);
+    await next(user);
+    await user.click(screen.getByRole('button', { name: /Decrease additional fridge/ }));
+    expect(screen.getByRole('button', { name: 'Choose Complete at £339' })).toBeInTheDocument();
+  });
+});
+
+describe('EotQuoteWizard — truthful carpet comparison', () => {
+  it('shows £110 for bedroom/living/hall carpets and £15 saving against the £125 standalone booking', async () => {
+    const user = userEvent.setup();
+    render(<EotQuoteWizard onBook={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: '1 bed' }));
+    await toStep3(user);
+    await user.click(screen.getByRole('button', { name: /^Professional carpet steam cleaning/ }));
+    const whole = screen.getByText('Whole-property carpet cleaning').closest('button')!;
+    expect(whole).toHaveTextContent('£110');
+    expect(whole).toHaveTextContent('£125');
+    expect(whole).not.toHaveTextContent('50%');
+    await user.click(whole);
+    expect(readFooterTotal()).toBe(389);
+    const breakdown = screen.getByTestId('carpet-package-breakdown');
+    expect(breakdown).toHaveTextContent('£110');
+    expect(breakdown).toHaveTextContent('£125');
+    expect(breakdown).toHaveTextContent('Save £15');
+    expect(breakdown).not.toHaveTextContent('50%');
+    await next(user);
+    expect(screen.getByTestId('final-total')).toHaveTextContent('£389');
+    expect(screen.getByTestId('carpet-package-breakdown')).toHaveTextContent('Save £15');
+  });
+
+  it('uses standalone stair-flight bundle rules when comparing with a single EOT stairs area', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await toStep3(user);
+    await user.click(screen.getByRole('button', { name: /^Professional carpet steam cleaning/ }));
+    await user.click(screen.getByText('Choose areas individually'));
+    for (let i = 0; i < 3; i++) await user.click(screen.getByRole('button', { name: /Increase staircase flights/ }));
+    const breakdown = screen.getByTestId('carpet-package-breakdown');
+    // First flight £60 + two at £35 = £130 EOT add-on. Standalone
+    // counts three flights for its £10 bundle saving, so its total is £120.
+    expect(breakdown).toHaveTextContent('£130');
+    expect(breakdown).toHaveTextContent('£120');
+    expect(breakdown).not.toHaveTextContent(/Save £/);
   });
 });

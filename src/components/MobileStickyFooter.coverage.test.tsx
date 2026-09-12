@@ -112,7 +112,14 @@ describe('§11 — hand-rolled bars meet the same standards as the shared one', 
 
   it.each(CUSTOM_BAR_PAGES)('%s offers a reachable primary action', (file) => {
     const source = read(pagesDir, file);
-    if (file === 'PricingPage.tsx') expect(source).toMatch(/to="\/#quote"/);
+    if (file === 'PricingPage.tsx') {
+      // PricingPage.test.tsx exercises the selected-service destinations in
+      // the rendered bar; this source-level coverage only checks it exists.
+      const bar = source.slice(source.indexOf('fixed bottom-0'));
+      expect(bar).toMatch(/<Link\s+to=/);
+      expect(bar).toContain('/end-of-tenancy-cleaning-london#quote');
+      expect(bar).toContain('Get my price');
+    }
     else expect(source).toMatch(/tel:02080502233/);
     expect(source).toMatch(/wa\.me\/447845451111/);
   });

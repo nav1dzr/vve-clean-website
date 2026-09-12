@@ -1,10 +1,6 @@
 import type { BlogPost } from '../types';
 
-// General, well-established guidance on tenancy deposit protection and
-// deductions in England and Wales — the three scheme names (DPS, mydeposits,
-// TDS) are the real, government-approved custodial/insured schemes; nothing
-// here is a VVE-specific statistic or claim. See the "generic, well-
-// established advice only" sourcing agreed for this content.
+// General guidance for England, with sources checked on the updated date.
 export const londonDepositDeductionGuide: BlogPost = {
   slug: 'london-deposit-deduction-guide',
   title: 'London Deposit Deduction Guide: What Landlords Can and Can’t Claim',
@@ -17,6 +13,7 @@ export const londonDepositDeductionGuide: BlogPost = {
   excerpt:
     'A plain-English guide to tenancy deposit protection, common deduction reasons, wear and tear and disputes for renters in England.',
   publishedDate: '2026-08-07',
+  updatedDate: '2026-09-12',
   category: 'End of Tenancy',
   relatedServiceHref: '/end-of-tenancy-cleaning-london',
   relatedServiceLabel: 'End of Tenancy Cleaning',
@@ -26,7 +23,7 @@ export const londonDepositDeductionGuide: BlogPost = {
       content:
         'If you are moving out of a rented home in London, compare the check-in record with the condition at check-out and keep your evidence. This guide gives general information about deposit protection and disputes in England. It is not legal advice.',
     },
-    { type: 'heading', text: 'Your deposit has to be protected by law', id: 'protection' },
+    { type: 'heading', text: 'Check how your deposit is protected', id: 'protection' },
     {
       type: 'paragraph',
       content:
@@ -57,7 +54,7 @@ export const londonDepositDeductionGuide: BlogPost = {
         'Unpaid rent or bills that were the tenant’s responsibility',
         'Damage beyond fair wear and tear (e.g. large stains, burns, broken fittings)',
         'Missing items listed on the inventory',
-        'Professional cleaning, where the property was not returned in the condition described in the check-in inventory',
+        'Reasonable cleaning costs where the property was left less clean than at check-in',
         'Garden upkeep, if the tenancy agreement made this the tenant’s responsibility',
       ],
     },
@@ -65,14 +62,19 @@ export const londonDepositDeductionGuide: BlogPost = {
     {
       type: 'paragraph',
       content:
-        'Fair wear and tear is the gradual deterioration that happens through ordinary, everyday use — it isn’t something a landlord can charge for. Faded curtains from years of sunlight, slightly worn carpet in a well-used hallway, or small scuffs on paintwork are typically wear and tear. Damage is different: it’s harm caused by accident, neglect or misuse — a burn mark on a carpet, a cracked tile, or mould caused by not ventilating a room.',
+        'Fair wear and tear is deterioration through ordinary use over time. The age and condition of the item at check-in, and the length of the tenancy, matter when assessing a claim. A worn carpet is different from a new burn or broken fitting. Cleaning and damage also need to be considered separately: an older item can still be returned clean.',
     },
     {
       type: 'callout',
       content:
         'How long you lived in the property and the age/condition of an item at check-in both matter. A worn five-year-old carpet at check-out isn’t the same claim as a brand-new one with the same wear after six months.',
     },
-    { type: 'heading', text: 'Cleaning is one of the most common deduction reasons', id: 'cleaning' },
+    { type: 'heading', text: 'The cleaning standard and your evidence', id: 'cleaning' },
+    {
+      type: 'paragraph',
+      content:
+        'The starting point is the cleanliness recorded at check-in. You can clean the property yourself or choose a cleaning service to help reach that standard. Hiring a cleaner and achieving the required condition are different things; a paid receipt does not guarantee that every area meets the recorded standard.',
+    },
     {
       type: 'paragraph',
       content:
@@ -82,7 +84,7 @@ export const londonDepositDeductionGuide: BlogPost = {
     {
       type: 'list',
       items: [
-        'Compare the check-in and check-out inventories side by side — photos with dates are the strongest evidence',
+        'Compare the check-in and check-out inventories, including written descriptions and dated photos',
         'Ask the landlord or agent for an itemised breakdown and evidence of the actual cost (invoices, quotes)',
         'Reply in writing, explaining which items you dispute and why',
         'If you cannot agree, check the dispute service and deadlines published by the scheme protecting the deposit',
@@ -97,12 +99,14 @@ export const londonDepositDeductionGuide: BlogPost = {
     {
       type: 'paragraph',
       content:
-        'Most disputes come down to a mismatch between the check-in and check-out condition, and cleanliness is one of the easiest parts of that to control. Photographing the property room by room before you hand back the keys, checking your tenancy agreement for what’s specifically expected, and keeping a dated receipt for any move-out cleaning all reduce the room for disagreement later.',
+        'Before returning the keys, compare each room with the check-in record. Keep dated photos and written notes, including anything an image cannot show clearly. Save the cleaning task list and receipt if you used a service. These records help explain the condition at handover; they do not promise a particular deposit outcome.',
     },
   ],
   sources: [
     { label: 'GOV.UK: Tenancy deposit protection overview', href: 'https://www.gov.uk/tenancy-deposit-protection' },
     { label: 'GOV.UK: Information landlords must give tenants', href: 'https://www.gov.uk/tenancy-deposit-protection/information-landlords-must-give-tenants' },
     { label: 'GOV.UK: Deposit disputes and problems', href: 'https://www.gov.uk/tenancy-deposit-protection/disputes-and-problems' },
+    { label: 'TDS: Cleaning standards and evidence', href: 'https://custodial.tenancydepositscheme.com/news/blog/asktds-can-my-landlord-charge-me-for-cleaning/' },
+    { label: 'TDS: Reasonable deductions and wear', href: 'https://custodial.tenancydepositscheme.com/news/blog/asktds-what-can-i-use-my-tenants-deposit-for/' },
   ],
 };

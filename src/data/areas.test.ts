@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import { AREAS, AREAS_BY_SLUG } from './areas';
 import { COVERAGE_POSTCODES } from '../../shared/pricingCatalogue.js';
+import { ROUTE_METADATA } from '../lib/routeMetadata';
+import { areaHasRealProof } from '../lib/areaProof';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const areasComponent = readFileSync(resolve(root, 'src/components/Areas.tsx'), 'utf8');
@@ -49,8 +51,21 @@ describe('AREAS data integrity', () => {
     expect(appRoutes).toContain('/cleaning-${area.slug}');
   });
 
-  it('is wired into prerender.mjs so every area gets a real route entry', () => {
-    expect(prerender).toContain('for (const area of AREAS)');
-    expect(prerender).toContain('/cleaning-${area.slug}');
+  it('generates exactly one prerender metadata entry for every area with the correct index status', () => {
+    const routes = ROUTE_METADATA.filter((route) => route.path.startsWith('/cleaning-'));
+    expect(routes.map((route) => route.path).sort()).toEqual(
+      AREAS.map((area) => `/cleaning-${area.slug}`).sort(),
+    );
+    for (const area of AREAS) {
+      const route = routes.find((entry) => entry.path === `/cleaning-${area.slug}`)!;
+      expect(route.title).toContain(area.name);
+      expect(route.description).toContain(area.name);
+      expect(route.canonical).toBe(`https://www.vveclean.co.uk/cleaning-${area.slug}`);
+      expect(route.robots).toBe(areaHasRealProof(area) ? 'index, follow' : 'noindex, follow');
+    }
+    // The build consumes the compiled shared inventory, rather than keeping
+    // a second area loop that could drift from client-navigation metadata.
+    expect(prerender).toContain('ROUTE_METADATA: routes');
+    expect(prerender).toContain("await import('./dist/server/entry-server.js')");
   });
 });

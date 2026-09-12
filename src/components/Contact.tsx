@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle2 } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
 import { submissionIdentity, clearSubmissionIdentity } from '../lib/submissionIdentity';
@@ -38,6 +38,8 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
   const [subscribe, setSubscribe] = useState(false);
   const [honeypot, setHoneypot] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const successRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (submitted) successRef.current?.focus(); }, [submitted]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -113,7 +115,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
             <div>
               {/* h2, not h3: this is the first heading under the page h1, and
                   skipping a level breaks screen-reader outline navigation. */}
-              <h2 className="font-display text-2xl font-bold text-white mb-2">Get in Touch</h2>
+              <h2 className="font-display text-2xl font-bold text-white mb-2">Speak to our team</h2>
               <p className="text-silver-300 text-sm mb-8 leading-relaxed">
                 Send the property postcode, service and preferred date so we can give you a useful answer.
               </p>
@@ -189,9 +191,9 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
           {/* Form panel */}
           <div id="contact-form" className="order-1 scroll-mt-28 lg:order-2 lg:col-span-3 bg-white p-8">
             {submitted ? (
-              <div className="flex flex-col items-center justify-center h-full text-center py-12">
+              <div ref={successRef} tabIndex={-1} role="status" aria-labelledby="contact-success-heading" className="flex flex-col items-center justify-center h-full text-center py-12">
                 <CheckCircle2 className="text-green-500 mb-4" size={56} />
-                <h3 className="text-2xl font-bold text-navy-900 mb-2">Enquiry received</h3>
+                <h3 id="contact-success-heading" className="text-2xl font-bold text-navy-900 mb-2">Enquiry received</h3>
                 <p className="text-silver-600">
                   Your enquiry is saved. Our team will contact you during opening hours to discuss the details.
                 </p>
@@ -250,7 +252,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                     name="phone"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="07845 451111"
+                    placeholder="Your phone number"
                     aria-describedby="contact-phone-hint"
                     className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:border-royal-500 transition-colors"
                   />
@@ -288,7 +290,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                     onChange={(e) => setMessage(e.target.value)}
                     rows={5}
                     maxLength={5000}
-                    placeholder="Tell us about the service you need, your property, preferred dates..."
+                    placeholder="What needs cleaning? Include your postcode, the rooms or items, and your preferred date."
                     className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:border-royal-500 transition-colors resize-none"
                     required
                     aria-required="true"

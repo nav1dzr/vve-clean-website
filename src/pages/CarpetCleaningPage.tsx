@@ -39,6 +39,10 @@ const FAQS = [
     q: 'Do you clean rugs?',
     a: 'Yes, as an add-on to a carpet, upholstery or relevant end of tenancy clean. Send a photo first so the construction, fibre, cleaning method and price can be confirmed. We do not currently offer rug-only bookings.',
   },
+  {
+    q: 'How should I count rooms and stairs?',
+    a: 'Choose a separate item for each bedroom, living room, hallway and landing. Use the large or through-lounge option where appropriate. Count each flight of stairs separately; the first and additional flights have different prices. Send photos if the layout does not fit these choices.',
+  },
 ];
 
 const SCHEMA = JSON.stringify({
@@ -91,7 +95,7 @@ const DATA: ServiceLandingData = {
   h1Highlight: '',
   heroHighlightClassName: 'text-gradient-carpet',
   heroSubtitle: 'Professional extraction for bedrooms, living rooms, stairs and hallways. Choose your rooms and see your estimate.',
-  heroPriceChip: `From ${pd(CARPET_ITEM_PRICES_P.bedroom)} per room · ${pd(CARPET_MIN_BOOKING_P)} minimum booking`,
+  heroPriceChip: `Bedroom ${pd(CARPET_ITEM_PRICES_P.bedroom)} · ${pd(CARPET_MIN_BOOKING_P)} minimum booking`,
   heroAside: <CarpetHeroPanel />,
   heroAsideOnMobile: true,
   // This slot now carries a different, existing benefit (see the "Fixed prices,
@@ -112,15 +116,15 @@ const DATA: ServiceLandingData = {
 
   afterHeroSection: <QuoteCalculator mode="carpet" />,
 
-  introH2: 'Deep carpet cleaning, not just surface freshening',
+  introH2: 'Cleaning suited to your carpet',
   introText:
     'We inspect the carpet and use hot-water extraction where the fibre and construction are suitable. Cleaning solution is applied through the pile and extracted with loosened soil. Drying time varies with fibre, airflow and room conditions. We serve homes and rental properties across our published East and North London postcodes.',
 
-  benefitsH2: 'What makes our carpet cleaning different',
+  benefitsH2: 'What to expect from your carpet clean',
   benefits: [
     {
       icon: <Droplets size={28} />,
-      title: 'Deep extraction, not surface scrubbing',
+      title: 'Soil and moisture extraction',
       body: 'The process applies cleaning solution through the pile, then extracts loosened soil and moisture with professional equipment.',
     },
     {
@@ -144,13 +148,10 @@ const DATA: ServiceLandingData = {
   whyPoints: [
     'Pre-inspection of carpet type and stain condition, with an honest view on what will lift',
     'Pre-treatment spray on heavy soiling and stains',
-    'Hot-water extraction with professional-grade equipment',
-    'Wool, synthetic, loop-pile and patterned carpets, cleaned to suit the fibre',
+    'Hot-water extraction where the fibre and construction are suitable',
     'Post-clean grooming to restore carpet pile direction',
     'Furniture slides to protect floors while we work',
     'All equipment and cleaning products supplied',
-    'An agreed arrival window in your booking confirmation',
-    'Request a date change through your booking link; we confirm availability with you',
   ],
 
   pricingH2: 'Fixed carpet cleaning prices',
@@ -167,7 +168,7 @@ const DATA: ServiceLandingData = {
     { label: 'Rug cleaning', price: 'Add-on only · photo quote' },
   ],
   pricingNote:
-    'Rugs are available only as an add-on to a carpet, upholstery or relevant end of tenancy clean and need a photo quote first. Book multiple carpet or upholstery items together and save automatically — see our discount tiers on the pricing page. What a clean can lift depends on the stain, the fibre, how long it has been there and any product already used on it, so complete removal cannot be guaranteed — we tell you the likely outcome before we start, not after.',
+    'The calculator applies the current carpet and upholstery bundle discount automatically, subject to the minimum booking. See the pricing page for the item bands. Rugs are an add-on only and need a photo quote. Stain removal depends on the fibre, age of the mark and previous treatments.',
   pricingCta: { href: '/pricing', label: 'See all prices' },
 
   // Real proof: the three approved before/after pairs, each with its own clip.
@@ -198,13 +199,13 @@ const DATA: ServiceLandingData = {
     { href: '/after-builders-cleaning-london', label: 'After Builders Cleaning' },
     { href: '/commercial-carpet-cleaning-london', label: 'Commercial Carpet Cleaning' },
     { href: '/pricing', label: 'All Prices' },
-    { href: '/booking', label: 'Request a time' },
+    { href: '/carpet-cleaning-london#quote', label: 'Get a carpet quote' },
   ],
 
   ctaH2: 'Ready to book your carpet clean?',
   ctaBody:
     'Request your preferred date free. We agree the scope, total and time with you, then send a £30 deposit link. Payment confirms your booking and counts towards the total.',
-  ctaPrimary: { href: '/booking', label: 'Request a time' },
+  ctaPrimary: { href: '/carpet-cleaning-london#quote', label: 'Get a carpet quote' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };
 

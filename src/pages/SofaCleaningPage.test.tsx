@@ -65,10 +65,12 @@ describe('SofaCleaningPage — quote placement and premium service guidance', ()
     expect(screen.queryByText('Video results coming soon')).not.toBeInTheDocument();
   });
 
-  it('keeps direct links to the other services and booking', () => {
+  it('keeps other service links and preserves upholstery intent in the final quote links', () => {
     renderPage();
 
     expect(screen.getByRole('link', { name: 'Carpet Cleaning' })).toHaveAttribute('href', '/carpet-cleaning-london');
-    expect(screen.getAllByRole('link', { name: 'Request a time' }).length).toBeGreaterThan(0);
+    const quoteLinks = screen.getAllByRole('link', { name: 'Get a sofa quote' });
+    expect(quoteLinks.length).toBeGreaterThan(0);
+    quoteLinks.forEach(link => expect(link).toHaveAttribute('href', '/sofa-cleaning-london#quote'));
   });
 });

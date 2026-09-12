@@ -11,6 +11,7 @@ import { CookieConsentProvider } from './context/CookieConsentContext';
 export { AREAS } from './data/areas';
 export { areaHasRealProof } from './lib/areaProof';
 export { BLOG_POSTS } from './data/blog';
+export { ROUTE_METADATA, NOT_FOUND_METADATA } from './lib/routeMetadata';
 
 export function render(url: string): string {
   return renderToString(

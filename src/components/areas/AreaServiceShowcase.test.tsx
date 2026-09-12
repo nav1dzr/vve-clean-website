@@ -12,7 +12,7 @@ describe('AreaServiceShowcase', () => {
       </MemoryRouter>,
     );
 
-    const heading = screen.getByRole('heading', { name: /Three straightforward ways we can help in Islington/i });
+    const heading = screen.getByRole('heading', { name: /Cleaning services in Islington/i });
     const section = heading.closest('section');
     expect(section).not.toBeNull();
 

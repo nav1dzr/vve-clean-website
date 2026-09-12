@@ -286,13 +286,13 @@ function CarpetItemRows({
                   </span>
                 )}
               </div>
-              <div className="text-royal-600 text-[10px] font-bold mt-0.5">
+              <div className="text-royal-700 text-xs font-semibold mt-0.5">
                 {item.key === 'stairs'
                   ? `£${item.stairsFirst} first flight · £${item.stairsExtra} each extra`
                   : item.key === 'rug' ? 'Photo quote · add-on only' : `£${item.unitPrice} per item`}
               </div>
               {item.helper && (
-                <p className="text-silver-600 text-[10px] mt-0.5 leading-snug">{item.helper}</p>
+                <p className="text-slate-600 text-xs mt-0.5 leading-relaxed">{item.helper}</p>
               )}
             </div>
             <Counter
@@ -363,7 +363,15 @@ export default function QuoteCalculator({
   const [service] = useState<ServiceKey>('deep');
 
   // Captured once on mount; null on every subsequent render (flag cleared below).
-  const [_restore] = useState<BookingSelection['quoteConfig'] | null>(getRestoreConfig);
+  const [_restore] = useState<BookingSelection['quoteConfig'] | null>(() => {
+    // An explicit service choice starts that selection; ordinary navigation and
+    // the basket's resume link still restore the saved quote.
+    if (homepageService !== null) return null;
+    const saved = getRestoreConfig();
+    if (mode === 'eot' && saved?.deepService !== 'end_of_tenancy') return null;
+    if ((mode === 'carpet' || mode === 'upholstery') && saved?.deepService !== 'carpet_upholstery') return null;
+    return saved;
+  });
 
   // Clear the restore flag immediately after we've read it so a future
   // direct homepage visit doesn't unexpectedly hydrate an old quote.
@@ -387,9 +395,8 @@ export default function QuoteCalculator({
       ? 'end_of_tenancy'
       : (isCarpetFocused || isUpholsteryFocused)
         ? 'carpet_upholstery'
-        // A restored quote wins over the homepage card selection, so coming
-        // back from BookingPage via "Back to quote" reopens what the customer
-        // actually had rather than resetting them to the card they first hit.
+        // Explicit homepage choices have no restore data. A normal return
+        // from the basket or booking form keeps its saved service.
         : ((_restore?.deepService as DeepServiceType | undefined)
           ?? (homepageService === 'carpet' || homepageService === 'upholstery' ? 'carpet_upholstery' : homepageService)
           ?? 'carpet_upholstery'),
@@ -781,7 +788,7 @@ export default function QuoteCalculator({
         <div aria-hidden="true" className="pointer-events-none absolute -left-24 top-20 h-64 w-64 rounded-full bg-sky-300/20 blur-3xl" />
         <div aria-hidden="true" className="pointer-events-none absolute -right-20 bottom-8 h-72 w-72 rounded-full bg-emerald-200/20 blur-3xl" />
         <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className={`overflow-hidden rounded-3xl border border-sky-200 bg-white shadow-[0_26px_80px_rgba(16,80,130,0.16)] ring-1 ring-white transition duration-700 ${contentVisible ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0'}`}>
+          <div className={`overflow-hidden rounded-3xl border border-sky-200 bg-white shadow-sm transition duration-700 ${contentVisible ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0'}`}>
             <div aria-hidden="true" className="h-1.5 bg-gradient-to-r from-royal-600 via-sky-400 to-emerald-400" />
             <div className="grid lg:grid-cols-[1.08fr_0.92fr]">
               <div className="p-6 sm:p-9 lg:p-11">
@@ -789,7 +796,7 @@ export default function QuoteCalculator({
                   <div>
                     <p className="mb-3 inline-flex rounded-full bg-royal-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-royal-800">Instant quote</p>
                     <h2 className="font-display text-3xl font-bold text-navy-900 sm:text-4xl">Get an instant quote</h2>
-                    <p className="mt-2 text-sm text-muted">Build a clear price in three short steps.</p>
+                    <p className="mt-2 text-sm text-muted">Choose a service, select the work and review your price.</p>
                   </div>
                   <span className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-royal-600 to-sky-500 text-white shadow-lg shadow-sky-200 sm:flex">
                     <Calculator size={24} />
@@ -816,7 +823,7 @@ export default function QuoteCalculator({
                       const selected = event.target.value as HomepageQuoteService;
                       if (selected) onHomepageServiceChange?.(selected);
                     }}
-                    className="min-h-[50px] w-full appearance-none rounded-xl border-2 border-line bg-white px-4 pr-11 text-sm font-semibold text-navy-900 outline-none transition focus:border-royal-600 focus:ring-4 focus:ring-royal-100"
+                    className="min-h-[50px] w-full appearance-none rounded-xl border-2 border-line bg-white px-4 pr-11 text-base font-semibold text-navy-900 outline-none transition focus:border-royal-600 focus:ring-4 focus:ring-royal-100"
                   >
                     <option value="" disabled>Choose what you would like cleaned</option>
                     {homepageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -825,20 +832,20 @@ export default function QuoteCalculator({
                 </div>
                 <p className="mt-4 flex items-center gap-2 text-xs text-muted">
                   <CheckCircle2 size={14} className="text-royal-700" />
-                  No hidden fees · Live price where available · No payment to request a time
+                  No payment to request a time. We agree the details with you first.
                 </p>
               </div>
 
-              <aside className="bg-gradient-to-br from-sky-100 via-royal-50 to-emerald-50 p-6 sm:p-9 lg:p-11">
+              <aside className="bg-sky-50 p-6 sm:p-9 lg:p-11">
                 <div className="flex items-center gap-3">
                   <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-royal-700 shadow-sm"><ShieldCheck size={21} /></span>
                   <h3 className="font-display text-lg font-bold text-navy-900">Why book with VVE Clean?</h3>
                 </div>
                 <ul className="mt-6 space-y-4">
                   {[
-                    'Transparent pricing with no hidden fees',
+                    'Itemised prices for your selected work',
                     'Request a preferred time with no payment',
-                    'Professional equipment and direct support',
+                    'Cleaning equipment supplied by our team',
                     '£5m public liability insurance',
                     // Was "Rated 5.0 by genuine Google reviewers". No verified
                     // rating exists in the project (see data/googleRating.ts),
@@ -897,6 +904,7 @@ export default function QuoteCalculator({
       : null;
 
     const handleWizardBook = (result: EotBookingResult) => {
+      rememberQuoteOrigin();
       trackFunnelStep('quote_complete', result.serviceName);
       trackBookingInitiated(result.serviceName);
       if (onBook) {
@@ -1361,7 +1369,7 @@ export default function QuoteCalculator({
                                     >
                                       <div className="min-w-0">
                                         <div className="text-navy-800 text-xs font-medium leading-snug">{label}</div>
-                                        <div className="text-royal-600 text-[10px] font-bold mt-0.5">
+                                        <div className="text-royal-700 text-xs font-semibold mt-0.5">
                                           +£{dynamicPrice}
                                           {key === 'carpet_bundle' && (
                                             <span className="font-normal text-silver-600"> · bedrooms/hall scope shown above</span>
@@ -1408,7 +1416,7 @@ export default function QuoteCalculator({
                                   <div key={a.key} className="flex items-center justify-between rounded-xl px-3 py-2 border transition-all duration-200 bg-silver-50 border-silver-200">
                                     <div>
                                       <span className="text-navy-800 text-xs font-medium">{a.label}</span>
-                                      <div className="text-royal-600 text-[10px] font-bold mt-0.5">
+                                      <div className="text-royal-700 text-xs font-semibold mt-0.5">
                                         +£{dynamicPrice}
                                         {saving > 0 && <span className="text-green-600 ml-1">· saves £{saving}</span>}
                                       </div>

@@ -308,7 +308,7 @@ details[open] > .faq-summary .faq-icon {
 
 /* Clear service actions, restrained backdrop and native basket dialog. */
 .service-hero { background: radial-gradient(ellipse at 95% 10%, #d7ecf5 0, transparent 55%), linear-gradient(135deg, #f7fbff, #edf5fb); }
-.whatsapp-text-link, .whatsapp-text-link:hover { color: #128c45; text-decoration-color: #25d366; }
+.whatsapp-text-link, .whatsapp-text-link:hover { color: #08783c; text-decoration-color: #25d366; }
 .quote-basket-dialog { width: min(94vw, 480px); max-height: 85dvh; border: 0; border-radius: 20px; padding: 0; color: #10243e; box-shadow: 0 24px 80px #07172d40; }
 .quote-basket-dialog::backdrop { background: #06142b80; }
 @media (max-width: 639px) {
@@ -318,3 +318,10 @@ details[open] > .faq-summary .faq-icon {
 }
 
 @media (max-width: 419px) { .nav-brand-divider, .nav-brand-descriptor { display: none; } }
+
+/* Let room labels and their 44px controls use separate rows when a quote
+   card is narrow, without widening the grid or clipping either control. */
+.eot-room-counter {
+  min-width: 0;
+  flex-wrap: wrap;
+}

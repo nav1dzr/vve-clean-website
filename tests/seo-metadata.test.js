@@ -25,6 +25,7 @@ const read = (p) => readFileSync(resolve(root, p), 'utf8');
 
 const indexHtml = read('index.html');
 const prerender = read('prerender.mjs');
+const metadata = read('src/lib/routeMetadata.ts');
 const vercelJson = JSON.parse(read('vercel.json'));
 const appRoutes = read('src/AppRoutes.tsx');
 
@@ -99,9 +100,9 @@ describe('indexing', () => {
   it('marks /leaflet noindex, follow', () => {
     // A permanently discounted page must not compete in organic search with the
     // full-price service pages. `follow` keeps its outbound links useful.
-    const leaflet = prerender.slice(
-      prerender.indexOf("path: '/leaflet'"),
-      prerender.indexOf("path: '/carpet-cleaning-london'"),
+    const leaflet = metadata.slice(
+      metadata.indexOf("path: '/leaflet'"),
+      metadata.indexOf("path: '/carpet-cleaning-london'"),
     );
     expect(leaflet).toContain("robots: 'noindex, follow'");
   });
@@ -116,15 +117,16 @@ describe('indexing', () => {
       '/gallery',
       '/pricing',
     ]) {
-      const start = prerender.indexOf(`path: '${route}'`);
+      const start = metadata.indexOf(`path: '${route}'`);
       expect(start, `${route} is missing from prerender.mjs`).toBeGreaterThan(-1);
-      const block = prerender.slice(start, start + 900);
+      const end = metadata.indexOf("\n  {", start);
+      const block = metadata.slice(start, end);
       expect(block, `${route} must not be noindex`).not.toContain('noindex');
     }
   });
 
   it('marks the 404 page noindex', () => {
-    const block = prerender.slice(prerender.indexOf('const notFoundRoute'));
+    const block = metadata.slice(metadata.indexOf('const notFoundRoute'));
     expect(block).toContain("robots: 'noindex, follow'");
   });
 });

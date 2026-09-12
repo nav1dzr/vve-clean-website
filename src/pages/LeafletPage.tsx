@@ -93,7 +93,7 @@ export default function LeafletPage() {
 
           <h1 className="font-display font-bold text-white mb-4"
             style={{ fontSize: 'clamp(2rem, 6vw, 3rem)', lineHeight: 1.15 }}>
-            You've unlocked your<br />local customer offer
+            Your VVE Clean<br />leaflet offer
           </h1>
 
           <p className="text-lg mb-8" style={{ color: 'rgba(255,255,255,0.75)' }}>

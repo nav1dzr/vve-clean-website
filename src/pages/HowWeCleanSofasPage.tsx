@@ -1,5 +1,6 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
 import SofaProofSection from '../components/sofa/SofaProofSection';
+import { SofaCareGuide } from '../components/sofa/SofaServicePreview';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20a%20sofa%20cleaning%20quote.';
 
@@ -70,7 +71,7 @@ const DATA: ServiceLandingData = {
   eyebrow: 'Our Process',
   h1: 'How We Clean Sofas & Upholstery',
   h1Highlight: '',
-  heroSubtitle: 'See the preparation, cleaning method and scope before choosing your service.',
+  heroSubtitle: 'What we check before cleaning your sofa, how we clean it and what to expect while it dries.',
   heroBadges: ['Fabric-tested first', 'Hot-water extraction', 'Fully insured'],
   heroGoogleBadge: true,
   primaryHref: '/sofa-cleaning-london#quote',
@@ -88,7 +89,8 @@ const DATA: ServiceLandingData = {
   whyPoints: [],
 
   proofSection: <SofaProofSection />,
-  sectionOrder: ['intro', 'proof', 'faq', 'related'],
+  processSection: <SofaCareGuide />,
+  sectionOrder: ['intro', 'process', 'proof', 'faq', 'related'],
 
   faqs: FAQS,
 
@@ -101,7 +103,7 @@ const DATA: ServiceLandingData = {
 
   ctaH2: 'Ready to book your sofa clean?',
   ctaBody: 'Send your preferred date free. We agree the scope, total and time, then send a £30 deposit link. Payment confirms the booking and counts towards the total.',
-  ctaPrimary: { href: '/booking', label: 'Request a time' },
+  ctaPrimary: { href: '/sofa-cleaning-london#quote', label: 'Get a sofa quote' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };
 

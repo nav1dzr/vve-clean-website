@@ -6,6 +6,7 @@ import QuoteCalculator, {
   type BookingSelection,
 } from "../components/QuoteCalculator";
 import BrandLogo from "../components/BrandLogo";
+import type { HomepageQuoteService } from "../components/HomeServiceSelector";
 import { getAttribution } from "../lib/attribution";
 import { getQuoteOriginHref } from "../lib/quoteOrigin";
 import { PRICEBOOK_VERSION } from "../data/pricing";
@@ -494,6 +495,7 @@ export default function BookingPage() {
   const requestStarted = useRef(false);
   const [selection, setSelection] = useState<BookingSelection | null>(null);
   const [showSelector, setShowSelector] = useState(false);
+  const [requestedService, setRequestedService] = useState<HomepageQuoteService | null>(null);
   const [form, setForm] = useState<FormData>({
     fullName: "",
     address: "",
@@ -517,6 +519,8 @@ export default function BookingPage() {
   } | null>(null);
   const [honeypot, setHoneypot] = useState("");
   const formTopRef = useRef<HTMLDivElement>(null);
+  const requestSuccessRef = useRef<HTMLElement>(null);
+  useEffect(() => { if (requestComplete) requestSuccessRef.current?.focus(); }, [requestComplete]);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   // Only true after a blocked submit. Without this the summary would appear
   // while someone is still filling the form in, which is noisier than useful.
@@ -829,7 +833,7 @@ export default function BookingPage() {
               </p>
             </div>
           )}
-          <QuoteCalculator onBook={handleBook} aboveFold />
+          <QuoteCalculator key={requestedService ?? "choose-service"} onBook={handleBook} aboveFold homepageMode homepageService={requestedService} onHomepageServiceChange={setRequestedService} />
         </main>
       </div>
     );
@@ -840,7 +844,7 @@ export default function BookingPage() {
     return (
       <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
         <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} />
-        <main id="main-content" className="mx-auto max-w-xl px-4 py-16">
+        <main id="main-content" ref={requestSuccessRef} tabIndex={-1} aria-labelledby="booking-request-heading" className="mx-auto max-w-xl px-4 py-16">
           <div className="rounded-3xl border border-green-200 bg-white p-7 text-center shadow-xl sm:p-10">
             <div
               className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-700"
@@ -848,7 +852,7 @@ export default function BookingPage() {
             >
               <CheckCircle2 size={30} />
             </div>
-            <h1 className="mt-5 font-display text-3xl font-bold text-navy-900">
+            <h1 id="booking-request-heading" className="mt-5 font-display text-3xl font-bold text-navy-900">
               Your request is with our team
             </h1>
             <p className="mt-3 text-base leading-relaxed text-silver-700">
@@ -1474,7 +1478,7 @@ export default function BookingPage() {
             </h2>
             <ol className="mt-3 space-y-2 text-sm leading-relaxed text-navy-800">
               <li>
-                <strong>1.</strong> Your request goes to the VVE manager queue.
+                <strong>1.</strong> Our team will review your request.
               </li>
               <li>
                 <strong>2.</strong> We check the date, access details and final

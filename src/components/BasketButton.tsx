@@ -1,12 +1,27 @@
-import { useRef, useId } from 'react';
+import { useRef, useId, type MouseEvent } from 'react';
 import { ShoppingBag, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+
 import { clearQuoteBasket, useQuoteBasket } from '../lib/quoteBasket';
 
 export default function BasketButton() {
   const basket = useQuoteBasket();
   const titleId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
+
+  function openQuote(event: MouseEvent<HTMLAnchorElement>) {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    dialog.current?.close();
+    const destination = new URL(event.currentTarget.href);
+    if (destination.origin === window.location.origin && destination.pathname === window.location.pathname && destination.search === window.location.search) {
+      // A fragment-only navigation keeps the current calculator mounted. A
+      // fresh document is needed to restore the saved basket, or to clear an
+      // in-memory service choice after the basket has been removed.
+      event.preventDefault();
+      window.history.replaceState(window.history.state, '', destination.href);
+      window.location.reload();
+    }
+  }
+
   return <>
     <button type="button" onClick={() => dialog.current?.showModal()} aria-label={basket ? 'Your basket — saved cleaning selection' : 'Your basket'} className="relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-navy-900 rounded-lg hover:bg-sky-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-royal-600">
       <ShoppingBag size={21} />
@@ -18,9 +33,9 @@ export default function BasketButton() {
         {basket ? <>
           <p className="mt-5 rounded-xl bg-sky-50 p-4 font-semibold text-navy-900">{basket.label}</p>
           <p className="my-5 text-sm leading-relaxed text-slate-600">Your choices are saved on this browser for 14 days. Continue to review your selection and current price. No appointment is reserved yet.</p>
-          <Link to={basket.href} onClick={() => dialog.current?.close()} className="block rounded-xl bg-royal-600 px-5 py-3 text-center font-bold text-white">Continue my quote</Link>
+          <a href={basket.href} onClick={openQuote} className="block rounded-xl bg-royal-600 px-5 py-3 text-center font-bold text-white">Continue my quote</a>
           <button type="button" onClick={() => { clearQuoteBasket(); dialog.current?.close(); }} className="mt-3 min-h-[44px] w-full text-sm text-slate-600 underline underline-offset-4">Remove saved basket</button>
-        </> : <><p className="my-5 text-slate-600">Choose a service and add your cleaning items. Your selections will stay here while you explore the website.</p><Link to="/#quote" onClick={() => dialog.current?.close()} className="block rounded-xl bg-royal-600 px-5 py-3 text-center font-bold text-white">Start my quote</Link></>}
+        </> : <><p className="my-5 text-slate-600">Choose a service and add your cleaning items. Your selections will stay here while you explore the website.</p><a href="/#quote" onClick={openQuote} className="block rounded-xl bg-royal-600 px-5 py-3 text-center font-bold text-white">Start my quote</a></>}
       </div>
     </dialog>
   </>;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams, useLocation } from 'react-router-dom';
+import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { Maximize2 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -19,6 +19,12 @@ import { useManagedGalleryMedia } from '../lib/managedGalleryMedia';
 function isGalleryCategory(value: string | null): value is GalleryCategory {
   return !!value && GALLERY_CATEGORIES.some((c) => c.key === value);
 }
+
+const SERVICE_LINKS: Record<GalleryCategory, { href: string; label: string }> = {
+  'end-of-tenancy': { href: '/end-of-tenancy-cleaning-london#quote', label: 'Get an end of tenancy quote' },
+  carpet: { href: '/carpet-cleaning-london#quote', label: 'Get a carpet quote' },
+  'sofa-upholstery': { href: '/sofa-cleaning-london#quote', label: 'Get a sofa quote' },
+};
 
 export default function GalleryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -106,7 +112,7 @@ export default function GalleryPage() {
             VVE Clean Gallery
           </h1>
           <p className="text-silver-200 text-base sm:text-lg max-w-xl mx-auto">
-            Browse real before-and-after results, finished-job photos and short process clips from our own work. Use the service tabs to keep the page easy to scan.
+            Before-and-after results, finished-job photos and cleaning in progress. Each set comes from VVE Clean's work; results vary with the material and condition.
           </p>
         </div>
       </div>
@@ -147,10 +153,14 @@ export default function GalleryPage() {
           aria-labelledby={`gallery-tab-${active}`}
           tabIndex={0}
         >
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-2xl font-bold text-navy-900">{activeMeta.label}</h2>
+            <Link to={SERVICE_LINKS[active].href} className="inline-flex min-h-[44px] items-center font-semibold text-royal-700 underline">{SERVICE_LINKS[active].label}</Link>
+          </div>
           {items.length === 0 ? (
             <div className="text-center py-16 border border-dashed border-silver-300 rounded-2xl bg-silver-50">
               <p className="text-silver-500 font-medium">
-                Our {activeMeta.label} results library is being organised and will be added here shortly.
+                There are no published {activeMeta.label.toLowerCase()} photos in this collection yet. You can still read about the service and request a quote.
               </p>
             </div>
           ) : (

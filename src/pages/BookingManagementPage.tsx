@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { applyRouteMetadata } from "../lib/routeMetadata";
 
 type Agreement = {
   service: string;
@@ -149,7 +150,8 @@ export default function BookingManagementPage() {
     setError("");
     try {
       const data = await request();
-      if (data.booking) setBooking(data.booking);
+      if (!data.booking) throw new Error("We could not load your booking details. Please refresh or contact the team.");
+      setBooking(data.booking);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Booking unavailable.");
     } finally {
@@ -157,15 +159,7 @@ export default function BookingManagementPage() {
     }
   }
   useEffect(() => {
-    document.title = "Manage your booking | VVE Clean";
-    const meta = document.createElement("meta");
-    meta.name = "robots";
-    meta.content = "noindex, nofollow, noarchive";
-    document.head.appendChild(meta);
-    const referrer = document.createElement("meta");
-    referrer.name = "referrer";
-    referrer.content = "no-referrer";
-    document.head.appendChild(referrer);
+    applyRouteMetadata("/manage-booking");
     if (token) void refresh();
     else {
       setError(
@@ -173,10 +167,6 @@ export default function BookingManagementPage() {
       );
       setLoading(false);
     }
-    return () => {
-      meta.remove();
-      referrer.remove();
-    };
     // The bearer token is captured once from the email fragment and removed
     // from the address bar before any links or customer actions are rendered.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -218,13 +208,16 @@ export default function BookingManagementPage() {
     e.preventDefault();
     if (panel) void act(panel, { confirm: confirmed, date, time, reason });
   }
-  const summary = states[booking?.state || "draft"];
+  const summary = states[booking?.state || "draft"] || {
+    title: "Please check your booking with the team",
+    text: "We could not display the current appointment status. Contact VVE Clean before making further arrangements.",
+  };
   const expired =
     booking?.state === "offered" &&
     booking.holdUntil &&
     new Date(booking.holdUntil) <= new Date();
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:py-12">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:py-12">
       <div className="mx-auto max-w-3xl">
         <a
           href="/"
@@ -234,6 +227,9 @@ export default function BookingManagementPage() {
           VVE <span className="text-blue-700">Clean</span>
         </a>
         <p className="mt-2 text-sm text-slate-600">Your private booking page</p>
+        {(!booking || loading) && (
+          <h1 className="mt-7 text-3xl font-bold leading-tight">Manage your booking</h1>
+        )}
         {loading && (
           <p role="status" className="mt-8 rounded-2xl bg-white p-6">
             Loading your booking…
@@ -250,7 +246,7 @@ export default function BookingManagementPage() {
                 type="button"
                 onClick={refresh}
                 className="mt-3 font-semibold underline"
-                disabled={busy}
+                disabled={busy || loading}
               >
                 Refresh booking
               </button>
@@ -572,6 +568,11 @@ export default function BookingManagementPage() {
           <p>
             <a href="mailto:contact@vveclean.co.uk" className="underline">
               contact@vveclean.co.uk
+            </a>
+          </p>
+          <p className="mt-2">
+            <a href="https://wa.me/447845451111" className="font-semibold text-blue-800 underline">
+              Message us on WhatsApp
             </a>
           </p>
           <p className="mt-3 text-xs">

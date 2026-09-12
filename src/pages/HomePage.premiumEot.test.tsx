@@ -18,7 +18,7 @@ import EndOfTenancyPage from './EndOfTenancyPage';
 import { CookieConsentProvider } from '../context/CookieConsentContext';
 import { EOT_COMPLETE_PRICES_P, EOT_TAILORED_START_PRICES_P } from '../data/pricing';
 
-const cheapestP = (completeP: number, tailoredP: number) => Math.min(completeP, tailoredP);
+import { clearQuoteBasket } from '../lib/quoteBasket';
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -74,20 +74,22 @@ describe('End of Tenancy quote — identical on the homepage and the service pag
     expect(quote().queryByText('Service Type')).not.toBeInTheDocument();
   });
 
-  it('selecting the same property size shows the same footer total on both pages', async () => {
+  it('selecting the same property size shows the same Complete total on both fresh pages', async () => {
     const user = userEvent.setup();
-    renderHome();
+    const home = renderHome();
     await chooseCard(user, 'End of tenancy cleaning');
     await waitFor(() => expect(quote().getByRole('list', { name: /Step 1 of 4/ })).toBeInTheDocument());
     await user.click(quote().getByRole('button', { name: /^3 bed/ }));
     const homeTotal = quote().getByTestId('footer-total').textContent;
 
+    home.unmount();
+    clearQuoteBasket();
     renderEotPage();
     const eotSections = document.querySelectorAll('#quote');
     const eotQuote = within(eotSections[eotSections.length - 1] as HTMLElement);
     await user.click(eotQuote.getByRole('button', { name: /^3 bed/ }));
 
-    const expected = `£${cheapestP(EOT_COMPLETE_PRICES_P.bed3, EOT_TAILORED_START_PRICES_P.bed3) / 100}`;
+    const expected = `£${EOT_COMPLETE_PRICES_P.bed3 / 100}`;
     expect(homeTotal).toBe(expected);
     expect(eotQuote.getByTestId('footer-total')).toHaveTextContent(expected);
   });
@@ -104,11 +106,32 @@ describe('End of Tenancy quote — identical on the homepage and the service pag
     }));
     try {
       renderHome();
-      const expected = `£${cheapestP(EOT_COMPLETE_PRICES_P.bed2, EOT_TAILORED_START_PRICES_P.bed2) / 100}`;
+      const expected = `£${EOT_COMPLETE_PRICES_P.bed2 / 100}`;
       await waitFor(() => expect(quote().getByTestId('footer-total')).toHaveTextContent(expected));
     } finally {
       sessionStorage.removeItem('vve_restore_quote');
       sessionStorage.removeItem('vve_booking');
     }
+  });
+});
+
+
+describe('homepage EOT restore preserves the selected package', () => {
+  it('restores Tailored rather than replacing it with the fresh-visit Complete default', async () => {
+    const user = userEvent.setup();
+    sessionStorage.setItem('vve_restore_quote', '1');
+    sessionStorage.setItem('vve_booking', JSON.stringify({
+      serviceName: 'End of tenancy — Tailored Checklist Clean',
+      price: EOT_TAILORED_START_PRICES_P.bed2 / 100,
+      quoteConfig: {
+        service: 'deep', deepService: 'end_of_tenancy', deepSize: 'bed2', deepBaths: 1,
+        eotPackage: 'tailored', addOnCounts: {},
+      },
+    }));
+    renderHome();
+    expect(quote().getByTestId('footer-total')).toHaveTextContent(`£${EOT_TAILORED_START_PRICES_P.bed2 / 100}`);
+    await user.click(quote().getByRole('button', { name: /^Continue$/ }));
+    expect(quote().getByText('Tailored Checklist Clean').closest('button')).toHaveAttribute('aria-pressed', 'true');
+    expect(quote().getByText('Complete Clean').closest('button')).toHaveAttribute('aria-pressed', 'false');
   });
 });

@@ -68,10 +68,10 @@ describe('the booking-page secondary-services note uses canonical prices', () =>
 });
 
 describe('route metadata prices come from the catalogue', () => {
-  const prerender = read('prerender.mjs');
+  const prerender = read('src/lib/routeMetadata.ts');
 
   it('imports the canonical prices rather than typing them', () => {
-    expect(prerender).toContain("from './shared/pricingCatalogue.js'");
+    expect(prerender).toContain("from '../data/pricing'");
     expect(prerender).toContain('penceToDisplay(CARPET_ITEM_PRICES_P.sofa_2)');
     expect(prerender).toContain('penceToDisplay(CARPET_MIN_BOOKING_P)');
   });
@@ -150,7 +150,7 @@ describe('every displayed starting price matches the catalogue', () => {
   it('never advertises a price below the minimum booking a customer can make', () => {
     // A "from £70" sofa with an £85 floor is misleading on its own, which is
     // why the metadata now states both together.
-    const prerender = read('prerender.mjs');
+    const prerender = read('src/lib/routeMetadata.ts');
     if (prerender.includes('SOFA_FROM')) {
       expect(prerender).toContain('CARPET_MIN');
     }

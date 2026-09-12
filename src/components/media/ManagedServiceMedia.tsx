@@ -22,10 +22,10 @@ export default function ManagedServiceMedia({
       <h3
         className={`text-center font-display text-2xl font-bold ${headingColor}`}
       >
-        Featured gallery results
+        Recent cleaning results
       </h3>
       <p className={`mt-2 text-center text-sm ${copyColor}`}>
-        Selected from the VVE Clean Gallery.
+        Photographs and videos from our cleaning work.
       </p>
       <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => (

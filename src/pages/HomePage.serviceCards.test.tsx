@@ -84,7 +84,7 @@ describe('HomePage — fresh visit', () => {
 
     expect(q.getByText('Instant quote')).toBeInTheDocument();
     expect(q.getByRole('heading', { name: 'Get an instant quote' })).toBeInTheDocument();
-    expect(q.getByText('Build a clear price in three short steps.')).toBeInTheDocument();
+    expect(q.getByText('Choose a service, select the work and review your price.')).toBeInTheDocument();
 
     // Three-step indicator.
     for (const [num, label] of [['1', 'Service'], ['2', 'Details'], ['3', 'Quote']]) {
@@ -96,19 +96,15 @@ describe('HomePage — fresh visit', () => {
     expect(q.getByLabelText('Select a service')).toBeInTheDocument();
     expect(q.getByRole('option', { name: 'Choose what you would like cleaned' })).toBeInTheDocument();
 
-    expect(q.getByText(/No hidden fees · Live price where available · No payment to request a time/)).toBeInTheDocument();
+    expect(q.getByText(/No payment to request a time. We agree the details with you first./)).toBeInTheDocument();
 
     // Benefits panel.
     expect(q.getByRole('heading', { name: 'Why book with VVE Clean?' })).toBeInTheDocument();
     for (const benefit of [
-      'Transparent pricing with no hidden fees',
+      'Itemised prices for your selected work',
       'Request a preferred time with no payment',
-      'Professional equipment and direct support',
+      'Cleaning equipment supplied by our team',
       '£5m public liability insurance',
-      // Was "Rated 5.0 by genuine Google reviewers". The numeric rating was
-      // never substantiated anywhere in the project and could not be verified
-      // against the live profile, so the claim is now only that the reviews are
-      // real and public. See src/data/googleRating.ts.
       'Genuine reviews on our public Google profile',
     ]) {
       expect(q.getByText(benefit)).toBeInTheDocument();

@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import PrivacyPolicyPage from './PrivacyPolicyPage';
 import { CookieConsentProvider } from '../context/CookieConsentContext';
-import { CONSENT_VERSION } from '../lib/consentVersion';
 
 function renderPage() {
   render(
@@ -58,7 +57,8 @@ describe('PrivacyPolicyPage — cookies and Google Consent Mode', () => {
     expect(advertising).toMatch(/delete anything already stored/i);
     expect(advertising).toMatch(/discount you were promised carry on working/i);
     // And it must be clear nothing is transmitted while merely browsing.
-    expect(advertising).toMatch(/only at the point you submit it/i);
+    expect(advertising).toMatch(/attached to a booking request or contact enquiry when you submit it/i);
+    expect(advertising).toMatch(/not sent separately while you are simply browsing/i);
   });
 
   it('explains analytics storage is optional and off by default', () => {
@@ -91,14 +91,10 @@ describe('PrivacyPolicyPage — cookies and Google Consent Mode', () => {
     expect(screen.getByRole('dialog', { name: /cookie settings/i })).toBeInTheDocument();
   });
 
-  it('derives "Last updated" from the shared CONSENT_VERSION constant', () => {
+  it('dates the policy update and explains the saved-basket duration without changing consent settings', () => {
     const text = renderPage();
-    const expected = new Date(`${CONSENT_VERSION}T00:00:00Z`).toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      timeZone: 'UTC',
-    });
-    expect(text).toContain(`Last updated: ${expected}`);
+    expect(text).toContain('Last updated: 12 September 2026');
+    expect(text).toMatch(/available to restore for 14 days after its last update/i);
+    expect(text).toMatch(/without contact details or payment information/i);
   });
 });
