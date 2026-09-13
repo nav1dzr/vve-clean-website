@@ -886,9 +886,8 @@ export default function BookingPage() {
               </div>
             </dl>
             <p className="mt-5 text-sm leading-relaxed text-silver-600">
-              After we agree the time, scope and final price, we send a £30
-              deposit request. Your appointment is confirmed when that deposit
-              is paid. The £30 comes off your total.
+              We'll agree the scope, final price and time with you, then confirm
+              your appointment directly. No deposit is required.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <a
@@ -1487,9 +1486,8 @@ export default function BookingPage() {
                 price, then contact you.
               </li>
               <li>
-                <strong>3.</strong> After you agree the details, we send a £30
-                deposit request. Payment confirms the appointment and comes off
-                your total.
+                <strong>3.</strong> After we agree the scope, final price and time
+                with you, we confirm your appointment directly. No deposit is required.
               </li>
             </ol>
           </div>

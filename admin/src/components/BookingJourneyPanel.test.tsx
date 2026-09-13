@@ -29,7 +29,7 @@ describe("CRM booking agreement controls", () => {
     ).toBeDisabled();
     expect(authFetchMock).toHaveBeenCalledTimes(1);
   });
-  it("saves the agreement, previews it, and sends the exact reviewed deadline only after staff confirms availability", async () => {
+  it("saves the agreement, previews it, and confirms without a payment deadline only after staff confirms availability", async () => {
     const user = userEvent.setup();
     authFetchMock.mockResolvedValueOnce(empty);
     const changed = vi.fn();
@@ -83,28 +83,30 @@ describe("CRM booking agreement controls", () => {
     );
     await screen.findByTitle("Booking email preview");
     expect(
-      screen.getByRole("button", { name: "Send £30 deposit request" }),
+      screen.getByRole("button", { name: "Confirm booking and send email" }),
     ).toBeDisabled();
     await user.click(
       screen.getByRole("checkbox", { name: /I checked availability/ }),
     );
     authFetchMock.mockResolvedValueOnce({
       ...saved,
-      journey: { ...saved.journey, revision: 2, state: "offered" },
+      journey: { ...saved.journey, revision: 2, state: "confirmed" },
       deliveries: [{ status: "sent" }],
     });
     await user.click(
-      screen.getByRole("button", { name: "Send £30 deposit request" }),
+      screen.getByRole("button", { name: "Confirm booking and send email" }),
     );
     await waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
     const sent = JSON.parse(
       authFetchMock.mock.calls[authFetchMock.mock.calls.length - 1][1].body,
     );
+    expect(sent).not.toHaveProperty("holdUntil");
+    expect(screen.queryByLabelText(/Payment deadline/)).not.toBeInTheDocument();
     expect(sent).toMatchObject({
       operation: "send",
       revision: 1,
       availabilityConfirmed: true,
-      holdUntil: saved.previewHoldUntil,
+
     });
   });
 });

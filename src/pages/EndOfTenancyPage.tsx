@@ -1,4 +1,5 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import { BOOKING_REQUEST_NOTE } from '../data/businessPolicy';
 import ManagedServiceHeroPhoto from '../components/media/ManagedServiceHeroPhoto';
 import QuoteCalculator from '../components/QuoteCalculator';
 import EotResultsSection from '../components/gallery/EotResultsSection';
@@ -209,7 +210,7 @@ const DATA: ServiceLandingData = {
 
   ctaH2: 'Check the price for your move-out clean',
   ctaBody:
-    'Request your preferred date free. We agree the scope, total and time with you, then send a £30 deposit link. Payment confirms your booking and counts towards the total.',
+    BOOKING_REQUEST_NOTE,
   ctaPrimary: { href: '/end-of-tenancy-cleaning-london#quote', label: 'Get an end of tenancy quote' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };

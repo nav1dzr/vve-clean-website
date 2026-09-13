@@ -1,4 +1,4 @@
-import { computeCarpetPrice, DEPOSIT_P, formatPrice } from '../data/pricing';
+import { computeCarpetPrice, formatPrice } from '../data/pricing';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Shield, Star } from 'lucide-react';
@@ -189,8 +189,7 @@ export default function LeafletPage() {
                 { label: 'Leaflet discount 20%',   value: '−' + formatPrice((example.bundle.preDiscount - example.finalTotal) * 100),  green: true },
                 { label: 'Total after discount',   value: formatPrice(example.finalTotal * 100),  bold: true },
                 { label: 'To request a time',      value: '£0' },
-                { label: 'Deposit after agreement', value: formatPrice(DEPOSIT_P) },
-                { label: 'Balance after £30 deposit', value: formatPrice(example.finalTotal * 100 - DEPOSIT_P) },
+                { label: 'Due after cleaning', value: formatPrice(example.finalTotal * 100) },
               ].map(({ label, value, muted, green, bold }) => (
                 <div key={label} className={`flex justify-between items-center ${bold ? 'border-t border-[#E3E7EE] pt-1.5 mt-1' : ''}`}>
                   <span className={muted ? 'text-silver-500' : green ? 'text-green-700 font-semibold' : bold ? 'text-navy-900 font-bold' : 'text-navy-800'}>

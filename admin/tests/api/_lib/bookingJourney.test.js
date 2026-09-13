@@ -20,6 +20,7 @@ import {
   recordJourneyRefund,
   emailForMessage,
   requireJourneyEnabled,
+  deliverJourneyMessages,
 } from "../../../api/_lib/bookingJourney.js";
 
 const ID = "22222222-2222-4222-8222-222222222222";
@@ -206,10 +207,11 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 describe("agreed booking validation and privacy", () => {
-  it("keeps the deposit at £30 and rejects prices below it, invalid dates and incomplete scope", () => {
-    expect(validateAgreement(snapshot).policyVersion).toBe("2026-09-08");
-    expect(() => validateAgreement({ ...snapshot, totalPence: 2999 })).toThrow(
-      "at least £30",
+  it("validates the agreed amount independently of any deposit, plus date and scope", () => {
+    expect(validateAgreement(snapshot).policyVersion).toBe("2026-09-14");
+    expect(validateAgreement({ ...snapshot, totalPence: 2999 }).totalPence).toBe(2999);
+    expect(() => validateAgreement({ ...snapshot, totalPence: 0 })).toThrow(
+      "positive",
     );
     expect(() =>
       validateAgreement({ ...snapshot, date: "2026-02-31" }),
@@ -285,7 +287,7 @@ describe("booking lifecycle and payment races", () => {
     expect(message.kind).toBe("appointment_reminder");
     expect(message.payload.journey.snapshot.date).toBe("2026-09-09");
     expect(emailForMessage(message.payload).text).toContain(
-      "no automatic payment",
+      "No automatic payment",
     );
     await expect(
       performAdminAction(
@@ -296,57 +298,61 @@ describe("booking lifecycle and payment races", () => {
       ),
     ).rejects.toThrow("No appointment reminder is due");
   });
-  it("sends a saved offer, creates a card-only £30 checkout, confirms once after verified payment, and credits the balance", async () => {
-    const db = memoryDb();
-    await performAdminAction(
-      db,
-      ID,
-      { operation: "send", revision: 0, availabilityConfirmed: true },
-      "admin:test",
-    );
-    let j = db.tables.booking_journeys[0];
-    expect(j.state).toBe("offered");
-    expect(j.hold_until).toBe("2026-09-10T12:00:00.000Z");
-    expect(db.tables.bookings[0].payment_status).toBe("pending_payment");
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        id: "cs_test_a",
-        url: "https://checkout.stripe.com/test",
-        status: "open",
-      }),
-    });
-    await performCustomerAction(db, signToken(j), {
-      operation: "checkout",
-      revision: j.revision,
-    });
-    const sent = fetch.mock.calls[0][1].body;
-    expect(sent.get("line_items[0][price_data][unit_amount]")).toBe("3000");
-    expect(sent.get("payment_method_types[0]")).toBe("card");
-    expect(
-      Number(sent.get("expires_at")) * 1000 - Date.now(),
-    ).toBeLessThanOrEqual(24 * 3600000);
-    const session = {
-      id: "cs_test_a",
-      payment_status: "paid",
-      currency: "gbp",
-      amount_total: 3000,
-      metadata: {
-        journey: "v1",
-        booking_id: ID,
-        offer_version: "1",
-        payment_kind: "deposit",
-        amount_pence: "3000",
-      },
-    };
-    await recordJourneyPayment(db, session);
-    await recordJourneyPayment(db, session);
-    j = db.tables.booking_journeys[0];
+  it("confirms an agreed booking directly with no payment, deadline or Stripe request", async () => {
+    const db = memoryDb({ draft: { ...snapshot, date: "2026-09-08" } });
+    await performAdminAction(db, ID, { operation: "send", revision: 0, availabilityConfirmed: true }, "admin:test");
+    const j = db.tables.booking_journeys[0];
     expect(j.state).toBe("confirmed");
+    expect(j.hold_until).toBeNull();
+    expect(j.paid_pence).toBe(0);
+    expect(db.tables.bookings[0]).toMatchObject({ status: "confirmed", payment_status: "pending_payment", deposit_amount: 0, balance_status: "not_due" });
+    expect(db.tables.booking_journey_payments).toHaveLength(0);
+    expect(db.tables.booking_journey_messages[0].kind).toBe("confirmation");
+    expect(db.tables.booking_journey_messages[0].status).toBe("sent");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it("blocks an old unpaid offer checkout before touching Stripe or the booking", async () => {
+    const db = memoryDb({ state: "offered", snapshot, hold_until: "2026-09-10T12:00:00.000Z" });
+    const j = db.tables.booking_journeys[0];
+    expect(publicJourney(db.tables.bookings[0], j).canPayDeposit).toBe(false);
+    await expect(performCustomerAction(db, signToken(j), { operation: "checkout", revision: 0 })).rejects.toThrow("No deposit is required");
+    await expect(performAdminAction(db, ID, { operation: "remind", revision: 0 }, "admin:test")).rejects.toThrow("Deposits are not being requested");
+    expect(j.revision).toBe(0);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(db.tables.booking_journey_messages).toHaveLength(0);
+  });
+  it("closes an existing unpaid deposit checkout before directly confirming the agreed appointment", async () => {
+    const db = memoryDb({ state: "offered", snapshot, checkout_id: "cs_old_offer", offer_version: 1 });
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ id: "cs_old_offer", status: "open", payment_status: "unpaid" }) });
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ id: "cs_old_offer", status: "expired", payment_status: "unpaid" }) });
+    await performAdminAction(db, ID, { operation: "send", revision: 0, availabilityConfirmed: true }, "admin:test");
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][0]).toBe("https://api.stripe.com/v1/checkout/sessions/cs_old_offer/expire");
+    expect(db.tables.booking_journeys[0]).toMatchObject({ state: "confirmed", paid_pence: 0, checkout_id: null, hold_until: null });
+    expect(db.tables.bookings[0]).toMatchObject({ status: "confirmed", deposit_amount: 0, payment_status: "pending_payment" });
+    expect(db.tables.booking_journey_payments).toHaveLength(0);
+  });
+  it("still reconciles an actual historical deposit payment once and credits its balance", async () => {
+    const db = memoryDb({ state: "offered", snapshot, offer_version: 1 });
+    const session = { id: "cs_historical", payment_status: "paid", currency: "gbp", amount_total: 3000,
+      metadata: { journey: "v1", booking_id: ID, offer_version: "1", payment_kind: "deposit", amount_pence: "3000" } };
+    await recordJourneyPayment(db, session);
+    await recordJourneyPayment(db, session);
+    const j = db.tables.booking_journeys[0];
     expect(j.paid_pence).toBe(3000);
     expect(db.tables.booking_journey_payments).toHaveLength(1);
     expect(publicJourney(db.tables.bookings[0], j).balancePence).toBe(24900);
     expect(db.tables.bookings[0].deposit_amount).toBe(30);
+  });
+  it.each([0, 3000])("keeps completed-clean balance checkout working with %i pence already paid", async (paidPence) => {
+    const db = memoryDb({ state: "completed", snapshot, paid_pence: paidPence });
+    const j = db.tables.booking_journeys[0];
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ id: "cs_balance", url: "https://checkout.stripe.com/test", status: "open" }) });
+    await performCustomerAction(db, signToken(j), { operation: "checkout", revision: 0 });
+    const sent = fetch.mock.calls[0][1].body;
+    expect(sent.get("line_items[0][price_data][unit_amount]")).toBe(String(snapshot.totalPence - paidPence));
+    expect(sent.get("metadata[payment_kind]")).toBe("balance");
+    expect(sent.get("payment_method_types[0]")).toBe("card");
   });
   it("does not confirm an unpaid Stripe checkout return", async () => {
     const db = memoryDb();
@@ -445,11 +451,11 @@ describe("booking lifecycle and payment races", () => {
     expect(fetch).not.toHaveBeenCalled();
     expect(db.tables.booking_journey_messages[0].kind).toBe("cancelled");
   });
-  it("keeps the paid original appointment during reschedule review, and changes it only on customer acceptance", async () => {
+  it.each([0, 3000])("keeps the original appointment with %i pence paid during reschedule review until customer acceptance", async (paidPence) => {
     const db = memoryDb({
       state: "confirmed",
       snapshot,
-      paid_pence: 3000,
+      paid_pence: paidPence,
       offer_version: 1,
     });
     let j = db.tables.booking_journeys[0];
@@ -486,7 +492,7 @@ describe("booking lifecycle and payment races", () => {
     });
     expect(j.state).toBe("confirmed");
     expect(db.tables.bookings[0].service_date).toBe("2026-10-11");
-    expect(j.paid_pence).toBe(3000);
+    expect(j.paid_pence).toBe(paidPence);
     expect(fetch).not.toHaveBeenCalled();
   });
   it("records a late payment on a closed offer for staff review instead of silently confirming a cancelled clean", async () => {
@@ -639,7 +645,7 @@ describe("booking lifecycle and payment races", () => {
       "admin:test",
     );
     expect(db.tables.booking_journeys[0].state).toBe("confirmed");
-    expect(db.tables.bookings[0].deposit_amount).toBe(30);
+    expect(db.tables.bookings[0].deposit_amount).toBe(0);
   });
 });
 describe("communication failure handling", () => {
@@ -675,7 +681,7 @@ describe("communication failure handling", () => {
     expect(db.tables.booking_journey_messages).toHaveLength(1);
     expect(transport.sendMail).toHaveBeenCalledTimes(1);
   });
-  it("saves the offer when SMTP is unavailable and leaves a visible retryable message", async () => {
+  it("saves the confirmation when SMTP is unavailable and leaves a visible retryable message", async () => {
     vi.stubEnv("GMAIL_APP_PASSWORD", "");
     const db = memoryDb();
     const result = await performAdminAction(
@@ -684,7 +690,7 @@ describe("communication failure handling", () => {
       { operation: "send", revision: 0, availabilityConfirmed: true },
       "admin:test",
     );
-    expect(db.tables.booking_journeys[0].state).toBe("offered");
+    expect(db.tables.booking_journeys[0].state).toBe("confirmed");
     expect(result.deliveries[0].status).toBe("failed");
     expect(db.tables.booking_journey_messages[0].last_error).toContain(
       "credentials",
@@ -720,6 +726,23 @@ describe("communication failure handling", () => {
     expect(mail.html).toContain("&lt;img");
     expect(mail.html).not.toContain("<img src=x");
     expect(mail.text).toContain("/manage-booking#token=");
-    expect(mail.text).toContain("£30.00");
+    expect(mail.text).toContain("No deposit is required");
+    expect(mail.text).not.toMatch(/£30|Deposit due|Payment deadline/);
+  });
+});
+
+describe("retired deposit communications", () => {
+  it("suppresses queued deposit requests and reminders without sending", async () => {
+    const db = memoryDb({ state: "offered", snapshot, offer_version: 1, hold_until: "2026-09-10T12:00:00Z" });
+    for (const kind of ["deposit_request", "reminder"]) db.tables.booking_journey_messages.push({ id: kind, booking_id: ID, kind, payload: { kind, journey: structuredClone(db.tables.booking_journeys[0]) }, status: "pending", attempts: 0 });
+    await deliverJourneyMessages(db, ID);
+    expect(db.tables.booking_journey_messages.every(m => m.status === "suppressed")).toBe(true);
+    expect(nodemailer.createTransport).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it.each(["initial_customer", "initial_business", "deposit_request", "confirmation", "change_proposal", "revised_confirmation", "reminder", "appointment_reminder", "expired", "balance_due"])("keeps %s templates free of deposit requirements", kind => {
+    const db = memoryDb({ snapshot });
+    const mail = emailForMessage({ kind, name: "Test", reference: "TEST", journey: db.tables.booking_journeys[0] });
+    expect(mail.text + mail.html).not.toMatch(/£30|Deposit due|Payment deadline|deposit confirms|paying.*confirms/i);
   });
 });

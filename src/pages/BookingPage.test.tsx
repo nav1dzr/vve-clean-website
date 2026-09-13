@@ -582,6 +582,8 @@ describe("BookingPage — no-payment request submission", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("VVE-TEST123")).toBeInTheDocument();
     expect(screen.getByText(/No payment has been taken/i)).toBeInTheDocument();
+    expect(screen.getByText(/then confirm your appointment directly/i)).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/£30|deposit request|payment confirms|confirmed when.*paid/i);
 
     vi.unstubAllGlobals();
   });

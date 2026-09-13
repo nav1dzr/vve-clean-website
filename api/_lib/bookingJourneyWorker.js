@@ -14,60 +14,8 @@ export async function processDueBookingJourneys(
   } = {},
 ) {
   const results = [];
-  const { data: due, error } = await db
-    .from("booking_journeys")
-    .select("booking_id,revision,state,hold_until")
-    .eq("state", "offered")
-    .lte("hold_until", now.toISOString())
-    .order("hold_until", { ascending: true })
-    .limit(10);
-  if (error) throw new JourneyError("Could not load due holds.", 503);
-  for (const j of due || []) {
-    try {
-      await perform(
-        db,
-        j.booking_id,
-        { operation: "expire", revision: j.revision },
-        "worker",
-      );
-      results.push({ id: j.booking_id, status: "expired" });
-    } catch (error) {
-      results.push({
-        id: j.booking_id,
-        status: "needs_review",
-        error: error.message,
-      });
-    }
-  }
-  // A per-offer marker is cleared on Send and set in the same transaction as
-  // the reminder outbox. Already-reminded rows cannot starve later bookings.
-  const { data: reminders, error: re } = await db
-    .from("booking_journeys")
-    .select("booking_id,revision,offer_version,hold_until")
-    .eq("state", "offered")
-    .is("reminder_sent_at", null)
-    .gt("hold_until", new Date(now.getTime() + 31 * 60000).toISOString())
-    .lte("hold_until", new Date(now.getTime() + 24 * 3600000).toISOString())
-    .order("hold_until", { ascending: true })
-    .limit(10);
-  if (re) throw new JourneyError("Could not load deposit reminders.", 503);
-  for (const j of reminders || []) {
-    try {
-      await perform(
-        db,
-        j.booking_id,
-        { operation: "remind", revision: j.revision },
-        "worker",
-      );
-      results.push({ id: j.booking_id, status: "reminder_queued" });
-    } catch (error) {
-      results.push({
-        id: j.booking_id,
-        status: "needs_review",
-        error: error.message,
-      });
-    }
-  }
+  // Deposit requests are retired. Do not remind customers to pay or release
+  // their old provisional holds automatically; staff agrees and confirms directly.
   const nextLondonDay = new Date(`${londonToday(now)}T12:00:00Z`);
   nextLondonDay.setUTCDate(nextLondonDay.getUTCDate() + 1);
   for (const [state, field] of [

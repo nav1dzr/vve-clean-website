@@ -1,4 +1,5 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import { BOOKING_REQUEST_NOTE } from '../data/businessPolicy';
 import CarpetResultsSection from '../components/carpet/CarpetResultsSection';
 import CarpetProcessSection from '../components/carpet/CarpetProcessSection';
 
@@ -102,7 +103,7 @@ const DATA: ServiceLandingData = {
   ],
 
   ctaH2: 'Ready to book your carpet clean?',
-  ctaBody: 'Send your preferred date free. We agree the scope, total and time, then send a £30 deposit link. Payment confirms the booking and counts towards the total.',
+  ctaBody: BOOKING_REQUEST_NOTE,
   ctaPrimary: { href: '/carpet-cleaning-london#quote', label: 'Get a carpet quote' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };

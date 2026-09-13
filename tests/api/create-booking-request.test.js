@@ -377,9 +377,11 @@ describe("POST /api/create-booking-request", () => {
     for (const [message] of sendMailMock.mock.calls) {
       expect(message.text).toBeTruthy();
       expect(message.html).toBeTruthy();
-      expect(message.text).toMatch(/£30 deposit request/i);
-      expect(message.text).toMatch(/after.*agree/i);
-      expect(message.html).toMatch(/£30 deposit request/i);
+      expect(message.text).toMatch(/confirm.*appointment directly/i);
+      expect(message.text).not.toMatch(/£30|payment confirms|deposit request|pay.*deposit/i);
+      expect(message.text).toMatch(/agree.*scope.*final price.*time/i);
+      expect(message.html).toMatch(/confirm.*appointment directly/i);
+      expect(message.html).not.toMatch(/£30|payment confirms|deposit request|pay.*deposit/i);
     }
     expect(updateEqMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -408,7 +410,7 @@ describe("POST /api/create-booking-request", () => {
     expect(telegramBody.chat_id).toBe("test-chat-id");
     expect(telegramBody.text).toMatch(/New booking request/);
     expect(telegramBody.text).toMatch(
-      /Free initial request; deposit requested after agreement/,
+      /Request received; no payment taken or required to confirm/,
     );
     expect(telegramBody.text).not.toMatch(/£30 deposit|deposit link|Stripe/i);
     expect(updateEqMock).toHaveBeenCalledWith(

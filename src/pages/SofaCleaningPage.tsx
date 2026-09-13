@@ -1,4 +1,5 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
+import { BOOKING_REQUEST_NOTE } from '../data/businessPolicy';
 import QuoteCalculator from '../components/QuoteCalculator';
 import { SofaCareGuide, SofaHeroPanel } from '../components/sofa/SofaServicePreview';
 import SofaProofSection from '../components/sofa/SofaProofSection';
@@ -193,7 +194,7 @@ const DATA: ServiceLandingData = {
 
   ctaH2: 'Ready to book your sofa clean?',
   ctaBody:
-    'Request your preferred date free. We agree the scope, total and time with you, then send a £30 deposit link. Payment confirms your booking and counts towards the total.',
+    BOOKING_REQUEST_NOTE,
   ctaPrimary: { href: '/sofa-cleaning-london#quote', label: 'Get a sofa quote' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };

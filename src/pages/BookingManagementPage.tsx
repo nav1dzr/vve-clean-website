@@ -47,8 +47,8 @@ const states: Record<string, { title: string; text: string }> = {
     text: "The team is reviewing your preferred service and time. No appointment is confirmed yet.",
   },
   offered: {
-    title: "One step to confirm your clean",
-    text: "Your agreed appointment is provisionally held. A £30 deposit confirms it and is deducted from your total.",
+    title: "Your appointment is being arranged",
+    text: "We'll agree the scope, final price and time with you, then confirm your appointment directly. No deposit is required.",
   },
   change_pending: {
     title: "Please review your revised arrangements",
@@ -56,11 +56,11 @@ const states: Record<string, { title: string; text: string }> = {
   },
   confirmed: {
     title: "Your booking is confirmed",
-    text: "We look forward to helping. Your deposit is included in the amount paid below.",
+    text: "The agreed details are below. Any previous payment remains included in the amount paid.",
   },
   expired: {
     title: "Your appointment hold has expired",
-    text: "Please contact us to agree a new time. An expired unpaid hold is not a confirmed appointment.",
+    text: "Please contact us to agree a new time. This expired hold is not a confirmed appointment.",
   },
   cancelled: {
     title: "Your booking is cancelled",
@@ -269,7 +269,7 @@ export default function BookingManagementPage() {
                   Booking {booking.reference} · Version {booking.offerVersion}
                 </p>
                 <h1 className="mt-3 text-3xl font-bold leading-tight">
-                  {expired ? "Your payment deadline has passed" : summary.title}
+                  {expired ? "Please check your appointment with the team" : summary.title}
                 </h1>
                 <p className="mt-3 max-w-xl leading-relaxed text-slate-200">
                   {expired
@@ -383,23 +383,9 @@ export default function BookingManagementPage() {
                 <p className="mt-2 text-sm text-slate-600">
                   {booking.state === "cancelled"
                     ? "The unpaid part of your quote is not a cancellation charge. Contact us about any refund due under the agreed terms."
-                    : "The £30 deposit forms part of the agreed total. The remaining balance is due after the clean."}
+                    : "Payment is due after the clean. Any previous payment counts towards your agreed total."}
                 </p>
-                {booking.state === "offered" && booking.holdUntil && (
-                  <p className="mt-5 rounded-xl bg-blue-50 p-4 leading-relaxed text-blue-950">
-                    Deposit deadline:{" "}
-                    <strong>
-                      {new Intl.DateTimeFormat("en-GB", {
-                        timeZone: "Europe/London",
-                        dateStyle: "full",
-                        timeStyle: "short",
-                      }).format(new Date(booking.holdUntil))}{" "}
-                      (London time)
-                    </strong>
-                    .
-                  </p>
-                )}
-                {(booking.canPayDeposit || booking.canPayBalance) && (
+                {booking.canPayBalance && (
                   <button
                     disabled={busy}
                     onClick={() => act("checkout")}
@@ -407,9 +393,7 @@ export default function BookingManagementPage() {
                   >
                     {busy
                       ? "Preparing…"
-                      : booking.canPayDeposit
-                        ? "Pay £30 deposit"
-                        : `Pay ${money(booking.balancePence)} remaining balance`}
+                      : `Pay ${money(booking.balancePence)} remaining balance`}
                   </button>
                 )}
                 {booking.canAccept && (

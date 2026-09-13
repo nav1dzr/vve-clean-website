@@ -207,7 +207,7 @@ function customerText(data) {
     "",
     detailText(data),
     "",
-    "After we agree the time, scope and price, we send a £30 deposit request. Your appointment is confirmed when that deposit is paid; it comes off your total.",
+    "Send your request with no payment. We’ll agree the scope, final price and time with you, then confirm your appointment directly.",
     "",
     "VVE Clean",
     "020 8050 2233 · contact@vveclean.co.uk",
@@ -225,7 +225,7 @@ function businessText(data) {
     `Estimated total: £${data.totalPrice}`,
     `Notes: ${data.message || "—"}`,
     "",
-    "Manager next step: check availability and the final scope, then contact the customer to agree the appointment. The initial request is free. Send the £30 deposit request only after agreeing the booking details.",
+    "Manager next step: check availability and agree the scope, final price and time with the customer, then confirm the appointment directly. No deposit is required.",
   ].join("\n");
 }
 
@@ -249,9 +249,9 @@ function emailHtml(data, business = false) {
     .join("");
 
   const intro = business
-    ? "Check availability and the final scope, then contact the customer to agree the appointment. The initial request is free. Send the £30 deposit request only after agreeing the booking details."
+    ? "Check availability and agree the scope, final price and time with the customer, then confirm the appointment directly. No deposit is required."
     : "No payment has been taken. Your requested time is not confirmed yet; we will review availability, the final scope and price during opening hours and contact you.";
-  return `<!doctype html><html lang="en"><body style="margin:0;background:#f5f6f8;font-family:Arial,sans-serif;color:#020b24"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="560" style="max-width:560px;width:100%;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#020b24;padding:24px 28px">${emailWordmarkHtml({ inverse: true })}</td></tr><tr><td style="padding:28px"><h1 style="font-size:22px;margin:0 0 12px">${business ? "New booking request" : "We received your request"}</h1><p style="font-size:15px;line-height:1.6;margin:0 0 18px">${esc(intro)}</p><table role="presentation" width="100%" cellspacing="0" style="border:1px solid #e3e7ee;border-radius:10px;border-collapse:separate;border-spacing:0">${rows}</table>${business ? "" : '<p style="font-size:14px;line-height:1.6;margin:18px 0 0">After we agree the time, scope and price, we send a £30 deposit request. Your appointment is confirmed when that deposit is paid; it comes off your total.</p>'}</td></tr></table></td></tr></table></body></html>`;
+  return `<!doctype html><html lang="en"><body style="margin:0;background:#f5f6f8;font-family:Arial,sans-serif;color:#020b24"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="560" style="max-width:560px;width:100%;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#020b24;padding:24px 28px">${emailWordmarkHtml({ inverse: true })}</td></tr><tr><td style="padding:28px"><h1 style="font-size:22px;margin:0 0 12px">${business ? "New booking request" : "We received your request"}</h1><p style="font-size:15px;line-height:1.6;margin:0 0 18px">${esc(intro)}</p><table role="presentation" width="100%" cellspacing="0" style="border:1px solid #e3e7ee;border-radius:10px;border-collapse:separate;border-spacing:0">${rows}</table>${business ? "" : '<p style="font-size:14px;line-height:1.6;margin:18px 0 0">Send your request with no payment. We’ll agree the scope, final price and time with you, then confirm your appointment directly.</p>'}</td></tr></table></td></tr></table></body></html>`;
 }
 
 async function sendNotifications(data) {
@@ -319,7 +319,7 @@ async function sendNotifications(data) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: process.env.TELEGRAM_CHAT_ID,
-            text: `New booking request\n${data.bookingRef}\n${data.fullName} · ${data.phone}\n${data.service}\n${data.date} · ${data.time}\nEstimated total: £${data.totalPrice}\nFree initial request; deposit requested after agreement`,
+            text: `New booking request\n${data.bookingRef}\n${data.fullName} · ${data.phone}\n${data.service}\n${data.date} · ${data.time}\nEstimated total: £${data.totalPrice}\nRequest received; no payment taken or required to confirm. Agree the scope, final price and time, then confirm directly.`,
           }),
         },
       );

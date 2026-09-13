@@ -144,25 +144,32 @@ try {
   const agreedSnapshot = {
     totalPence: 27900,
     service: "Synthetic cleaning",
-    policyVersion: "2026-09-08",
+    policyVersion: "2026-09-14",
   };
 
   await check(
-    "A service-role agreement stores one version, history event and pending message atomically",
+    "Direct confirmation stores the appointment and email atomically without any payment or deposit",
     async () => {
       await mutate(
         0,
-        "offer",
-        { state: "offered", snapshot: agreedSnapshot, offer_version: 1 },
-        { total_price: 279, status: "new" },
+        "agreement_sent",
+        { state: "confirmed", snapshot: agreedSnapshot, offer_version: 1, hold_until: null },
+        { total_price: 279, status: "confirmed", balance_status: "not_due" },
         {
-          kind: "deposit_request",
+          kind: "confirmation",
           dedup_key: "synthetic:offer:1",
           payload: { reference: "TEST" },
         },
       );
       const saved = await state();
       assert.equal(saved.journey.revision, 1);
+      assert.equal(saved.journey.state, "confirmed");
+      assert.equal(saved.journey.paid_pence, 0);
+      assert.equal(saved.journey.hold_until, null);
+      assert.equal(saved.booking.status, "confirmed");
+      assert.equal(Number(saved.booking.deposit_amount), 0);
+      assert.equal(saved.booking.payment_status, null);
+      assert.equal(saved.payments.length, 0);
       assert.deepEqual(saved.journey.snapshot, agreedSnapshot);
       assert.equal(saved.events.length, 1);
       assert.deepEqual(

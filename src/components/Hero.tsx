@@ -1,4 +1,5 @@
 import { ArrowRight } from 'lucide-react';
+import { BOOKING_REQUEST_NOTE } from '../data/businessPolicy';
 import GoogleBadge from './GoogleBadge';
 import HomepagePhotoCarousel from './HomepagePhotoCarousel';
 
@@ -20,7 +21,7 @@ export default function Hero() {
             </a>
             <a href="#services" className="inline-flex min-h-[44px] items-center px-2 text-sm font-semibold text-navy-900 underline decoration-slate-300 underline-offset-4 hover:decoration-royal-600">Explore our services</a>
           </div>
-          <p className="mt-4 text-sm leading-relaxed text-slate-600">No payment to request a time. The £30 deposit follows once we've agreed the details.</p>
+          <p className="mt-4 text-sm leading-relaxed text-slate-600">{BOOKING_REQUEST_NOTE}</p>
           <div className="mt-5"><GoogleBadge /></div>
         </div>
         <HomepagePhotoCarousel />

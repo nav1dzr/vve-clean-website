@@ -18,23 +18,24 @@ function renderPage() {
   return (document.body.textContent || '').replace(/\s+/g, ' ');
 }
 
-describe('TermsOfServicePage — free request and agreed deposit clarity', () => {
+describe('TermsOfServicePage — no-payment request and direct confirmation', () => {
   it('explains the request is free and creates no payment obligation', () => {
     const text = renderPage();
     expect(text).toMatch(/No payment is taken when you send that request/i);
     expect(text).toMatch(/does not create a payment obligation/i);
-    expect(text).toMatch(/After we agree the time, scope and final price with you, we send an offer with a £30 deposit link/i);
+    expect(text).toMatch(/After we agree the scope, final price and time with you, we confirm your appointment directly/i);
+    expect(text).toMatch(/No deposit or advance payment is required to confirm your appointment/i);
   });
 
   it('explains the preferred time is a request until time, scope and price are agreed', () => {
     const text = renderPage();
     expect(text).toMatch(/is a\s*booking request, not a confirmed appointment/i);
-    expect(text).toMatch(/booking is confirmed when the deposit payment is verified/i);
+    expect(text).not.toMatch(/£30|payment confirms|deposit payment is verified|deposit link/i);
   });
 
-  it('states when the remaining balance is due', () => {
+  it('states when service payment is due', () => {
     const text = renderPage();
-    expect(text).toMatch(/remaining balance is due after the service has been completed/i);
+    expect(text).toMatch(/Payment is due after the service has been completed/i);
   });
 
   it('states no extra work or price change begins without customer agreement', () => {

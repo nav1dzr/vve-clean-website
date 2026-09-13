@@ -1,4 +1,5 @@
 import PriceTaxNote from '../components/PriceTaxNote';
+import { BOOKING_REQUEST_NOTE } from '../data/businessPolicy';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarDays, Check, ChevronRight, Home, Layers, Sofa, Sparkles } from 'lucide-react';
@@ -24,7 +25,7 @@ const CARPET_EXAMPLE_STANDALONE_P = Math.round(computeCarpetPrice({ bedroom: 1, 
 const categories = ['End of tenancy', 'Carpets', 'Sofas & upholstery', 'Other cleans'] as const;
 const categoryIcons = [Home, Layers, Sofa, Sparkles];
 const PRICING_FAQS = [
-  { q: 'When do I pay?', a: 'Request a preferred time free. After we agree the scope, total and time with you, we send a £30 deposit link. Paying confirms the booking; the deposit counts towards the total and the remaining balance is normally due after the service.' },
+  { q: 'When do I pay?', a: `${BOOKING_REQUEST_NOTE} Payment is normally due after the service. No deposit is required.` },
   { q: 'What do the published prices cover?', a: 'The tables show the standard scope for normally maintained properties. Select the service and property details to see the applicable price and included work.' },
   { q: 'Can the price change?', a: 'If the information supplied does not match the condition or scope on arrival, VVE Clean will explain the difference and agree any revised price before additional work starts.' },
   { q: 'Can I request a same-day or next-day visit?', a: 'You can send any preferred date, but availability varies by service, area and property size. Contact VVE Clean first if the timing is critical.' },
@@ -124,7 +125,7 @@ export default function PricingPage() {
       {[
        ['01', 'Request your time', 'Choose your service and preferred time. Sending the request is free.'],
        ['02', 'Agree the details', 'We confirm availability, the work included and the full price, including any access costs.'],
-       ['03', 'Confirm with £30', 'Once you agree, pay the deposit to confirm. It counts towards your total; the balance is normally due after cleaning.'],
+       ['03', 'We confirm your visit', 'Once we agree the details with you, we confirm your appointment directly. No deposit is required.'],
       ].map(([number, title, text]) => (
        <li key={number} className="flex gap-4 rounded-2xl border border-white/15 bg-white/5 p-5 sm:block sm:p-6">
         <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-200/40 text-sm font-bold text-sky-100">{number}</span>
