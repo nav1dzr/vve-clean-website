@@ -1,3 +1,4 @@
+import { VAT_NOTE, CANCELLATION_NOTICE, RESCHEDULING_NOTICE, LATE_CHANGE_NOTICE, CANCELLATION_RIGHTS, COMMERCIAL_PAYMENT_NOTE } from '../data/businessPolicy';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -68,6 +69,7 @@ const sections: Section[] = [
           service type. Our standard prices are listed on our website and apply to properties in normal,
           reasonably clean condition.
         </p>
+        <p className="mt-3">{VAT_NOTE}</p>
         <p className="mt-3">
           We reserve the right to revise a quote before starting work if, upon arrival, the actual
           condition or size of the job differs significantly from what was described or shown. This may
@@ -115,14 +117,13 @@ const sections: Section[] = [
     content: (
       <>
         <p>
-          We understand that circumstances change. We ask for reasonable notice if you need to cancel or
-          reschedule your booking:
+          {CANCELLATION_NOTICE}
         </p>
         <ul className="mt-3 space-y-2 list-none">
           {[
-            'Free reschedule if you contact us before 12:00 noon the day before your booking',
-            'If you need to cancel with less than 24 hours’ notice, contact us as soon as possible',
-            'Any cancellation or call-out charge applies only if it was stated and agreed in writing when the appointment was confirmed (see Section 8)',
+            RESCHEDULING_NOTICE,
+            LATE_CHANGE_NOTICE,
+            CANCELLATION_RIGHTS,
           ].map((item) => (
             <li key={item} className="flex items-start gap-2.5 text-silver-700">
               <span className="w-1.5 h-1.5 rounded-full bg-royal-500 flex-shrink-0 mt-2" />
@@ -200,7 +201,7 @@ const sections: Section[] = [
           agreed with you in writing before the appointment.
         </p>
         <p className="mt-3">
-          Commercial customers are invoiced on 14-day payment terms unless otherwise agreed. Late payment
+          {COMMERCIAL_PAYMENT_NOTE} Late payment
           may result in suspension of future bookings.
         </p>
       </>

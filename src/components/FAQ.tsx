@@ -1,3 +1,4 @@
+import { VAT_NOTE, CANCELLATION_SUMMARY } from '../data/businessPolicy';
 import { Link } from 'react-router-dom';
 import {
   EOT_GUARANTEE_HOURS,
@@ -48,12 +49,12 @@ export const FAQS = [
   {
     q: 'Can the price change?',
     group: 'Prices and payment',
-    a: 'Our prices are fixed for normal condition properties based on the details provided. If we arrive and the property has heavy soiling, mould, excessive rubbish, biohazard contamination, strong odours, pet accidents, or large/permanent stains, we will explain the issue and confirm any revised price before starting.',
+    a: VAT_NOTE + ' Our prices are fixed for normal condition properties based on the details provided. If we arrive and the property has heavy soiling, mould, excessive rubbish, biohazard contamination, strong odours, pet accidents, or large/permanent stains, we will explain the issue and confirm any revised price before starting.',
   },
   {
     q: 'Can I reschedule or cancel?',
     group: 'Booking and availability',
-    a: 'Rescheduling is free if you contact us before 12 noon on the day before the confirmed appointment. If you need to cancel later than that, contact us as soon as possible. Any cancellation or call-out charge applies only if it was stated and agreed in writing when the appointment was confirmed.',
+    a: CANCELLATION_SUMMARY,
   },
   {
     q: 'How quickly can you come?',

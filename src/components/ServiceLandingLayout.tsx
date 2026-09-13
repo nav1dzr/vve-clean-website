@@ -1,3 +1,4 @@
+import PriceTaxNote from './PriceTaxNote';
 import { Fragment, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useReveal } from '../hooks/useReveal';
@@ -500,7 +501,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
                 {data.h1Highlight && <span className="mt-2 block text-royal-700">{data.h1Highlight}</span>}
               </h1>
               {data.heroSubtitle && <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-700 sm:text-lg">{data.heroSubtitle}</p>}
-              {data.heroPriceChip && <p className="mt-5 text-base font-bold text-navy-950">{data.heroPriceChip}</p>}
+              {data.heroPriceChip && <><p className="mt-5 text-base font-bold text-navy-950">{data.heroPriceChip}</p><PriceTaxNote className="mt-1" /></>}
               <div className="service-hero-actions mt-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
                 <CtaButton href={data.primaryHref} label={data.primaryLabel} isWa={data.primaryIsWa} variant="primary" />
                 <CtaButton href={data.secondaryHref} label={data.secondaryLabel} isWa={data.secondaryIsWa} variant="secondary" />

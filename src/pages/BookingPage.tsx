@@ -1,3 +1,4 @@
+import PriceTaxNote from '../components/PriceTaxNote';
 import { clearQuoteBasket } from '../lib/quoteBasket';
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
@@ -342,6 +343,7 @@ function ServiceCard({
         </button>
       </div>
 
+      <PriceTaxNote className="px-5 pb-4" />
       {/* Offer breakdown — only rendered when the discount genuinely reduced
           the final price (QuoteCalculator omits offerCode/discountAmount
           entirely when the £85 minimum booking charge overrode it) */}

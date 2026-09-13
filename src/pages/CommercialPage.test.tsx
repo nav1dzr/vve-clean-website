@@ -30,6 +30,12 @@ describe('CommercialPage premium preview', () => {
     expect(screen.getByText(`from £${COMMERCIAL_REGULAR_HOURLY_P / 100}/cleaner-hour`)).toBeInTheDocument();
   });
 
+  it('states payment after the clean in the visible billing answer', () => {
+    const { container } = renderPage();
+    expect(container.textContent).toMatch(/Commercial payment is due after the clean, unless a different arrangement has been agreed in writing in advance/i);
+    expect(container.textContent).not.toMatch(/14 days|monthly invoic/i);
+  });
+
   it('keeps both WhatsApp and email enquiry routes visible', () => {
     renderPage();
     expect(screen.getAllByRole('link', { name: /site visit|WhatsApp your address/i }).length).toBeGreaterThanOrEqual(2);

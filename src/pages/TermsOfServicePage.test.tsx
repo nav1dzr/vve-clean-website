@@ -50,6 +50,22 @@ describe('TermsOfServicePage — free request and agreed deposit clarity', () =>
     expect(text).not.toMatch(/deposit being forfeited|deposit may be non-refundable/i);
   });
 
+  it('states the confirmed VAT and commercial payment position', () => {
+    const text = renderPage();
+    expect(text).toContain('No VAT is added. VVE Clean is not VAT registered.');
+    expect(text).toMatch(/Commercial payment is due after the clean/i);
+    expect(text).not.toMatch(/within 14 days of invoice|VAT included|including VAT/i);
+  });
+
+  it('uses 24-hour notice while preserving separate refund review and statutory rights', () => {
+    const text = renderPage();
+    expect(text).toMatch(/at least 24 hours before the agreed arrival time/i);
+    expect(text).toMatch(/Rescheduling is free with at least 24 hours/i);
+    expect(text).toMatch(/Any refund is reviewed separately/i);
+    expect(text).toMatch(/does not limit your statutory cancellation rights/i);
+    expect(text).not.toMatch(/noon the day before|12:00 noon/i);
+  });
+
   it('displays a "last updated" date derived from the shared TERMS_VERSION constant', () => {
     const text = renderPage();
     const expected = new Date(`${TERMS_VERSION}T00:00:00Z`)

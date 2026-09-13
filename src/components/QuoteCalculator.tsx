@@ -1,3 +1,4 @@
+import PriceTaxNote from './PriceTaxNote';
 import GoogleBadge from './GoogleBadge';
 import { readQuoteBasket, saveQuoteBasket, clearQuoteBasket, restoreShape } from '../lib/quoteBasket';
 import { useState, useCallback, useRef, useEffect, useId, useMemo } from 'react';
@@ -1009,6 +1010,7 @@ export default function QuoteCalculator({
           )}
         </div>
 
+        <PriceTaxNote className="mb-5 text-center" inverse={!homepageMode} />
         {/* Card grid */}
         <div className={`grid lg:grid-cols-5 gap-0 rounded-2xl shadow-2xl transition-all duration-700 delay-200 lg:items-start ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
 

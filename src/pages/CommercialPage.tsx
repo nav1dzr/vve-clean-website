@@ -18,6 +18,8 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import MobileStickyFooter from '../components/MobileStickyFooter';
 import FaqSchema from '../components/FaqSchema';
+import PriceTaxNote from '../components/PriceTaxNote';
+import { COMMERCIAL_PAYMENT_NOTE } from '../data/businessPolicy';
 import {
   COMMERCIAL_REGULAR_HOURLY_P,
   COMMERCIAL_REGULAR_MIN_CHARGE_P,
@@ -96,7 +98,7 @@ const FAQS = [
   },
   {
     q: 'How does billing work?',
-    a: 'The quote states the invoice schedule, payment deadline and whether a deposit applies. Those terms are agreed before the first visit.',
+    a: COMMERCIAL_PAYMENT_NOTE,
   },
   {
     q: 'Is there a minimum contract length?',
@@ -248,6 +250,7 @@ export default function CommercialPage() {
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-600">Guide pricing</p>
                 <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-navy-900 md:text-4xl">Commercial cleaning prices</h2>
                 <p className="mt-4 text-sm leading-relaxed text-slate-600">Rates depend on size, frequency, access and the agreed task list. We confirm the complete price in writing before work starts.</p>
+                <PriceTaxNote className="mt-3" />
               </div>
               <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-lg shadow-navy-950/5">
                 {RATES.map((row) => (

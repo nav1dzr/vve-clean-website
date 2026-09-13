@@ -1,3 +1,4 @@
+import PriceTaxNote from './PriceTaxNote';
 import { readQuoteBasket, saveQuoteBasket, restoreShape } from '../lib/quoteBasket';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -692,6 +693,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
             <p className="text-white/60 text-xs">Step {step} of {TOTAL_STEPS} · about 2 minutes</p>
           </div>
           <StepTracker step={step} />
+          <PriceTaxNote className="mt-4" inverse />
         </div>
       </div>
 
@@ -1333,6 +1335,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                     <span className="text-navy-800 text-sm font-semibold">Total</span>
                     <span data-testid="final-total" className="text-navy-900 font-display font-bold text-3xl">{penceToDisplay(totalP)}</span>
                   </div>
+                  <PriceTaxNote className="mt-2" />
                   <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-sm text-navy-800">
                     <strong>No payment now.</strong> Send your preferred time first. We check availability, scope and the final price, then contact you to confirm the appointment.
                   </div>

@@ -1,3 +1,4 @@
+import PriceTaxNote from '../components/PriceTaxNote';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, ChevronRight } from 'lucide-react';
@@ -45,6 +46,7 @@ export default function PricingPage() {
      <p className="mb-3 text-xs font-bold uppercase tracking-[.18em] text-royal-700">Prices &amp; what is included</p>
      <h1 className="font-display text-4xl font-bold tracking-tight text-navy-950 sm:text-5xl">Cleaning prices in London</h1>
      <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-600">Choose a service to see its prices and included work. Add your property details for a quote, then request a preferred time without paying today.</p>
+     <PriceTaxNote className="mt-3" />
      <div className="mt-5"><GoogleBadge /></div>
     </div>
    </section>
