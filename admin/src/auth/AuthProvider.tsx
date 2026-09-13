@@ -83,9 +83,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void verify(nextSession);
     });
 
+    const bootstrapRequestId = requestId.current;
     void supabase.auth.getSession().then(({ data, error }) => {
       // A late bootstrap snapshot must not overwrite a newer sign-in/out.
-      if (!mounted || receivedAuthEvent || signingOut.current) return;
+      if (!mounted || receivedAuthEvent || signingOut.current || bootstrapRequestId !== requestId.current) return;
       if (error) {
         setStatus('error');
         return;
@@ -93,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(data.session);
       void verify(data.session);
     }).catch(() => {
-      if (mounted && !receivedAuthEvent && !signingOut.current) setStatus('error');
+      if (mounted && !receivedAuthEvent && !signingOut.current && bootstrapRequestId === requestId.current) setStatus('error');
     });
 
     return () => {

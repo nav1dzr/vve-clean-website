@@ -168,6 +168,16 @@ describe('AuthProvider phone return and access boundaries', () => {
     expect(screen.getByLabelText('Auth status')).toHaveTextContent('unauthenticated');
   });
 
+  it('ignores an old bootstrap after explicit sign-out even without a SIGNED_OUT event', async () => {
+    const bootstrap = deferred<{ data: { session: Session }; error: null }>();
+    mocks.getSession.mockReturnValueOnce(bootstrap.promise);
+    renderApp();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Sign out now' })));
+    await act(async () => bootstrap.resolve({ data: { session: session() }, error: null }));
+    expect(mocks.verify).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Auth status')).toHaveTextContent('unauthenticated');
+  });
+
   it('shows a retryable error if initial session loading rejects', async () => {
     mocks.getSession.mockRejectedValueOnce(new Error('Synthetic network failure'));
     renderApp();
