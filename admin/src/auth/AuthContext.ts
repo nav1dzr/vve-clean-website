@@ -37,12 +37,18 @@ export interface AuthContextValue {
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-export async function fetchAdminProfile(accessToken: string): Promise<
+export async function fetchAdminProfile(accessToken: string, signal?: AbortSignal): Promise<
   | { ok: true; admin: AdminProfile }
   | { ok: false; kind: 'unauthorized' | 'error' }
 > {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal?.aborted) abort();
+  else signal?.addEventListener('abort', abort, { once: true });
+  const timeout = setTimeout(abort, 20_000);
   try {
     const res = await fetch('/api/me', {
+      signal: controller.signal,
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
@@ -61,5 +67,8 @@ export async function fetchAdminProfile(accessToken: string): Promise<
     return { ok: false, kind: 'error' };
   } catch {
     return { ok: false, kind: 'error' };
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', abort);
   }
 }

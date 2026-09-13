@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import InvoiceDetailPage from './InvoiceDetailPage';
@@ -10,6 +10,12 @@ const { authFetchMock, authFetchBlobMock } = vi.hoisted(() => ({
   authFetchMock: vi.fn(),
   authFetchBlobMock: vi.fn(),
 }));
+
+vi.mock('../auth/useAuth', () => ({
+  useAuth: () => ({ admin: { id: 'admin-1', email: 'owner@example.invalid', displayName: 'Audit owner' } }),
+}));
+
+beforeEach(() => { window.sessionStorage.clear(); });
 
 vi.mock('../lib/authFetch', () => {
   class MockApiError extends Error {
@@ -116,6 +122,82 @@ describe('InvoiceDetailPage — draft', () => {
       expect(issueCalls.length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  it('blocks issuing/previewing unsaved edits and sends the current version only after saving them', async () => {
+    let current = draftInvoice;
+    authFetchMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      if (init?.method === 'PATCH') {
+        const body = JSON.parse(init.body as string);
+        expect(body.expectedUpdatedAt).toBe(draftInvoice.updatedAt);
+        current = { ...current, updatedAt: '2026-09-13T12:00:00.000Z',
+          items: [{ ...current.items[0], unitPrice: body.items[0].unitPrice }] };
+        return Promise.resolve({ ok: true });
+      }
+      return Promise.resolve(current);
+    });
+    const user = userEvent.setup();
+    renderDetail();
+    const price = await screen.findByLabelText('Unit price (£)');
+    await user.clear(price);
+    await user.type(price, '145');
+    expect(screen.getByRole('button', { name: /issue invoice/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /preview pdf/i })).toBeDisabled();
+    expect(screen.getByText(/Save your changes before previewing or issuing/)).toBeInTheDocument();
+    expect(authFetchMock.mock.calls.some((call) => String(call[0]).includes('action=issue'))).toBe(false);
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /issue invoice/i })).toBeEnabled());
+    expect(screen.getByLabelText('Unit price (£)')).toHaveValue('145');
+    expect(window.sessionStorage.length).toBe(0);
+    await user.click(screen.getByRole('button', { name: /issue invoice/i }));
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: /issue invoice/i }));
+    await waitFor(() => {
+      const call = authFetchMock.mock.calls.find((entry) => String(entry[0]).includes('action=issue'));
+      expect(JSON.parse(call![1].body as string)).toEqual({ expectedUpdatedAt: current.updatedAt });
+    });
+  });
+
+  it('restores unsaved edits on the same draft after remounting and blocks issuing the saved older amount', async () => {
+    mockRouteBasedFetch(draftInvoice);
+    const first = renderDetail();
+    fireEvent.change(await screen.findByLabelText('Unit price (£)'), { target: { value: '145.' } });
+    first.unmount();
+    renderDetail();
+    expect(await screen.findByLabelText('Unit price (£)')).toHaveValue('145.');
+    expect(screen.getByRole('status')).toHaveTextContent('Recovered');
+    expect(screen.getByRole('button', { name: /issue invoice/i })).toBeDisabled();
+  });
+
+  it('keeps edits on a version conflict and requires review before another save or issue', async () => {
+    authFetchMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      if (init?.method === 'PATCH') return Promise.reject(new ApiError(409, 'This invoice changed. Reload it before saving.'));
+      return Promise.resolve(draftInvoice);
+    });
+    const user = userEvent.setup();
+    renderDetail();
+    fireEvent.change(await screen.findByLabelText('Unit price (£)'), { target: { value: '145' } });
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText(/Copy any changes you need/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Unit price (£)')).toHaveValue('145');
+    expect(window.sessionStorage.length).toBe(1);
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /issue invoice/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Reload saved invoice' })).toBeEnabled();
+  });
+
+  it('does not restore edits into an invoice that has now been issued', async () => {
+    mockRouteBasedFetch(draftInvoice);
+    const first = renderDetail();
+    fireEvent.change(await screen.findByLabelText('Unit price (£)'), { target: { value: '145' } });
+    first.unmount();
+    mockRouteBasedFetch(issuedInvoice);
+    renderDetail();
+    expect(await screen.findByText('INV-2026-000001')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Unit price (£)')).not.toBeInTheDocument();
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
 });
 
 describe('InvoiceDetailPage — issued', () => {

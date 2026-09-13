@@ -15,6 +15,8 @@ import CorrectInvoiceDetailsModal, { type InvoiceContactCorrectionInput } from '
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import { CardListSkeleton } from '../components/Skeleton';
+import { useAuth } from '../auth/useAuth';
+import { clearInvoiceDraftRecovery } from '../lib/invoiceDraftRecovery';
 import StatusBadge from '../components/StatusBadge';
 import {
   invoiceDocumentStatusBadge, invoicePaymentStatusBadge, invoicePaymentMethodLabel, invoiceEventLabel,
@@ -36,6 +38,10 @@ type State =
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { admin } = useAuth();
+  const adminId = admin?.id;
+  const [draftDirty, setDraftDirty] = useState(false);
+  const [draftConflict, setDraftConflict] = useState(false);
   const [state, setState] = useState<State>({ status: 'loading' });
   const [events, setEvents] = useState<InvoiceEvent[] | null>(null);
   const [receiptId, setReceiptId] = useState<string | null>(null);
@@ -50,6 +56,11 @@ export default function InvoiceDetailPage() {
     setReceiptId(null);
     authFetch<InvoiceDetail>(`/api/invoices/${id}`)
       .then((data) => {
+        if (data.documentStatus !== 'draft' && adminId) {
+          clearInvoiceDraftRecovery({ userId: adminId, documentKey: 'invoice:' + data.id });
+        }
+        setDraftDirty(false);
+        setDraftConflict(false);
         setState({ status: 'success', data });
         authFetch<InvoiceEventsResponse>(`/api/invoices/${id}?action=events`)
           .then((r) => setEvents(r.results))
@@ -69,25 +80,53 @@ export default function InvoiceDetailPage() {
       });
   }
 
-  useEffect(load, [id]);
+  useEffect(load, [id, adminId]);
 
   async function handleSaveDraft(input: InvoiceDraftInput) {
-    if (!id) return;
+    if (!id || busy || draftConflict || state.status !== 'success') return false;
+    setBusy(true);
     setActionError(null);
-    await authFetch(`/api/invoices/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+    try {
+      await authFetch('/api/invoices/' + id, {
+        method: 'PATCH',
+        body: JSON.stringify({ ...input, expectedUpdatedAt: state.data.updatedAt }),
+      });
+      if (admin) clearInvoiceDraftRecovery({ userId: admin.id, documentKey: 'invoice:' + id });
+      setDraftDirty(false);
+      load();
+      return true;
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not save this invoice. Your unsaved changes are still here.');
+      if (err instanceof ApiError && err.status === 409) setDraftConflict(true);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function reloadAfterConflict() {
+    if (!window.confirm('Load the current saved invoice? This will discard the unsaved changes in this form.')) return;
+    if (admin && id) clearInvoiceDraftRecovery({ userId: admin.id, documentKey: 'invoice:' + id });
+    setActionError(null);
     load();
   }
 
   async function handleIssue() {
-    if (!id) return;
+    if (!id || draftDirty || draftConflict || busy || state.status !== 'success') return;
     setBusy(true);
     setActionError(null);
     try {
-      await authFetch<IssueResponse>(`/api/invoices/${id}?action=issue`, { method: 'POST' });
+      await authFetch<IssueResponse>('/api/invoices/' + id + '?action=issue', {
+        method: 'POST', body: JSON.stringify({ expectedUpdatedAt: state.data.updatedAt }),
+      });
       setPendingAction(null);
       load();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Could not issue this invoice.');
+      if (err instanceof ApiError && err.status === 409) {
+        setDraftConflict(true);
+        setPendingAction(null);
+      }
     } finally {
       setBusy(false);
     }
@@ -99,6 +138,7 @@ export default function InvoiceDetailPage() {
     setActionError(null);
     try {
       await authFetch(`/api/invoices/${id}`, { method: 'DELETE' });
+      if (admin) clearInvoiceDraftRecovery({ userId: admin.id, documentKey: 'invoice:' + id });
       navigate('/invoices', { replace: true });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Could not delete this draft.');
@@ -150,7 +190,7 @@ export default function InvoiceDetailPage() {
   }
 
   async function handlePreview() {
-    if (!id) return;
+    if (!id || draftDirty || draftConflict || busy) return;
     setBusy(true);
     setActionError(null);
     try {
@@ -337,19 +377,34 @@ export default function InvoiceDetailPage() {
         )}
 
         <InvoiceItemsForm
+          key={(admin?.id || '') + ':' + inv.id + ':' + inv.documentVersion + ':' + inv.updatedAt}
+          recovery={admin ? { userId: admin.id, documentKey: 'invoice:' + inv.id, baseVersion: inv.documentVersion + ':' + inv.updatedAt } : undefined}
+          onDirtyChange={setDraftDirty}
+          submissionBlocked={draftConflict}
           initial={initial}
           onSubmit={handleSaveDraft}
           submitLabel="Save changes"
           submitting={busy}
           error={actionError}
-          secondaryAction={{ label: 'Preview PDF', onClick: () => void handlePreview(), disabled: busy }}
+          secondaryAction={{ label: 'Preview PDF', onClick: () => void handlePreview(), disabled: busy || draftDirty || draftConflict }}
         />
 
+        {draftDirty && (
+          <p className="mb-3 text-sm font-medium text-amber-900">Save your changes before previewing or issuing this invoice.</p>
+        )}
+        {draftConflict && (
+          <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <p>This invoice changed elsewhere. Your edits are still in this form. Copy any changes you need, then reload and review the saved invoice before continuing.</p>
+            <button type="button" onClick={reloadAfterConflict} className="mt-2 min-h-11 rounded-lg border border-amber-400 px-3 font-medium">
+              Reload saved invoice
+            </button>
+          </div>
+        )}
         <div className="mt-2 flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setPendingAction('issue')}
-            disabled={busy}
+            disabled={busy || draftDirty || draftConflict}
             className="min-h-11 flex-1 rounded-lg border border-navy-950 px-4 text-sm font-semibold text-navy-950 hover:bg-navy-950 hover:text-white disabled:opacity-60"
           >
             Issue invoice

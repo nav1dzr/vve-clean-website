@@ -6,6 +6,12 @@ import InvoiceEditorPage from './InvoiceEditorPage';
 
 const { authFetchMock, navigateMock } = vi.hoisted(() => ({ authFetchMock: vi.fn(), navigateMock: vi.fn() }));
 
+vi.mock('../auth/useAuth', () => ({
+  useAuth: () => ({ admin: { id: 'admin-1', email: 'owner@example.invalid', displayName: 'Audit owner' } }),
+}));
+
+beforeEach(() => { window.sessionStorage.clear(); });
+
 vi.mock('../lib/authFetch', () => {
   class MockApiError extends Error {
     status: number;
