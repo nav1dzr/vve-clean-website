@@ -50,12 +50,15 @@ describe('the booking bar sits above the cookie banner, never under it', () => {
     expect(bar.className).not.toContain('transition-[bottom]');
     // Guard the general case too: any transition covering `bottom` reopens it.
     expect(bar.className).not.toMatch(/transition-all/);
+    // The global reduced-motion rule sets a nonzero duration on every element.
+    // Explicit property:none prevents even that brief animation through the banner.
+    expect(bar.className).toContain('transition-none');
   });
 
   it('still renders both actions — the fix hides nothing', () => {
     renderBar();
     expect(screen.getByRole('button', { name: /Get my price/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Need help/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /WhatsApp/i })).toBeInTheDocument();
   });
 
   it('gives the bar one dominant action: blue primary, green WhatsApp secondary', () => {
@@ -66,7 +69,7 @@ describe('the booking bar sits above the cookie banner, never under it', () => {
     expect(primary.className).toContain('text-navy-950');
     expect(primary.className).not.toContain('btn-whatsapp');
 
-    const help = screen.getByRole('link', { name: /Need help/i });
+    const help = screen.getByRole('link', { name: /WhatsApp/i });
     expect(help.className).toContain('bg-[#25d366]');
     expect(help.className).toContain('text-navy-950');
 
@@ -74,7 +77,7 @@ describe('the booking bar sits above the cookie banner, never under it', () => {
     expect(container.querySelectorAll('.bg-\\[\\#25d366\\]')).toHaveLength(1);
   });
 
-  it("keeps the live site's lighter flat colour treatment, not a dark tray or floating card", () => {
+  it("keeps both rounded actions readable on a light surface", () => {
     const { container } = renderBar();
 
     expect(container.querySelector('.bg-navy-950')).toBeNull();

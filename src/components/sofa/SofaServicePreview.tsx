@@ -37,7 +37,7 @@ const PROCESS = [
 ];
 
 export function SofaHeroPanel() {
-  return <ManagedServiceHeroPhoto service="sofa-upholstery" fallback={{ src: '/sofa_upholstery/web/gallery/sofa-gallery-01.webp', alt: 'A technician cleaning sofa upholstery', caption: 'Upholstery cleaning in progress' }} detail="The fabric, care label and colour test guide the cleaning method. Delicate fabrics need assessment first." />;
+  return <ManagedServiceHeroPhoto service="sofa-upholstery" fallback={{ src: '/sofa_upholstery/web/gallery/sofa-gallery-01.webp', alt: 'A technician cleaning sofa upholstery', caption: 'Upholstery cleaning in progress' }} detail="Fabric assessed before treatment." />;
 }
 
 export function SofaCareGuide() {
@@ -51,10 +51,10 @@ export function SofaCareGuide() {
               The right method starts with the fabric.
             </h2>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-600">
-              Upholstery behaves differently from carpet. We inspect first, work section by section and set honest expectations for older stains before cleaning begins.
+              We check the fabric, care label and colour stability before choosing a method. Delicate fabrics need assessment first. We explain what cleaning can improve and any marks that may remain.
             </p>
             <div className="mt-6 flex flex-wrap gap-3 text-sm font-semibold text-navy-800">
-              <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-4 py-2"><ShieldCheck size={17} className="text-sky-600" /> Fabric-safety test</span>
+              <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-4 py-2"><ShieldCheck size={17} className="text-sky-600" /> £5m public liability insurance</span>
               <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-4 py-2"><Clock3 size={17} className="text-sky-600" /> Typical drying: 3–6 hours</span>
             </div>
           </div>

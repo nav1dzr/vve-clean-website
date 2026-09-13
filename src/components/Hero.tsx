@@ -1,13 +1,8 @@
 import { ArrowRight } from 'lucide-react';
 import GoogleBadge from './GoogleBadge';
-import ServiceHeroPhoto from './ServiceHeroPhoto';
-import { useManagedWebsiteMedia } from '../lib/managedGalleryMedia';
-
-const defaultPhoto = { src: '/images/carpet-cleaning-hero.webp', alt: 'Extraction equipment cleaning a blue carpet', caption: 'Carpet extraction in progress' };
+import HomepagePhotoCarousel from './HomepagePhotoCarousel';
 
 export default function Hero() {
-  const managedHero = useManagedWebsiteMedia('homepage-hero-image');
-  const heroImage = managedHero?.type === 'photo' ? managedHero : null;
   return (
     <section className="home-hero px-4 pb-10 pt-28 sm:px-6 sm:pb-16 sm:pt-32 lg:px-8">
       <div className="mx-auto grid max-w-7xl items-center gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
@@ -28,9 +23,7 @@ export default function Hero() {
           <p className="mt-4 text-sm leading-relaxed text-slate-600">No payment to request a time. The £30 deposit follows once we've agreed the details.</p>
           <div className="mt-5"><GoogleBadge /></div>
         </div>
-        <ServiceHeroPhoto src={heroImage?.src || defaultPhoto.src} alt={heroImage?.alt || defaultPhoto.alt}
-          caption={heroImage?.label || defaultPhoto.caption} srcSet={heroImage?.srcSet} sizes={heroImage?.sizes}
-          fallback={defaultPhoto} detail={<a href="/gallery?category=carpet" className="inline-flex min-h-[44px] items-center font-semibold text-royal-700 underline underline-offset-4">See our carpet cleaning results</a>} />
+        <HomepagePhotoCarousel />
       </div>
     </section>
   );

@@ -40,7 +40,7 @@ describe('SofaCleaningPage — quote placement and premium service guidance', ()
 
     expect(heroImage).toHaveAttribute('src', '/sofa_upholstery/web/gallery/sofa-gallery-01.webp');
     expect(screen.getByText('Upholstery cleaning in progress')).toBeInTheDocument();
-    expect(heroImage.closest('figure')?.querySelector('figcaption')).toHaveTextContent(/Delicate fabrics need assessment first/i);
+    expect(heroImage.closest('figure')?.querySelector('figcaption')).toHaveTextContent(/Fabric assessed before treatment/i);
   });
 
   it('surfaces an upholstery-focused instant quote calculator directly after the hero, and the hero CTA reaches it', () => {
@@ -52,7 +52,7 @@ describe('SofaCleaningPage — quote placement and premium service guidance', ()
     expect(screen.getAllByText('2-seater sofa').length).toBeGreaterThan(0);
     expect(screen.queryByText('Bedroom')).not.toBeInTheDocument();
 
-    const heroCta = screen.getAllByRole('link', { name: 'Build my upholstery quote' })[0];
+    const heroCta = screen.getAllByRole('link', { name: 'Get a sofa quote' })[0];
     expect(heroCta).toHaveAttribute('href', '/sofa-cleaning-london#quote');
   });
 
@@ -61,6 +61,12 @@ describe('SofaCleaningPage — quote placement and premium service guidance', ()
 
     expect(screen.getByRole('heading', { name: /The right method starts with the fabric/i })).toBeInTheDocument();
     expect(screen.getByText('Inspect and test')).toBeInTheDocument();
+    expect(screen.getByText(/Delicate fabrics need assessment first/)).toBeInTheDocument();
+    const hero = screen.getByRole('heading', { level: 1 }).closest('section')!;
+    expect(hero).toHaveTextContent('£85 minimum booking');
+    expect(hero).toHaveTextContent('No VAT is added.');
+    expect(hero).not.toHaveTextContent('£5m public liability insurance');
+    expect(screen.getAllByText('£5m public liability insurance').length).toBeGreaterThan(0);
     expect(screen.queryByText('Recent results coming soon')).not.toBeInTheDocument();
     expect(screen.queryByText('Video results coming soon')).not.toBeInTheDocument();
   });

@@ -109,6 +109,6 @@ describe('tap targets and mobile input sizing', () => {
   });
 
   it('keeps the sticky bar actions at or above 48px', () => {
-    expect(read('src/components/MobileStickyFooter.tsx')).toContain('min-h-[48px]');
+    expect(read('src/components/MobileActionBar.tsx')).toContain('min-h-[48px]');
   });
 });

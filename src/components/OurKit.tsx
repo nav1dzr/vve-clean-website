@@ -3,9 +3,9 @@ import { Check } from 'lucide-react';
 import { useManagedWebsiteMedia } from '../lib/managedGalleryMedia';
 
 const ticks = [
-  'Commercial hot-water carpet extraction',
-  'Professional pressure washing equipment',
-  'Equipment and products brought to the job',
+  'Hot-water extraction for carpets and upholstery',
+  'Pressure washing for exterior surfaces',
+  'Equipment and cleaning products supplied',
 ];
 
 export default function OurKit() {
@@ -55,13 +55,13 @@ export default function OurKit() {
               suitable carpets and upholstery, plus pressure-washing equipment for exterior work.
             </p>
 
-            <ul className="space-y-3">
+            <ul className="space-y-4 border-t border-sky-200/20 pt-6">
               {ticks.map((tick) => (
                 <li key={tick} className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-sky-100 text-royal-700">
-                    <Check size={13} aria-hidden="true" />
+                  <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-emerald-300/15 text-emerald-200 ring-1 ring-inset ring-emerald-200/40">
+                    <Check size={15} strokeWidth={2.5} aria-hidden="true" />
                   </span>
-                  <span className="text-slate-200 text-sm leading-snug">{tick}</span>
+                  <span className="text-slate-100 text-sm leading-relaxed">{tick}</span>
                 </li>
               ))}
             </ul>

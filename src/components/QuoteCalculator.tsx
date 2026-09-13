@@ -1024,7 +1024,9 @@ export default function QuoteCalculator({
                 <span className="text-navy-900 text-sm font-semibold">
                   {isEotFocused
                     ? 'Tell us about the property'
-                    : (isCarpetFocused || isUpholsteryFocused)
+                    : isUpholsteryFocused
+                      ? 'Choose your furniture and see the price'
+                      : isCarpetFocused
                       ? 'Add your rooms and get an instant price'
                       : 'Select your service & get an instant price'}
                 </span>

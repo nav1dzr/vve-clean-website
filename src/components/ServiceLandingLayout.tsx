@@ -59,6 +59,7 @@ export interface ServiceLandingData {
   heroSubtitle?: string;
   // Compact high-salience price anchor for paid-traffic first screens.
   heroPriceChip?: string;
+  heroTaxNoteCompact?: boolean;
   heroBadges: string[];
   heroBgImage?: string;
   heroImageAlt?: string;
@@ -495,20 +496,20 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
         <section className={`service-hero px-4 py-8 sm:py-12 ${data.heroCompactMobile ? 'service-hero-compact' : ''}`}>
           <div className={`mx-auto max-w-7xl ${data.heroAside || data.heroBgImage ? 'grid items-center gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14' : 'max-w-4xl'}`}>
             <div>
-              <Eyebrow align="start">{data.eyebrow}</Eyebrow>
+              {data.eyebrow && <Eyebrow align="start">{data.eyebrow}</Eyebrow>}
               <h1 className="font-display text-[2.1rem] font-bold leading-[1.1] tracking-tight text-navy-950 sm:text-5xl lg:text-[3.5rem]">
                 {data.h1}
                 {data.h1Highlight && <span className="mt-2 block text-royal-700">{data.h1Highlight}</span>}
               </h1>
               {data.heroSubtitle && <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-700 sm:text-lg">{data.heroSubtitle}</p>}
-              {data.heroPriceChip && <><p className="mt-5 text-base font-bold text-navy-950">{data.heroPriceChip}</p><PriceTaxNote className="mt-1" /></>}
+              {data.heroPriceChip && <><p className="mt-5 text-base font-bold text-navy-950">{data.heroPriceChip}</p><PriceTaxNote className="mt-1" compact={data.heroTaxNoteCompact} /></>}
               <div className="service-hero-actions mt-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
                 <CtaButton href={data.primaryHref} label={data.primaryLabel} isWa={data.primaryIsWa} variant="primary" />
                 <CtaButton href={data.secondaryHref} label={data.secondaryLabel} isWa={data.secondaryIsWa} variant="secondary" />
               </div>
-              <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-700">
+              {data.heroBadges.length > 0 && <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-700">
                 {data.heroBadges.map((badge) => <li key={badge} className="flex items-start gap-2"><span className="font-bold text-royal-700" aria-hidden="true">✓</span>{badge}</li>)}
-              </ul>
+              </ul>}
               {data.heroGoogleBadge && <div className="mt-5"><GoogleBadge /></div>}
               {data.heroTrustLine && <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-600">{data.heroTrustLine}</p>}
             </div>

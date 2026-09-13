@@ -1,7 +1,8 @@
 import PriceTaxNote from '../components/PriceTaxNote';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, ChevronRight } from 'lucide-react';
+import { CalendarDays, Check, ChevronRight, Home, Layers, Sofa, Sparkles } from 'lucide-react';
+import MobileActionBar, { MOBILE_PRIMARY_CLASS } from '../components/MobileActionBar';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import FaqSchema from '../components/FaqSchema';
@@ -21,6 +22,7 @@ const CARPET_EXAMPLE_ROOMS = ['bedroom', 'living_room', 'hallway'].map(addonKey 
 const CARPET_EXAMPLE = calculateEotCarpetPackage(CARPET_EXAMPLE_ROOMS, CARPET_EXAMPLE_ROOMS.map(room => room.id));
 const CARPET_EXAMPLE_STANDALONE_P = Math.round(computeCarpetPrice({ bedroom: 1, living_room: 1, hallway: 1 }, 'normal').finalTotal * 100);
 const categories = ['End of tenancy', 'Carpets', 'Sofas & upholstery', 'Other cleans'] as const;
+const categoryIcons = [Home, Layers, Sofa, Sparkles];
 const PRICING_FAQS = [
   { q: 'When do I pay?', a: 'Request a preferred time free. After we agree the scope, total and time with you, we send a £30 deposit link. Paying confirms the booking; the deposit counts towards the total and the remaining balance is normally due after the service.' },
   { q: 'What do the published prices cover?', a: 'The tables show the standard scope for normally maintained properties. Select the service and property details to see the applicable price and included work.' },
@@ -31,7 +33,7 @@ const PRICING_FAQS = [
 
 
 function PriceRows({ rows }: { rows: [string, number | string][] }) {
- return <dl className="divide-y divide-slate-100">{rows.map(([label, price]) => <div key={label} className="flex items-start justify-between gap-5 py-3.5"><dt className="text-sm text-slate-700">{label}</dt><dd className="shrink-0 text-sm font-bold text-navy-950">{typeof price === 'number' ? money(price) : price}</dd></div>)}</dl>;
+ return <dl className="mt-4 overflow-hidden rounded-xl border border-slate-200">{rows.map(([label, price]) => <div key={label} className="flex items-start justify-between gap-5 px-4 py-3.5 odd:bg-sky-50/70 even:bg-white"><dt className="text-sm text-slate-700">{label}</dt><dd className="shrink-0 text-base font-bold tabular-nums text-navy-950">{typeof price === 'number' ? money(price) : price}</dd></div>)}</dl>;
 }
 function QuoteLink({ to, children }: { to: string; children: React.ReactNode }) {
  return <Link to={to} className="mt-6 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-royal-600 px-6 py-3 text-sm font-bold text-white hover:bg-royal-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600">{children}<ChevronRight size={18} /></Link>;
@@ -41,25 +43,26 @@ export default function PricingPage() {
  return <div className="min-h-screen bg-slate-50 mobile-page-bottom lg:pb-0">
   <FaqSchema items={PRICING_FAQS} /><Navbar />
   <main id="main-content">
-   <section className="service-hero px-4 pb-10 pt-28 sm:pb-14 sm:pt-36">
-    <div className="mx-auto max-w-5xl">
-     <p className="mb-3 text-xs font-bold uppercase tracking-[.18em] text-royal-700">Prices &amp; what is included</p>
-     <h1 className="font-display text-4xl font-bold tracking-tight text-navy-950 sm:text-5xl">Cleaning prices in London</h1>
-     <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-600">Choose a service to see its prices and included work. Add your property details for a quote, then request a preferred time without paying today.</p>
-     <PriceTaxNote className="mt-3" />
+   <section className="navy-gradient relative overflow-hidden px-4 pb-10 pt-28 sm:pb-14 sm:pt-36">
+    <div aria-hidden="true" className="pointer-events-none absolute -right-32 top-12 h-96 w-96 rounded-full border-[56px] border-sky-300/5" />
+    <div className="relative mx-auto max-w-5xl">
+     <p className="mb-3 text-xs font-bold uppercase tracking-[.18em] text-sky-200">Prices &amp; what is included</p>
+     <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl">Cleaning prices in London</h1>
+     <p className="mt-4 max-w-xl text-base leading-relaxed text-sky-100">Choose a service to see its prices and included work. Add your property details for a quote, then request a preferred time without paying today.</p>
+     <PriceTaxNote className="mt-3" inverse />
      <div className="mt-5"><GoogleBadge /></div>
     </div>
    </section>
    <section className="mx-auto max-w-5xl px-4 py-9 sm:py-12" aria-label="Service prices">
     <h2 className="font-display text-xl font-bold text-navy-950">What would you like cleaned?</h2>
     <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Choose a pricing service">
-     {categories.map(item => <button key={item} type="button" aria-pressed={category === item} onClick={() => setCategory(item)} className={`min-h-[52px] rounded-xl border px-3 py-3 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 ${category === item ? 'border-royal-600 bg-royal-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-royal-500'}`}>{item}</button>)}
+     {categories.map((item, index) => { const Icon = categoryIcons[index]; return <button key={item} type="button" aria-pressed={category === item} onClick={() => setCategory(item)} className={`flex min-h-[64px] flex-col items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold sm:flex-row transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 ${category === item ? 'border-royal-600 bg-royal-600 text-white shadow-sm' : 'border-sky-100 bg-sky-50 text-navy-900 hover:border-royal-500 hover:bg-sky-100'}`}><Icon size={20} aria-hidden="true" />{item}</button>; })}
     </div>
-    <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 sm:p-8">
+    <div className="mt-6 rounded-2xl border border-sky-200 bg-white p-5 shadow-[0_12px_40px_rgba(16,36,62,0.05)] sm:p-8">
      <div hidden={category !== 'End of tenancy'}>
       <h3 className="font-display text-2xl font-bold text-navy-950">End of tenancy cleaning</h3>
       <p className="mt-2 text-sm leading-relaxed text-slate-600">Start with Complete for a full move-out clean. If you only need selected tasks, compare Tailored below.</p>
-      <div className="mt-6 border-l-4 border-royal-600 pl-4 sm:pl-5">
+      <div className="mt-6 rounded-r-xl border-l-4 border-royal-600 bg-sky-50 p-4 sm:p-5">
        <h4 className="text-lg font-bold text-navy-950">Complete clean</h4>
        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-700">Oven, hob and extractor; appliance interiors; cupboards, drawers and wardrobes; kitchen and bathroom cleaning; internal windows; standard vacuuming and mopping.</p>
        <p className="mt-3 text-xs leading-relaxed text-slate-600">The prices below are for a vacant, normally maintained flat with one bathroom. Professional carpet extraction and other optional services are separate.</p>
@@ -67,7 +70,7 @@ export default function PricingPage() {
       <PriceRows rows={SIZES.map(([key, label]) => [label + ' flat', EOT_BASE_PRICES_P[key]])} />
       <p className="mt-4 text-sm leading-relaxed text-slate-600">Extra bathroom {money(EOT_EXTRA_BATH_P)} · extra WC {money(EOT_EXTRA_WC_P)}. Choose a house or maisonette in the quote builder to see its price. For 5+ bedrooms, ask us for an individual quote.</p>
       <QuoteLink to="/end-of-tenancy-cleaning-london#quote">Get a quote for my property</QuoteLink>
-      <p className="mt-4 flex gap-2 text-sm leading-relaxed text-slate-700"><Check size={18} className="mt-0.5 shrink-0 text-emerald-700" />Report missed agreed work within {EOT_GUARANTEE_HOURS / 24} days for one covered re-clean. Complete covers the full checklist; Tailored covers your selected tasks.</p>
+      <p className="mt-4 flex gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-4 text-sm leading-relaxed text-emerald-950"><Check size={18} className="mt-0.5 shrink-0 text-emerald-700" />Report missed agreed work within {EOT_GUARANTEE_HOURS / 24} days for one covered re-clean. Complete covers the full checklist; Tailored covers your selected tasks.</p>
       <div className="mt-6 divide-y divide-slate-200 border-y border-slate-200">
        <details data-disclosure="pricing-not-faq"><summary className="cursor-pointer py-4 text-sm font-semibold text-navy-900">Only need selected tasks? Compare Tailored</summary>
         <div className="pb-5">
@@ -111,11 +114,32 @@ export default function PricingPage() {
       <a href={WA} target="_blank" rel="noopener noreferrer" className="whatsapp-text-link mt-5 inline-flex min-h-[44px] items-center font-bold underline underline-offset-4">Ask about another clean</a>
      </div>
     </div>
-    <details data-disclosure="pricing-not-faq" className="mt-4 rounded-xl border border-slate-200 bg-white px-5"><summary className="cursor-pointer py-4 font-semibold text-navy-900">Optional extras and access costs</summary><div className="pb-5"><p className="mb-2 text-sm leading-relaxed text-slate-600">Add only what you need. Oven cleaning is already included in both end of tenancy packages; Complete also includes internal fridge/freezer cleaning. The calculator applies the selected service's inclusions.</p><PriceRows rows={[[ 'Oven, hob & extractor add-on',ADDON_PRICES_P.oven],['Inside fridge / freezer add-on',ADDON_PRICES_P.fridge],['Exterior windows',ADDON_PRICES_P.ext_windows],['Wall marks & scuffs',ADDON_PRICES_P.wall_marks],['Key collection/return',ADDON_PRICES_P.key_collect],['Rubbish removal (small load)',ADDON_PRICES_P.rubbish]]} /><p className="mt-3 text-sm leading-relaxed text-slate-600">Parking and any applicable Congestion Charge are shown separately and agreed with you. Heavy soiling, mould, excessive rubbish, contamination or strong odours require photo review and an agreed scope before work starts.</p></div></details>
+    <details data-disclosure="pricing-not-faq" className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-5"><summary className="cursor-pointer py-4 font-semibold text-navy-900">Optional extras and access costs</summary><div className="pb-5"><p className="mb-2 text-sm leading-relaxed text-slate-600">Add only what you need. Oven cleaning is already included in both end of tenancy packages; Complete also includes internal fridge/freezer cleaning. The calculator applies the selected service's inclusions.</p><PriceRows rows={[[ 'Oven, hob & extractor add-on',ADDON_PRICES_P.oven],['Inside fridge / freezer add-on',ADDON_PRICES_P.fridge],['Exterior windows',ADDON_PRICES_P.ext_windows],['Wall marks & scuffs',ADDON_PRICES_P.wall_marks],['Key collection/return',ADDON_PRICES_P.key_collect],['Rubbish removal (small load)',ADDON_PRICES_P.rubbish]]} /><p className="mt-3 text-sm leading-relaxed text-slate-600">Parking and any applicable Congestion Charge are shown separately and agreed with you. Heavy soiling, mould, excessive rubbish, contamination or strong odours require photo review and an agreed scope before work starts.</p></div></details>
    </section>
-   <section className="border-y border-slate-200 bg-white px-4 py-10"><div className="mx-auto max-w-5xl"><h2 className="font-display text-2xl font-bold text-navy-950">Know what happens next</h2><ol className="mt-5 grid gap-6 sm:grid-cols-3">{[['01','Request free','Choose the service and your preferred time. No payment is taken.'],['02','Agree the details','We confirm availability, scope, price and any access costs with you.'],['03','Confirm with £30','Pay the deposit from your agreed offer. It counts towards your total; the balance is normally due after cleaning.']].map(([number,title,text]) => <li key={number}><span className="text-xs font-bold text-royal-600">{number}</span><h3 className="mt-2 font-bold text-navy-950">{title}</h3><p className="mt-2 text-sm leading-relaxed text-slate-600">{text}</p></li>)}</ol></div></section>
+   <section className="navy-gradient px-4 py-12 sm:py-16" aria-labelledby="pricing-next-heading">
+    <div className="mx-auto max-w-5xl">
+     <p className="text-xs font-bold uppercase tracking-[.18em] text-sky-200">From quote to cleaning day</p>
+     <h2 id="pricing-next-heading" className="mt-3 font-display text-3xl font-bold text-white">What happens next</h2>
+     <ol className="mt-7 grid gap-3 sm:grid-cols-3 sm:gap-5">
+      {[
+       ['01', 'Request your time', 'Choose your service and preferred time. Sending the request is free.'],
+       ['02', 'Agree the details', 'We confirm availability, the work included and the full price, including any access costs.'],
+       ['03', 'Confirm with £30', 'Once you agree, pay the deposit to confirm. It counts towards your total; the balance is normally due after cleaning.'],
+      ].map(([number, title, text]) => (
+       <li key={number} className="flex gap-4 rounded-2xl border border-white/15 bg-white/5 p-5 sm:block sm:p-6">
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-200/40 text-sm font-bold text-sky-100">{number}</span>
+        <div><h3 className="font-display text-lg font-bold text-white sm:mt-4">{title}</h3><p className="mt-2 text-sm leading-relaxed text-sky-100">{text}</p></div>
+       </li>
+      ))}
+     </ol>
+    </div>
+   </section>
    <section className="mx-auto max-w-3xl px-4 py-12"><h2 className="mb-5 font-display text-2xl font-bold text-navy-950">A few useful answers</h2><div className="divide-y divide-slate-200">{PRICING_FAQS.map(faq => <details key={faq.q}><summary className="cursor-pointer py-4 font-semibold text-navy-900">{faq.q}</summary><div className="faq-answer pb-5 text-sm leading-relaxed text-slate-600">{faq.a}</div></details>)}</div><p className="mt-6 text-sm text-slate-600">Need help choosing? <a className="whatsapp-text-link font-semibold underline underline-offset-4" href={WA} target="_blank" rel="noopener noreferrer">Message us on WhatsApp</a> or <a href="tel:02080502233" className="underline underline-offset-4">call 020 8050 2233</a>.</p></section>
   </main><Footer />
-  <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-slate-200" style={{ bottom: 'var(--vve-cookie-banner-h, 0px)' }}><div className="flex items-stretch pb-[env(safe-area-inset-bottom)]"><Link to={category === 'End of tenancy' ? '/end-of-tenancy-cleaning-london#quote' : category === 'Carpets' ? '/carpet-cleaning-london#quote' : category === 'Sofas & upholstery' ? '/sofa-cleaning-london#quote' : '/#quote'} className="flex flex-1 min-h-[52px] items-center justify-center bg-royal-600 px-4 text-sm font-bold text-white">Get my price</Link><a href={WA} target="_blank" rel="noopener noreferrer" className="whatsapp-text-link flex flex-1 min-h-[52px] items-center justify-center px-4 text-sm font-bold">WhatsApp us</a></div></div>
+  <MobileActionBar whatsappHref={WA} primary={
+   <Link to={category === 'End of tenancy' ? '/end-of-tenancy-cleaning-london#quote' : category === 'Carpets' ? '/carpet-cleaning-london#quote' : category === 'Sofas & upholstery' ? '/sofa-cleaning-london#quote' : '/#quote'} className={MOBILE_PRIMARY_CLASS}>
+    <CalendarDays size={18} aria-hidden="true" /><span>Get my price</span>
+   </Link>
+  } />
  </div>;
 }
