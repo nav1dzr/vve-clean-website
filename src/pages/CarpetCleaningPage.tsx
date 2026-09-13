@@ -1,5 +1,5 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
-import ServiceHeroPhoto from '../components/ServiceHeroPhoto';
+import ManagedServiceHeroPhoto from '../components/media/ManagedServiceHeroPhoto';
 import QuoteCalculator from '../components/QuoteCalculator';
 import CarpetResultsSection from '../components/carpet/CarpetResultsSection';
 import CarpetProcessSection from '../components/carpet/CarpetProcessSection';
@@ -83,7 +83,7 @@ const SCHEMA = JSON.stringify({
 });
 
 function CarpetHeroPanel() {
-  return <ServiceHeroPhoto src="/images/carpet-cleaning-hero.webp" alt="Extraction equipment working on a blue carpet" caption="Carpet extraction in progress" detail="We inspect the fibre and condition before choosing a suitable treatment. Stain removal varies by carpet and mark." />;
+  return <ManagedServiceHeroPhoto service="carpet" fallback={{ src: '/images/carpet-cleaning-hero.webp', alt: 'Extraction equipment working on a blue carpet', caption: 'Carpet extraction in progress' }} detail="We inspect the fibre and condition before choosing a suitable treatment. Stain removal varies by carpet and mark." />;
 }
 
 const DATA: ServiceLandingData = {

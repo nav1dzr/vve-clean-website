@@ -1,5 +1,5 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
-import ServiceHeroPhoto from '../components/ServiceHeroPhoto';
+import ManagedServiceHeroPhoto from '../components/media/ManagedServiceHeroPhoto';
 import QuoteCalculator from '../components/QuoteCalculator';
 import EotResultsSection from '../components/gallery/EotResultsSection';
 import GuaranteeTerms from '../components/GuaranteeTerms';
@@ -100,7 +100,7 @@ const DATA: ServiceLandingData = {
   h1: 'End of Tenancy Cleaning London',
   h1Highlight: '',
   heroSubtitle: 'Moving out? Complete covers the kitchen, bathrooms and living areas, including the oven, listed appliance interiors and empty cupboards. Choose your property to check the price.',
-  heroAside: <ServiceHeroPhoto src="/end_of_tenancy/before-after/kitchen1_after.jpg" alt="Kitchen hob after cleaning" caption="A real end of tenancy result" detail="See the full before-and-after pair below. Cleaning does not repair existing scratches or wear." />,
+  heroAside: <ManagedServiceHeroPhoto service="end-of-tenancy" fallback={{ src: '/end_of_tenancy/before-after/kitchen1_after.jpg', alt: 'Kitchen hob after cleaning', caption: 'A real end of tenancy result' }} detail="See the full before-and-after pair below. Cleaning does not repair existing scratches or wear." managedDetail="Cleaning does not repair existing scratches or wear." />,
   heroAsideOnMobile: true,
   heroPriceChip: `Studio flat Complete clean from ${pDisplay(EOT_BASE_PRICES_P.studio)}`,
   heroBadges: [

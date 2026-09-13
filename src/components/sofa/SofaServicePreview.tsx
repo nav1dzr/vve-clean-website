@@ -1,4 +1,4 @@
-import ServiceHeroPhoto from '../ServiceHeroPhoto';
+import ManagedServiceHeroPhoto from '../media/ManagedServiceHeroPhoto';
 import {
   CheckCircle2,
   Clock3,
@@ -37,7 +37,7 @@ const PROCESS = [
 ];
 
 export function SofaHeroPanel() {
-  return <ServiceHeroPhoto src="/sofa_upholstery/web/gallery/sofa-gallery-01.webp" alt="A technician cleaning sofa upholstery" caption="Upholstery cleaning in progress" detail="The fabric, care label and colour test guide the cleaning method. Delicate fabrics need assessment first." />;
+  return <ManagedServiceHeroPhoto service="sofa-upholstery" fallback={{ src: '/sofa_upholstery/web/gallery/sofa-gallery-01.webp', alt: 'A technician cleaning sofa upholstery', caption: 'Upholstery cleaning in progress' }} detail="The fabric, care label and colour test guide the cleaning method. Delicate fabrics need assessment first." />;
 }
 
 export function SofaCareGuide() {

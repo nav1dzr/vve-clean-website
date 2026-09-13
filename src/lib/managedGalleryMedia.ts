@@ -125,7 +125,7 @@ export function referenceToItem(
   return null;
 }
 
-function toItems(references: PublishedReference[], pageKey: string) {
+function referenceGroups(references: PublishedReference[], pageKey: string) {
   const groups = new Map<string, PublishedReference[]>();
   for (const reference of references.filter(
     (item) => item.page_key === pageKey,
@@ -135,9 +135,34 @@ function toItems(references: PublishedReference[], pageKey: string) {
       reference,
     ]);
   }
-  return [...groups.values()]
+  return [...groups.values()];
+}
+
+function toItems(references: PublishedReference[], pageKey: string) {
+  return referenceGroups(references, pageKey)
     .map(referenceToItem)
     .filter((item): item is GalleryItem => item !== null);
+}
+
+/** Named public placements, reusing existing published references only. */
+export const SERVICE_HERO_PLACEMENTS: Record<GalleryCategory, { results: string; gallery: string }> = {
+  carpet: { results: 'carpet-main-results', gallery: 'gallery-carpet' },
+  'sofa-upholstery': { results: 'sofa-main-results', gallery: 'gallery-sofa' },
+  'end-of-tenancy': { results: 'end-of-tenancy-main-results', gallery: 'gallery-end-of-tenancy' },
+};
+
+export function selectServiceHeroMedia(references: PublishedReference[], service: GalleryCategory) {
+  const placement = SERVICE_HERO_PLACEMENTS[service];
+  const first = referenceGroups(references, placement.results)[0]
+    ?? referenceGroups(references, placement.gallery)[0];
+  // Select the assigned position before validating it. An incomplete pair or
+  // video must not silently promote a different job into the first position.
+  return first ? referenceToItem(first) : null;
+}
+
+export function useManagedServiceHeroMedia(service: GalleryCategory) {
+  const references = usePublishedReferences();
+  return useMemo(() => selectServiceHeroMedia(references, service), [references, service]);
 }
 
 export function useManagedPageMedia(pageKey: string) {
