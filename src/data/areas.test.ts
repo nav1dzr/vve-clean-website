@@ -11,7 +11,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const areasComponent = readFileSync(resolve(root, 'src/components/Areas.tsx'), 'utf8');
 const areaMarquee = readFileSync(resolve(root, 'src/components/AreaMarquee.tsx'), 'utf8');
 const prerender = readFileSync(resolve(root, 'prerender.mjs'), 'utf8');
-const appRoutes = readFileSync(resolve(root, 'src/AppRoutes.tsx'), 'utf8');
+const appRoutes = readFileSync(resolve(root, 'src/routeDefinitions.tsx'), 'utf8');
 
 // Regression guard for docs/LOCATION_PAGES_ASSESSMENT.md's core rule: an area
 // page may only assert facts that are actually true. These tests read the

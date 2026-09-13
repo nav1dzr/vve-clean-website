@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import NotFoundPage from './NotFoundPage';
-import AppRoutes from '../AppRoutes';
+import AppRoutes from '../ClientAppRoutes';
 import { CookieConsentProvider } from '../context/CookieConsentContext';
 
 beforeAll(() => {
@@ -63,11 +63,11 @@ describe('the branded Not Found page', () => {
 });
 
 describe('the router catch-all', () => {
-  it('renders the Not Found page for an unknown path', () => {
+  it('renders the Not Found page for an unknown path', async () => {
     // The server status comes from dist/404.html; this is the in-app half, so a
     // bad link clicked inside the site does not land on a blank screen.
     renderAt('/this-route-does-not-exist', <AppRoutes />);
-    expect(screen.getByRole('heading', { level: 1, name: /couldn.t find that page/i }))
+    expect(await screen.findByRole('heading', { level: 1, name: /couldn.t find that page/i }))
       .toBeInTheDocument();
   });
 

@@ -91,7 +91,7 @@ const NO_CAMPAIGN = {
   utm_content: null, gclid: null,
 };
 
-/** Waits for the consent banner, proving the app has finished settling. */
+/** The global consent controls can appear before a lazy route finishes loading. */
 async function waitForBanner() {
   return screen.findByRole('button', { name: 'Accept all' });
 }
@@ -270,7 +270,7 @@ describe('when the visitor rejects optional cookies', () => {
     const { container } = enterAt('/?utm_source=google&gclid=click_persisted');
     await waitFor(() => expect(getAttribution().gclid).toBe('click_persisted'));
 
-    await user.click(screen.getByRole('button', { name: 'Cookie settings' }));
+    await user.click(await screen.findByRole('button', { name: 'Cookie settings' }));
     const advertising = container.querySelector('#consent-advertising') as HTMLButtonElement;
     expect(advertising.getAttribute('aria-checked')).toBe('true');
     await user.click(advertising);
@@ -375,7 +375,7 @@ describe('when advertising is enabled later in the same visit', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Cookie settings' })).toBeTruthy());
     expect(storedAdvertisingKeys()).toEqual([]);
 
-    await user.click(screen.getByRole('button', { name: 'Cookie settings' }));
+    await user.click(await screen.findByRole('button', { name: 'Cookie settings' }));
     const advertising = container.querySelector('#consent-advertising') as HTMLButtonElement;
     expect(advertising.getAttribute('aria-checked')).toBe('false');
     await user.click(advertising);
@@ -394,6 +394,7 @@ describe('the leaflet discount is not advertising storage', () => {
   it('applies while the banner is still unanswered', async () => {
     enterAt('/leaflet');
     await waitForBanner();
+    await screen.findByRole('heading', { level: 1, name: /Your VVE Clean.*leaflet offer/i });
 
     const a = getAttribution();
     expect(a.offer_code).toBe('LEAFLET20');
@@ -409,6 +410,7 @@ describe('the leaflet discount is not advertising storage', () => {
     await user.click(screen.getByRole('button', { name: 'Reject optional' }));
 
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Reject optional' })).toBeNull());
+    await screen.findByRole('heading', { level: 1, name: /Your VVE Clean.*leaflet offer/i });
     expect(getAttribution().offer_code).toBe('LEAFLET20');
     expect(getAttribution().discount_percent).toBe(20);
     expect(storedAdvertisingKeys()).toEqual([]);
@@ -420,6 +422,7 @@ describe('the leaflet discount is not advertising storage', () => {
     await user.click(await waitForBanner().then(() => screen.getByRole('button', { name: 'Reject optional' })));
 
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Reject optional' })).toBeNull());
+    await screen.findByRole('heading', { level: 1, name: /Your VVE Clean.*leaflet offer/i });
     expect(document.body.textContent).toMatch(/20%/);
   });
 
@@ -430,6 +433,7 @@ describe('the leaflet discount is not advertising storage', () => {
 
     await waitFor(() => expect(getAttribution().first_source).toBe('leaflet'));
     expect(getAttribution().utm_campaign).toBe('leaflet20');
+    await screen.findByRole('heading', { level: 1, name: /Your VVE Clean.*leaflet offer/i });
     expect(getAttribution().offer_code).toBe('LEAFLET20');
   });
 });

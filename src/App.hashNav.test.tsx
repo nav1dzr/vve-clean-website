@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import ScrollToTop from './components/ScrollToTop';
-import AppRoutes from './AppRoutes';
+import AppRoutes from './ClientAppRoutes';
 import { CookieConsentProvider } from './context/CookieConsentContext';
 
 beforeAll(() => {
@@ -43,7 +43,7 @@ describe('hash navigation to #quote', () => {
     const user = userEvent.setup();
     renderAt('/end-of-tenancy-cleaning-london');
 
-    const heroCta = screen.getAllByRole('link', { name: 'Build my quote' })[0];
+    const heroCta = (await screen.findAllByRole('link', { name: 'Build my quote' }))[0];
     await user.click(heroCta);
 
     await waitFor(() => {
@@ -56,7 +56,7 @@ describe('hash navigation to #quote', () => {
     renderAt('/carpet-cleaning-london');
 
     // Navbar's "Get my price" always targets the homepage's general quote.
-    const navCta = screen.getAllByRole('link', { name: 'Get my price' })[0];
+    const navCta = (await screen.findAllByRole('link', { name: 'Get my price' }))[0];
     await user.click(navCta);
 
     await waitFor(() => {
@@ -73,7 +73,7 @@ describe('Navbar Gallery link', () => {
     const user = userEvent.setup();
     renderAt('/end-of-tenancy-cleaning-london');
 
-    const galleryLink = screen.getAllByRole('link', { name: 'Gallery' })[0];
+    const galleryLink = (await screen.findAllByRole('link', { name: 'Gallery' }))[0];
     expect(galleryLink).toHaveAttribute('href', '/gallery');
 
     await user.click(galleryLink);

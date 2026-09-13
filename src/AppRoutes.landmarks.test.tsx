@@ -5,7 +5,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import AppRoutes from './AppRoutes';
+import AppRoutes from './ServerAppRoutes';
 import { CookieConsentProvider } from './context/CookieConsentContext';
 import { BookingProvider } from './context/BookingContext';
 

@@ -1,6 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { StaticRouter } from 'react-router-dom';
-import AppRoutes from './AppRoutes';
+import ServerAppRoutes from './ServerAppRoutes';
 import { CookieConsentProvider } from './context/CookieConsentContext';
 
 // Re-exported so prerender.mjs (a plain Node script that cannot import .ts
@@ -17,7 +17,7 @@ export function render(url: string): string {
   return renderToString(
     <StaticRouter location={url}>
       <CookieConsentProvider>
-        <AppRoutes />
+        <ServerAppRoutes />
       </CookieConsentProvider>
     </StaticRouter>
   );

@@ -27,7 +27,7 @@ const indexHtml = read('index.html');
 const prerender = read('prerender.mjs');
 const metadata = read('src/lib/routeMetadata.ts');
 const vercelJson = JSON.parse(read('vercel.json'));
-const appRoutes = read('src/AppRoutes.tsx');
+const appRoutes = read('src/routeDefinitions.tsx');
 
 const WWW = 'https://www.vveclean.co.uk';
 

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { scrollToHashTarget } from '../lib/scrollToHash';
 import { applyRouteMetadata } from '../lib/routeMetadata';
+import { ROUTE_READY_EVENT } from '../lib/routeReady';
 
 // Mounted once, above <AppRoutes />, so it runs on every navigation —
 // including a Link/navigate() to a same-page or cross-page "#quote" anchor,
@@ -11,21 +12,28 @@ export default function ScrollToTop() {
 
   useEffect(() => {
     applyRouteMetadata(pathname);
-    if (hash) {
-      // Give the destination page/section a tick to render before measuring
-      // its position (matters most just after a route change).
-      const timer = setTimeout(() => scrollToHashTarget(hash), 80);
-      return () => clearTimeout(timer);
-    }
-    window.scrollTo(0, 0);
-    const timer = setTimeout(() => {
-      const heading = document.querySelector<HTMLElement>('main h1');
-      if (!heading) return;
-      heading.classList.add('route-focus-target');
-      heading.tabIndex = -1;
-      heading.focus({ preventScroll: true });
-    }, 80);
-    return () => clearTimeout(timer);
+    let timer: ReturnType<typeof setTimeout>;
+    const focusDestination = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (hash) {
+          scrollToHashTarget(hash);
+          return;
+        }
+        window.scrollTo(0, 0);
+        const heading = document.querySelector<HTMLElement>('main h1');
+        if (!heading) return;
+        heading.classList.add('route-focus-target');
+        heading.tabIndex = -1;
+        heading.focus({ preventScroll: true });
+      }, 80);
+    };
+    focusDestination();
+    window.addEventListener(ROUTE_READY_EVENT, focusDestination);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener(ROUTE_READY_EVENT, focusDestination);
+    };
   }, [pathname, hash]);
 
   return null;

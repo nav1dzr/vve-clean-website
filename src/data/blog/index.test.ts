@@ -7,7 +7,7 @@ import { ROUTE_METADATA } from '../../lib/routeMetadata';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const prerender = readFileSync(resolve(root, 'prerender.mjs'), 'utf8');
-const appRoutes = readFileSync(resolve(root, 'src/AppRoutes.tsx'), 'utf8');
+const appRoutes = readFileSync(resolve(root, 'src/routeDefinitions.tsx'), 'utf8');
 
 describe('BLOG_POSTS data integrity', () => {
   it('has at least one post, each with a unique slug and a real (non-future) publish date', () => {
