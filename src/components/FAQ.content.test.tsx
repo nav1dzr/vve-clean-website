@@ -8,7 +8,10 @@ import {
   EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS,
   EOT_CARPET_QUALIFYING_KEYS,
   EOT_GUARANTEE_HOURS,
+  CARPET_MIN_BOOKING_P,
+  penceToDisplay,
 } from '../data/pricing';
+import { GUARANTEE_LIMIT } from '../data/guarantee';
 
 const answerFor = (fragment: string | RegExp) => {
   const match = FAQS.find(({ q }) =>
@@ -22,7 +25,7 @@ describe('FAQ covers the topics a customer actually asks about', () => {
   it.each([
     ['unavailable requested date', /not available/i],
     ['adding carpet to an EOT booking', /add carpet cleaning/i],
-    ['the carpet discount conditions', /% off carpet cleaning/i],
+    ['the carpet add-on conditions', /carpet add-on calculated/i],
     ['an agent flagging an issue', /agent or landlord flags/i],
     ['occupied vs vacant properties', /occupied homes/i],
     ['when payment is taken', /When do I pay/i],
@@ -49,7 +52,7 @@ describe('FAQ covers the topics a customer actually asks about', () => {
 });
 
 describe('the carpet discount is stated with its qualifying conditions', () => {
-  const answer = () => answerFor(/% off carpet cleaning/i);
+  const answer = () => answerFor(/carpet add-on calculated/i);
 
   it('names the minimum number of qualifying areas', () => {
     expect(answer()).toContain(String(EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS));
@@ -64,9 +67,10 @@ describe('the carpet discount is stated with its qualifying conditions', () => {
     }
   });
 
-  it('explains why the claim says "up to" rather than a flat rate', () => {
-    expect(answer()).toMatch(/£85/);
-    expect(answer()).toMatch(/up to/i);
+  it('explains both price floors instead of a universal percentage saving', () => {
+    expect(answer()).toContain(penceToDisplay(CARPET_MIN_BOOKING_P));
+    expect(answer()).toMatch(/two most expensive selected areas/i);
+    expect(answer()).toMatch(/whichever is higher/i);
   });
 
   it('names the exclusions rather than implying everything qualifies', () => {
@@ -76,23 +80,21 @@ describe('the carpet discount is stated with its qualifying conditions', () => {
     expect(text).toMatch(/photo review|quoted separately/);
   });
 
-  it('never promises a bare 50% off with no conditions attached', () => {
+  it('does not use the calculation percentage as a promised saving', () => {
     for (const { a } of FAQS) {
-      if (new RegExp(`${EOT_CARPET_PACKAGE_DISCOUNT_PCT}%`).test(a)) {
-        expect(a).toMatch(/up to|at least|qualifying/i);
-      }
+      expect(a).not.toMatch(new RegExp(`${EOT_CARPET_PACKAGE_DISCOUNT_PCT}%`));
     }
   });
 });
 
 describe('the guarantee and refund answers match the real process', () => {
   it('states the guarantee window from the canonical constant', () => {
-    expect(answerFor(/agent or landlord flags/i)).toContain(String(EOT_GUARANTEE_HOURS));
+    expect(answerFor(/agent or landlord flags/i)).toContain(String(EOT_GUARANTEE_HOURS / 24));
   });
 
   it('keeps the guarantee exclusions visible', () => {
     const answer = answerFor(/agent or landlord flags/i);
-    expect(answer).toMatch(/does not guarantee that a tenancy deposit will be returned/i);
+    expect(answer).toContain(GUARANTEE_LIMIT);
     expect(answer).toMatch(/damage, repairs or issues outside the booked scope/i);
   });
 

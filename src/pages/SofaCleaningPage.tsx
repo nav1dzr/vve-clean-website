@@ -20,7 +20,7 @@ const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%2
 const FAQS = [
   {
     q: 'How do I know if my sofa is safe to clean?',
-    a: 'Before we start, we carry out a quick fabric and dye-stability test to confirm the upholstery is suitable for hot-water extraction. Most modern fabric sofas are compatible. We will tell you honestly if we think a different approach would give a better result.',
+    a: 'We check the fabric, care label and dye stability before choosing a cleaning method. Hot-water extraction is used only where the upholstery is suitable. If testing reveals a risk, we explain it before proceeding.',
   },
   {
     q: 'Will the colours run or fade?',
@@ -36,7 +36,11 @@ const FAQS = [
   },
   {
     q: 'Can you remove wine or food stains?',
-    a: 'In most cases, yes. Fresh stains respond very well. Older, set-in stains may leave a faint residual mark — we will tell you the likely outcome during the pre-inspection, never after the clean. We never guarantee complete stain removal on old marks.',
+    a: 'The result depends on the fabric, the stain and any treatment already used. Older marks or permanent colour changes may remain. We assess the likely result before cleaning and never guarantee complete stain removal.',
+  },
+  {
+    q: 'Which upholstery items can I request?',
+    a: 'The calculator lists fabric armchairs, two-seater and three-seater sofas, corner sofas and single, double and king mattresses. Tell us about unusual sizes, loose cushions or dining chairs so we can confirm the surfaces and price before booking. The visit minimum applies to the combined selection.',
   },
 ];
 
@@ -63,7 +67,8 @@ const SCHEMA = JSON.stringify({
         { '@type': 'Offer', name: '2-seater sofa', price: p(CARPET_ITEM_PRICES_P.sofa_2), priceCurrency: 'GBP' },
         { '@type': 'Offer', name: '3-seater sofa', price: p(CARPET_ITEM_PRICES_P.sofa_3), priceCurrency: 'GBP' },
         { '@type': 'Offer', name: 'Corner / L-shaped sofa', price: p(CARPET_ITEM_PRICES_P.sofa_corner), priceCurrency: 'GBP' },
-        { '@type': 'Offer', name: 'Mattress (double/king)', price: p(CARPET_ITEM_PRICES_P.mattress_double), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: 'Mattress (double)', price: p(CARPET_ITEM_PRICES_P.mattress_double), priceCurrency: 'GBP' },
+        { '@type': 'Offer', name: 'Mattress (king)', price: p(CARPET_ITEM_PRICES_P.mattress_king), priceCurrency: 'GBP' },
       ],
     },
     {
@@ -81,35 +86,31 @@ const DATA: ServiceLandingData = {
   schema: SCHEMA,
   breadcrumb: 'Sofa & Upholstery Cleaning London',
 
-  eyebrow: 'Professional Upholstery Cleaning',
-  h1: 'Sofa & Upholstery Cleaning London',
-  h1Highlight: ' — cleaned with care, not guesswork.',
+  eyebrow: '',
+  h1: 'Sofa cleaning in London',
+  h1Highlight: '',
   heroHighlightClassName: 'text-gradient-sofa',
-  heroSubtitle: 'A fabric-first clean for sofas, armchairs, mattresses and dining chairs across East & North London.',
+  heroSubtitle: 'For fabric sofas, armchairs and mattresses across East & North London.',
   heroPriceChip: `2-seater sofa ${pd(CARPET_ITEM_PRICES_P.sofa_2)} · ${pd(CARPET_MIN_BOOKING_P)} minimum booking`,
+  heroTaxNoteCompact: true,
   heroAside: <SofaHeroPanel />,
   heroAsideOnMobile: true,
-  heroBadges: [
-    'Hot-water extraction',
-    'Colour-safe on most fabrics',
-    'Fabric checked before treatment',
-  ],
+  heroBadges: [],
   heroGoogleBadge: true,
   heroCompactMobile: true,
-  heroTrustLine: '£5m public liability insurance · fabric checked before treatment',
   primaryHref: '/sofa-cleaning-london#quote',
-  primaryLabel: 'Build my upholstery quote',
+  primaryLabel: 'Get a sofa quote',
   secondaryHref: WA,
-  secondaryLabel: 'WhatsApp for a quote',
+  secondaryLabel: 'Send a photo on WhatsApp',
   secondaryIsWa: true,
 
   afterHeroSection: <QuoteCalculator mode="upholstery" />,
 
-  introH2: 'Sofa cleaning that goes deeper than vacuuming',
+  introH2: 'We check the fabric before cleaning',
   introText:
     'We inspect the upholstery, check the care label and test an inconspicuous area before choosing a cleaning method. Hot-water extraction is used where the fabric is suitable, followed by controlled extraction of loosened soil and moisture. Drying time and stain response vary by fabric and condition.',
 
-  benefitsH2: 'Why customers book sofa cleaning with us',
+  benefitsH2: 'What to expect from upholstery cleaning',
   benefits: [
     {
       icon: <PawPrint size={28} />,
@@ -118,18 +119,18 @@ const DATA: ServiceLandingData = {
     },
     {
       icon: <Shield size={28} />,
-      title: 'Fabric-first method',
+      title: 'A method suited to the fabric',
       body: 'The care label, colour stability and material guide the method. Delicate or unsuitable fabrics are not treated with hot-water extraction.',
     },
     {
       icon: <Palette size={28} />,
-      title: 'Colour-safe process',
-      body: 'We test for dye stability before applying any product. If there is any risk, we tell you before we start — never after.',
+      title: 'Colour test before cleaning',
+      body: 'We test a small area for colour movement and discuss any risk before cleaning the rest of the upholstery.',
     },
     {
       icon: <RefreshCw size={28} />,
-      title: 'Extends your sofa\'s life',
-      body: 'Abrasive grit embedded in upholstery wears fibres from the inside. Regular cleaning removes it and slows visible wear — protecting your investment.',
+      title: 'Drying and aftercare',
+      body: 'We explain how to ventilate the room and when the upholstery should be ready to use. Fabric, temperature and airflow affect drying.',
     },
   ],
 
@@ -137,27 +138,26 @@ const DATA: ServiceLandingData = {
   whyPoints: [
     'Pre-inspection and fabric/dye-stability test before we start',
     'Pre-treatment spray on stains and heavily soiled areas',
-    'Hot-water extraction with professional upholstery attachment',
+    'Hot-water extraction with an upholstery attachment where the fabric is suitable',
     'Deodourising treatment included as standard',
     'All equipment and cleaning products supplied',
-    'Post-clean inspection — we check every cushion with you',
-    '£15 off if we arrive more than an hour late',
-    'Free reschedule until 12pm the day before',
+    'Post-clean inspection of the upholstery and cushions',
   ],
 
   pricingH2: 'Fixed sofa cleaning prices',
   pricingIntro:
-    `Every price below is fixed — the price you book is the price you pay. £${CARPET_MIN_BOOKING_P / 100} minimum booking applies.`,
+    `Standard item prices are shown below. We agree suitability, scope and the final total before confirming your booking. £${CARPET_MIN_BOOKING_P / 100} minimum booking applies.`,
   pricingRows: [
     { label: 'Armchair', price: pd(CARPET_ITEM_PRICES_P.armchair) },
     { label: '2-seater sofa', price: pd(CARPET_ITEM_PRICES_P.sofa_2) },
     { label: '3-seater sofa', price: pd(CARPET_ITEM_PRICES_P.sofa_3) },
     { label: 'Corner / L-shaped sofa', price: pd(CARPET_ITEM_PRICES_P.sofa_corner) },
     { label: 'Mattress (single)', price: pd(CARPET_ITEM_PRICES_P.mattress_single) },
-    { label: 'Mattress (double / king)', price: pd(CARPET_ITEM_PRICES_P.mattress_double) },
+    { label: 'Mattress (double)', price: pd(CARPET_ITEM_PRICES_P.mattress_double) },
+    { label: 'Mattress (king)', price: pd(CARPET_ITEM_PRICES_P.mattress_king) },
   ],
   pricingNote:
-    'Combine a sofa and carpet clean on the same visit to save automatically on bundle discount tiers — see all prices for details.',
+    'Carpet and upholstery items share the same visit minimum. The calculator applies the current bundle discount to eligible combined selections; see the pricing page for the item bands.',
   pricingCta: { href: '/pricing', label: 'See all prices' },
 
   // Three media slots now that the owner's set is approved, ordered by
@@ -173,12 +173,13 @@ const DATA: ServiceLandingData = {
   faqs: FAQS,
 
   relatedLinks: [
+    { href: '/how-we-clean-sofas-upholstery', label: 'How we clean upholstery' },
     { href: '/carpet-cleaning-london', label: 'Carpet Cleaning' },
     { href: '/end-of-tenancy-cleaning-london', label: 'End of Tenancy Cleaning' },
     { href: '/after-builders-cleaning-london', label: 'After Builders Cleaning' },
     { href: '/commercial-carpet-cleaning-london', label: 'Commercial Cleaning' },
     { href: '/pricing', label: 'All Prices' },
-    { href: '/booking', label: 'Request a time' },
+    { href: '/sofa-cleaning-london#quote', label: 'Get a sofa quote' },
   ],
 
   // Conversion order: quote (afterHeroSection, always directly under the hero)
@@ -187,13 +188,13 @@ const DATA: ServiceLandingData = {
   // Media used to sit below pricing, five screens down, which buried it.
   sectionOrder: [
     'proof', 'reviews', 'benefits', 'process', 'media',
-    'intro', 'why', 'pricing', 'faq', 'related',
+    'why', 'pricing', 'faq', 'related',
   ],
 
   ctaH2: 'Ready to book your sofa clean?',
   ctaBody:
-    'Send your preferred date online with no payment. We check availability, scope and the final price, then contact you to confirm the appointment.',
-  ctaPrimary: { href: '/booking', label: 'Request a time' },
+    'Request your preferred date free. We agree the scope, total and time with you, then send a £30 deposit link. Payment confirms your booking and counts towards the total.',
+  ctaPrimary: { href: '/sofa-cleaning-london#quote', label: 'Get a sofa quote' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };
 

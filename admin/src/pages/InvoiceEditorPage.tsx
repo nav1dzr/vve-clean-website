@@ -7,12 +7,14 @@ import type { CustomerDetail } from '../types/customer';
 import InvoiceItemsForm, { emptyFormValue, type InvoiceItemsFormValue } from '../components/InvoiceItemsForm';
 import ErrorState from '../components/ErrorState';
 import { CardListSkeleton } from '../components/Skeleton';
+import { useAuth } from '../auth/useAuth';
+import { clearInvoiceDraftRecovery } from '../lib/invoiceDraftRecovery';
 
 type PrefillState =
   | { status: 'none' }
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; value: InvoiceItemsFormValue; bookingId: string | null; bookingRefSnapshot: string | null };
+  | { status: 'ready'; sourceKey: string; value: InvoiceItemsFormValue; bookingId: string | null; bookingRefSnapshot: string | null };
 
 // /invoices/new — optionally prefilled from a booking via ?bookingId=, or
 // from an existing customer via ?customerId= (used by the "Create invoice"
@@ -29,16 +31,23 @@ export default function InvoiceEditorPage() {
   const bookingId = searchParams.get('bookingId');
   const customerId = searchParams.get('customerId');
   const navigate = useNavigate();
+  const { admin } = useAuth();
+  const documentKey = bookingId ? 'booking:' + bookingId : customerId ? 'customer:' + customerId : 'new';
+  const recovery = admin ? { userId: admin.id, documentKey, baseVersion: 'new' } : undefined;
   const [prefill, setPrefill] = useState<PrefillState>(bookingId || customerId ? { status: 'loading' } : { status: 'none' });
   const [submitting, setSubmitting] = useState(false);
+  const [prefillRetry, setPrefillRetry] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     if (bookingId) {
       setPrefill({ status: 'loading' });
       authFetch<BookingDetail>(`/api/bookings/${bookingId}`)
         .then((b) => {
+          if (cancelled) return;
           setPrefill({
+            sourceKey: 'booking:' + bookingId,
             status: 'ready',
             bookingId,
             bookingRefSnapshot: b.bookingRef || null,
@@ -63,14 +72,16 @@ export default function InvoiceEditorPage() {
             }),
           });
         })
-        .catch((err) => setPrefill({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load the booking to prefill from.' }));
-      return;
+        .catch((err) => { if (!cancelled) setPrefill({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load the booking to prefill from.' }); });
+      return () => { cancelled = true; };
     }
     if (customerId) {
       setPrefill({ status: 'loading' });
       authFetch<CustomerDetail>(`/api/customers/${customerId}`)
         .then((c) => {
+          if (cancelled) return;
           setPrefill({
+            sourceKey: 'customer:' + customerId,
             status: 'ready',
             bookingId: null,
             bookingRefSnapshot: null,
@@ -80,9 +91,12 @@ export default function InvoiceEditorPage() {
             }),
           });
         })
-        .catch((err) => setPrefill({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load this customer to prefill from.' }));
+        .catch((err) => { if (!cancelled) setPrefill({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load this customer to prefill from.' }); });
+    } else {
+      setPrefill({ status: 'none' });
     }
-  }, [bookingId, customerId]);
+    return () => { cancelled = true; };
+  }, [bookingId, customerId, prefillRetry]);
 
   async function handleSubmit(input: InvoiceDraftInput) {
     setSubmitting(true);
@@ -96,10 +110,13 @@ export default function InvoiceEditorPage() {
           bookingRefSnapshot: prefill.status === 'ready' ? prefill.bookingRefSnapshot ?? undefined : undefined,
         }),
       });
-      navigate(`/invoices/${created.id}`, { replace: true });
+      if (recovery) clearInvoiceDraftRecovery(recovery);
+      navigate('/invoices/' + created.id, { replace: true });
+      return true;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not create this invoice.');
       setSubmitting(false);
+      return false;
     }
   }
 
@@ -111,9 +128,11 @@ export default function InvoiceEditorPage() {
       <h1 className="mb-4 font-semibold text-xl text-navy-950">New invoice</h1>
 
       {prefill.status === 'loading' && <CardListSkeleton count={1} />}
-      {prefill.status === 'error' && <ErrorState message={prefill.message} onRetry={() => setPrefill({ status: 'none' })} />}
-      {(prefill.status === 'none' || prefill.status === 'ready') && (
+      {prefill.status === 'error' && <ErrorState message={prefill.message} onRetry={() => setPrefillRetry((attempt) => attempt + 1)} />}
+      {((prefill.status === 'none' && !bookingId && !customerId) || (prefill.status === 'ready' && prefill.sourceKey === documentKey)) && (
         <InvoiceItemsForm
+          key={(admin?.id || '') + ':' + documentKey}
+          recovery={recovery}
           initial={prefill.status === 'ready' ? prefill.value : emptyFormValue()}
           onSubmit={handleSubmit}
           submitLabel="Save draft"

@@ -17,7 +17,7 @@ export default function RequireAuth({ children }: { children: ReactNode }) {
     return <LoadingScreen />;
   }
 
-  if (status === 'unauthenticated') {
+  if (status === 'unauthenticated' || status === 'session-expired') {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
@@ -25,9 +25,17 @@ export default function RequireAuth({ children }: { children: ReactNode }) {
     return <UnauthorisedPage />;
   }
 
-  if (status === 'error') {
-    return <ErrorScreen onRetry={retry} />;
+  if (status === 'preview-blocked') {
+    return (
+      <ErrorScreen
+        title="Preview setup required"
+        message="This CRM preview is waiting for its separate test environment. Records and uploads are blocked here until that setup is ready. Your admin access has not been checked yet."
+        onRetry={retry}
+      />
+    );
   }
 
-  return <>{children}</>;
+  if (status === 'authenticated') return <>{children}</>;
+
+  return <ErrorScreen onRetry={retry} />;
 }

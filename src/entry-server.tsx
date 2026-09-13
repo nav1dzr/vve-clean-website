@@ -1,6 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { StaticRouter } from 'react-router-dom';
-import AppRoutes from './AppRoutes';
+import ServerAppRoutes from './ServerAppRoutes';
 import { CookieConsentProvider } from './context/CookieConsentContext';
 
 // Re-exported so prerender.mjs (a plain Node script that cannot import .ts
@@ -11,12 +11,13 @@ import { CookieConsentProvider } from './context/CookieConsentContext';
 export { AREAS } from './data/areas';
 export { areaHasRealProof } from './lib/areaProof';
 export { BLOG_POSTS } from './data/blog';
+export { ROUTE_METADATA, NOT_FOUND_METADATA } from './lib/routeMetadata';
 
 export function render(url: string): string {
   return renderToString(
     <StaticRouter location={url}>
       <CookieConsentProvider>
-        <AppRoutes />
+        <ServerAppRoutes />
       </CookieConsentProvider>
     </StaticRouter>
   );

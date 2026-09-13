@@ -1,15 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import InvoiceDetailPage from './InvoiceDetailPage';
 import { ApiError } from '../lib/authFetch';
 import type { InvoiceDetail } from '../types/invoice';
+import { readPendingInvoicePayment } from '../lib/pendingInvoicePayment';
 
 const { authFetchMock, authFetchBlobMock } = vi.hoisted(() => ({
   authFetchMock: vi.fn(),
   authFetchBlobMock: vi.fn(),
 }));
+
+vi.mock('../auth/useAuth', () => ({
+  useAuth: () => ({ admin: { id: 'admin-1', email: 'owner@example.invalid', displayName: 'Audit owner' } }),
+}));
+
+beforeEach(() => { window.sessionStorage.clear(); });
 
 vi.mock('../lib/authFetch', () => {
   class MockApiError extends Error {
@@ -116,6 +123,82 @@ describe('InvoiceDetailPage — draft', () => {
       expect(issueCalls.length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  it('blocks issuing/previewing unsaved edits and sends the current version only after saving them', async () => {
+    let current = draftInvoice;
+    authFetchMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      if (init?.method === 'PATCH') {
+        const body = JSON.parse(init.body as string);
+        expect(body.expectedUpdatedAt).toBe(draftInvoice.updatedAt);
+        current = { ...current, updatedAt: '2026-09-13T12:00:00.000Z',
+          items: [{ ...current.items[0], unitPrice: body.items[0].unitPrice }] };
+        return Promise.resolve({ ok: true });
+      }
+      return Promise.resolve(current);
+    });
+    const user = userEvent.setup();
+    renderDetail();
+    const price = await screen.findByLabelText('Unit price (£)');
+    await user.clear(price);
+    await user.type(price, '145');
+    expect(screen.getByRole('button', { name: /issue invoice/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /preview pdf/i })).toBeDisabled();
+    expect(screen.getByText(/Save your changes before previewing or issuing/)).toBeInTheDocument();
+    expect(authFetchMock.mock.calls.some((call) => String(call[0]).includes('action=issue'))).toBe(false);
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /issue invoice/i })).toBeEnabled());
+    expect(screen.getByLabelText('Unit price (£)')).toHaveValue('145');
+    expect(window.sessionStorage.length).toBe(0);
+    await user.click(screen.getByRole('button', { name: /issue invoice/i }));
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: /issue invoice/i }));
+    await waitFor(() => {
+      const call = authFetchMock.mock.calls.find((entry) => String(entry[0]).includes('action=issue'));
+      expect(JSON.parse(call![1].body as string)).toEqual({ expectedUpdatedAt: current.updatedAt });
+    });
+  });
+
+  it('restores unsaved edits on the same draft after remounting and blocks issuing the saved older amount', async () => {
+    mockRouteBasedFetch(draftInvoice);
+    const first = renderDetail();
+    fireEvent.change(await screen.findByLabelText('Unit price (£)'), { target: { value: '145.' } });
+    first.unmount();
+    renderDetail();
+    expect(await screen.findByLabelText('Unit price (£)')).toHaveValue('145.');
+    expect(screen.getByRole('status')).toHaveTextContent('Recovered');
+    expect(screen.getByRole('button', { name: /issue invoice/i })).toBeDisabled();
+  });
+
+  it('keeps edits on a version conflict and requires review before another save or issue', async () => {
+    authFetchMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      if (init?.method === 'PATCH') return Promise.reject(new ApiError(409, 'This invoice changed. Reload it before saving.'));
+      return Promise.resolve(draftInvoice);
+    });
+    const user = userEvent.setup();
+    renderDetail();
+    fireEvent.change(await screen.findByLabelText('Unit price (£)'), { target: { value: '145' } });
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText(/Copy any changes you need/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Unit price (£)')).toHaveValue('145');
+    expect(window.sessionStorage.length).toBe(1);
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /issue invoice/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Reload saved invoice' })).toBeEnabled();
+  });
+
+  it('does not restore edits into an invoice that has now been issued', async () => {
+    mockRouteBasedFetch(draftInvoice);
+    const first = renderDetail();
+    fireEvent.change(await screen.findByLabelText('Unit price (£)'), { target: { value: '145' } });
+    first.unmount();
+    mockRouteBasedFetch(issuedInvoice);
+    renderDetail();
+    expect(await screen.findByText('INV-2026-000001')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Unit price (£)')).not.toBeInTheDocument();
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
 });
 
 describe('InvoiceDetailPage — issued', () => {
@@ -262,6 +345,152 @@ describe('InvoiceDetailPage — issued', () => {
       expect(ackCalls.length).toBe(1);
       expect(JSON.parse((ackCalls[0][1] as RequestInit).body as string)).toEqual({ paymentId: 'payment-1' });
     });
+  });
+
+  it.each([
+    { amount: 40, paymentStatus: 'partially_paid', receiptId: null },
+    { amount: 100, paymentStatus: 'paid', receiptId: 'existing-receipt' },
+  ])('retries the same payment operation without sending another message for a replayed $paymentStatus result', async ({ amount, paymentStatus, receiptId }) => {
+    const paymentBodies: Array<Record<string, unknown>> = [];
+    authFetchMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      if (path.includes('action=payments')) {
+        paymentBodies.push(JSON.parse(init!.body as string));
+        if (paymentBodies.length === 1) return Promise.reject(new ApiError(504, 'The connection timed out.'));
+        return Promise.resolve({
+          ok: true, replayed: true, paymentId: 'existing-payment',
+          amountPaid: amount, amountDue: 100 - amount, paymentStatus, receiptId,
+        });
+      }
+      return Promise.resolve(issuedInvoice);
+    });
+    const user = userEvent.setup();
+    renderDetail();
+    await user.click(await screen.findByRole('button', { name: /record payment/i }));
+    const dialog = await screen.findByRole('dialog', { name: /record payment/i });
+    await user.clear(within(dialog).getByLabelText(/amount/i));
+    await user.type(within(dialog).getByLabelText(/amount/i), String(amount));
+    if (paymentStatus === 'partially_paid') {
+      await user.click(within(dialog).getByLabelText(/send payment acknowledgement email/i));
+    }
+    await user.click(within(dialog).getByRole('button', { name: /^record payment$/i }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('connection timed out');
+    await user.click(within(dialog).getByRole('button', { name: 'Retry same request' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /record payment/i })).not.toBeInTheDocument());
+    expect(paymentBodies).toHaveLength(2);
+    expect(paymentBodies[0].operationId).toEqual(expect.any(String));
+    expect(paymentBodies[0].operationId).toBeTruthy();
+    expect(paymentBodies[1].operationId).toBe(paymentBodies[0].operationId);
+    const writes = authFetchMock.mock.calls.filter((call) => call[1]?.method === 'POST');
+    expect(writes).toHaveLength(2);
+    expect(writes.every((call) => String(call[0]).includes('action=payments'))).toBe(true);
+  });
+
+  it('can review and resolve an uncertain request after reopening a now-paid invoice without recording it twice', async () => {
+    let current = issuedInvoice;
+    const requests: Array<Record<string, unknown>> = [];
+    authFetchMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      if (path.startsWith('/api/receipts')) return Promise.resolve({ results: [], page: 1, pageSize: 1, totalCount: 0, hasMore: false });
+      if (path.includes('action=payments')) {
+        requests.push(JSON.parse(init!.body as string));
+        if (requests.length === 1) {
+          current = { ...issuedInvoice, paymentStatus: 'paid', amountPaid: 100, amountDue: 0 };
+          return Promise.reject(new ApiError(504, 'Response lost after recording.'));
+        }
+        return Promise.resolve({ ok: true, replayed: true, paymentId: 'already-recorded', amountPaid: 100, amountDue: 0, paymentStatus: 'paid', receiptId: 'existing-receipt' });
+      }
+      return Promise.resolve(current);
+    });
+    const user = userEvent.setup();
+    renderDetail();
+    await user.click(await screen.findByRole('button', { name: /record payment/i }));
+    let dialog = await screen.findByRole('dialog', { name: /record payment/i });
+    await user.click(within(dialog).getByRole('button', { name: 'Record payment' }));
+    await within(dialog).findByRole('alert');
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await user.click(await screen.findByRole('button', { name: 'Review payment request' }));
+    dialog = await screen.findByRole('dialog', { name: /record payment/i });
+    expect(within(dialog).getByLabelText(/amount/i)).toHaveValue(100);
+    expect(within(dialog).getByRole('button', { name: 'Retry same request' })).toBeEnabled();
+    await user.click(within(dialog).getByRole('button', { name: 'Retry same request' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /record payment/i })).not.toBeInTheDocument());
+    expect(requests).toHaveLength(2);
+    expect(requests[1].operationId).toBe(requests[0].operationId);
+    expect(window.sessionStorage.length).toBe(0);
+    expect(authFetchMock.mock.calls.filter((call) => call[1]?.method === 'POST')).toHaveLength(2);
+  });
+
+  it('a late response for a discarded older attempt cannot clear or close a newer payment request', async () => {
+    let resolveOlder!: (value: unknown) => void;
+    const requests: Array<Record<string, unknown>> = [];
+    authFetchMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      if (path.includes('action=payments')) {
+        requests.push(JSON.parse(init!.body as string));
+        if (requests.length === 1) return new Promise((resolve) => { resolveOlder = resolve; });
+        return new Promise(() => {});
+      }
+      return Promise.resolve(issuedInvoice);
+    });
+    const user = userEvent.setup();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderDetail();
+    await user.click(await screen.findByRole('button', { name: /record payment/i }));
+    let dialog = await screen.findByRole('dialog', { name: /record payment/i });
+    fireEvent.change(within(dialog).getByLabelText(/amount/i), { target: { value: '40' } });
+    await user.click(within(dialog).getByLabelText(/send payment acknowledgement email/i));
+    await user.click(within(dialog).getByRole('button', { name: 'Record payment' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await user.click(await screen.findByRole('button', { name: 'Review payment request' }));
+    dialog = await screen.findByRole('dialog', { name: /record payment/i });
+    await user.click(within(dialog).getByRole('checkbox', { name: /checked the invoice payment history/ }));
+    await user.click(within(dialog).getByRole('button', { name: 'Clear reviewed request' }));
+    fireEvent.change(within(dialog).getByLabelText(/amount/i), { target: { value: '30' } });
+    await user.click(within(dialog).getByRole('button', { name: 'Record payment' }));
+    expect(requests).toHaveLength(2);
+    expect(requests[1].operationId).not.toBe(requests[0].operationId);
+    await act(async () => {
+      resolveOlder({ ok: true, paymentId: 'older-payment', amountPaid: 40, amountDue: 60, paymentStatus: 'partially_paid', receiptId: null });
+    });
+    expect(screen.getByRole('dialog', { name: /record payment/i })).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/amount/i)).toHaveValue(30);
+    const pending = readPendingInvoicePayment({ userId: 'admin-1', invoiceId: 'inv-1' });
+    expect(pending.status).toBe('pending');
+    if (pending.status === 'pending') expect(pending.input.operationId).toBe(requests[1].operationId);
+    expect(authFetchMock.mock.calls.some((call) => String(call[0]).includes('action=paymentAck'))).toBe(false);
+    confirm.mockRestore();
+  });
+
+  it('a slow acknowledgement cannot close a newer payment form after the first payment was confirmed', async () => {
+    let current = issuedInvoice;
+    let resolveAcknowledgement!: (value: unknown) => void;
+    authFetchMock.mockImplementation((path: string) => {
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      if (path.includes('action=payments')) {
+        current = { ...issuedInvoice, amountPaid: 40, amountDue: 60, paymentStatus: 'partially_paid' };
+        return Promise.resolve({ ok: true, paymentId: 'confirmed-payment', amountPaid: 40, amountDue: 60, paymentStatus: 'partially_paid', receiptId: null });
+      }
+      if (path.includes('action=paymentAck')) return new Promise((resolve) => { resolveAcknowledgement = resolve; });
+      return Promise.resolve(current);
+    });
+    const user = userEvent.setup();
+    renderDetail();
+    await user.click(await screen.findByRole('button', { name: /record payment/i }));
+    let dialog = await screen.findByRole('dialog', { name: /record payment/i });
+    fireEvent.change(within(dialog).getByLabelText(/amount/i), { target: { value: '40' } });
+    await user.click(within(dialog).getByLabelText(/send payment acknowledgement email/i));
+    await user.click(within(dialog).getByRole('button', { name: 'Record payment' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /record payment/i })).not.toBeInTheDocument());
+    await user.click(await screen.findByRole('button', { name: /record payment/i }));
+    dialog = await screen.findByRole('dialog', { name: /record payment/i });
+    expect(within(dialog).getByLabelText(/amount/i)).toHaveValue(60);
+    fireEvent.change(within(dialog).getByLabelText('Reference (optional)'), { target: { value: 'New unsent request' } });
+    const callsBeforeEmailResponse = authFetchMock.mock.calls.length;
+    await act(async () => { resolveAcknowledgement({ ok: true, to: 'jane@example.com' }); });
+    expect(screen.getByRole('dialog', { name: /record payment/i })).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Reference (optional)')).toHaveValue('New unsent request');
+    expect(authFetchMock.mock.calls).toHaveLength(callsBeforeEmailResponse);
   });
 
   it('does not send an acknowledgement email when the checkbox is left unticked', async () => {

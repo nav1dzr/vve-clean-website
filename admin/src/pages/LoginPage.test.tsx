@@ -43,6 +43,7 @@ describe('LoginPage', () => {
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
     expect(screen.queryByText(/sign up/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/register/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /google/i })).not.toBeInTheDocument();
   });
 
   it('does not attempt sign-in when required fields are left empty', async () => {
@@ -85,4 +86,5 @@ describe('LoginPage', () => {
 
     expect(screen.getByText('Dashboard Home')).toBeInTheDocument();
   });
+
 });

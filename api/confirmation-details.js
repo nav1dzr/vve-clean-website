@@ -1,3 +1,4 @@
+import { rejectUnsafePreview } from './_lib/previewIsolation.js';
 // Read-only booking details for confirmation.html.
 // Called on page load (with retry) to populate display fields.
 //
@@ -55,6 +56,7 @@ function isValidTokenFormat(t) {
 }
 
 export default async function handler(req, res) {
+  if (rejectUnsafePreview(res, { legacy: true })) return;
   if (req.method !== 'GET') {
     res.writeHead(405);
     return res.end();

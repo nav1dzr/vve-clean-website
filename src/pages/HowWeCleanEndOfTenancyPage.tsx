@@ -1,17 +1,18 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
-import EotProcessSection from '../components/eot/EotProcessSection';
+import EotProcessSection, { EotInclusions } from '../components/eot/EotProcessSection';
 import { EOT_GUARANTEE_HOURS } from '../data/pricing';
+import { GUARANTEE_SUMMARY, GUARANTEE_LIMIT } from '../data/guarantee';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20an%20end%20of%20tenancy%20clean%20quote.';
 
 const FAQS = [
   {
-    q: 'Does your clean meet letting agent standards?',
-    a: 'Yes, on our Complete Agency-Ready package. We follow a 67-point checklist based on standard letting agency inventory requirements and provide a photographic cleaning receipt you can share with your agent.',
+    q: 'Can I share the cleaning details with my letting agent?',
+    a: 'Yes. Your quote lists the cleaning work, and a photographic cleaning receipt records the finished result. If your agent has a particular checklist, send it before booking so we can compare it with the work included.',
   },
   {
-    q: `What is the ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee?`,
-    a: `If your letting agent or landlord flags an area of the clean within ${EOT_GUARANTEE_HOURS} hours of completion, send us their written feedback. We will return to address the relevant cleaning points for free.`,
+    q: `What is the ${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee?`,
+    a: `${GUARANTEE_SUMMARY} ${GUARANTEE_LIMIT}`,
   },
   {
     q: 'What is included in the Complete package?',
@@ -19,7 +20,7 @@ const FAQS = [
   },
   {
     q: 'What is the difference between Complete and Tailored?',
-    a: 'Complete covers the full 67-point checklist for one fixed price. Tailored starts with the core clean and lets you add the internal appliance and storage tasks you need. The quote shows every selected task and price before you send the booking request.',
+    a: 'Complete includes the listed kitchen appliance and empty storage interiors. Tailored starts with the core clean, including the oven, hob, grill and extractor, and lets you add the other interiors you need. The quote shows your selected tasks and price before you send a booking request.',
   },
   {
     q: 'Is oven cleaning included?',
@@ -52,7 +53,7 @@ const SCHEMA = JSON.stringify({
     {
       '@type': 'Service',
       name: 'How We Clean for End of Tenancy',
-      description: `How VVE Clean carries out an end of tenancy clean in London — the 67-point checklist, free oven clean, photographic receipt and ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee.`,
+      description: `Preparation, included cleaning tasks and handover for a VVE Clean end of tenancy clean, with a ${EOT_GUARANTEE_HOURS / 24}-day reporting window for missed covered work.`,
       provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
       url: 'https://www.vveclean.co.uk/how-we-clean-end-of-tenancy',
@@ -74,8 +75,9 @@ const DATA: ServiceLandingData = {
 
   eyebrow: 'Our Process',
   h1: 'How We Clean for End of Tenancy',
-  h1Highlight: ' — the process, step by step.',
-  heroBadges: ['67-point checklist', 'Free oven clean', `${EOT_GUARANTEE_HOURS}-hour guarantee`],
+  h1Highlight: '',
+  heroSubtitle: 'Prepare your property, check the included tasks and understand what happens after the clean.',
+  heroBadges: ['Listed cleaning tasks', 'Oven cleaning included', `${EOT_GUARANTEE_HOURS / 24}-day guarantee`],
   heroGoogleBadge: true,
   primaryHref: '/end-of-tenancy-cleaning-london#quote',
   primaryLabel: 'Get an end of tenancy quote',
@@ -83,15 +85,15 @@ const DATA: ServiceLandingData = {
   secondaryLabel: 'WhatsApp for a quote',
   secondaryIsWa: true,
 
-  introH2: 'The same checklist your letting agent uses',
-  introText: `Letting agents work from a detailed inventory checklist, and so do we — on our Complete Agency-Ready package. Here is exactly what happens from arrival to the ${EOT_GUARANTEE_HOURS}-hour re-clean guarantee.`,
+  introH2: 'Before the cleaning team arrives',
+  introText: 'The property needs to be vacant. Empty cupboards and appliances, defrost the freezer and arrange access before the appointment. Send any specific landlord or agent requirements with your request so we can check them against your chosen package.',
 
   benefitsH2: '',
   benefits: [],
   whyH2: '',
   whyPoints: [],
 
-  processSection: <EotProcessSection />,
+  processSection: <><EotInclusions /><EotProcessSection /></>,
   sectionOrder: ['intro', 'process', 'faq', 'related'],
 
   faqs: FAQS,
@@ -104,8 +106,8 @@ const DATA: ServiceLandingData = {
   ],
 
   ctaH2: 'Ready to book your end of tenancy clean?',
-  ctaBody: 'Send your preferred date online with no payment. We check availability, scope and the final price, then contact you to confirm the appointment.',
-  ctaPrimary: { href: '/booking', label: 'Request a time' },
+  ctaBody: 'Send your preferred date free. We agree the scope, total and time, then send a £30 deposit link. Payment confirms the booking and counts towards the total.',
+  ctaPrimary: { href: '/end-of-tenancy-cleaning-london#quote', label: 'Get an end of tenancy quote' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };
 

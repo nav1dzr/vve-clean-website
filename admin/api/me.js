@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
   if (!result.ok) {
     res.writeHead(result.status, headers);
-    return res.end(JSON.stringify({ error: result.error }));
+    return res.end(JSON.stringify({ error: result.error, ...(result.code ? { code: result.code } : {}) }));
   }
 
   res.writeHead(200, headers);

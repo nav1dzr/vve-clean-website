@@ -114,9 +114,9 @@ describe('GalleryPage — categories, deep links, empty states, keyboard nav', (
       'href',
       'https://www.facebook.com/share/1LXXHgnhvc/',
     );
-    expect(screen.getByRole('link', { name: 'See VVE Clean on Google' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /VVE Clean is rated .* Google reviews/ })).toHaveAttribute(
       'href',
-      'https://g.page/r/CYDRQCaICK7vEAE/review',
+      'https://share.google/tZEyXUs0J0SxXZlDi',
     );
   });
 

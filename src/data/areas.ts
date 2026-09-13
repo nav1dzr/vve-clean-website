@@ -99,7 +99,7 @@ export const AREAS: AreaInfo[] = [
     slug: 'camden',
     name: 'Camden',
     postcodes: ['NW1'],
-    neighbourAreas: ['Islington', 'Highgate', 'Holloway'],
+    neighbourAreas: ['Islington', 'Holloway'],
   },
   {
     slug: 'highgate',

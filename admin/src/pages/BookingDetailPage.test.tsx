@@ -87,6 +87,7 @@ function setupAuthFetchMock(
 ) {
   authFetchMock.mockImplementation((path: string, init?: RequestInit) => {
     const method = init?.method || 'GET';
+    if (path.includes('action=journey')) return Promise.resolve({journey:null,enabled:false,notifications:[],events:[]});
 
     if (/action=notes/.test(path)) {
       if (method === 'POST') {
@@ -193,7 +194,7 @@ describe('BookingDetailPage', () => {
 
     expect(await screen.findAllByText('Check availability')).not.toHaveLength(0);
     expect(screen.getByText('Preferred-time request — no payment requested yet')).toBeInTheDocument();
-    expect(screen.getByText(/No online deposit is required/i)).toBeInTheDocument();
+    expect(screen.getByText(/Send the £30 deposit request below after agreement/i)).toBeInTheDocument();
   });
 
   it('shows "unavailable" action states instead of broken links when contact info is missing', async () => {

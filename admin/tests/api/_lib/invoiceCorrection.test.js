@@ -77,7 +77,7 @@ describe('correctIssuedInvoiceDetails', () => {
     );
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/valid email/i);
-    expect(supabase._tables.invoices.find((row) => row.id === invoiceId).document_version).toBeUndefined();
+    expect(supabase._tables.invoices.find((row) => row.id === invoiceId).document_version).toBe(1);
   });
 
   it('rejects draft, paid, and superseded invoices', async () => {

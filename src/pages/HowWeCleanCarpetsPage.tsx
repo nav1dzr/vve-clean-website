@@ -70,8 +70,9 @@ const DATA: ServiceLandingData = {
 
   eyebrow: 'Our Process',
   h1: 'How We Clean Carpets',
-  h1Highlight: ' — the process, step by step.',
-  heroBadges: ['Hot-water extraction', 'Dry in 2–4 hours', 'Fully insured'],
+  h1Highlight: '',
+  heroSubtitle: 'How we prepare your carpets, clean them and help them dry. Check what to move before we arrive and what cleaning can change.',
+  heroBadges: ['Hot-water extraction', 'Typical drying: 2–4 hours', 'Fully insured'],
   heroGoogleBadge: true,
   primaryHref: '/carpet-cleaning-london#quote',
   primaryLabel: 'Get a carpet quote',
@@ -79,8 +80,8 @@ const DATA: ServiceLandingData = {
   secondaryLabel: 'WhatsApp for a quote',
   secondaryIsWa: true,
 
-  introH2: 'Hot-water extraction, not surface scrubbing',
-  introText: 'Every carpet clean starts with an inspection of the carpet type and stain condition, then pre-treatment on heavy soiling before hot-water extraction lifts the dirt out of the pile. Here is exactly what that involves.',
+  introH2: 'Before we arrive',
+  introText: 'Clear small items, toys and breakables from the carpet. Tell us about larger furniture, access and parking when you request your quote. Point out any stains and products already used on them so we can assess the likely result before cleaning.',
 
   benefitsH2: '',
   benefits: [],
@@ -89,7 +90,7 @@ const DATA: ServiceLandingData = {
 
   proofSection: <CarpetResultsSection />,
   processSection: <CarpetProcessSection />,
-  sectionOrder: ['intro', 'proof', 'process', 'faq', 'related'],
+  sectionOrder: ['intro', 'process', 'proof', 'faq', 'related'],
 
   faqs: FAQS,
 
@@ -101,8 +102,8 @@ const DATA: ServiceLandingData = {
   ],
 
   ctaH2: 'Ready to book your carpet clean?',
-  ctaBody: 'Send your preferred date online with no payment. We check availability, scope and the final price, then contact you to confirm the appointment.',
-  ctaPrimary: { href: '/booking', label: 'Request a time' },
+  ctaBody: 'Send your preferred date free. We agree the scope, total and time, then send a £30 deposit link. Payment confirms the booking and counts towards the total.',
+  ctaPrimary: { href: '/carpet-cleaning-london#quote', label: 'Get a carpet quote' },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };
 

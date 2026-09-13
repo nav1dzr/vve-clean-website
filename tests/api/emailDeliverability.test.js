@@ -4,16 +4,15 @@ import { resolve } from 'node:path';
 import {
   bookingBusinessText,
   bookingCustomerText,
-  contactBusinessText,
-  contactCustomerText,
 } from '../../api/_lib/emailPlainText.js';
+import { contactBusinessText, contactCustomerText } from '../../admin/api/_lib/enquiryPlainText.js';
 
 const read = (path) => readFileSync(resolve(process.cwd(), path), 'utf8');
 
 // Every `transport.sendMail({ ... })` call in the public API surface. If a new
 // send is added without a plain-text part, the count assertion below fails and
 // points the author at this file.
-const PUBLIC_SEND_PATHS = ['api/contact.js', 'api/stripe-webhook.js'];
+const PUBLIC_SEND_PATHS = ['admin/api/_lib/enquiryNotifications.js', 'api/stripe-webhook.js'];
 
 describe('transactional email is multipart, not HTML-only', () => {
   // An HTML-only transactional message is a recognised spam heuristic: bulk
@@ -21,8 +20,8 @@ describe('transactional email is multipart, not HTML-only', () => {
   // These four sends were HTML-only before this change.
   it.each(PUBLIC_SEND_PATHS)('%s pairs every html: body with a text: body', (path) => {
     const source = read(path);
-    const htmlParts = source.match(/^\s*html:\s/gm) ?? [];
-    const textParts = source.match(/^\s*text:\s/gm) ?? [];
+    const htmlParts = source.match(/\bhtml:\s/g) ?? [];
+    const textParts = source.match(/\btext:\s/g) ?? [];
 
     expect(htmlParts.length).toBeGreaterThan(0);
     expect(textParts).toHaveLength(htmlParts.length);
@@ -30,14 +29,14 @@ describe('transactional email is multipart, not HTML-only', () => {
 
   it.each(PUBLIC_SEND_PATHS)('%s sets a Reply-To on every send', (path) => {
     const source = read(path);
-    const sends = source.match(/^\s*html:\s/gm) ?? [];
+    const sends = source.match(/\bhtml:\s/g) ?? [];
     const replyTos = source.match(/replyTo:/g) ?? [];
 
     expect(replyTos.length).toBe(sends.length);
   });
 
   it.each(PUBLIC_SEND_PATHS)('%s builds its text bodies from the shared helper', (path) => {
-    expect(read(path)).toContain("from './_lib/emailPlainText.js'");
+    expect(read(path)).toContain(path.includes('enquiryNotifications') ? "from './enquiryPlainText.js'" : "from './_lib/emailPlainText.js'");
   });
 });
 
@@ -87,7 +86,8 @@ describe('plain-text bodies carry the same facts as the HTML', () => {
     const text = contactCustomerText({ fullName: 'Sam Taylor' });
 
     expect(text).toContain('Hi Sam Taylor,');
-    expect(text).toContain('usually reply within the hour during working hours');
+    expect(text).toContain('Our team will reply during opening hours');
+    expect(text).not.toMatch(/within (one|the) hour/);
     expect(text).toContain('020 8050 2233');
   });
 

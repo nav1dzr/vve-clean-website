@@ -1,4 +1,4 @@
-﻿import {
+import {
   Armchair,
   ArrowRight,
   Waves,
@@ -89,9 +89,9 @@ export default function HomeServiceSelector({ onChoose }: Props) {
         <div className="mx-auto mb-10 max-w-2xl text-center">
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-royal-700">Choose your service</p>
           <h2 className="font-display text-3xl font-bold tracking-tight text-navy-900 sm:text-4xl">
-            What would you like cleaned today?
+            What would you like cleaned?
           </h2>
-          <p className="mt-3 text-base text-muted">Start with a service, then build your quote using our existing live calculator.</p>
+          <p className="mt-3 text-base text-muted">Choose a service to see prices and select the work you need.</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">

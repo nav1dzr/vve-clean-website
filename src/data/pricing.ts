@@ -14,11 +14,11 @@
 // `npm run typecheck && npm test` (root) — tests/api/pricingSource.test.js
 // fails loudly if admin's synced copy goes stale.
 
-export * from '../../shared/pricingCatalogue.js';
+export * from '../lib/runtimePriceCatalogue';
 import {
   calculateEotQuote as _calculateEotQuote,
   calculateMoveInQuote as _calculateMoveInQuote,
-} from '../../shared/pricingCatalogue.js';
+} from '../lib/runtimePriceCatalogue';
 
 // Type-only declarations (compile-time only, erased at runtime — not price
 // data, so not a "duplicated calculation logic" concern). Mirrors the JSDoc

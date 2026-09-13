@@ -13,7 +13,7 @@ vi.mock('@supabase/supabase-js', () => ({
   })),
 }));
 
-const { verifyAdminRequest } = await import('../../../api/_lib/adminAuth.js');
+const { verifyAdminRequest, verifyMediaAdminRequest } = await import('../../../api/_lib/adminAuth.js');
 
 function makeReq(headers) {
   return { headers };
@@ -25,12 +25,22 @@ describe('verifyAdminRequest', () => {
   beforeEach(() => {
     getUserMock.mockReset();
     maybeSingleMock.mockReset();
+    fromMock.mockClear();
     process.env.VITE_SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
   });
 
   afterEach(() => {
     process.env = { ...ORIGINAL_ENV };
+  });
+
+  it.each([verifyAdminRequest, verifyMediaAdminRequest])('identifies preview setup before token or membership lookups', async verify => {
+    process.env.VERCEL_ENV = 'preview';
+    delete process.env.VVE_PREVIEW_ISOLATION_APPROVED;
+    const result = await verify(makeReq({ authorization: 'Bearer synthetic-token' }));
+    expect(result).toMatchObject({ ok: false, status: 403, code: 'PREVIEW_SETUP_REQUIRED' });
+    expect(getUserMock).not.toHaveBeenCalled();
+    expect(fromMock).not.toHaveBeenCalled();
   });
 
   it('returns 500 when required server env vars are missing', async () => {
@@ -77,6 +87,8 @@ describe('verifyAdminRequest', () => {
 
     expect(result.ok).toBe(false);
     expect(result.status).toBe(403);
+    expect(result.code).toBe('ADMIN_ACCESS_DENIED');
+    expect(fromMock).toHaveBeenCalledWith('admin_users');
   });
 
   it('returns 500 when the admin_users lookup itself fails', async () => {
@@ -122,5 +134,23 @@ describe('verifyAdminRequest', () => {
     const result = await verifyAdminRequest(makeReq({ authorization: 'Bearer good-token' }));
 
     expect(JSON.stringify(result)).not.toContain('test-service-role-key');
+  });
+
+  it('uses the same authorised CRM user for Media and every existing CRM route', async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'crm-user-1', email: 'owner@example.com' } },
+      error: null,
+    });
+    maybeSingleMock.mockResolvedValue({ data: { id: 'crm-user-1', display_name: 'Owner' }, error: null });
+
+    const normalRoute = await verifyAdminRequest(makeReq({ authorization: 'Bearer crm-token' }));
+    const mediaRoute = await verifyMediaAdminRequest(makeReq({ authorization: 'Bearer crm-token' }));
+
+    expect(normalRoute).toEqual({ ok: true, admin: { id: 'crm-user-1', email: 'owner@example.com', displayName: 'Owner' } });
+    expect(mediaRoute).toEqual({
+      ok: true,
+      admin: { id: 'crm-user-1', email: 'owner@example.com', displayName: 'Owner' },
+    });
+    expect(fromMock).toHaveBeenCalledTimes(2);
   });
 });

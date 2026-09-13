@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import type {
   InvoiceCustomer, InvoiceDraftInput, InvoiceDraftItemInput, InvoiceServiceContact, PaymentOptionValue,
 } from '../types/invoice';
@@ -9,6 +9,10 @@ import ServiceTemplateCombobox from './ServiceTemplateCombobox';
 import CatalogueItemCombobox from './CatalogueItemCombobox';
 import type { CatalogueItem } from '../types/catalogue';
 import StructuredAddressFields from './StructuredAddressFields';
+import {
+  readInvoiceDraftRecovery, writeInvoiceDraftRecovery, clearInvoiceDraftRecovery,
+  INVOICE_RECOVERY_CLEARED_EVENT, type InvoiceRecoveryContext, type InvoiceRecoverySnapshot,
+} from '../lib/invoiceDraftRecovery';
 
 const PAYMENT_OPTION_LABELS: Record<PaymentOptionValue, string> = {
   bank_transfer: 'Bank transfer',
@@ -28,10 +32,8 @@ interface FormItem extends InvoiceDraftItemInput {
   key: string;
 }
 
-let keyCounter = 0;
 function newKey() {
-  keyCounter += 1;
-  return `item-${keyCounter}`;
+  return 'item-' + crypto.randomUUID();
 }
 
 function emptyItem(): FormItem {
@@ -99,10 +101,13 @@ function previewTotals(value: InvoiceItemsFormValue) {
 
 interface Props {
   initial: InvoiceItemsFormValue;
-  onSubmit: (input: InvoiceDraftInput) => Promise<void>;
+  onSubmit: (input: InvoiceDraftInput) => Promise<void | boolean>;
   submitLabel: string;
   submitting: boolean;
   error: string | null;
+  recovery?: InvoiceRecoveryContext;
+  onDirtyChange?: (dirty: boolean) => void;
+  submissionBlocked?: boolean;
   secondaryAction?: { label: string; onClick: () => void; disabled?: boolean };
 }
 
@@ -110,22 +115,70 @@ function hasAnyServiceContactField(sc: InvoiceServiceContact): boolean {
   return Boolean(sc.name?.trim() || sc.email?.trim() || sc.phone?.trim() || sc.address?.trim() || sc.postcode?.trim());
 }
 
-export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submitting, error, secondaryAction }: Props) {
-  const [value, setValue] = useState<InvoiceItemsFormValue>(initial);
+function recoveryText(snapshot: InvoiceRecoverySnapshot): string {
+  const v = snapshot.value;
+  const contact = (label: string, c: InvoiceCustomer | InvoiceServiceContact) => [
+    label, 'Name: ' + (c.name || ''), 'Email: ' + (c.email || ''), 'Phone: ' + (c.phone || ''),
+    'Address: ' + (c.address || ''), 'Postcode: ' + (c.postcode || ''),
+  ];
+  const amount = (key: string, field: 'qty' | 'price' | 'discount', fallback: number) => {
+    const raw = snapshot.rawNumerics[key]?.[field];
+    return raw === '' ? '[empty field]' : raw ?? String(fallback);
+  };
+  return [
+    'EARLIER UNSAVED INVOICE COPY — not the current saved invoice', '',
+    ...contact('BILLING CONTACT', v.customer), '',
+    'Booking reference: ' + v.poReference, 'Issue date: ' + v.issueDate,
+    'Due date: ' + v.dueDate, 'Service date: ' + v.serviceDate, '',
+    'LINE ITEMS', ...v.items.flatMap((item, index) => [
+      String(index + 1) + '. ' + item.description,
+      'Quantity: ' + amount(item.key, 'qty', item.quantity),
+      'Unit price (£): ' + amount(item.key, 'price', item.unitPrice),
+      'Line discount (£): ' + amount(item.key, 'discount', item.lineDiscount), '',
+    ]),
+    'Document discount (£): ' + v.documentDiscount, 'Deposit received (£): ' + v.depositApplied,
+    'Payment terms: ' + v.paymentTerms, 'Payment option: ' + PAYMENT_OPTION_LABELS[v.paymentOption],
+    'Stripe link: ' + v.stripePaymentLinkUrl, '',
+    'Separate service contact selected: ' + (snapshot.serviceContactEnabled ? 'Yes' : 'No'),
+    ...contact('SERVICE CONTACT', v.serviceContact), '',
+    'Invoice recipient: ' + v.invoiceRecipientEmail, 'Receipt recipient: ' + v.receiptRecipientEmail, '',
+    'CUSTOMER NOTES', v.customerNotes, '', 'INTERNAL NOTES', v.internalNotes,
+  ].join('\n');
+}
+
+export default function InvoiceItemsForm({
+  initial, onSubmit, submitLabel, submitting, error, secondaryAction, recovery, onDirtyChange, submissionBlocked = false,
+}: Props) {
+  // Parents key this form by authenticated user, document and server version.
+  // Recovery is read only after the current document has loaded and passed auth.
+  const [baseline] = useState<InvoiceRecoverySnapshot>(() => ({
+    value: initial,
+    serviceContactEnabled: hasAnyServiceContactField(initial.serviceContact),
+    refManuallyEdited: Boolean(initial.poReference),
+    rawNumerics: {},
+  }));
+  const [recoveryAtOpen] = useState(() => recovery ? readInvoiceDraftRecovery(recovery) : null);
+  const restored = recoveryAtOpen?.status === 'recovered' ? recoveryAtOpen.snapshot : baseline;
+  const [value, setValue] = useState<InvoiceItemsFormValue>(restored.value);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [serviceContactEnabled, setServiceContactEnabled] = useState(() => hasAnyServiceContactField(initial.serviceContact));
+  const [serviceContactEnabled, setServiceContactEnabled] = useState(restored.serviceContactEnabled);
+  const [showRestored, setShowRestored] = useState(recoveryAtOpen?.status === 'recovered');
+  const [olderCopy, setOlderCopy] = useState(recoveryAtOpen?.status === 'changed' ? recoveryAtOpen.snapshot : null);
+  const [storageAvailable, setStorageAvailable] = useState(recoveryAtOpen?.status !== 'unavailable');
+  const [savedFingerprint, setSavedFingerprint] = useState(() => JSON.stringify(baseline));
+  const persistenceStopped = useRef(false);
   // Whether the admin has directly typed into the booking-reference field
   // (or a value was already prefilled in) — once true, postcode/service-date
   // changes never auto-populate it again. The Auto-fill button resets this,
   // so "regenerate" resumes automatic tracking rather than being a one-shot.
-  const [refManuallyEdited, setRefManuallyEdited] = useState(() => Boolean(initial.poReference));
+  const [refManuallyEdited, setRefManuallyEdited] = useState(restored.refManuallyEdited);
 
   // Raw string state for each item's numeric inputs while the user is actively
   // editing. Undefined means "display the committed number from FormItem".
   // Avoids the controlled-input problem where Number('') = 0 re-inserts zero
   // immediately after the user clears the field with Backspace or Delete.
   // Qty and Discount have the identical bug, so the same fix covers all three.
-  const [rawNumerics, setRawNumerics] = useState<Record<string, RawItemNumerics>>({});
+  const [rawNumerics, setRawNumerics] = useState<Record<string, RawItemNumerics>>(restored.rawNumerics);
 
   // Template state: tracks the last description text applied via the combobox
   // per item key so we can detect when the admin has typed custom text since.
@@ -135,6 +188,63 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
   // Holds a pending template selection for an item when confirmation is needed
   // (non-empty description that differs from the last applied template).
   const [pendingTemplate, setPendingTemplate] = useState<Record<string, string>>({});
+
+  const snapshot: InvoiceRecoverySnapshot = { value, serviceContactEnabled, refManuallyEdited, rawNumerics };
+  const fingerprint = JSON.stringify(snapshot);
+  const dirty = fingerprint !== savedFingerprint;
+  const latestRecovery = useRef({ recovery, snapshot, dirty, blocked: Boolean(olderCopy) });
+  latestRecovery.current = { recovery, snapshot, dirty, blocked: Boolean(olderCopy) };
+
+  useEffect(() => { onDirtyChange?.(dirty || Boolean(olderCopy)); }, [dirty, olderCopy, onDirtyChange]);
+
+  useEffect(() => {
+    const latest = latestRecovery.current;
+    if (!latest.recovery || persistenceStopped.current || latest.blocked) return;
+    if (latest.dirty) {
+      setStorageAvailable(writeInvoiceDraftRecovery(latest.recovery, latest.snapshot));
+    } else {
+      clearInvoiceDraftRecovery(latest.recovery);
+    }
+  }, [fingerprint, dirty, olderCopy, recovery?.userId, recovery?.documentKey, recovery?.baseVersion]);
+
+  useEffect(() => {
+    const persist = () => {
+      const latest = latestRecovery.current;
+      if (!persistenceStopped.current && !latest.blocked && latest.recovery && latest.dirty) {
+        setStorageAvailable(writeInvoiceDraftRecovery(latest.recovery, latest.snapshot));
+      }
+    };
+    const hide = () => { if (document.visibilityState === 'hidden') persist(); };
+    const stop = () => { persistenceStopped.current = true; };
+    window.addEventListener('pagehide', persist);
+    document.addEventListener('visibilitychange', hide);
+    window.addEventListener(INVOICE_RECOVERY_CLEARED_EVENT, stop);
+    return () => {
+      window.removeEventListener('pagehide', persist);
+      document.removeEventListener('visibilitychange', hide);
+      window.removeEventListener(INVOICE_RECOVERY_CLEARED_EVENT, stop);
+    };
+  }, []);
+
+  function discardOlderCopy() {
+    if (!window.confirm('Discard the earlier unsaved invoice copy? Copy any details you need first. The current saved invoice will stay unchanged.')) return;
+    if (recovery) clearInvoiceDraftRecovery(recovery);
+    setOlderCopy(null);
+  }
+
+  function discardChanges() {
+    if (!window.confirm('Discard the unsaved changes in this invoice form?')) return;
+    if (recovery) clearInvoiceDraftRecovery(recovery);
+    setValue(baseline.value);
+    setServiceContactEnabled(baseline.serviceContactEnabled);
+    setRefManuallyEdited(baseline.refManuallyEdited);
+    setRawNumerics({});
+    setLastAppliedTemplate({});
+    setPendingTemplate({});
+    setValidationError(null);
+    setShowRestored(false);
+    setSavedFingerprint(JSON.stringify(baseline));
+  }
 
   function handleTemplateSelect(itemKey: string, template: string) {
     const item = value.items.find((i) => i.key === itemKey);
@@ -242,7 +352,11 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
   }
 
   function removeItem(key: string) {
-    setValue((v) => (v.items.length <= 1 ? v : { ...v, items: v.items.filter((i) => i.key !== key) }));
+    if (value.items.length <= 1) return;
+    setValue((v) => ({ ...v, items: v.items.filter((i) => i.key !== key) }));
+    setRawNumerics((current) => { const next = { ...current }; delete next[key]; return next; });
+    setLastAppliedTemplate((current) => { const next = { ...current }; delete next[key]; return next; });
+    setPendingTemplate((current) => { const next = { ...current }; delete next[key]; return next; });
   }
 
   function moveItem(key: string, direction: -1 | 1) {
@@ -259,6 +373,7 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setValidationError(null);
+    if (submitting || submissionBlocked || olderCopy) return;
 
     if (!value.customer.name.trim()) {
       setValidationError('Customer name is required.');
@@ -325,7 +440,16 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
       serviceCustomerId: serviceContactEnabled ? value.serviceCustomerId : null,
     };
 
-    await onSubmit(input);
+    try {
+      const saved = await onSubmit(input);
+      if (saved === false) return;
+      persistenceStopped.current = true;
+      if (recovery) clearInvoiceDraftRecovery(recovery);
+      setShowRestored(false);
+      setSavedFingerprint(fingerprint);
+    } catch (err) {
+      setValidationError(err instanceof Error ? err.message : 'Could not save this invoice. Your unsaved changes are still here.');
+    }
   }
 
   const inputClass = 'min-h-11 w-full rounded-lg border border-silver-300 bg-white px-3 text-base text-navy-950 outline-none focus:border-sky-500';
@@ -333,6 +457,40 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
 
   return (
     <form onSubmit={handleSubmit}>
+      {recovery && (
+        <div className="mb-4 rounded-xl border border-silver-300 bg-silver-50 p-3 text-sm text-navy-800">
+          {showRestored && <p role="status" className="mb-1 font-medium">Recovered your unsaved changes from this tab.</p>}
+          {olderCopy && (
+            <div className="mb-3">
+              <p className="font-medium">The saved invoice changed since your local edits. Your earlier unsaved copy is preserved here.</p>
+              <p className="mt-1">Review and copy any details you need. Discard that older copy before editing or issuing the saved invoice shown below.</p>
+              <details className="mt-2">
+                <summary className="min-h-11 cursor-pointer py-3 font-medium">View earlier unsaved invoice details</summary>
+                <textarea readOnly aria-label="Earlier unsaved invoice details" value={recoveryText(olderCopy)} rows={14} className="w-full rounded-lg border border-silver-300 bg-white p-3 text-base" />
+              </details>
+              <button type="button" onClick={discardOlderCopy} disabled={submitting} className="mt-2 min-h-11 rounded-lg border border-silver-300 bg-white px-3 font-medium">
+                Discard older copy and edit saved invoice
+              </button>
+            </div>
+          )}
+          {(recoveryAtOpen?.status === 'expired' || recoveryAtOpen?.status === 'invalid') && (
+            <p className="mb-1">The previous recovery copy expired or could not be read. Check the form before continuing.</p>
+          )}
+          <p>
+            {!storageAvailable
+              ? 'This browser cannot keep a recovery copy. Save your draft before leaving this page.'
+              : dirty
+                ? 'Unsaved changes are kept in this tab for up to 24 hours. Save the draft to keep them in the CRM.'
+                : 'Recovery is kept only in this browser tab for up to 24 hours. Sign out to clear it.'}
+          </p>
+          {dirty && !olderCopy && (
+            <button type="button" disabled={submitting} onClick={discardChanges} className="mt-2 min-h-11 rounded-lg border border-silver-300 bg-white px-3 font-medium text-navy-900">
+              Discard unsaved changes
+            </button>
+          )}
+        </div>
+      )}
+      <fieldset disabled={submitting || Boolean(olderCopy)} className="min-w-0">
       <section className="mb-4 rounded-xl border border-silver-300 bg-white p-4">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-navy-500">Customer</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -636,7 +794,7 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
           <button
             type="button"
             onClick={secondaryAction.onClick}
-            disabled={secondaryAction.disabled}
+            disabled={secondaryAction.disabled || dirty}
             className="min-h-11 rounded-lg border border-silver-300 px-4 text-sm font-medium text-navy-900 disabled:opacity-60"
           >
             {secondaryAction.label}
@@ -644,12 +802,13 @@ export default function InvoiceItemsForm({ initial, onSubmit, submitLabel, submi
         )}
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || submissionBlocked}
           className="min-h-11 flex-1 rounded-lg bg-navy-950 px-4 text-sm font-semibold text-white transition-colors hover:bg-navy-900 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? 'Saving…' : submitLabel}
         </button>
       </div>
+      </fieldset>
     </form>
   );
 }

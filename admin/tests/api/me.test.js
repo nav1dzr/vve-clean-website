@@ -56,6 +56,19 @@ describe('GET /api/me', () => {
     expect(res.statusCode).toBe(403);
   });
 
+  it.each([
+    ['PREVIEW_SETUP_REQUIRED', 'This preview is read-only until approved isolated test resources are connected.'],
+    ['ADMIN_ACCESS_DENIED', 'Not an authorised admin'],
+  ])('preserves the safe %s failure reason without changing denial or caching', async (code, error) => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: false, status: 403, code, error });
+    const res = makeRes();
+    await handler({ method: 'GET', headers: { authorization: 'Bearer synthetic-token' } }, res);
+    expect(res.statusCode).toBe(403);
+    expect(res.headers['Cache-Control']).toBe('no-store');
+    expect(JSON.parse(res.body)).toEqual({ code, error });
+    expect(res.body).not.toContain('synthetic-token');
+  });
+
   it('returns only safe profile fields for a verified admin, with no-store caching', async () => {
     verifyAdminRequestMock.mockResolvedValue({
       ok: true,

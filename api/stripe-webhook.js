@@ -1,3 +1,4 @@
+import { rejectUnsafePreview, isHostedPreview } from './_lib/previewIsolation.js';
 import Stripe from 'stripe';
 import nodemailer from 'nodemailer';
 import { createClient } from '@supabase/supabase-js';
@@ -6,6 +7,7 @@ import { splitServiceDetail } from './_lib/formatBookingItems.js';
 import { findOrCreateCustomerForPaidBooking } from './_lib/customerSync.js';
 import { emailWordmarkHtml } from './_lib/emailBrand.js';
 import { bookingBusinessText, bookingCustomerText } from './_lib/emailPlainText.js';
+import { recordJourneyPayment, recordJourneyRefund } from '../admin/api/_lib/bookingJourney.js';
 
 // A Lambda crash leaves the event in 'processing'. After this window Stripe
 // retries are allowed to re-claim it.
@@ -503,6 +505,7 @@ function businessEmailHtml(meta, bookingRef) {
 }
 
 export default async function handler(req, res) {
+  if (rejectUnsafePreview(res)) return;
   console.log('[webhook] received method:', req.method);
 
   if (req.method !== 'POST') {
@@ -552,6 +555,39 @@ export default async function handler(req, res) {
   }
 
   // ── Ignore non-payment events ───────────────────────────────────────────────
+  // The agreed-booking flow has its own atomic payment ledger and outbox.
+  // Keep historic website-deposit events on the existing path below.
+  const journeyObject = event.data.object;
+  if (isHostedPreview() && (event.livemode !== false || journeyObject.metadata?.journey !== 'v1')) {
+    res.writeHead(403, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify({ error: 'Only test-mode events for the isolated booking journey are accepted in previews.' }));
+  }
+  if (journeyObject.metadata?.journey === 'v1') {
+    const journeyDb = getSupabase();
+    if (!journeyDb) { res.writeHead(503); return res.end('Booking database unavailable'); }
+    try {
+      if (['checkout.session.completed', 'checkout.session.async_payment_succeeded'].includes(event.type)) {
+        await recordJourneyPayment(journeyDb, journeyObject);
+        if (journeyObject.payment_status === 'paid') {
+          // Reuse the established customer-directory sync after the new ledger
+          // has durably recorded payment. A directory outage must not lose it.
+          try {
+            const { data: paidBooking } = await journeyDb.from('bookings')
+              .select('full_name,email,phone,address,postcode,booking_ref,payment_status')
+              .eq('id', journeyObject.metadata.booking_id).maybeSingle();
+            if (paidBooking?.payment_status === 'paid') await findOrCreateCustomerForPaidBooking(journeyDb, paidBooking);
+          } catch { console.warn('[webhook] booking customer directory sync requires retry'); }
+        }
+      } else if (event.type === 'charge.refunded') {
+        await recordJourneyRefund(journeyDb, journeyObject);
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ received: true }));
+    } catch (error) {
+      console.error('[webhook] booking journey reconciliation failed:', error.status || 503);
+      res.writeHead(503); return res.end('Booking reconciliation pending; retry required');
+    }
+  }
   if (event.type !== 'checkout.session.completed') {
     console.log('[webhook] ignoring event:', event.type);
     res.writeHead(200, { 'Content-Type': 'application/json' });

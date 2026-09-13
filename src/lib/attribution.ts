@@ -1,72 +1,6 @@
-// Campaign attribution — remembered in memory on entry, written to localStorage
-// only after the visitor grants advertising consent, read on booking submit.
-//
-// ── What this is for ─────────────────────────────────────────────────────────
-// Capture used to happen on /leaflet only (setLeafletAttribution). Every other
-// entry point recorded nothing, so a Google Ads click landing on the homepage or
-// a service page arrived at the booking form with no gclid and no utm_*: the
-// spend could not be tied to the revenue in the CRM.
-//
-// ── Why it is behind consent ─────────────────────────────────────────────────
-// The first fix for that ran on every page load and wrote utm_* and gclid to
-// localStorage the moment the page rendered — before the cookie banner had even
-// been answered. That is advertising measurement, not storage strictly
-// necessary to deliver a service the visitor asked for, so under UK PECR it
-// needs consent like any other advertising storage. The site already has a
-// consent mechanism (src/context/CookieConsentContext.tsx); this now uses it.
-//
-// The shape of the solution matters. A naive "only capture if already
-// consented" loses the campaign entirely, because the banner is answered
-// several seconds after the landing URL has been replaced by ordinary
-// navigation. So the entry URL is held in a module variable — memory, not
-// storage, nothing persisted and nothing sent — and written only if and when
-// advertising consent arrives. Accept on page five and the original ad click is
-// still the one recorded.
-//
-// ── Essential vs advertising ─────────────────────────────────────────────────
-// Two things were tangled together in the leaflet flow:
-//   • the discount (offer_code, discount_percent) — the visitor scanned a
-//     leaflet promising 20% off and asked us to honour it. Remembering which
-//     offer to apply is fulfilling their request, so it is essential storage
-//     and is written regardless of consent (setLeafletOffer);
-//   • the measurement (first_source, last_source, landing_page, utm_*, gclid) —
-//     which is for us, not for them, and is gated.
-// They are now separate functions. Rejecting advertising costs the visitor
-// nothing: the discount still applies, the quote still calculates, the booking
-// still submits.
-//
-// ── No consent means no access, not just no writing ──────────────────────────
-// Gating the WRITE was not enough on its own. A visitor who used the site
-// before this change already has utm_* and gclid in their localStorage, written
-// by the implementation that ran before the banner was answered. If the gate
-// only stopped new writes, those old keys would sit there and still be read at
-// booking — so the very people whose data was collected without permission
-// would be the ones it was transmitted for.
-//
-// So consent is enforced at three points, and the ones after the first are
-// there because the first can fail (storage throwing, an older cached build,
-// another tab racing us):
-//   1. nothing is written without consent;
-//   2. every advertising key is DELETED the moment the app knows there is no
-//      current consent — undecided, missing, corrupt and superseded-version all
-//      count as no consent, because none of them is an affirmative yes;
-//   3. getAttribution() does not read the advertising keys at all without
-//      consent, and the flag it checks starts false, so the failure mode is
-//      transmitting nothing rather than transmitting without permission.
-//
-// ── Boundaries that have not changed ─────────────────────────────────────────
-//   • Nothing is transmitted here. Values sit in localStorage and are read only
-//     by BookingPage when the customer submits a booking they chose to make.
-//   • Nothing is rendered. These values never appear in page content.
-//   • Google Ads conversion logic is untouched — this only records the click id
-//     alongside the booking; it does not fire, alter or gate any conversion.
-//
-// utm_term is deliberately NOT captured. It is unsupported end to end — absent
-// from api/create-checkout-session.js, api/stripe-webhook.js, the CRM's
-// bookingFields.js allow-list and the bookings row mapping — so capturing it
-// would silently drop it at the API boundary and imply a coverage that does not
-// exist. Adding it means an API and database change, which is out of scope here.
-
+import { isPrivatePage } from './privatePage';
+// Campaign measurement waits for advertising consent. The requested leaflet offer
+// is separate essential storage; rejecting cookies never removes the discount.
 export interface AttributionData {
   first_source:    string | null;
   last_source:     string | null;
@@ -91,6 +25,7 @@ const KEYS = {
   utm_campaign:     'vve_utm_campaign',
   utm_content:      'vve_utm_content',
   gclid:            'vve_gclid',
+  captured_at:      'vve_attribution_captured_at',
 };
 
 /**
@@ -110,6 +45,7 @@ export const ADVERTISING_KEYS = [
   KEYS.utm_campaign,
   KEYS.utm_content,
   KEYS.gclid,
+  KEYS.captured_at,
 ] as const;
 
 /**
@@ -148,6 +84,7 @@ export function rememberEntry(
   search: string = typeof window === 'undefined' ? '' : window.location.search,
   pathname: string = typeof window === 'undefined' ? '/' : window.location.pathname,
 ): void {
+  if (isPrivatePage(pathname)) return;
   if (!entry) entry = { search, pathname };
   persistIfConsented();
 }
@@ -214,6 +151,10 @@ export function clearAdvertisingAttribution(): void {
   try {
     for (const key of ADVERTISING_KEYS) localStorage.removeItem(key);
   } catch { /* ignore — localStorage may be unavailable */ }
+  try {
+    const keys = Array.from({ length: sessionStorage.length }, (_, i) => sessionStorage.key(i));
+    for (const key of keys) if (key?.startsWith('vve_measured_')) sessionStorage.removeItem(key);
+  } catch { /* Session storage may also be unavailable. */ }
 }
 
 /**
@@ -245,6 +186,7 @@ function persistIfConsented(): void {
  * with "direct".
  */
 export function writeAdvertisingAttribution(search: string, pathname: string): void {
+  if (isPrivatePage(pathname)) return;
   try {
     const params = new URLSearchParams(search);
     const present = {} as Partial<Record<CapturedParam, string>>;
@@ -257,27 +199,20 @@ export function writeAdvertisingAttribution(search: string, pathname: string): v
     // recording the visit as organic.
     const source = present.utm_source ?? (present.gclid ? 'google-ads' : null);
 
-    // ── First touch: write-once ──
-    if (!localStorage.getItem(KEYS.landing_page)) {
-      localStorage.setItem(KEYS.landing_page, pathname);
-    }
-    if (!localStorage.getItem(KEYS.first_source)) {
-      localStorage.setItem(KEYS.first_source, source ?? 'direct');
-    }
-
-    // ── Latest touch: only when this URL genuinely carries a campaign ──
-    if (source) {
-      localStorage.setItem(KEYS.last_source, source);
-    }
-    for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content'] as const) {
-      const value = present[key];
-      if (value) localStorage.setItem(KEYS[key], value);
-    }
-
-    // gclid stays write-once. It is the key Google Ads matches a conversion
-    // against; replacing it would change which click gets credited.
-    if (present.gclid && !localStorage.getItem(KEYS.gclid)) {
-      localStorage.setItem(KEYS.gclid, present.gclid);
+    expireAttribution();
+    if (!localStorage.getItem(KEYS.landing_page)) localStorage.setItem(KEYS.landing_page, pathname.split(/[?#]/)[0].slice(0, MAX_VALUE_LENGTH));
+    if (!localStorage.getItem(KEYS.first_source)) localStorage.setItem(KEYS.first_source, source ?? 'direct');
+    // Replace the whole latest campaign together. A new paid click must never
+    // inherit a different campaign's old click ID, content or medium.
+    if (Object.keys(present).length) {
+      localStorage.setItem(KEYS.last_source, source ?? 'campaign');
+      for (const key of CAPTURED_PARAMS) {
+        if (present[key]) localStorage.setItem(KEYS[key], present[key]!);
+        else localStorage.removeItem(KEYS[key]);
+      }
+      localStorage.setItem(KEYS.captured_at, new Date().toISOString());
+    } else if (!localStorage.getItem(KEYS.captured_at)) {
+      localStorage.setItem(KEYS.captured_at, new Date().toISOString());
     }
   } catch {
     // localStorage unavailable (private mode, storage disabled) — attribution
@@ -290,24 +225,14 @@ export function writeAdvertisingAttribution(search: string, pathname: string): v
  * them, not which discount to give them. Consent-gated via persistIfConsented.
  */
 export function writeLeafletAttribution(): void {
-  try {
-    // first_source is write-once — only set if not already recorded
-    if (!localStorage.getItem(KEYS.first_source)) {
-      localStorage.setItem(KEYS.first_source, 'leaflet');
-    }
-    // last_source always reflects the current visit
-    localStorage.setItem(KEYS.last_source,      'leaflet');
-    localStorage.setItem(KEYS.landing_page,     '/leaflet');
-    localStorage.setItem(KEYS.utm_source,       'leaflet');
-    localStorage.setItem(KEYS.utm_medium,       'qr');
-    localStorage.setItem(KEYS.utm_campaign,     'leaflet20');
-    localStorage.setItem(KEYS.utm_content,      '');
-    // Capture gclid from URL if present (Google click ID)
-    const urlGclid = new URLSearchParams(window.location.search).get('gclid');
-    if (urlGclid && !localStorage.getItem(KEYS.gclid)) {
-      localStorage.setItem(KEYS.gclid, urlGclid);
-    }
-  } catch { /* ignore — localStorage may be unavailable */ }
+  writeAdvertisingAttribution('?utm_source=leaflet&utm_medium=qr&utm_campaign=leaflet20', '/leaflet');
+}
+
+const ATTRIBUTION_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
+function expireAttribution(): void {
+  const captured = localStorage.getItem(KEYS.captured_at);
+  const timestamp = captured ? Date.parse(captured) : NaN;
+  if (!Number.isFinite(timestamp) || Date.now() - timestamp > ATTRIBUTION_MAX_AGE || timestamp > Date.now() + 60000) clearAdvertisingAttribution();
 }
 
 /** Test-only: drops the in-memory entry record so cases cannot bleed together. */
@@ -350,6 +275,7 @@ export function getAttribution(): AttributionData {
     };
 
     if (!advertisingConsent) return { ...NO_ADVERTISING_ATTRIBUTION, ...essential };
+    expireAttribution();
 
     return {
       ...essential,

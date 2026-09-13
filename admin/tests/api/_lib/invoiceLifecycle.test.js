@@ -171,7 +171,7 @@ describe('issueInvoice', () => {
     const result = await issueInvoice(supabase, invoiceId, ADMIN_ID);
     expect(result.ok).toBe(false);
     expect(result.status).toBe(409);
-    expect(result.error).toMatch(/zero balance without a recorded payment/);
+    expect(result.error).toMatch(/zero.balance.*recorded payment/);
     expect(invoice.document_status).toBe('draft');
     expect(invoice.invoice_number).toBeUndefined();
   });

@@ -96,7 +96,7 @@ describe('below-the-fold reveal animations are preserved', () => {
 describe('standalone booking selector is visible in prerendered HTML', () => {
   it('does not hide the quote heading or selector behind opacity-0', () => {
     const html = ssr('/booking', <BookingPage />);
-    const quoteStart = html.indexOf('Get Your');
+    const quoteStart = html.indexOf('Get an instant quote');
     expect(quoteStart).toBeGreaterThan(-1);
 
     const quoteMarkup = html.slice(quoteStart, html.indexOf('</section>', quoteStart));

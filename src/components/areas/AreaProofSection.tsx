@@ -1,3 +1,4 @@
+import GoogleBadge from '../GoogleBadge';
 import type { AreaInfo } from '../../data/areas';
 import { REVIEWS } from '../../data/reviews';
 import { matchesNamedArea } from '../../lib/areaMatch';
@@ -25,6 +26,7 @@ export default function AreaProofSection({ area }: { area: AreaInfo }) {
         </h2>
       </div>
 
+      <div className="mb-5 text-center"><GoogleBadge /></div>
       {review && (
         <div className="bg-white border border-silver-200 rounded-2xl p-6 shadow-sm max-w-xl mx-auto mb-4">
           <div className="flex items-center justify-between mb-3">

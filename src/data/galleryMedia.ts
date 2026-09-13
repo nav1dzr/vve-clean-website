@@ -63,6 +63,11 @@ export interface GalleryPhotoItem {
   label: string;
   src: string;
   alt: string;
+  /** Responsive Cloudflare Transformation candidates for managed R2 images. */
+  srcSet?: string;
+  sizes?: string;
+  /** A larger transformed candidate used only when the visitor opens it. */
+  fullSrc?: string;
   /** See GalleryBeforeAfterItem.location. */
   location?: string;
 }
@@ -75,6 +80,8 @@ export interface GalleryVideoItem {
   poster: string;
   /** Describes the clip for people who cannot see it. Falls back to `label`. */
   description?: string;
+  /** A hosted adaptive player, used for Mux HLS delivery on every browser. */
+  playerUrl?: string;
   /** See GalleryBeforeAfterItem.location. */
   location?: string;
 }

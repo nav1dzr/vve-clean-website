@@ -18,6 +18,8 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import MobileStickyFooter from '../components/MobileStickyFooter';
 import FaqSchema from '../components/FaqSchema';
+import PriceTaxNote from '../components/PriceTaxNote';
+import { COMMERCIAL_PAYMENT_NOTE } from '../data/businessPolicy';
 import {
   COMMERCIAL_REGULAR_HOURLY_P,
   COMMERCIAL_REGULAR_MIN_CHARGE_P,
@@ -44,7 +46,7 @@ const SECTORS = [
   {
     icon: Coffee,
     title: 'Shops, cafés & restaurants',
-    body: 'Presentation-focused cleaning before opening, covering customer areas, glass, floors and washrooms.',
+    body: 'Cleaning for customer areas, glass, floors and washrooms, with timing agreed around opening hours.',
     detail: 'Front of house · glass · touchpoints',
   },
   {
@@ -56,7 +58,7 @@ const SECTORS = [
   {
     icon: ShoppingBag,
     title: 'End-of-lease commercial',
-    body: 'A complete handover clean for offices and retail units, coordinated as one accountable service.',
+    body: 'Handover cleaning for offices and retail units, with the rooms, carpets and window work listed in the quote.',
     detail: 'Deep clean · carpets · windows',
   },
 ];
@@ -81,8 +83,8 @@ const RATES = [
 
 const STEPS = [
   { icon: MapPin, step: '01', title: 'Send the address', body: 'Tell us about the property, access and the cleaning frequency you need.' },
-  { icon: ClipboardCheck, step: '02', title: 'Free site visit', body: 'We inspect the space and agree the exact cleaning specification with you.' },
-  { icon: FileCheck2, step: '03', title: 'Fixed written quote', body: 'You receive a clear price and schedule before any work is agreed.' },
+  { icon: ClipboardCheck, step: '02', title: 'Arrange a free site visit', body: 'We inspect the space and discuss the areas, tasks and frequency you need.' },
+  { icon: FileCheck2, step: '03', title: 'Review your quote', body: 'You receive the price, cleaning tasks and visit schedule before deciding to go ahead.' },
 ];
 
 const FAQS = [
@@ -96,7 +98,7 @@ const FAQS = [
   },
   {
     q: 'How does billing work?',
-    a: 'The quote states the invoice schedule, payment deadline and whether a deposit applies. Those terms are agreed before the first visit.',
+    a: COMMERCIAL_PAYMENT_NOTE,
   },
   {
     q: 'Is there a minimum contract length?',
@@ -146,10 +148,10 @@ export default function CommercialPage() {
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-sky-300">Commercial & communal cleaning</p>
                 <h1 className="mt-4 max-w-3xl font-display text-4xl font-bold leading-[1.05] text-white sm:text-5xl lg:text-6xl">
-                  A cleaning plan built around <span className="text-sky-300">your site.</span>
+                  Commercial cleaning for <span className="text-sky-300">offices, shops and residential blocks</span>
                 </h1>
                 <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
-                  Offices, shops, cafés and residential blocks across East & North London. Start with a free site visit, then receive a fixed written quote and clear cleaning specification.
+                  Regular and one-off cleaning across East & North London. Tell us about the space and the hours it is available. We can arrange a free site visit before quoting.
                 </p>
                 <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-300">
                   <span className="inline-flex items-center gap-2"><ShieldCheck size={18} className="text-sky-300" /> £5m public liability</span>
@@ -161,7 +163,7 @@ export default function CommercialPage() {
                 </div>
                 <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                   <a href={WA_COMMERCIAL} target="_blank" rel="noopener noreferrer" className="btn-whatsapp inline-flex min-h-[48px] items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-                    <WhatsAppIcon /> Book a free site visit
+                    <WhatsAppIcon /> Request a free site visit
                   </a>
                   <a href={EMAIL} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-white/30 px-6 py-3.5 font-bold text-white transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
                     <Mail size={19} /> Email your requirements
@@ -173,7 +175,7 @@ export default function CommercialPage() {
                 <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-5">
                   <div>
                     <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300">Your cleaning brief</p>
-                    <h2 className="mt-1 font-display text-2xl font-bold text-white">Clear before we start</h2>
+                    <h2 className="mt-1 font-display text-2xl font-bold text-white">What your quote covers</h2>
                   </div>
                   <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-400 text-navy-950"><ClipboardCheck size={25} /></span>
                 </div>
@@ -184,7 +186,7 @@ export default function CommercialPage() {
                     </div>
                   ))}
                 </div>
-                <p className="mt-5 text-xs leading-relaxed text-slate-400">One agreed specification gives your team and ours the same standard to work from.</p>
+                <p className="mt-5 text-xs leading-relaxed text-slate-400">Include any access restrictions or required site documents in your enquiry.</p>
               </div>
             </div>
           </section>
@@ -202,8 +204,8 @@ export default function CommercialPage() {
           <section className="mx-auto max-w-7xl px-4 py-20">
             <div className="max-w-2xl">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-600">Who we clean for</p>
-              <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-navy-900 md:text-4xl">The right plan for the way your building is used.</h2>
-              <p className="mt-4 text-slate-600">Choose the closest starting point. The final specification is tailored during the site visit.</p>
+              <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-navy-900 md:text-4xl">Cleaning for your type of premises</h2>
+              <p className="mt-4 text-slate-600">Tell us which areas need cleaning and how often. We review the tasks during the site visit.</p>
             </div>
             <div className="mt-10 grid gap-5 md:grid-cols-2">
               {SECTORS.map(({ icon: Icon, title, body, detail }, index) => (
@@ -226,7 +228,7 @@ export default function CommercialPage() {
             <div className="mx-auto grid max-w-6xl overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-xl shadow-navy-950/5 lg:grid-cols-[0.9fr_1.1fr]">
               <div className="bg-navy-950 p-8 sm:p-10">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-300">Every regular contract</p>
-                <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-white">A documented service, not a vague promise.</h2>
+                <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-white">What we agree before the first clean</h2>
                 <p className="mt-4 text-sm leading-relaxed text-slate-300">The schedule, tasks, access and price are agreed before the first clean so there is a clear standard to review.</p>
                 <Link to="/commercial-carpet-cleaning-london" className="mt-7 inline-flex min-h-[44px] items-center gap-2 font-bold text-sky-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
                   Commercial carpet cleaning <ArrowRight size={18} />
@@ -246,8 +248,9 @@ export default function CommercialPage() {
             <div className="grid items-start gap-10 lg:grid-cols-[0.72fr_1.28fr]">
               <div className="lg:sticky lg:top-28">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-600">Guide pricing</p>
-                <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-navy-900 md:text-4xl">A useful starting point. Your site receives a fixed quote.</h2>
+                <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-navy-900 md:text-4xl">Commercial cleaning prices</h2>
                 <p className="mt-4 text-sm leading-relaxed text-slate-600">Rates depend on size, frequency, access and the agreed task list. We confirm the complete price in writing before work starts.</p>
+                <PriceTaxNote className="mt-3" />
               </div>
               <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-lg shadow-navy-950/5">
                 {RATES.map((row) => (
@@ -267,7 +270,7 @@ export default function CommercialPage() {
             <div className="mx-auto max-w-6xl">
               <div className="text-center">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-600">How it works</p>
-                <h2 className="mt-3 font-display text-3xl font-bold text-navy-900 md:text-4xl">From enquiry to an agreed cleaning plan.</h2>
+                <h2 className="mt-3 font-display text-3xl font-bold text-navy-900 md:text-4xl">How to get a commercial quote</h2>
               </div>
               <ol className="mt-10 grid gap-5 md:grid-cols-3">
                 {STEPS.map(({ icon: Icon, step, title, body }) => (

@@ -19,15 +19,21 @@ describe('CommercialPage premium preview', () => {
   it('explains the enquiry journey without relying on stock photography', () => {
     const { container } = renderPage();
 
-    expect(screen.getByRole('heading', { name: /A cleaning plan built around your site/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /Clear before we start/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /From enquiry to an agreed cleaning plan/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /Commercial cleaning for offices, shops and residential blocks/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /What your quote covers/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /How to get a commercial quote/i })).toBeInTheDocument();
     expect(container.querySelectorAll('main img')).toHaveLength(0);
   });
 
   it('keeps commercial rates connected to the central pricing catalogue', () => {
     renderPage();
     expect(screen.getByText(`from £${COMMERCIAL_REGULAR_HOURLY_P / 100}/cleaner-hour`)).toBeInTheDocument();
+  });
+
+  it('states payment after the clean in the visible billing answer', () => {
+    const { container } = renderPage();
+    expect(container.textContent).toMatch(/Commercial payment is due after the clean, unless a different arrangement has been agreed in writing in advance/i);
+    expect(container.textContent).not.toMatch(/14 days|monthly invoic/i);
   });
 
   it('keeps both WhatsApp and email enquiry routes visible', () => {

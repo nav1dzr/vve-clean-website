@@ -1,3 +1,4 @@
+import { rejectUnsafePreview } from './_lib/previewIsolation.js';
 // One-time backfill for a specific paid booking that predates the Supabase
 // bookings table. Searches Stripe for the session, verifies payment details,
 // and upserts a single Supabase row.
@@ -50,6 +51,7 @@ async function readBody(req) {
 }
 
 export default async function handler(req, res) {
+  if (rejectUnsafePreview(res, { legacy: true })) return;
   // Disabled when secret not configured — returns 404 to avoid revealing existence.
   const backfillSecret = process.env.BACKFILL_SECRET;
   if (!backfillSecret) {

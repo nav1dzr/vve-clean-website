@@ -1,12 +1,21 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render } from '@testing-library/react';
 import ContactLinkTracking from './ContactLinkTracking';
 
 type GtagWindow = Window & { gtag?: (...args: unknown[]) => void };
+const originalWindow = window;
+let testLocation: URL;
+beforeEach(() => {
+  testLocation = new URL('https://www.vveclean.co.uk/');
+  vi.stubGlobal('window', new Proxy(originalWindow, {
+    get(target, key) { return key === 'location' ? testLocation : Reflect.get(target, key, target); },
+  }));
+});
 
 afterEach(() => {
   delete (window as GtagWindow).gtag;
   document.body.innerHTML = '';
+  vi.unstubAllGlobals();
 });
 
 describe('shared contact-link tracking', () => {
@@ -68,6 +77,13 @@ describe('shared contact-link tracking', () => {
     document.body.appendChild(link);
     fireEvent.click(link);
 
+    expect(gtag).not.toHaveBeenCalled();
+  });
+  it.each(['http://localhost:5173/', 'https://vve-clean-preview.vercel.app/'])('does not measure real contact clicks on preview %s', url => {
+    testLocation = new URL(url);
+    const gtag = vi.fn(); (window as GtagWindow).gtag = gtag;
+    const { getByRole } = render(<><ContactLinkTracking /><a href="tel:02080502233" onClick={e => e.preventDefault()}>Call</a><a href="https://wa.me/447845451111" onClick={e => e.preventDefault()}>WhatsApp</a></>);
+    fireEvent.click(getByRole('link', { name: 'Call' })); fireEvent.click(getByRole('link', { name: 'WhatsApp' }));
     expect(gtag).not.toHaveBeenCalled();
   });
 });

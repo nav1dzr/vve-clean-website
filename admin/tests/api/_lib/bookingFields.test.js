@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CARD_SELECT, DETAIL_SELECT, toCard, toDetail, toNote } from '../../../api/_lib/bookingFields.js';
+import { CARD_SELECT, DETAIL_SELECT, toCard, toDetail, toNote, applyJourneyReadState } from '../../../api/_lib/bookingFields.js';
 
 describe('CARD_SELECT / DETAIL_SELECT', () => {
   it('never includes confirmation_token', () => {
@@ -9,6 +9,11 @@ describe('CARD_SELECT / DETAIL_SELECT', () => {
 });
 
 describe('toCard', () => {
+  it('shows an offered request as awaiting payment rather than still needing availability review', async () => {
+    const client={from:()=>({select:()=>({in:async()=>({data:[{booking_id:'free',state:'offered'}],error:null})})})};
+    const [card]=await applyJourneyReadState(client,[{id:'free',awaitingAvailabilityReview:true}]);
+    expect(card.awaitingAvailabilityReview).toBe(false);expect(card.journeyState).toBe('offered');expect(card.superseded).toBe(false);
+  });
   it('maps a full row to the safe card shape', () => {
     const row = {
       id: 'abc-123',
@@ -49,6 +54,7 @@ describe('toCard', () => {
       balanceStatus: 'outstanding',
       totalPrice: 249,
       awaitingAvailabilityReview: false,
+      isFreeRequest: false,
       createdAt: '2026-07-01T00:00:00.000Z',
       // Delivery flags absent from this row: unknown, not failed.
       emailCustomerSent: null,
@@ -139,9 +145,13 @@ describe('toDetail', () => {
   });
 
   it('marks a no-payment request for the manager without changing payment status', () => {
-    const detail = toDetail({ ...baseRow, payment_status: 'pending_payment', deposit_amount: 0 });
+    const detail = toDetail({ ...baseRow, status:'new', payment_status: 'pending_payment', deposit_amount: 0 });
     expect(detail.awaitingAvailabilityReview).toBe(true);
     expect(detail.paymentStatus).toBe('pending_payment');
+  });
+
+  it('does not label a completed settled free request as still awaiting availability', () => {
+    expect(toDetail({...baseRow,status:'completed',payment_status:'pending_payment',deposit_amount:0,balance_status:'paid'}).awaitingAvailabilityReview).toBe(false);
   });
 
   it('returns a null balance, not NaN or a misleading number, when total_price is missing', () => {

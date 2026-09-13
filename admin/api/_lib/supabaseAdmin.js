@@ -15,3 +15,10 @@ export function getServiceClient() {
     { auth: { persistSession: false } },
   );
 }
+
+// Media is stored in dedicated media_* tables in the CRM project. The same
+// server-only client is intentionally used after the normal CRM admin check;
+// no VVE OS connection or alternate browser authentication exists here.
+export function getMediaServiceClient() {
+  return getServiceClient();
+}

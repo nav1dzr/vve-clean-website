@@ -1,22 +1,30 @@
+import { VAT_NOTE, CANCELLATION_SUMMARY } from '../data/businessPolicy';
 import { Link } from 'react-router-dom';
 import {
   EOT_GUARANTEE_HOURS,
   COVERAGE_POSTCODE_LIST,
-  EOT_CARPET_PACKAGE_DISCOUNT_PCT,
   EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS,
+  CARPET_MIN_BOOKING_P,
+  penceToDisplay,
 } from '../data/pricing';
+import { GUARANTEE_SUMMARY, GUARANTEE_LIMIT } from '../data/guarantee';
+
+const FAQ_GROUP_ORDER = ['Booking and availability', 'Prices and payment', 'Getting ready for the clean', 'End of tenancy and results'];
 
 export const FAQS = [
   {
     q: 'How does the end of tenancy re-clean guarantee work?',
-    a: `The Complete End of Tenancy package follows our 67-point checklist. If your agent or landlord reports a cleaning issue covered by that package within ${EOT_GUARANTEE_HOURS} hours of the visit, contact us with their report and we will arrange one free re-clean of the affected area. The guarantee covers cleaning only and does not guarantee the return of a tenancy deposit.`,
+    group: 'End of tenancy and results',
+    a: `${GUARANTEE_SUMMARY} ${GUARANTEE_LIMIT}`,
   },
   {
     q: "What's included in an end of tenancy clean?",
+    group: 'End of tenancy and results',
     a: 'Every Complete End of Tenancy Clean covers the kitchen including the oven, hob, extractor, emptied fridge and defrosted freezer, accessible appliance compartments, cupboards inside and out, descaled bathrooms, internal windows, skirting boards, doors, switches and all floors. Carpet steam cleaning, exterior windows and other genuine scope expansions are shown separately.',
   },
   {
-    q: 'Are your cleaners insured and vetted?',
+    q: 'Are you insured?',
+    group: 'Getting ready for the clean',
     a: 'VVE Clean carries £5m public liability insurance. If you need a copy of the certificate or want to ask who will attend your property, message us before booking.',
   },
   {
@@ -25,53 +33,65 @@ export const FAQS = [
     // None of that is an agreed operational commitment, so the answer now
     // describes the arrangement as something confirmed per booking.
     q: 'Do I need to be home during the clean?',
+    group: 'Getting ready for the clean',
     a: 'You do not normally need to remain at the property, provided access and key arrangements are agreed before the appointment. Confirm the key-return and completion-photo arrangements for your particular booking.',
   },
   {
     q: 'Do you bring equipment and products?',
+    group: 'Getting ready for the clean',
     a: 'Yes. We bring the equipment and cleaning products needed for the booked work. If a surface needs a specialist treatment outside the agreed scope, we will discuss it before adding anything to the price.',
   },
   {
     q: 'When do I pay?',
-    a: 'There is no payment when you request a preferred time. We check availability, scope and the final price, then contact you to confirm the appointment. For standard residential work, payment is normally due after the service unless a different arrangement is agreed in writing.',
+    group: 'Prices and payment',
+    a: 'Request your preferred time free. After we agree the scope, total and time with you, we send a £30 deposit link. Paying the deposit confirms the booking and counts towards the total. The remaining balance is normally due after the service, unless a different arrangement is agreed in writing.',
   },
   {
     q: 'Can the price change?',
-    a: 'Our prices are fixed for normal condition properties based on the details provided. If we arrive and the property has heavy soiling, mould, excessive rubbish, biohazard contamination, strong odours, pet accidents, or large/permanent stains, we will explain the issue and confirm any revised price before starting.',
+    group: 'Prices and payment',
+    a: VAT_NOTE + ' Our prices are fixed for normal condition properties based on the details provided. If we arrive and the property has heavy soiling, mould, excessive rubbish, biohazard contamination, strong odours, pet accidents, or large/permanent stains, we will explain the issue and confirm any revised price before starting.',
   },
   {
     q: 'Can I reschedule or cancel?',
-    a: 'Rescheduling is free if you contact us before 12 noon on the day before the confirmed appointment. If you need to cancel later than that, contact us as soon as possible. Any cancellation or call-out charge applies only if it was stated and agreed in writing when the appointment was confirmed.',
+    group: 'Booking and availability',
+    a: CANCELLATION_SUMMARY,
   },
   {
     q: 'How quickly can you come?',
+    group: 'Booking and availability',
     a: 'Availability changes by service, area and property size. Send your preferred date online with no payment, or ask us on WhatsApp if the timing is critical. We will check and contact you with what is available.',
   },
   {
     q: 'Which areas do you cover?',
+    group: 'Booking and availability',
     a: `Our main coverage is East and North London: ${COVERAGE_POSTCODE_LIST}. If your postcode is outside that list, ask us before booking and we will confirm whether we can travel to you.`,
   },
   {
     q: 'Do you clean occupied homes?',
+    group: 'Getting ready for the clean',
     a: 'Our main services are end of tenancy, move-in, after-builders, carpet, upholstery and commercial cleaning. Tell us if the property will be occupied so we can confirm the right service and scope before you book.',
   },
   {
     q: 'What if the date I request is not available?',
+    group: 'Booking and availability',
     a: 'We will contact you with the closest alternatives we can offer. If none works for you, you can decline them. Nothing is charged for sending or declining a request.',
   },
   {
     q: 'Can I add carpet cleaning to an end of tenancy booking?',
-    a: `Yes. Add the rooms you want cleaned while building your end of tenancy quote and the price updates before you pay. Carpet cleaning booked with an end of tenancy clean is charged at up to ${EOT_CARPET_PACKAGE_DISCOUNT_PCT}% off the standalone price once you select ${EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS} or more qualifying areas — see the next question for the conditions.`,
+    group: 'Prices and payment',
+    a: 'Yes. Add the carpet areas you need while building your end of tenancy quote. The calculator shows the carpet charge separately and adds it to your cleaning total. Ordinary vacuuming and mopping are included in the property clean; carpet extraction is optional.',
   },
   {
-    q: `How does the "up to ${EOT_CARPET_PACKAGE_DISCOUNT_PCT}% off carpet cleaning" work?`,
-    a: `It applies when carpet cleaning is booked together with an end of tenancy clean, and only once you select at least ${EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS} qualifying areas. Qualifying areas are bedrooms, living rooms, large lounges, hallways, landings and stairs. Fewer than ${EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS} areas are charged at the normal standalone price. We say "up to" because the £85 carpet minimum still applies, so a small selection may be discounted by less than ${EOT_CARPET_PACKAGE_DISCOUNT_PCT}%. Rugs, wool, silk and other delicate fibres, severe pet or biohazard contamination and exceptional staining are not included and are quoted separately after a photo review. The exact price is always shown before you pay.`,
+    q: 'How is the end of tenancy carpet add-on calculated?',
+    group: 'Prices and payment',
+    a: `The package calculation applies from ${EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS} qualifying areas: bedrooms, living rooms, large lounges, hallways, landings and stairs. The charge cannot fall below ${penceToDisplay(CARPET_MIN_BOOKING_P)} or the combined list prices of your two most expensive selected areas, whichever is higher. Smaller selections use the normal item prices and minimum. The calculator shows the actual charge for your selection. Rugs, wool, silk and other delicate fibres, severe pet or biohazard contamination and exceptional staining are quoted separately after a photo review.`,
   },
   {
     q: 'What happens if my agent or landlord flags a cleaning issue?',
-    a: `Send us their report. If the issue is covered by the Complete End of Tenancy package and you contact us within ${EOT_GUARANTEE_HOURS} hours of the visit, we arrange one free re-clean of the affected area. Tell us as soon as you can, since the ${EOT_GUARANTEE_HOURS}-hour window runs from the clean. The guarantee covers cleaning work only — it does not guarantee that a tenancy deposit will be returned, and it does not cover damage, repairs or issues outside the booked scope.`,
+    group: 'End of tenancy and results',
+    a: `Send the report or photographs within ${EOT_GUARANTEE_HOURS / 24} days of the clean so we can review the missed work. ${GUARANTEE_SUMMARY} ${GUARANTEE_LIMIT} The guarantee does not cover damage, repairs or issues outside the booked scope, wear and tear, or new mess.`,
   },
-];
+].sort((a, b) => FAQ_GROUP_ORDER.indexOf(a.group) - FAQ_GROUP_ORDER.indexOf(b.group));
 
 /**
  * The six questions that block a booking, shown on the homepage.
@@ -120,6 +140,9 @@ export default function FAQ({ standalone = false }: { standalone?: boolean }) {
   // /faq is the full reference; everywhere else shows the booking-blocking six
   // and links to it.
   const faqs = standalone ? FAQS : HOMEPAGE_FAQS;
+  const groups = standalone
+    ? FAQ_GROUP_ORDER.map(title => ({ title, items: faqs.filter(faq => faq.group === title) }))
+    : [{ title: '', items: faqs }];
 
   return (
     <>
@@ -160,8 +183,10 @@ export default function FAQ({ standalone = false }: { standalone?: boolean }) {
           )}
 
           {/* FAQ cards */}
-          <div className="faq-list">
-            {faqs.map(({ q, a }) => (
+          {groups.map(({ title, items }) => <div key={title || 'homepage'} className={standalone ? 'mb-10' : ''}>
+            {title && <h2 className="mb-4 font-display text-xl font-bold text-navy-900">{title}</h2>}
+            <div className="faq-list">
+            {items.map(({ q, a }) => (
               <details key={q} className="faq-item">
                 <summary className="faq-summary">
                   <span className="faq-question">{q}</span>
@@ -172,7 +197,8 @@ export default function FAQ({ standalone = false }: { standalone?: boolean }) {
                 </div>
               </details>
             ))}
-          </div>
+            </div>
+          </div>)}
 
           {/* Route to the remaining questions. Only shown where the list is a
               subset — on /faq itself there is nowhere further to go. */}

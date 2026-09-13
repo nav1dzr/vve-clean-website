@@ -1,3 +1,4 @@
+import CarpetProcessSection from '../components/carpet/CarpetProcessSection';
 import { Fragment } from 'react';
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
 import AreaProofSection from '../components/areas/AreaProofSection';
@@ -26,7 +27,7 @@ function buildAreaFaqs(area: AreaInfo): { q: string; a: string }[] {
     },
     {
       q: `Which ${area.name} postcodes do you cover?`,
-      a: `We cover ${postcodeLabel} in ${area.name}. If your postcode is not listed, send it to us before booking and we will confirm whether we can travel to you rather than leaving you to guess.`,
+      a: `Our published coverage for ${area.name} is ${postcodeLabel}. Send your full postcode if it is not listed so we can check before you book.`,
     },
     {
       q: `What areas near ${area.name} do you also cover?`,
@@ -34,11 +35,11 @@ function buildAreaFaqs(area: AreaInfo): { q: string; a: string }[] {
     },
     {
       q: `Which cleaning services can I book in ${area.name}?`,
-      a: `Every service we offer is available in ${area.name}: end of tenancy, move-in deep cleaning, carpet cleaning, sofa and upholstery cleaning, after-builders cleaning and commercial work. Prices are the same as anywhere else in our coverage area.`,
+      a: `You can request end of tenancy, move-in, carpet, sofa and upholstery, after-builders or commercial cleaning. We confirm availability for your postcode, service and preferred date.`,
     },
     {
       q: `How do I get a price for a property in ${area.name}?`,
-      a: `Use the quote calculator for a price based on the property size and the work needed — no visit required for standard jobs. You can also send photos on WhatsApp if the property has unusual staining or after-builders debris, and we will confirm the price before you book.`,
+      a: 'Choose the service below to use its calculator or request a quote. For unusual staining or after-builders work, send photos and property details so we can assess the work before confirming a price.',
     },
     {
       q: `Do you need parking in ${area.name}?`,
@@ -90,20 +91,21 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
     breadcrumb: `Cleaning in ${area.name}`,
 
     eyebrow: 'East & North London Cleaning',
-    h1: `Cleaning in ${area.name}`,
-    h1Highlight: ' — end of tenancy, carpet & sofa.',
+    h1: covered ? `Cleaning in ${area.name}` : `Check cleaning availability in ${area.name}`,
+    h1Highlight: '',
+    heroSubtitle: covered ? `End of tenancy, carpet and upholstery cleaning in ${area.postcodes.join(', ')}. Choose your service to check the price and request a date.` : 'Send your full postcode and the service you need. We will check whether a visit is possible before you book.',
     heroBadges: covered ? ['Published prices', 'Fully insured', 'Check your preferred date'] : ['Check your postcode first', 'Fully insured', 'Direct confirmation'],
     heroGoogleBadge: true,
     heroTrustLine: '£5m public liability insurance · direct contact',
-    primaryHref: covered ? '/booking' : WA,
-    primaryLabel: covered ? 'Request a time' : 'Check my postcode',
+    primaryHref: covered ? '#area-services' : WA,
+    primaryLabel: covered ? 'Choose my service' : 'Check my postcode',
     primaryIsWa: !covered,
-    secondaryHref: WA,
-    secondaryLabel: 'WhatsApp for a quote',
-    secondaryIsWa: true,
+    secondaryHref: covered ? WA : 'tel:02080502233',
+    secondaryLabel: covered ? 'WhatsApp for a quote' : 'Call 020 8050 2233',
+    secondaryIsWa: covered,
 
-    introH2: covered ? `Cleaning cover for ${area.name}${postcodeLabel}` : `Check service availability for ${area.name}`,
-    introText: covered ? `VVE Clean serves ${area.name} within its published ${COVERAGE_SUMMARY} coverage area. Choose end of tenancy, carpet or upholstery cleaning, then send your preferred date for confirmation.` : `${area.name} is not in the currently published postcode list. Send the full postcode and service you need before booking so VVE Clean can confirm whether the visit is possible.`,
+    introH2: covered ? `Cleaning services in ${area.name}${postcodeLabel}` : `Before you request a clean in ${area.name}`,
+    introText: covered ? `Choose the work you need below. Standard service prices are the same across our confirmed coverage area; the property, selected tasks and condition determine your quote.` : `${area.name} is not in the currently published postcode list. Please check with us before making a booking request.`,
 
     // Required by ServiceLandingData but unused: 'benefits' is deliberately
     // omitted from sectionOrder below (see docs/LOCATION_PAGES_ASSESSMENT.md —
@@ -117,7 +119,6 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
       'The published service price does not change by postcode within the confirmed coverage area',
       '£5m public liability insurance',
       'Direct contact if access details or your preferred date changes',
-      'Reschedule without charge until 12pm the day before a confirmed appointment',
     ] : [
       'A clear answer on coverage before you submit a booking request',
       '£5m public liability insurance',
@@ -126,31 +127,32 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
 
     pricingH2: 'Fixed prices, wherever you are in our coverage area',
     pricingIntro: covered ? `Our published service prices do not change by postcode within the confirmed coverage area.` : 'The service price can be reviewed once the full postcode and visit availability are confirmed.',
-    pricingNote: `See the full, itemised price list for every service on our pricing page. The only extras that can apply to any booking are the same disclosed ones every customer sees — a Congestion Charge zone pass-through and a parking estimate — added only when they genuinely apply, never because of where you live.`,
+    pricingNote: `We use the same published service prices throughout our confirmed coverage area. Your total depends on the property, the work selected and its condition. Any parking or Congestion Charge is shown separately and agreed before the appointment.`,
     pricingCta: { href: '/pricing', label: 'See all prices' },
 
     proofSection: covered ? (
       <Fragment>
+        <div id="area-services" className="scroll-mt-24" />
         <AreaServiceShowcase area={area} />
         <AreaProofSection area={area} />
       </Fragment>
     ) : <AreaProofSection area={area} />,
 
-    sectionOrder: covered ? ['intro', 'proof', 'why', 'pricing', 'faq', 'related'] : ['intro', 'why', 'faq', 'related'],
+    processSection: <CarpetProcessSection compact />,
+    sectionOrder: covered ? ['intro', 'proof', 'process', 'faq', 'related'] : ['intro', 'faq', 'related'],
 
     faqs: buildAreaFaqs(area),
 
     relatedLinks: [
-      { href: '/end-of-tenancy-cleaning-london', label: 'End of Tenancy Cleaning' },
-      { href: '/carpet-cleaning-london', label: 'Carpet Cleaning' },
-      { href: '/sofa-cleaning-london', label: 'Sofa & Upholstery Cleaning' },
+      { href: '/end-of-tenancy-cleaning-london#quote', label: 'Get an end of tenancy quote' },
+      { href: '/carpet-cleaning-london#quote', label: 'Get a carpet quote' },
+      { href: '/sofa-cleaning-london#quote', label: 'Get a sofa quote' },
       { href: '/pricing', label: 'All Prices' },
-      { href: '/booking', label: 'Request a time' },
     ],
 
-    ctaH2: covered ? `Ready to request a cleaning time in ${area.name}?` : `Need cleaning in ${area.name}?`,
-    ctaBody: covered ? 'Send your details and preferred date online with no payment. We check availability first and contact you with the closest suitable time.' : 'Send your full postcode on WhatsApp before booking so VVE Clean can confirm whether the visit is possible.',
-    ctaPrimary: covered ? { href: '/booking', label: 'Request a time' } : { href: WA, label: 'Check my postcode' },
+    ctaH2: covered ? `Get a cleaning quote in ${area.name}` : `Check your postcode with VVE Clean`,
+    ctaBody: covered ? 'Choose a service to see its price and included work. You can send your preferred date without paying; we check availability before confirming the booking.' : 'Include the full postcode, service and preferred date in your message.',
+    ctaPrimary: covered ? { href: '#area-services', label: 'Choose my service' } : { href: WA, label: 'Check my postcode' },
     ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
   };
 }

@@ -12,7 +12,6 @@
     <link rel="manifest" href="/site.webmanifest?v=2" />
     <meta name="theme-color" content="#020b24" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="preload" as="image" href="/hero-cleaning-1280.avif" type="image/avif" imagesrcset="/hero-cleaning-768.avif 768w, /hero-cleaning-1280.avif 1280w" imagesizes="100vw" fetchpriority="high" />
     <title>VVE Clean London | Carpet, Sofa &amp; End of Tenancy Cleaning</title>
     <meta name="description" content="Professional carpet, sofa, upholstery, deep and end of tenancy cleaning across London. Fixed quotes, reliable service and fast booking. Get a free quote today." />
 
@@ -46,8 +45,23 @@
          choice in the cookie banner (src/context/CookieConsentContext.tsx).
          Must run before the gtag.js loader below. -->
     <script>
+      // Match React Router's case-insensitive, decoded private route before
+      // loading any measurement script or capturing the management URL.
+      function vveIsPrivatePage(pathname) {
+        try { return /^\/manage-booking(?:\/|$)/i.test(decodeURIComponent(pathname)); }
+        catch (e) { return true; }
+      }
+      function vveCanUseGoogleTags() {
+        return ['vveclean.co.uk', 'www.vveclean.co.uk'].indexOf(location.hostname) !== -1 && !vveIsPrivatePage(location.pathname);
+      }
+      if (vveIsPrivatePage(location.pathname)) {
+        document.querySelector('meta[name="robots"]').content = 'noindex, nofollow';
+        var privateReferrer = document.createElement('meta');
+        privateReferrer.name = 'referrer'; privateReferrer.content = 'no-referrer';
+        document.head.appendChild(privateReferrer);
+      }
       window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
+      function gtag(){if (vveCanUseGoogleTags()) dataLayer.push(arguments);}
       gtag('consent', 'default', {
         ad_storage: 'denied',
         analytics_storage: 'denied',
@@ -61,7 +75,7 @@
       // is applied immediately so they are not reset to denied on every visit.
       try {
         var storedConsent = JSON.parse(localStorage.getItem('vve_consent') || 'null');
-        if (storedConsent && typeof storedConsent.analytics === 'boolean' && typeof storedConsent.advertising === 'boolean') {
+        if (storedConsent && storedConsent.version === '2026-07-14' && typeof storedConsent.analytics === 'boolean' && typeof storedConsent.advertising === 'boolean') {
           var adState = storedConsent.advertising ? 'granted' : 'denied';
           gtag('consent', 'update', {
             ad_storage: adState,
@@ -74,10 +88,15 @@
     </script>
 
     <!-- Google tag (gtag.js) — AW-18214693277 -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18214693277"></script>
     <script>
-      gtag('js', new Date());
-      gtag('config', 'AW-18214693277');
+      if (vveCanUseGoogleTags()) {
+        var googleTag = document.createElement('script');
+        googleTag.async = true;
+        googleTag.src = 'https://www.googletagmanager.com/gtag/js?id=AW-18214693277';
+        document.head.appendChild(googleTag);
+        gtag('js', new Date());
+        gtag('config', 'AW-18214693277');
+      }
     </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -102,7 +121,7 @@
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "HouseCleaningService",
+      "@type": "LocalBusiness",
       "name": "VVE Clean",
       "url": "https://www.vveclean.co.uk",
       "logo": "https://www.vveclean.co.uk/android-chrome-512x512.png",
@@ -128,27 +147,102 @@
         "addressCountry": "GB"
       },
       "areaServed": [
-        { "@type": "PostalCode", "postalCode": "E1",  "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "E2",  "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "E8",  "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "E9",  "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "E14", "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "E15", "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "E17", "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "E20", "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "N1",  "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "N4",  "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "N5",  "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "N7",  "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "N8",  "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "N10", "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "N15", "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "N16", "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "N17", "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "N19", "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "N22", "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "NW1", "addressCountry": "GB" },
-        { "@type": "PostalCode", "postalCode": "NW5", "addressCountry": "GB" }
+              {
+                      "@type": "Place",
+                      "name": "E1 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "E2 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "E3 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "E5 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "E8 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "E9 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "E10 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "E14 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "E15 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "E17 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "E20 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "N1 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "N4 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "N5 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "N7 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "N8 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "N10 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "N15 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "N16 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "N17 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "N19 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "N22 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "NW1 postcode area, London"
+              },
+              {
+                      "@type": "Place",
+                      "name": "NW5 postcode area, London"
+              }
       ],
       "hasOfferCatalog": {
         "@type": "OfferCatalog",

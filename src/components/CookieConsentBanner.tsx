@@ -55,11 +55,11 @@ export default function CookieConsentBanner() {
             Privacy Policy
           </Link>
         </p>
-        <div className="flex items-center justify-between gap-1.5 sm:gap-2 sm:flex-nowrap sm:justify-end">
+        <div className="grid grid-cols-2 gap-1.5 min-[360px]:flex min-[360px]:items-center min-[360px]:justify-between sm:gap-2 sm:flex-nowrap sm:justify-end">
           <button
             type="button"
             onClick={openSettings}
-            className="min-h-[44px] px-1.5 sm:px-3 text-xs sm:text-sm font-medium text-royal-600 underline hover:text-royal-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 rounded whitespace-nowrap"
+            className="col-span-2 min-h-[44px] px-1.5 sm:px-3 text-xs sm:text-sm font-medium text-royal-600 underline hover:text-royal-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600 rounded whitespace-nowrap"
           >
             Manage choices
           </button>

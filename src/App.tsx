@@ -1,5 +1,5 @@
 import { BrowserRouter } from 'react-router-dom';
-import AppRoutes from './AppRoutes';
+import ClientAppRoutes from './ClientAppRoutes';
 import ScrollToTop from './components/ScrollToTop';
 import CampaignAttribution from './components/CampaignAttribution';
 import ContactLinkTracking from './components/ContactLinkTracking';
@@ -27,7 +27,7 @@ export default function App() {
             is transmitted until the customer submits a booking. */}
         <CampaignAttribution />
         <ContactLinkTracking />
-        <AppRoutes />
+        <ClientAppRoutes />
       </CookieConsentProvider>
     </BrowserRouter>
   );

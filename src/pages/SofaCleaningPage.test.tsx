@@ -35,12 +35,12 @@ describe('SofaCleaningPage — quote placement and premium service guidance', ()
     renderPage();
 
     const heroImage = screen.getByRole('img', {
-      name: 'Professional upholstery cleaning on a purple armchair beside a teal sofa',
+      name: 'A technician cleaning sofa upholstery',
     });
 
-    expect(heroImage).toHaveAttribute('src', '/images/sofa-cleaning-hero.webp');
-    expect(screen.getByText('Fabric checked before cleaning')).toBeInTheDocument();
-    expect(screen.getByText(/cleaned with care, not guesswork/i)).toHaveClass('text-gradient-sofa');
+    expect(heroImage).toHaveAttribute('src', '/sofa_upholstery/web/gallery/sofa-gallery-01.webp');
+    expect(screen.getByText('Upholstery cleaning in progress')).toBeInTheDocument();
+    expect(heroImage.closest('figure')?.querySelector('figcaption')).toHaveTextContent(/Fabric assessed before treatment/i);
   });
 
   it('surfaces an upholstery-focused instant quote calculator directly after the hero, and the hero CTA reaches it', () => {
@@ -52,23 +52,31 @@ describe('SofaCleaningPage — quote placement and premium service guidance', ()
     expect(screen.getAllByText('2-seater sofa').length).toBeGreaterThan(0);
     expect(screen.queryByText('Bedroom')).not.toBeInTheDocument();
 
-    const heroCta = screen.getAllByRole('link', { name: 'Build my upholstery quote' })[0];
+    const heroCta = screen.getAllByRole('link', { name: 'Get a sofa quote' })[0];
     expect(heroCta).toHaveAttribute('href', '/sofa-cleaning-london#quote');
   });
 
   it('replaces empty proof placeholders with an honest fabric-care process', () => {
     renderPage();
 
-    expect(screen.getByRole('heading', { name: /Built around the fabric/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /The right method starts with the fabric/i })).toBeInTheDocument();
     expect(screen.getByText('Inspect and test')).toBeInTheDocument();
+    expect(screen.getByText(/Delicate fabrics need assessment first/)).toBeInTheDocument();
+    const hero = screen.getByRole('heading', { level: 1 }).closest('section')!;
+    expect(hero).toHaveTextContent('£85 minimum booking');
+    expect(hero).toHaveTextContent('No VAT is added.');
+    expect(hero).not.toHaveTextContent('£5m public liability insurance');
+    expect(screen.getAllByText('£5m public liability insurance').length).toBeGreaterThan(0);
     expect(screen.queryByText('Recent results coming soon')).not.toBeInTheDocument();
     expect(screen.queryByText('Video results coming soon')).not.toBeInTheDocument();
   });
 
-  it('keeps direct links to the other services and booking', () => {
+  it('keeps other service links and preserves upholstery intent in the final quote links', () => {
     renderPage();
 
     expect(screen.getByRole('link', { name: 'Carpet Cleaning' })).toHaveAttribute('href', '/carpet-cleaning-london');
-    expect(screen.getAllByRole('link', { name: 'Request a time' }).length).toBeGreaterThan(0);
+    const quoteLinks = screen.getAllByRole('link', { name: 'Get a sofa quote' });
+    expect(quoteLinks.length).toBeGreaterThan(0);
+    quoteLinks.forEach(link => expect(link).toHaveAttribute('href', '/sofa-cleaning-london#quote'));
   });
 });

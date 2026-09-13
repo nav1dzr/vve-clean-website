@@ -62,7 +62,7 @@ describe('EOT price matrix — flat, explicit canonical values in pence', () => 
 
   it('extra bath is £40 (4000p)', () => expect(EOT_EXTRA_BATH_P).toBe(4000));
   it('extra WC is £20 (2000p)', () => expect(EOT_EXTRA_WC_P).toBe(2000));
-  it('guarantee window is 72 hours', () => expect(EOT_GUARANTEE_HOURS).toBe(72));
+  it('guarantee reporting window is seven days', () => expect(EOT_GUARANTEE_HOURS).toBe(168));
 
   it('every Tailored starting price is below the equivalent Complete price', () => {
     for (const key of Object.keys(EOT_TAILORED_START_PRICES_P) as (keyof typeof EOT_TAILORED_START_PRICES_P)[]) {
@@ -314,7 +314,7 @@ describe('calculateEotQuote — Complete package', () => {
     const r = calculateEotQuote({ size: 'studio', package: 'complete', isHouse: false, extraBathrooms: 0, extraWcs: 0 });
     expect(r.totalP).toBe(22000);
     expect(r.guaranteeScope).toBe('complete');
-    expect(r.guaranteeHours).toBe(72);
+    expect(r.guaranteeHours).toBe(168);
     expect(r.shouldOfferComplete).toBe(false);
   });
 
@@ -501,7 +501,7 @@ describe('calculateEotCarpetPackage — rugs and specialist materials are exclud
     expect(EOT_CARPET_QUALIFYING_KEYS).not.toContain('rug');
     expect(EOT_CARPET_QUALIFYING_KEYS).not.toContain('sofa_2');
     expect(EOT_CARPET_QUALIFYING_KEYS).not.toContain('mattress_double');
-    expect(EOT_CARPET_QUALIFYING_KEYS.sort()).toEqual(
+    expect([...EOT_CARPET_QUALIFYING_KEYS].sort()).toEqual(
       ['bedroom', 'hallway', 'landing', 'large_lounge', 'living_room', 'stairs'].sort(),
     );
   });

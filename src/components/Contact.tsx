@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle2 } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
-import { trackContactFormSubmitted } from '../lib/analytics';
+import { submissionIdentity, clearSubmissionIdentity } from '../lib/submissionIdentity';
+import { getAttribution } from '../lib/attribution';
+import { trackContactFormSubmitted, trackFunnelStep } from '../lib/analytics';
 
 const WA_LINK = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
 
@@ -36,11 +38,14 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
   const [subscribe, setSubscribe] = useState(false);
   const [honeypot, setHoneypot] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const successRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (submitted) successRef.current?.focus(); }, [submitted]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     if (honeypot) return; // bot filled the hidden field — silently drop
     if (!name || !email || !message) {
       setError('Please fill in all required fields.');
@@ -50,35 +55,29 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
     setError('');
 
     try {
+      const payload = { fullName: name, email, phone: phone || '', service: service || '', message, marketingOptIn: subscribe, sourcePage: window.location.pathname, _honeypot: honeypot, attribution: getAttribution() };
+      const requestKey = await submissionIdentity('contact', payload);
       const res = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName:       name,
-          email,
-          phone:          phone || '',
-          service:        service || '',
-          message,
-          marketingOptIn: subscribe,
-          sourcePage:     window.location.pathname,
-          _honeypot:      honeypot,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, requestKey }), signal: AbortSignal.timeout(45000),
       });
 
       setLoading(false);
 
-      if (res.ok) {
+      const result = await res.json().catch(() => ({}));
+      if (res.ok && result.ok) {
+        clearSubmissionIdentity('contact');
         setName('');
         setEmail('');
         setPhone('');
         setService('');
         setMessage('');
         setSubscribe(false);
-        trackContactFormSubmitted();
+        trackContactFormSubmitted(result.enquiryId);
         setSubmitted(true);
       } else {
-        const data = await res.json().catch(() => ({}));
-        setError((data as { error?: string })?.error ?? 'Sorry, something went wrong. Please try again or contact us on WhatsApp.');
+        trackFunnelStep('form_error', 'contact');
+        setError((result as { error?: string })?.error ?? 'Sorry, something went wrong. Please try again or contact us on WhatsApp.');
       }
     } catch {
       setLoading(false);
@@ -116,7 +115,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
             <div>
               {/* h2, not h3: this is the first heading under the page h1, and
                   skipping a level breaks screen-reader outline navigation. */}
-              <h2 className="font-display text-2xl font-bold text-white mb-2">Get in Touch</h2>
+              <h2 className="font-display text-2xl font-bold text-white mb-2">Speak to our team</h2>
               <p className="text-silver-300 text-sm mb-8 leading-relaxed">
                 Send the property postcode, service and preferred date so we can give you a useful answer.
               </p>
@@ -192,11 +191,11 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
           {/* Form panel */}
           <div id="contact-form" className="order-1 scroll-mt-28 lg:order-2 lg:col-span-3 bg-white p-8">
             {submitted ? (
-              <div className="flex flex-col items-center justify-center h-full text-center py-12">
+              <div ref={successRef} tabIndex={-1} role="status" aria-labelledby="contact-success-heading" className="flex flex-col items-center justify-center h-full text-center py-12">
                 <CheckCircle2 className="text-green-500 mb-4" size={56} />
-                <h3 className="text-2xl font-bold text-navy-900 mb-2">Message Sent!</h3>
+                <h3 id="contact-success-heading" className="text-2xl font-bold text-navy-900 mb-2">Enquiry received</h3>
                 <p className="text-silver-600">
-                  Thank you — we received your message and will contact you shortly.
+                  Your enquiry is saved. Our team will contact you during opening hours to discuss the details.
                 </p>
               </div>
             ) : (
@@ -253,7 +252,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                     name="phone"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="07845 451111"
+                    placeholder="Your phone number"
                     aria-describedby="contact-phone-hint"
                     className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:border-royal-500 transition-colors"
                   />
@@ -290,7 +289,8 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     rows={5}
-                    placeholder="Tell us about the service you need, your property, preferred dates..."
+                    maxLength={5000}
+                    placeholder="What needs cleaning? Include your postcode, the rooms or items, and your preferred date."
                     className="w-full border-2 border-silver-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:border-royal-500 transition-colors resize-none"
                     required
                     aria-required="true"

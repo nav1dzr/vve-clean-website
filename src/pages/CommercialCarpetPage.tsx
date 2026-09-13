@@ -1,7 +1,10 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
 import { Moon, FileText, Zap, Calendar } from 'lucide-react';
+import BeforeAfterTile from '../components/gallery/BeforeAfterTile';
+import { GALLERY_MEDIA, type GalleryBeforeAfterItem } from '../data/galleryMedia';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20commercial%20carpet%20clean%20please.%20Address%3A%20';
+const officeResult = GALLERY_MEDIA.carpet.find((item): item is GalleryBeforeAfterItem => item.id === 'carpet-office' && item.type === 'before-after');
 
 // Single source for the visible accordion and the FAQPage schema — see the
 // same note in EndOfTenancyPage.tsx. The schema previously carried an
@@ -67,7 +70,8 @@ const DATA: ServiceLandingData = {
 
   eyebrow: 'Commercial Carpet Cleaning',
   h1: 'Commercial Carpet Cleaning London',
-  h1Highlight: '— Offices, Hotels & Retail',
+  h1Highlight: '',
+  heroSubtitle: 'Carpet cleaning for offices, hotels and retail sites. Send the floor area, postcode and access times for a quote.',
   heroBadges: [
     // Was "Out-of-hours visits available" — an unqualified standing claim.
     // The schema on this same page already says such visits "can be
@@ -77,12 +81,12 @@ const DATA: ServiceLandingData = {
     'RAMS & method statements on request',
   ],
   primaryHref: WA,
-  primaryLabel: 'Book a free site visit',
+  primaryLabel: 'Request a site assessment',
   primaryIsWa: true,
   secondaryHref: '/commercial',
   secondaryLabel: 'All commercial services',
 
-  introH2: 'Professional carpet cleaning that fits around your business',
+  introH2: 'Plan the clean around your opening hours',
   introText:
     'Commercial carpet cleaning is planned around the carpet type, traffic, access and the hours your site can accommodate. We inspect the areas, agree the scope and provide a written quote before work starts. Send the address and approximate floor area to begin.',
 
@@ -95,8 +99,8 @@ const DATA: ServiceLandingData = {
   benefits: [
     {
       icon: <Moon size={28} />,
-      title: 'Visit timing agreed in writing',
-      body: 'Early-morning, evening and weekend windows can be arranged around your opening hours. The agreed window, site access and any keyholding arrangements are confirmed before the work is booked.',
+      title: 'Access and timing',
+      body: 'Tell us when the space can be cleared and when people need to use it again. We confirm the visit window and access arrangements before booking.',
     },
     {
       icon: <FileText size={28} />,
@@ -110,12 +114,12 @@ const DATA: ServiceLandingData = {
     },
     {
       icon: <Calendar size={28} />,
-      title: 'Maintenance schedule in the quote',
+      title: 'Regular maintenance',
       body: 'A recurring schedule can be included in the written quote. Visit frequency, invoicing and notice terms are agreed in writing before the contract starts.',
     },
   ],
 
-  whyH2: 'What every commercial carpet clean includes',
+  whyH2: 'Your commercial carpet quote',
   whyPoints: [
     'Free site visit and fixed written quote — no obligation',
     'Pre-inspection of traffic patterns and stain types',
@@ -139,6 +143,8 @@ const DATA: ServiceLandingData = {
   },
 
   faqs: FAQS,
+  proofSection: officeResult ? <section className="bg-surface px-4 py-16" aria-label="Commercial carpet cleaning result"><div className="mx-auto max-w-3xl"><h2 className="mb-6 font-display text-3xl font-bold text-navy-900">An office carpet before and after cleaning</h2><BeforeAfterTile entry={officeResult} placeholderLabel="Office carpet" /></div></section> : undefined,
+  sectionOrder: ['intro', 'proof', 'benefits', 'why', 'pricing', 'faq', 'related'],
 
   relatedLinks: [
     { href: '/commercial', label: 'All Commercial Services' },
@@ -148,7 +154,7 @@ const DATA: ServiceLandingData = {
     { href: '/pricing', label: 'Pricing' },
   ],
 
-  ctaH2: 'Request a written commercial quote.',
+  ctaH2: 'Get a quote for your commercial carpets',
   ctaBody:
     'Send the address, approximate floor area and access requirements. VVE Clean will confirm the review process and provide a written quote before work starts.',
   ctaPrimary: {

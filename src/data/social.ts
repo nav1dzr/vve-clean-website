@@ -7,3 +7,5 @@ export const GOOGLE_REVIEW_URL = 'https://g.page/r/CYDRQCaICK7vEAE/review';
 // No verified VVE Clean YouTube channel URL is currently stored in the
 // project. Keep it absent rather than sending customers to a guessed account.
 export const YOUTUBE_URL: string | null = null;
+
+export const GOOGLE_PROFILE_URL = 'https://share.google/tZEyXUs0J0SxXZlDi';

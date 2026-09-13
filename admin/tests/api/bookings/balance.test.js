@@ -37,10 +37,10 @@ function makeReq({ url, bodyObj, headers = { authorization: 'Bearer t' }, method
   };
 }
 
-function makeUpdateClient(result) {
+function makeUpdateClient(result, managed = null) {
   const updateCall = { payload: null };
   const client = {
-    from: () => ({
+    from: (table) => table === 'booking_journeys' ? { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: managed, error: null }) }) }) } : ({
       update: (payload) => {
         updateCall.payload = payload;
         return {
@@ -69,6 +69,16 @@ describe('PATCH /api/bookings/:id/balance', () => {
     const res = makeRes();
     await handler(makeReq({ url: `/api/bookings/${VALID_UUID}/balance`, method: 'POST' }), res);
     expect(res.statusCode).toBe(405);
+  });
+
+  it('requires managed booking balances to use the payment ledger workflow', async () => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: { id: 'admin-1' } });
+    const { client, updateCall } = makeUpdateClient({ data: {}, error: null }, { booking_id: VALID_UUID });
+    getServiceClientMock.mockReturnValue(client);
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/bookings/${VALID_UUID}/balance`, bodyObj: { balanceStatus: 'paid' } }), res);
+    expect(res.statusCode).toBe(409);
+    expect(updateCall.payload).toBeNull();
   });
 
   it('returns 401 for a missing token', async () => {

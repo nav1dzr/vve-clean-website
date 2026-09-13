@@ -14,8 +14,8 @@ import { EOT_GUARANTEE_HOURS } from './pricing';
 
 export const GUARANTEE_COVERED = [
   'Missed areas from the original booked service',
-  'Reported by landlord, letting agent, or inventory report',
-  `Reported within ${EOT_GUARANTEE_HOURS} hours of our visit`,
+  'Reported by you, your landlord or letting agent',
+  `Reported within ${EOT_GUARANTEE_HOURS / 24} days of our visit`,
   'Supported by a report or photos',
 ];
 
@@ -31,7 +31,9 @@ export const GUARANTEE_NOT_COVERED = [
 
 /** The promise itself, without the full covered/not-covered breakdown. */
 export const GUARANTEE_SUMMARY =
-  `If your landlord, letting agent or inventory report highlights a cleaning issue within ` +
-  `${EOT_GUARANTEE_HOURS} hours of our visit, send us the report or photos and we will return ` +
+  `If you, your landlord or letting agent report missed cleaning from the agreed scope within ` +
+  `${EOT_GUARANTEE_HOURS / 24} days of our visit, send us the report or photos and we will return ` +
   `once to re-clean the missed areas, free of charge. Full agency-ready coverage applies to our ` +
   `Complete end of tenancy package; Tailored cleans are covered for the tasks selected.`;
+
+export const GUARANTEE_LIMIT = "The reporting window runs from completion of the original clean. We agree a return time separately and need access to the affected areas. This voluntary cleaning promise does not guarantee the return of a tenancy deposit or limit your statutory rights.";

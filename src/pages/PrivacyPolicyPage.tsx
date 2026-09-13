@@ -2,10 +2,9 @@ import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { useCookieConsent } from '../context/CookieConsentContext';
-import { CONSENT_VERSION } from '../lib/consentVersion';
 
 const CONTACT_EMAIL = 'contact@vveclean.co.uk';
-const LAST_UPDATED = new Date(`${CONSENT_VERSION}T00:00:00Z`).toLocaleDateString('en-GB', {
+const LAST_UPDATED = new Date('2026-09-12T00:00:00Z').toLocaleDateString('en-GB', {
   day: 'numeric',
   month: 'long',
   year: 'numeric',
@@ -75,7 +74,7 @@ const sections: Section[] = [
             // leaving it to the general "website usage data" line above. It is
             // advertising storage, not essential storage — the wording has to
             // say so, and Section 7 has to match.
-            'How you reached our website — for example the advertising campaign, search click or link you arrived from. This is only stored on your device if you accept advertising cookies, and is only sent to us, attached to your booking, if you go on to make one',
+            'How you reached our website, such as the advertising campaign, search click or link you arrived from. This is only stored on your device if you accept advertising cookies. It is attached to a booking request or contact enquiry when you submit one',
           ].map((item) => (
             <li key={item} className="flex items-start gap-2.5 text-silver-700">
               <span className="w-1.5 h-1.5 rounded-full bg-royal-500 flex-shrink-0 mt-2" />
@@ -157,7 +156,7 @@ const sections: Section[] = [
         The website does not collect payment when you send a booking request. If a card payment link is separately
         offered and accepted, it may be processed by <strong>Stripe</strong>. VVE Clean does not receive or store
         your full card number, CVV or other sensitive card credentials. Stripe's own privacy policy applies to data
-        submitted on its payment page at <span className="text-royal-600">stripe.com/gb/privacy</span>.
+        submitted on its payment page. Read <a href="https://stripe.com/gb/privacy" className="text-royal-600 underline">Stripe's privacy policy</a>.
       </p>
     ),
   },
@@ -211,6 +210,11 @@ const sections: Section[] = [
           example the 20% offer from one of our leaflets — so that we can honour it when you book. None of this
           is used for advertising or measurement.
         </p>
+        <p className="mt-3">
+          Your saved quote basket is available to restore for 14 days after its last update on this browser.
+          It stores the service and cleaning selections, without contact details or payment information.
+          You can remove the saved quote from the basket. Clearing browser storage also removes it.
+        </p>
 
         <h3 className="font-semibold text-navy-900 text-sm mt-5 mb-2">Analytics storage (optional)</h3>
         <p>
@@ -222,9 +226,9 @@ const sections: Section[] = [
         <p>
           If you agree, we allow Google to use advertising storage to measure and improve the relevance of our
           adverts (for example, Google Ads). We also record on your device how you reached our site — the
-          advertising campaign, search click or link you arrived from — so that if you go on to book, we can
-          tell which adverts actually bring us work. That record is attached to your booking and sent to us only
-          at the point you submit it; it is never sent while you are simply browsing, and it is never shown on
+          advertising campaign, search click or link you arrived from, so we can understand which adverts lead
+          to enquiries and bookings. That record is attached to a booking request or contact enquiry when you
+          submit it; it is not sent separately while you are simply browsing, and it is never shown on
           the page. All of this is switched off until you agree to it. If you refuse, or later withdraw your
           agreement using <CookieSettingsLink />, we store none of it and delete anything already stored — your
           quote, your booking and any discount you were promised carry on working exactly as before.
@@ -321,7 +325,7 @@ const sections: Section[] = [
       <p>
         If you are unhappy with how we have handled your personal data, you have the right to complain to the
         UK's data protection regulator, the <strong>Information Commissioner's Office (ICO)</strong>. You can
-        contact the ICO at <span className="text-royal-600">ico.org.uk</span> or by calling{' '}
+        contact the ICO at <a href="https://ico.org.uk/" className="text-royal-600 underline">ico.org.uk</a> or by calling{' '}
         <span className="font-semibold">0303 123 1113</span>. We would, however, appreciate the chance to
         address your concerns first — please contact us directly before escalating to the ICO.
       </p>

@@ -4,7 +4,7 @@ import { authFetch, authFetchBlob, ApiError } from '../lib/authFetch';
 import { openPdfBlob } from '../lib/pdf';
 import type {
   InvoiceDetail, InvoiceDraftInput, IssueResponse, DownloadUrlResponse,
-  RecordPaymentResponse, DuplicateResponse, ReviseResponse, InvoiceEvent, InvoiceEventsResponse, SendResponse,
+  RecordPaymentInput, RecordPaymentResponse, DuplicateResponse, ReviseResponse, InvoiceEvent, InvoiceEventsResponse, SendResponse,
   ReceiptListResponse,
 } from '../types/invoice';
 import InvoiceItemsForm, { emptyFormValue } from '../components/InvoiceItemsForm';
@@ -15,6 +15,9 @@ import CorrectInvoiceDetailsModal, { type InvoiceContactCorrectionInput } from '
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import { CardListSkeleton } from '../components/Skeleton';
+import { useAuth } from '../auth/useAuth';
+import { clearInvoiceDraftRecovery } from '../lib/invoiceDraftRecovery';
+import { readPendingInvoicePayment, clearPendingInvoicePayment } from '../lib/pendingInvoicePayment';
 import StatusBadge from '../components/StatusBadge';
 import {
   invoiceDocumentStatusBadge, invoicePaymentStatusBadge, invoicePaymentMethodLabel, invoiceEventLabel,
@@ -36,6 +39,11 @@ type State =
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { admin } = useAuth();
+  const adminId = admin?.id;
+  const [draftDirty, setDraftDirty] = useState(false);
+  const [draftConflict, setDraftConflict] = useState(false);
+  const [hasPendingPayment, setHasPendingPayment] = useState(false);
   const [state, setState] = useState<State>({ status: 'loading' });
   const [events, setEvents] = useState<InvoiceEvent[] | null>(null);
   const [receiptId, setReceiptId] = useState<string | null>(null);
@@ -50,6 +58,12 @@ export default function InvoiceDetailPage() {
     setReceiptId(null);
     authFetch<InvoiceDetail>(`/api/invoices/${id}`)
       .then((data) => {
+        if (data.documentStatus !== 'draft' && adminId) {
+          clearInvoiceDraftRecovery({ userId: adminId, documentKey: 'invoice:' + data.id });
+        }
+        setHasPendingPayment(Boolean(adminId && readPendingInvoicePayment({ userId: adminId, invoiceId: data.id }).status !== 'none'));
+        setDraftDirty(false);
+        setDraftConflict(false);
         setState({ status: 'success', data });
         authFetch<InvoiceEventsResponse>(`/api/invoices/${id}?action=events`)
           .then((r) => setEvents(r.results))
@@ -69,25 +83,53 @@ export default function InvoiceDetailPage() {
       });
   }
 
-  useEffect(load, [id]);
+  useEffect(load, [id, adminId]);
 
   async function handleSaveDraft(input: InvoiceDraftInput) {
-    if (!id) return;
+    if (!id || busy || draftConflict || state.status !== 'success') return false;
+    setBusy(true);
     setActionError(null);
-    await authFetch(`/api/invoices/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+    try {
+      await authFetch('/api/invoices/' + id, {
+        method: 'PATCH',
+        body: JSON.stringify({ ...input, expectedUpdatedAt: state.data.updatedAt }),
+      });
+      if (admin) clearInvoiceDraftRecovery({ userId: admin.id, documentKey: 'invoice:' + id });
+      setDraftDirty(false);
+      load();
+      return true;
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not save this invoice. Your unsaved changes are still here.');
+      if (err instanceof ApiError && err.status === 409) setDraftConflict(true);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function reloadAfterConflict() {
+    if (!window.confirm('Load the current saved invoice? This will discard the unsaved changes in this form.')) return;
+    if (admin && id) clearInvoiceDraftRecovery({ userId: admin.id, documentKey: 'invoice:' + id });
+    setActionError(null);
     load();
   }
 
   async function handleIssue() {
-    if (!id) return;
+    if (!id || draftDirty || draftConflict || busy || state.status !== 'success') return;
     setBusy(true);
     setActionError(null);
     try {
-      await authFetch<IssueResponse>(`/api/invoices/${id}?action=issue`, { method: 'POST' });
+      await authFetch<IssueResponse>('/api/invoices/' + id + '?action=issue', {
+        method: 'POST', body: JSON.stringify({ expectedUpdatedAt: state.data.updatedAt }),
+      });
       setPendingAction(null);
       load();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Could not issue this invoice.');
+      if (err instanceof ApiError && err.status === 409) {
+        setDraftConflict(true);
+        setPendingAction(null);
+      }
     } finally {
       setBusy(false);
     }
@@ -99,6 +141,7 @@ export default function InvoiceDetailPage() {
     setActionError(null);
     try {
       await authFetch(`/api/invoices/${id}`, { method: 'DELETE' });
+      if (admin) clearInvoiceDraftRecovery({ userId: admin.id, documentKey: 'invoice:' + id });
       navigate('/invoices', { replace: true });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Could not delete this draft.');
@@ -150,7 +193,7 @@ export default function InvoiceDetailPage() {
   }
 
   async function handlePreview() {
-    if (!id) return;
+    if (!id || draftDirty || draftConflict || busy) return;
     setBusy(true);
     setActionError(null);
     try {
@@ -198,17 +241,26 @@ export default function InvoiceDetailPage() {
     load();
   }
 
-  async function handleRecordPayment(input: { amount: number; paymentDate: string; method: string; reference: string; notes: string; sendAcknowledgement: boolean }) {
+  async function handleRecordPayment(input: RecordPaymentInput) {
     if (!id) return;
     const { sendAcknowledgement, ...rest } = input;
     const result = await authFetch<RecordPaymentResponse>(`/api/invoices/${id}?action=payments`, {
       method: 'POST',
       body: JSON.stringify(rest),
     });
+    // A confirmed response resolves only its own saved attempt. Logout/access
+    // revocation clears it synchronously; a late response must then send nothing.
+    const resolvedHere = Boolean(adminId && clearPendingInvoicePayment({ userId: adminId, invoiceId: id }, input.operationId));
+    if (!resolvedHere) return;
+    // Finish the confirmed payment UI before optional email work. A slow email
+    // must not later close a different payment form the owner has opened.
+    setModal(null);
+    load();
     // Best-effort: the payment is already recorded regardless of whether
     // this succeeds — never let an acknowledgement-email failure look like
-    // the payment itself failed to save.
-    if (sendAcknowledgement && result.paymentStatus === 'partially_paid') {
+    // the payment itself failed to save. A retry can return an already-recorded
+    // payment; replaying it must never send another customer message.
+    if (!result.replayed && sendAcknowledgement && result.paymentStatus === 'partially_paid') {
       try {
         await authFetch(`/api/invoices/${id}?action=paymentAck`, {
           method: 'POST',
@@ -219,8 +271,6 @@ export default function InvoiceDetailPage() {
         // (payment_ack_failed) is the record of this, not a UI error here.
       }
     }
-    setModal(null);
-    load();
   }
 
   async function handleReversePayment(paymentId: string) {
@@ -337,19 +387,34 @@ export default function InvoiceDetailPage() {
         )}
 
         <InvoiceItemsForm
+          key={(admin?.id || '') + ':' + inv.id + ':' + inv.documentVersion + ':' + inv.updatedAt}
+          recovery={admin ? { userId: admin.id, documentKey: 'invoice:' + inv.id, baseVersion: inv.documentVersion + ':' + inv.updatedAt } : undefined}
+          onDirtyChange={setDraftDirty}
+          submissionBlocked={draftConflict}
           initial={initial}
           onSubmit={handleSaveDraft}
           submitLabel="Save changes"
           submitting={busy}
           error={actionError}
-          secondaryAction={{ label: 'Preview PDF', onClick: () => void handlePreview(), disabled: busy }}
+          secondaryAction={{ label: 'Preview PDF', onClick: () => void handlePreview(), disabled: busy || draftDirty || draftConflict }}
         />
 
+        {draftDirty && (
+          <p className="mb-3 text-sm font-medium text-amber-900">Save your changes before previewing or issuing this invoice.</p>
+        )}
+        {draftConflict && (
+          <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <p>This invoice changed elsewhere. Your edits are still in this form. Copy any changes you need, then reload and review the saved invoice before continuing.</p>
+            <button type="button" onClick={reloadAfterConflict} className="mt-2 min-h-11 rounded-lg border border-amber-400 px-3 font-medium">
+              Reload saved invoice
+            </button>
+          </div>
+        )}
         <div className="mt-2 flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setPendingAction('issue')}
-            disabled={busy}
+            disabled={busy || draftDirty || draftConflict}
             className="min-h-11 flex-1 rounded-lg border border-navy-950 px-4 text-sm font-semibold text-navy-950 hover:bg-navy-950 hover:text-white disabled:opacity-60"
           >
             Issue invoice
@@ -571,6 +636,14 @@ export default function InvoiceDetailPage() {
         </Section>
       )}
 
+      {hasPendingPayment && (
+        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+          <p>An earlier payment request needs review. Resolve it before recording any new payment, even if this invoice now shows as paid.</p>
+          <button type="button" onClick={() => setModal('payment')} disabled={busy} className="mt-2 min-h-11 rounded-lg border border-amber-400 px-3 font-medium">
+            Review payment request
+          </button>
+        </div>
+      )}
       <Section title="Payment history">
         {inv.payments.length === 0 && <p className="text-sm text-navy-500">No payments recorded yet.</p>}
         {inv.payments.length > 0 && (
@@ -623,7 +696,12 @@ export default function InvoiceDetailPage() {
         <CorrectInvoiceDetailsModal invoice={inv} onClose={() => setModal(null)} onConfirm={handleCorrectDetails} />
       )}
       {modal === 'payment' && (
-        <RecordPaymentModal amountDue={inv.amountDue} onClose={() => setModal(null)} onConfirm={handleRecordPayment} />
+        <RecordPaymentModal
+          key={(adminId || '') + ':' + inv.id}
+          ownerId={adminId || ''} invoiceId={inv.id} amountDue={inv.amountDue}
+          canRecordNew={inv.documentStatus === 'issued' && !isSuperseded && inv.amountDue > 0}
+          onClose={() => { setModal(null); load(); }} onConfirm={handleRecordPayment}
+        />
       )}
       {modal === 'void' && <VoidInvoiceModal onClose={() => setModal(null)} onConfirm={handleVoid} />}
       {modal === 'send' && (

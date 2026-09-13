@@ -100,9 +100,8 @@ export default function SofaProofSection() {
               See what professional extraction removes
             </h2>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-silver-300">
-              Hot water and cleaning solution go into the upholstery under pressure, then come
-              straight back out with whatever was living in the fibres. This is the waste tank
-              emptying after a sofa clean — none of it comes out with a vacuum or a spray bottle.
+              The machine extracts loosened dirt and used cleaning solution from the upholstery.
+              This clip shows the collected wastewater after a sofa clean.
             </p>
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-silver-400">
               The same pass takes most of the moisture with it, which is why a fabric sofa is

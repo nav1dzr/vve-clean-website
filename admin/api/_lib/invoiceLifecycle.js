@@ -4,31 +4,45 @@
 // admin/api/invoices/** and admin/api/receipts/** are thin HTTP adapters
 // around these functions.
 //
-// Concurrency note (documented rather than solved with a distributed
-// lock, appropriate for a low-concurrency internal admin tool): issuing
-// re-checks `document_status = 'draft'` as part of the same conditional
-// UPDATE that marks the invoice issued, so only one concurrent "Issue"
-// call can win. The number is allocated from the atomic
-// next_document_number() RPC just before that guarded UPDATE; in the rare
-// case a second, losing concurrent call already consumed a number, that
-// number is simply never used again — consistent with the numbering
-// policy's own rule that numbers are never reused or reclaimed once
-// allocated (INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §5). Payment
-// recording re-reads all current (non-reversed) payments fresh from the
-// database before validating the new payment against the balance, so two
-// concurrent payment submissions that would jointly overpay the invoice
-// cannot both succeed — the second read includes the first payment.
+// Financial mutations use a service-role-only database transaction. The parent
+// invoice lock serializes payments, item replacement and issuance. Expected
+// updated_at values reject stale edits; operation UUIDs make payment retries safe.
+import { randomUUID } from 'node:crypto';
 
 import {
   calculateInvoiceTotals,
   validateNewPaymentAmount,
-  derivePaymentStatus,
 } from './invoiceCalculations.js';
 import { getBusinessSettings, hasBankDetails } from './businessSettings.js';
 import { validatePaymentOptionInput, buildPaymentInstructionsSnapshot } from './paymentOptions.js';
-import { isValidEmail, isValidUuid } from './normalise.js';
+import { isValidEmail, isValidUuid, isValidDateString } from './normalise.js';
 
 const MAX_ITEMS_PER_INVOICE = 100;
+
+async function financialMutation(supabase, action, invoiceId, payload, adminId) {
+  let response;
+  try {
+    response = await supabase.rpc('invoice_financial_mutation', {
+      p_action: action, p_invoice_id: invoiceId, p_payload: payload, p_admin_id: adminId,
+    });
+  } catch {
+    return { ok: false, status: 503, error: 'The financial update could not be confirmed. Keep this form and retry the same request.' };
+  }
+  const { data, error } = response;
+  if (error) {
+    const status = error.code === 'P0002' ? 404
+      : ['40001', '23505'].includes(error.code) ? 409
+      : error.code === '22023' ? 400 : 503;
+    const message = ['P0002', '40001', '22023'].includes(error.code) ? error.message
+      : status === 409 ? 'This request conflicts with another saved change. Reload the invoice.'
+      : 'The financial update could not be confirmed. Keep this form and retry the same request.';
+    console.error('[admin/api] financial transaction failed:', action, error.code);
+    return { ok: false, status, error: message };
+  }
+  if (!data?.invoice) return { ok: false, status: 503, error: 'The financial update could not be confirmed. Retry the same request.' };
+  return { ok: true, ...data };
+}
+
 
 // Shared by createDraftInvoice/updateDraftInvoice/duplicateInvoiceAsDraft —
 // validates the payment-option pair and every optional service/billing
@@ -217,7 +231,7 @@ export async function createDraftInvoice(supabase, input, adminId) {
 export async function updateDraftInvoice(supabase, invoiceId, input, adminId) {
   const { data: existing, error: fetchErr } = await supabase
     .from('invoices')
-    .select('id, document_status')
+    .select('id, document_status, updated_at')
     .eq('id', invoiceId)
     .maybeSingle();
 
@@ -244,9 +258,7 @@ export async function updateDraftInvoice(supabase, invoiceId, input, adminId) {
   const fieldsCheck = validateDraftPaymentAndContactFields(input);
   if (!fieldsCheck.ok) return { ok: false, error: fieldsCheck.error };
 
-  const { error: updateErr } = await supabase
-    .from('invoices')
-    .update({
+  const header = {
       customer_name: input.customer.name.trim(),
       customer_email: input.customer.email || null,
       customer_phone: input.customer.phone || null,
@@ -277,20 +289,7 @@ export async function updateDraftInvoice(supabase, invoiceId, input, adminId) {
       billing_customer_id: fieldsCheck.billingCustomerId,
       service_customer_id: fieldsCheck.serviceCustomerId,
       updated_at: nowIso(),
-    })
-    .eq('id', invoiceId)
-    .eq('document_status', 'draft');
-
-  if (updateErr) {
-    console.error('[admin/api] invoice update failed:', updateErr.code, updateErr.message);
-    return { ok: false, error: 'Failed to update invoice' };
-  }
-
-  const { error: deleteItemsErr } = await supabase.from('invoice_items').delete().eq('invoice_id', invoiceId);
-  if (deleteItemsErr) {
-    console.error('[admin/api] invoice_items replace (delete) failed:', deleteItemsErr.code, deleteItemsErr.message);
-    return { ok: false, error: 'Failed to update invoice line items' };
-  }
+    };
 
   const itemRows = totalsResult.totals.lineItems.map((item, index) => ({
     invoice_id: invoiceId,
@@ -301,21 +300,14 @@ export async function updateDraftInvoice(supabase, invoiceId, input, adminId) {
     line_total: item.lineTotal,
     sort_order: index,
   }));
-  const { error: insertItemsErr } = await supabase.from('invoice_items').insert(itemRows);
-  if (insertItemsErr) {
-    console.error('[admin/api] invoice_items replace (insert) failed:', insertItemsErr.code, insertItemsErr.message);
-    return { ok: false, error: 'Failed to update invoice line items' };
-  }
-
-  await logEvent(supabase, { documentType: 'invoice', documentId: invoiceId, eventType: 'updated', adminId });
-
-  return { ok: true };
+  const result = await financialMutation(supabase, 'replace_draft', invoiceId, {
+    expected_updated_at: input.expectedUpdatedAt ?? existing.updated_at,
+    header, items: itemRows,
+  }, adminId);
+  return result.ok ? { ok: true, updatedAt: result.invoice.updated_at } : result;
 }
 
-// A draft may only be deleted if never issued and has no payments/receipt
-// — both are structurally guaranteed by document_status = 'draft' (issuing
-// is the only path to a number/payment/receipt), so the single status
-// check here is sufficient, not a shortcut.
+
 export async function deleteDraftInvoice(supabase, invoiceId) {
   const { data, error } = await supabase
     .from('invoices')
@@ -333,157 +325,33 @@ export async function deleteDraftInvoice(supabase, invoiceId) {
 // Atomically (see file header) issues a draft invoice: revalidates
 // calculations, allocates the formal number, snapshots business/customer/
 // item/total data, and marks it issued.
-export async function issueInvoice(supabase, invoiceId, adminId, { generateAndStorePdf } = {}) {
-  // select('*') deliberately, not a named column list — matches the
-  // pattern already used everywhere else invoices are read in this feature
-  // (handleRoot/handlePreview/handleDownload/handleSend in
-  // admin/api/invoices/[id].js). A named list that includes
-  // payment_option/stripe_payment_link_url (added by the second,
-  // separately-applied migration) would throw "column does not exist"
-  // here specifically if that migration hasn't been run yet on this
-  // database — select('*') never has that failure mode.
-  const { data: invoice, error: fetchErr } = await supabase
-    .from('invoices')
-    .select('*')
-    .eq('id', invoiceId)
-    .maybeSingle();
-
-  if (fetchErr) {
-    console.error('[admin/api] issueInvoice: invoice fetch failed code=%s message=%s', fetchErr.code, fetchErr.message);
-    return { ok: false, error: 'Failed to load invoice' };
-  }
-  if (!invoice) return { ok: false, error: 'Invoice not found', status: 404 };
-  if (invoice.document_status !== 'draft') {
-    return { ok: false, error: 'Only a draft invoice can be issued', status: 409 };
-  }
-  if (Number(invoice.amount_due) <= 0 && Number(invoice.amount_paid || 0) <= 0) {
-    return {
-      ok: false,
-      error: 'This draft shows a zero balance without a recorded payment. Enter only the real deposit, then record the payment after issuing, or create a standalone receipt.',
-      status: 409,
-    };
-  }
-
-  const { data: items, error: itemsErr } = await supabase
-    .from('invoice_items')
-    .select('description, quantity, unit_price, line_discount, line_total, sort_order')
-    .eq('invoice_id', invoiceId)
-    .order('sort_order', { ascending: true });
-
-  if (itemsErr) {
-    console.error('[admin/api] issueInvoice: items fetch failed code=%s message=%s', itemsErr.code, itemsErr.message);
-    return { ok: false, error: 'Failed to load invoice line items' };
-  }
-  if (!items || items.length === 0) return { ok: false, error: 'Cannot issue an invoice with no line items' };
-  console.log('[admin/api] issueInvoice: invoice+items loaded, id=%s itemCount=%s, allocating number', invoiceId, items.length);
-
-  const { data: numberResult, error: numberErr } = await supabase.rpc('next_document_number', { p_doc_type: 'invoice' });
-  if (numberErr || !numberResult) {
-    console.error('[admin/api] invoice number allocation failed:', numberErr?.code, numberErr?.message);
-    return { ok: false, error: 'Failed to allocate an invoice number' };
-  }
-  console.log('[admin/api] issueInvoice: number allocated, updating invoice row');
-
+export async function issueInvoice(supabase, invoiceId, adminId, { generateAndStorePdf, expectedUpdatedAt } = {}) {
+  const { data: invoice, error } = await supabase.from('invoices').select('*').eq('id', invoiceId).maybeSingle();
+  if (error) return { ok: false, error: 'Failed to load invoice' };
+  if (!invoice) return { ok: false, status: 404, error: 'Invoice not found' };
   const businessSnapshot = getBusinessSettings();
   const paymentInstructionsSnapshot = buildPaymentInstructionsSnapshot({
-    paymentOption: invoice.payment_option || 'bank_transfer',
-    stripePaymentLinkUrl: invoice.stripe_payment_link_url,
-    settings: businessSnapshot,
-    hasBankDetails: hasBankDetails(businessSnapshot),
+    paymentOption: invoice.payment_option || 'bank_transfer', stripePaymentLinkUrl: invoice.stripe_payment_link_url,
+    settings: businessSnapshot, hasBankDetails: hasBankDetails(businessSnapshot),
   });
-  const issueDate = invoice.issue_date || nowIso().slice(0, 10);
-  const nowTs = nowIso();
-
-  const { data: issued, error: issueErr } = await supabase
-    .from('invoices')
-    .update({
-      invoice_number: numberResult,
-      document_status: 'issued',
-      issue_date: issueDate,
-      issued_by_admin_id: adminId,
-      issued_at: nowTs,
-      updated_at: nowTs,
-      business_snapshot: businessSnapshot,
-      payment_instructions_snapshot: paymentInstructionsSnapshot,
-    })
-    .eq('id', invoiceId)
-    .eq('document_status', 'draft')
-    .select('id, invoice_number')
-    .maybeSingle();
-
-  if (issueErr) {
-    console.error('[admin/api] invoice issue failed:', issueErr.code, issueErr.message);
-    return { ok: false, error: 'Failed to issue invoice' };
-  }
-  if (!issued) {
-    // Lost the concurrent race — see file header for why the allocated
-    // number is simply left unused rather than "returned."
-    return { ok: false, error: 'Invoice was already issued (concurrent request)', status: 409 };
-  }
-  console.log('[admin/api] issueInvoice: invoice row updated, number=%s, generating PDF now', issued.invoice_number);
-
-  await logEvent(supabase, {
-    documentType: 'invoice',
-    documentId: invoiceId,
-    eventType: 'issued',
-    adminId,
-    metadata: { invoiceNumber: issued.invoice_number },
-  });
-
-  // PDF generation is injected (same pattern as recordPayment's
-  // createReceiptIfPaid) rather than imported directly, so this module
-  // stays testable without mocking pdfkit/Supabase Storage. A failure here
-  // does not roll back the issue — the invoice is validly issued with a
-  // real number either way; the PDF can be regenerated for the same
-  // version on demand (admin/api/invoices/[id].js's
-  // download action falls back to generating on the fly if
-  // pdf_storage_path is still empty).
+  const result = await financialMutation(supabase, 'issue', invoiceId, {
+    expected_updated_at: expectedUpdatedAt ?? invoice.updated_at,
+    business_snapshot: businessSnapshot, payment_instructions_snapshot: paymentInstructionsSnapshot,
+  }, adminId);
+  if (!result.ok) return result;
+  // The issued invoice and source superseding are already committed together.
+  // A PDF failure does not roll back financial records; download can regenerate it.
   if (typeof generateAndStorePdf === 'function') {
     try {
-      const pdfResult = await generateAndStorePdf({ ...invoice, ...issued, issue_date: issueDate, business_snapshot: businessSnapshot }, items);
+      const pdfResult = await generateAndStorePdf(result.invoice, result.items);
       if (pdfResult?.ok) {
-        await supabase.from('invoices').update({ pdf_storage_path: pdfResult.path }).eq('id', invoiceId);
+        await supabase.from('invoices').update({ pdf_storage_path: pdfResult.path })
+          .eq('id', invoiceId).eq('document_version', result.invoice.document_version || 1);
         await logEvent(supabase, { documentType: 'invoice', documentId: invoiceId, eventType: 'pdf_generated', adminId, metadata: { path: pdfResult.path } });
       }
-    } catch (err) {
-      // Genuinely never roll back the issue for this — see comment above.
-      console.error('[admin/api] PDF generation after issue failed:', err?.message);
-    }
+    } catch (err) { console.error('[admin/api] PDF generation after issue failed:', err?.message); }
   }
-
-  // If this invoice is a revision of an earlier issued invoice, mark the
-  // original as superseded now that the replacement is confirmed issued.
-  // Done after PDF generation so a PDF failure does not block superseding.
-  // If the supersede update itself fails the issue is still valid — the
-  // original simply remains un-superseded (safe; both are fully visible).
-  // The guarded IS NULL filter prevents double-superseding in the unlikely
-  // case of a concurrent revision being issued against the same original.
-  const originalId = invoice.revised_from_invoice_id ?? null;
-  if (originalId) {
-    const nowSupersede = nowIso();
-    const { data: superseded, error: supersedeErr } = await supabase
-      .from('invoices')
-      .update({ superseded_by_invoice_id: invoiceId, superseded_at: nowSupersede, updated_at: nowSupersede })
-      .eq('id', originalId)
-      .eq('document_status', 'issued')
-      .is('superseded_by_invoice_id', null)
-      .select('id')
-      .maybeSingle();
-
-    if (supersedeErr) {
-      console.error('[admin/api] issueInvoice: supersede original failed:', supersedeErr.code, supersedeErr.message);
-    } else if (superseded) {
-      await logEvent(supabase, {
-        documentType: 'invoice',
-        documentId: originalId,
-        eventType: 'superseded',
-        adminId,
-        metadata: { supersededById: invoiceId, supersededByNumber: issued.invoice_number },
-      });
-    }
-  }
-
-  return { ok: true, invoiceNumber: issued.invoice_number };
+  return { ok: true, invoiceNumber: result.invoice.invoice_number };
 }
 
 export async function voidInvoice(supabase, invoiceId, reason, adminId) {
@@ -618,6 +486,7 @@ export async function reviseIssuedInvoice(supabase, originalInvoiceId, adminId) 
       service_customer_id: original.service_customer_id,
       // Revision links — NOT copied from original:
       revised_from_invoice_id: originalInvoiceId,
+      revision_source_updated_at: original.updated_at,
       revised_from_invoice_number: original.invoice_number,
       revised_from_issue_date: original.issue_date,
       // payment_instructions_snapshot deliberately NOT carried forward —
@@ -868,179 +737,55 @@ export async function duplicateInvoiceAsDraft(supabase, invoiceId, adminId) {
 }
 
 // Records a payment against an issued invoice. Recalculates aggregates from
-// every current non-reversed payment (freshly read) plus this new one, so
-// two concurrent submissions cannot jointly overpay (see file header).
+// the locked payment ledger inside the database transaction; independent
+// requests cannot validate against the same outdated balance.
 // When the recalculated balance reaches zero, a receipt is created in the
 // same call (INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §6) — receipt creation
 // itself lives in receiptLifecycle.js and is invoked from here to keep the
 // "did this payment complete the invoice" decision in one place.
 export async function recordPayment(supabase, invoiceId, input, adminId, { createReceiptIfPaid, generateAndStoreReceiptPdf } = {}) {
-  const { data: invoice, error: fetchErr } = await supabase
-    .from('invoices')
-    .select('id, document_status, invoice_number, total, deposit_applied, booking_id, customer_name, customer_email, customer_phone, customer_address, customer_postcode, receipt_recipient_email')
-    .eq('id', invoiceId)
-    .maybeSingle();
-
-  if (fetchErr) return { ok: false, error: 'Failed to load invoice' };
-  if (!invoice) return { ok: false, error: 'Invoice not found', status: 404 };
-  if (invoice.document_status !== 'issued') {
-    return { ok: false, error: 'Payments can only be recorded against an issued invoice', status: 409 };
-  }
-
-  const { data: existingPayments, error: paymentsErr } = await supabase
-    .from('invoice_payments')
-    .select('amount, reversed_at')
-    .eq('invoice_id', invoiceId);
-  if (paymentsErr) return { ok: false, error: 'Failed to load existing payments' };
-
-  const alreadyPaid = (existingPayments || [])
-    .filter((p) => !p.reversed_at)
-    .reduce((sum, p) => sum + p.amount, 0);
-  const amountDueBeforeThisPayment = Math.round((invoice.total - invoice.deposit_applied - alreadyPaid) * 100) / 100;
-
-  const amountCheck = validateNewPaymentAmount(input.amount, amountDueBeforeThisPayment);
+  const amountCheck = validateNewPaymentAmount(input.amount, 500000);
   if (!amountCheck.ok) return { ok: false, error: amountCheck.error };
-
-  const { data: paymentRow, error: insertErr } = await supabase
-    .from('invoice_payments')
-    .insert({
-      invoice_id: invoiceId,
-      amount: input.amount,
-      payment_date: input.paymentDate,
-      method: input.method,
-      reference: input.reference || null,
-      notes: input.notes || null,
-      created_by_admin_id: adminId,
-    })
-    .select('id')
-    .single();
-
-  if (insertErr) {
-    console.error('[admin/api] invoice_payments insert failed:', insertErr.code, insertErr.message);
-    return { ok: false, error: 'Failed to record payment' };
-  }
-
-  const newAmountPaid = Math.round((alreadyPaid + input.amount) * 100) / 100;
-  const newAmountDue = Math.round((invoice.total - invoice.deposit_applied - newAmountPaid) * 100) / 100;
-  const paymentStatus = derivePaymentStatus(newAmountDue, invoice.total);
-  const nowTs = nowIso();
-
-  const { error: updateErr } = await supabase
-    .from('invoices')
-    .update({
-      amount_paid: newAmountPaid,
-      amount_due: newAmountDue,
-      payment_status: paymentStatus,
-      paid_at: paymentStatus === 'paid' ? nowTs : null,
-      updated_at: nowTs,
-    })
-    .eq('id', invoiceId);
-
-  if (updateErr) {
-    console.error('[admin/api] invoice aggregate update after payment failed:', updateErr.code, updateErr.message);
-    return { ok: false, error: 'Payment recorded but failed to update invoice totals — contact support' };
-  }
-
-  await logEvent(supabase, {
-    documentType: 'invoice',
-    documentId: invoiceId,
-    eventType: 'payment_recorded',
-    adminId,
-    metadata: { paymentId: paymentRow.id, amount: input.amount, method: input.method },
-  });
-
+  if (Math.round(input.amount * 100) / 100 !== input.amount) return { ok: false, error: 'Payment amount must use whole pennies' };
+  if (!isValidDateString(input.paymentDate)) return { ok: false, error: 'A valid payment date is required' };
+  if (!['bank_transfer','card','stripe','cash','other'].includes(input.method)) return { ok: false, error: 'A valid payment method is required' };
+  if (input.operationId !== undefined && !isValidUuid(input.operationId)) return { ok: false, error: 'A valid payment operation ID is required' };
+  if ((input.reference != null && typeof input.reference !== 'string') || (input.notes != null && typeof input.notes !== 'string')) return { ok: false, error: 'Payment reference and notes must be text' };
+  // HTTP callers must provide the stable UUID; the default supports trusted
+  // internal callers, each of which is a distinct operation rather than a retry.
+  const result = await financialMutation(supabase, 'record_payment', invoiceId, {
+    operation_id: input.operationId || randomUUID(), amount: input.amount, payment_date: input.paymentDate,
+    method: input.method, reference: input.reference || null, notes: input.notes || null,
+  }, adminId);
+  if (!result.ok) return result;
+  const invoice = result.invoice;
   let receiptId = null;
-  if (paymentStatus === 'paid' && typeof createReceiptIfPaid === 'function') {
+  if (invoice.payment_status === 'paid' && !result.replayed && typeof createReceiptIfPaid === 'function') {
     const receiptResult = await createReceiptIfPaid(supabase, {
-      invoiceId,
-      invoiceNumber: invoice.invoice_number,
-      bookingId: invoice.booking_id,
-      customer: {
-        name: invoice.customer_name,
-        email: invoice.customer_email,
-        phone: invoice.customer_phone,
-        address: invoice.customer_address,
-        postcode: invoice.customer_postcode,
-      },
-      invoiceTotal: invoice.total,
-      totalPaid: newAmountPaid,
-      paymentDate: input.paymentDate,
-      paymentMethod: input.method,
-      paymentReference: input.reference || null,
+      invoiceId, invoiceNumber: invoice.invoice_number, bookingId: invoice.booking_id,
+      customer: { name: invoice.customer_name, email: invoice.customer_email, phone: invoice.customer_phone,
+        address: invoice.customer_address, postcode: invoice.customer_postcode },
+      invoiceTotal: invoice.total, totalPaid: invoice.amount_paid, paymentDate: input.paymentDate,
+      paymentMethod: input.method, paymentReference: input.reference || null,
       recipientEmailOverride: invoice.receipt_recipient_email || null,
     }, adminId, { generateAndStorePdf: generateAndStoreReceiptPdf });
     if (receiptResult?.ok) receiptId = receiptResult.receiptId;
+  } else if (result.replayed && invoice.payment_status === 'paid') {
+    // Never create or resend a second receipt while replaying an uncertain save.
+    const { data } = await supabase.from('receipts').select('id').eq('invoice_id', invoiceId).maybeSingle();
+    receiptId = data?.id || null;
   }
-
-  return { ok: true, paymentId: paymentRow.id, amountPaid: newAmountPaid, amountDue: newAmountDue, paymentStatus, receiptId };
+  return { ok: true, paymentId: result.paymentId, amountPaid: invoice.amount_paid, amountDue: invoice.amount_due,
+    paymentStatus: invoice.payment_status, receiptId, replayed: Boolean(result.replayed) };
 }
 
-// Reverses a payment (never deletes it — invoice_payments is append-only)
-// and recalculates the invoice's aggregates the same way recordPayment
-// does, from a fresh read of every non-reversed payment.
+// Reversal and aggregate recalculation commit together. Repeating the same
+// payment ID/reason is safe; a different reason cannot rewrite the audit history.
 export async function reversePayment(supabase, paymentId, reason, adminId) {
-  if (typeof reason !== 'string' || !reason.trim()) {
-    return { ok: false, error: 'a reversal reason is required' };
-  }
-
-  const { data: payment, error: fetchErr } = await supabase
-    .from('invoice_payments')
-    .select('id, invoice_id, reversed_at')
-    .eq('id', paymentId)
-    .maybeSingle();
-
-  if (fetchErr) return { ok: false, error: 'Failed to load payment' };
-  if (!payment) return { ok: false, error: 'Payment not found', status: 404 };
-  if (payment.reversed_at) return { ok: false, error: 'Payment is already reversed', status: 409 };
-
-  const { data: invoice, error: invoiceErr } = await supabase
-    .from('invoices')
-    .select('id, total, deposit_applied')
-    .eq('id', payment.invoice_id)
-    .maybeSingle();
-  if (invoiceErr || !invoice) return { ok: false, error: 'Failed to load parent invoice' };
-
-  const nowTs = nowIso();
-  const { error: reverseErr } = await supabase
-    .from('invoice_payments')
-    .update({ reversed_at: nowTs, reversed_by_admin_id: adminId, reversal_reason: reason.trim() })
-    .eq('id', paymentId)
-    .is('reversed_at', null);
-
-  if (reverseErr) return { ok: false, error: 'Failed to reverse payment' };
-
-  const { data: remainingPayments, error: remainingErr } = await supabase
-    .from('invoice_payments')
-    .select('amount, reversed_at')
-    .eq('invoice_id', payment.invoice_id);
-  if (remainingErr) return { ok: false, error: 'Failed to recalculate invoice totals' };
-
-  const newAmountPaid = (remainingPayments || [])
-    .filter((p) => !p.reversed_at)
-    .reduce((sum, p) => sum + p.amount, 0);
-  const newAmountDue = Math.round((invoice.total - invoice.deposit_applied - newAmountPaid) * 100) / 100;
-  const paymentStatus = derivePaymentStatus(newAmountDue, invoice.total);
-
-  const { error: updateErr } = await supabase
-    .from('invoices')
-    .update({
-      amount_paid: Math.round(newAmountPaid * 100) / 100,
-      amount_due: newAmountDue,
-      payment_status: paymentStatus,
-      paid_at: paymentStatus === 'paid' ? nowTs : null,
-      updated_at: nowTs,
-    })
-    .eq('id', payment.invoice_id);
-
-  if (updateErr) return { ok: false, error: 'Reversal recorded but failed to update invoice totals — contact support' };
-
-  await logEvent(supabase, {
-    documentType: 'invoice',
-    documentId: payment.invoice_id,
-    eventType: 'payment_reversed',
-    adminId,
-    metadata: { paymentId, reason: reason.trim() },
-  });
-
-  return { ok: true };
+  if (typeof reason !== 'string' || !reason.trim()) return { ok: false, error: 'a reversal reason is required' };
+  const { data: payment, error } = await supabase.from('invoice_payments').select('invoice_id').eq('id', paymentId).maybeSingle();
+  if (error) return { ok: false, error: 'Failed to load payment' };
+  if (!payment) return { ok: false, status: 404, error: 'Payment not found' };
+  const result = await financialMutation(supabase, 'reverse_payment', payment.invoice_id, { payment_id: paymentId, reason: reason.trim() }, adminId);
+  return result.ok ? { ok: true } : result;
 }

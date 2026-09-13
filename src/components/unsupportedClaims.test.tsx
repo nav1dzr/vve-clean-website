@@ -84,15 +84,11 @@ describe('service descriptions make no unverifiable outcome claim', () => {
 });
 
 describe('commercial terms are written-scope, not standing commitments', () => {
-  it('the homepage card promises a written scope rather than contract terms', () => {
+  it('the homepage directs commercial visitors to a written scope', () => {
     const services = read('components/Services.tsx');
-    const commercialCard = services.slice(
-      services.indexOf("title: 'Commercial & communal'"),
-      services.indexOf("title: 'Window cleaning'"),
-    );
-
-    expect(commercialCard).toMatch(/quote against a written scope/i);
-    expect(commercialCard).not.toMatch(/out-of-hours visits, monthly invoicing/i);
+    expect(services).toContain('to="/commercial"');
+    expect(services).not.toMatch(/out-of-hours visits, monthly invoicing/i);
+    expect(read('pages/CommercialPage.tsx')).toMatch(/written quote|written scope/i);
   });
 
   it.each([
@@ -120,8 +116,8 @@ describe('commercial terms are written-scope, not standing commitments', () => {
 });
 
 describe('the services themselves remain reachable after homepage simplification', () => {
-  it('keeps Commercial & communal among the five homepage choices', () => {
-    expect(read('components/Services.tsx')).toContain('Commercial & communal');
+  it('keeps the commercial service reachable beside the three main choices', () => {
+    expect(read('components/Services.tsx')).toMatch(/to="\/commercial"[\s\S]*?Commercial &amp; communal cleaning/);
   });
 
   it.each(['Window Cleaning', 'Pressure Washing', 'Garden Services'])(

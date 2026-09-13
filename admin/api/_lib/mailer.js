@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { previewIsolation, previewTestInbox } from './previewIsolation.js';
 
 // Mirrors api/stripe-webhook.js's makeTransport() exactly (same Gmail
 // Nodemailer setup) — this is the first email sender inside the admin app,
@@ -31,6 +32,8 @@ export function isMailerConfigured() {
 // failure — never throws, so callers can record a send-failure event
 // without an unhandled rejection.
 export async function sendMail({ to, subject, html, text, attachments, fromName }) {
+  const isolation = previewIsolation();
+  if (!isolation.ok) return { ok: false, error: isolation.error };
   if (!isMailerConfigured()) {
     return { ok: false, error: 'mailer is not configured (GMAIL_SENDER/GMAIL_APP_PASSWORD missing)' };
   }
@@ -42,8 +45,8 @@ export async function sendMail({ to, subject, html, text, attachments, fromName 
     const transport = makeTransport();
     const info = await transport.sendMail({
       from: fromName ? `"${fromName}" <${process.env.GMAIL_SENDER}>` : process.env.GMAIL_SENDER,
-      to,
-      subject,
+      to: isolation.preview ? previewTestInbox() : to,
+      subject: `${isolation.preview ? '[TEST] ' : ''}${subject}`,
       html,
       text: text || undefined,
       attachments: attachments || undefined,

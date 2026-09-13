@@ -1,94 +1,72 @@
-import { describe, it, expect } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { waitFor } from '@testing-library/dom';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 
-// confirmation.html used to show the success checkmark unconditionally, even
-// with no ref/token/sid in the URL at all (no evidence of payment). These
-// are structural checks (not full DOM execution, since the toggle logic is
-// inline in a large non-modular script) that the fix is present and that it
-// never touches payment verification or the Ads conversion pipeline.
-function read() {
-  return readFileSync(resolve(process.cwd(), 'public/confirmation.html'), 'utf8');
+const html = readFileSync('public/confirmation.html', 'utf8');
+const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
+const start = script.indexOf('function initVerifyUI');
+const verification = script.slice(start, script.lastIndexOf('// ──', script.indexOf('Conversion tracking', start)));
+let doc;
+beforeEach(() => { doc = new DOMParser().parseFromString(html, 'text/html'); });
+const node = (id) => doc.getElementById(id);
+function verify(fetch) {
+  const storage = { removeItem: vi.fn() };
+  new Function('fetch', 'document', 'localStorage', 'apiQs', `${verification}; initVerifyUI();`)(fetch, doc, storage, (url) => `${url}?ref=TEST`);
+  return storage;
 }
 
-describe('confirmation.html — does not show success before any evidence of payment', () => {
-  it('has an "unverified" state block, hidden by default', () => {
-    const html = read();
-    expect(html).toMatch(/id="unverified-state"\s+style="display:none/);
+describe('legacy payment confirmation display', () => {
+  it('starts with a neutral visible heading and hidden success content, including without JavaScript', () => {
+    expect(doc.title).toBe('Check your booking payment | VVE Clean');
+    expect(node('payment-checking').style.display).not.toBe('none');
+    expect(node('payment-checking').querySelector('h1').textContent).toBe('Checking your payment');
+    expect(node('verified-content').style.display).toBe('none');
+    expect(doc.querySelector('noscript').textContent).toMatch(/JavaScript is needed/);
+    expect(doc.querySelector('a[href="#main-content"]')).not.toBeNull();
+    expect(doc.querySelector('main#main-content')).not.toBeNull();
   });
-
-  it('wraps the success content in a container that can be hidden', () => {
-    const html = read();
-    expect(html).toMatch(/<div id="verified-content">/);
+  it('does not reveal success while verification is slow', () => {
+    const fetch = vi.fn(() => new Promise(() => {}));
+    verify(fetch);
+    expect(node('payment-checking').style.display).not.toBe('none');
+    expect(node('verified-content').style.display).toBe('none');
+    expect(fetch).toHaveBeenCalledWith('/api/verify-payment?ref=TEST');
   });
-
-  it('shows the unverified state and hides the verified content only when both ref and sid are absent', () => {
-    const html = read();
-    const block = html.slice(html.indexOf('if (ref || sid) {'), html.indexOf('if (ref || sid) {') + 700);
-    expect(block).toMatch(/verified\.style\.display\s*=\s*"none"/);
-    expect(block).toMatch(/unverified\.style\.display\s*=\s*""/);
+  it.each([false, null, undefined, 'true'])('does not claim payment for an unverified paid value of %s', async (paid) => {
+    const storage = verify(vi.fn().mockResolvedValue({ ok: true, json: async () => ({ paid }) }));
+    await waitFor(() => expect(node('payment-unverified').style.display).toBe(''));
+    expect(node('verified-content').style.display).toBe('none');
+    expect(storage.removeItem).not.toHaveBeenCalled();
   });
-
-  it('the verified/unverified toggle does not call fetch, verify-payment, or gtag', () => {
-    const html = read();
-    const block = html.slice(html.indexOf('Verified vs unverified content toggle'), html.indexOf('if (ref || sid) {') + 400);
-    expect(block).not.toMatch(/verify-payment/);
-    expect(block).not.toMatch(/gtag\(/);
+  it.each(['network', 'http', 'json'])('shows useful recovery without success after a %s failure', async (failure) => {
+    const fetch = failure === 'network' ? vi.fn().mockRejectedValue(new Error('offline'))
+      : vi.fn().mockResolvedValue({ ok: failure !== 'http', json: async () => {
+        if (failure === 'json') throw new Error('invalid JSON');
+        return { paid: true };
+      } });
+    verify(fetch);
+    await waitFor(() => expect(node('payment-unverified').style.display).toBe(''));
+    expect(node('verified-content').style.display).toBe('none');
+    expect(node('payment-unverified').querySelector('a[href^="https://wa.me/"]')).not.toBeNull();
   });
-
-  it('initially hides verified-content when ref or sid is present, before payment is verified', () => {
-    const html = read();
-    const ifBlock = html.slice(html.indexOf('if (ref || sid) {'), html.indexOf('if (ref || sid) {') + 400);
-    // The if-branch must initially hide verified-content and show the checking state
-    expect(ifBlock).toMatch(/verified.*style\.display\s*=\s*"none"/);
-    expect(ifBlock).toMatch(/payment-checking/);
+  it('reveals payment only after a successful verified response and clears the draft', async () => {
+    const storage = verify(vi.fn().mockResolvedValue({ ok: true, json: async () => ({ paid: true }) }));
+    await waitFor(() => expect(node('verified-content').style.display).toBe(''));
+    expect(node('payment-checking').style.display).toBe('none');
+    expect(node('payment-unverified').style.display).toBe('none');
+    expect(storage.removeItem).toHaveBeenCalledWith('vve_form_draft_v1');
+    expect(verification).not.toContain('gtag(');
   });
-
-  it('has a payment-checking element hidden by default', () => {
-    const html = read();
-    expect(html).toMatch(/id="payment-checking"\s+style="display:none/);
+  it('shows recovery without a network call when the URL has no booking details', () => {
+    const fetch = vi.fn();
+    new Function('document', 'window', 'location', 'fetch', 'console', 'setTimeout', script)(doc, { vveProductionTrackingHost: false }, { search: '' }, fetch, { log: vi.fn(), warn: vi.fn(), error: vi.fn() }, vi.fn());
+    expect(node('payment-checking').style.display).toBe('none');
+    expect(node('verified-content').style.display).toBe('none');
+    expect(node('unverified-state').style.display).toBe('');
+    expect(fetch).not.toHaveBeenCalled();
   });
-
-  it('has a payment-unverified element for when verify-payment returns paid:false', () => {
-    const html = read();
-    expect(html).toMatch(/id="payment-unverified"\s+style="display:none/);
-  });
-
-  it('initVerifyUI shows verified-content and clears the draft when paid:true', () => {
-    const html = read();
-    const fn = html.slice(html.indexOf('function initVerifyUI'), html.indexOf('function initVerifyUI') + 1200);
-    expect(fn).toMatch(/verified.*style\.display\s*=\s*""/);
-    expect(fn).toMatch(/localStorage\.removeItem\("vve_form_draft_v1"\)/);
-  });
-
-  it('initVerifyUI shows payment-unverified when paid:false or on error', () => {
-    const html = read();
-    const fn = html.slice(html.indexOf('function initVerifyUI'), html.indexOf('function initVerifyUI') + 1200);
-    // Check both parts separately — they may be on different lines
-    expect(fn).toMatch(/payment-unverified/);
-    expect(fn).toMatch(/style\.display\s*=\s*""/);
-  });
-
-  it('initVerifyUI never calls gtag or fires a conversion event', () => {
-    const html = read();
-    const fnStart = html.indexOf('function initVerifyUI');
-    // Find the conversion-tracking IIFE comment that immediately follows the function —
-    // robust to CRLF line endings (no \n\n dependency).
-    const fnEnd = html.indexOf('Conversion tracking', fnStart);
-    const fn    = fnStart >= 0 && fnEnd > fnStart
-      ? html.slice(fnStart, fnEnd)
-      : html.slice(fnStart, fnStart + 1000);
-    expect(fn).not.toMatch(/gtag\(/);
-    expect(fn).not.toMatch(/FIRING/);
-  });
-
-  it('the unverified state offers a WhatsApp support link and a way back home, not a fabricated booking summary', () => {
-    const html = read();
-    const start = html.indexOf('id="unverified-state"');
-    const end = html.indexOf('<!-- Success hero -->');
-    const unverifiedBlock = html.slice(start, end);
-    expect(unverifiedBlock).toMatch(/wa\.me\/447845451111/);
-    expect(unverifiedBlock).toMatch(/couldn(&rsquo;|')t verify this payment/i);
-    expect(unverifiedBlock).not.toMatch(/id="ref-card"|Your booking reference/);
+  it('does not log the customer response or leave a placeholder support link', () => {
+    expect(script).not.toContain('JSON.stringify(d)');
+    expect(node('wa').getAttribute('href')).toBe('https://wa.me/447845451111');
   });
 });

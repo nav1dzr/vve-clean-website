@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   trackBookingInitiated,
@@ -9,9 +9,13 @@ import {
 } from './analytics';
 
 type GtagWindow = Window & { gtag?: (...args: unknown[]) => void };
+beforeEach(() => {
+  vi.stubGlobal('window', { location: new URL('https://www.vveclean.co.uk/') });
+});
 
 afterEach(() => {
   delete (window as GtagWindow).gtag;
+  vi.unstubAllGlobals(); vi.unstubAllEnvs();
 });
 
 describe('Google Ads analytics events', () => {
@@ -82,5 +86,31 @@ describe('Google Ads analytics events', () => {
 
   it('does nothing safely when gtag is unavailable', () => {
     expect(() => trackBookingInitiated('Carpet cleaning')).not.toThrow();
+  });
+  it('never forwards customer details or private tokens as conversion identifiers', () => {
+    const gtag = vi.fn(); (window as GtagWindow).gtag = gtag;
+    for (const id of ['customer@example.com', 'N1SAM140926', '------------------------------------', 'private-management-token']) {
+      trackBookingRequestSubmitted('Carpet cleaning', id); trackContactFormSubmitted(id);
+    }
+    expect(gtag).not.toHaveBeenCalled();
+  });
+  it('deduplicates saved requests and sends only a configured real request label', () => {
+    const gtag = vi.fn(); (window as GtagWindow).gtag = gtag;
+    vi.stubEnv('VITE_GOOGLE_ADS_REQUEST_CONVERSION_LABEL', 'AW-18214693277/testActualLabel');
+    const id = '8f761dbb-8c42-4e26-95ba-e12c151277d6';
+    trackBookingRequestSubmitted('Carpet cleaning', id); trackBookingRequestSubmitted('Carpet cleaning', id);
+    expect(gtag).toHaveBeenCalledTimes(2);
+    expect(gtag).toHaveBeenLastCalledWith('event', 'conversion', { send_to: 'AW-18214693277/testActualLabel', transaction_id: id });
+  });
+  it.each(['https://www.vveclean.co.uk/Manage-Booking?token=secret', 'https://www.vveclean.co.uk/%6danage-booking?token=secret', 'http://localhost:5173/', 'http://127.0.0.1:4173/', 'https://vve-clean-preview.vercel.app/'])(
+    'does not measure private or preview URLs: %s', url => {
+      vi.stubGlobal('window', { location: new URL(url), gtag: vi.fn() });
+      trackPhoneClick('header'); trackBookingRequestSubmitted('Carpet cleaning'); trackContactFormSubmitted();
+      expect((window as GtagWindow).gtag).not.toHaveBeenCalled();
+    },
+  );
+  it('does not throw if an analytics provider fails after the enquiry was saved', () => {
+    (window as GtagWindow).gtag = () => { throw new Error('provider unavailable'); };
+    expect(() => trackContactFormSubmitted()).not.toThrow();
   });
 });

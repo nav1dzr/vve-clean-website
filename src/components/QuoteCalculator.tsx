@@ -1,6 +1,9 @@
+import PriceTaxNote from './PriceTaxNote';
+import GoogleBadge from './GoogleBadge';
+import { readQuoteBasket, saveQuoteBasket, clearQuoteBasket, restoreShape } from '../lib/quoteBasket';
 import { useState, useCallback, useRef, useEffect, useId, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { trackBookingInitiated } from '../lib/analytics';
+import { trackBookingInitiated, trackFunnelStep } from '../lib/analytics';
 import { Calculator, CheckCircle2, Plus, Minus, Info, AlertCircle, ChevronDown, ShieldCheck } from 'lucide-react';
 import { useBookingCtx } from '../context/BookingContext';
 import { rememberQuoteOrigin } from '../lib/quoteOrigin';
@@ -34,6 +37,9 @@ import {
   CARPET_BUNDLE_BANDS,
   CARPET_ITEM_PRICES_P,
   WINDOW_CLEANING_FROM_P,
+  WINDOW_QUICK_PRICES_P,
+  GUTTER_QUICK_PRICES_P,
+  QUICK_QUOTE_MIN_CHARGE_P,
   GARDEN_SERVICES_FROM_P,
   PRESSURE_WASHING_FROM_P,
   penceToDisplay,
@@ -41,7 +47,7 @@ import {
 
 // ─── Pricing engine (non-carpet services) ────────────────────────────────────
 
-const MIN_CHARGE = 90;
+const MIN_CHARGE = QUICK_QUOTE_MIN_CHARGE_P / 100;
 const WA_BASE    = 'https://wa.me/447845451111';
 
 type DeepServiceType = 'carpet_upholstery' | 'end_of_tenancy' | 'move_in' | 'after_builders';
@@ -105,8 +111,8 @@ const _stairFirst = EOT_CARPET_ADDON_PRICES_P.stairs_first / 100;  // 45
 const _stairExtra = EOT_CARPET_ADDON_PRICES_P.stairs_extra / 100;  // 35
 const STAIR_PRICES = [0, _stairFirst, _stairFirst + _stairExtra, _stairFirst + 2 * _stairExtra];
 
-const windowPrices: Record<string, number> = { small: 35, medium: 45, large: 55 };
-const gutterPrices: Record<string, number>  = { terraced: 75, semi_detached: 110, detached: 160 };
+const windowPrices: Record<string, number> = Object.fromEntries(Object.entries(WINDOW_QUICK_PRICES_P).map(([key, value]) => [key, value / 100]));
+const gutterPrices: Record<string, number> = Object.fromEntries(Object.entries(GUTTER_QUICK_PRICES_P).map(([key, value]) => [key, value / 100]));
 const HOURLY_RATE      = COMMERCIAL_REGULAR_HOURLY_P / 100;  // 27.50
 const MIN_OFFICE_HOURS = COMMERCIAL_REGULAR_MIN_HOURS;       // 2
 
@@ -127,7 +133,7 @@ const addOnDefs = [
   { key: 'eot_sofa_3',    label: '3-seater sofa steam clean',       price: CARPET_ITEM_PRICES_P.sofa_3 / 100 },
   { key: 'eot_sofa_corner', label: 'Corner / L-shaped sofa steam clean', price: CARPET_ITEM_PRICES_P.sofa_corner / 100 },
   { key: 'eot_mattress_single', label: 'Single mattress steam clean', price: CARPET_ITEM_PRICES_P.mattress_single / 100 },
-  { key: 'eot_mattress_double', label: 'Double / king mattress steam clean', price: CARPET_ITEM_PRICES_P.mattress_double / 100 },
+  { key: 'eot_mattress_double', label: 'Double mattress steam clean', price: CARPET_ITEM_PRICES_P.mattress_double / 100 },
   { key: 'rubbish',       label: 'Rubbish removal',       price: ADDON_PRICES_P.rubbish     / 100 },  // 40
   // legacy carpet add-ons (kept for quoteConfig backward compat)
   { key: 'sofa',     label: 'Sofa (2–3 seats)',    price: 40 },
@@ -281,13 +287,13 @@ function CarpetItemRows({
                   </span>
                 )}
               </div>
-              <div className="text-royal-600 text-[10px] font-bold mt-0.5">
+              <div className="text-royal-700 text-xs font-semibold mt-0.5">
                 {item.key === 'stairs'
                   ? `£${item.stairsFirst} first flight · £${item.stairsExtra} each extra`
-                  : `£${item.unitPrice} per item`}
+                  : item.key === 'rug' ? 'Photo quote · add-on only' : `£${item.unitPrice} per item`}
               </div>
               {item.helper && (
-                <p className="text-silver-600 text-[10px] mt-0.5 leading-snug">{item.helper}</p>
+                <p className="text-slate-600 text-xs mt-0.5 leading-relaxed">{item.helper}</p>
               )}
             </div>
             <Counter
@@ -317,8 +323,15 @@ const TRUST_ITEMS = [
 // vve_restore_quote flag is present (set by "Back to quote" in BookingPage).
 
 function getRestoreConfig(): BookingSelection['quoteConfig'] | null {
+  const draft = readQuoteBasket();
   try {
-    if (!sessionStorage.getItem('vve_restore_quote')) return null;
+    if (!sessionStorage.getItem('vve_restore_quote')) {
+      if (draft?.kind === 'eot') return { deepService: 'end_of_tenancy' } as BookingSelection['quoteConfig'];
+      if (draft?.kind !== 'standard') return null;
+      const config = draft.config;
+      if (!['carpet_upholstery', 'move_in', 'after_builders'].includes(String(config.deepService))) return null;
+      return restoreShape({ service: 'deep', deepService: 'carpet_upholstery', deepSize: 'bed2', deepBaths: 1, addOnCounts: Object.fromEntries(addOnDefs.map(a => [a.key, 0])), carpetCounts: Object.fromEntries(CARPET_GROUPS.flatMap(g => g.items).map(i => [i.key, 0])), carpetCondition: 'normal', windowSize: 'small', gutterType: 'terraced', officeHours: 2, propertyType: 'flat' }, config) as BookingSelection['quoteConfig'];
+    }
     const raw = sessionStorage.getItem('vve_booking');
     if (!raw) return null;
     return (JSON.parse(raw) as BookingSelection).quoteConfig ?? null;
@@ -338,6 +351,8 @@ export default function QuoteCalculator({
   homepageService = null,
   onHomepageServiceChange,
 }: Props = {}) {
+  const quoteStarted = useRef(false);
+  const recordQuoteStart = () => { if (!quoteStarted.current) { quoteStarted.current = true; trackFunnelStep('quote_start', mode); } };
   const { ref, visible } = useReveal();
   const contentVisible = aboveFold || visible;
   const navigate = useNavigate();
@@ -349,12 +364,20 @@ export default function QuoteCalculator({
   const [service] = useState<ServiceKey>('deep');
 
   // Captured once on mount; null on every subsequent render (flag cleared below).
-  const [_restore] = useState<BookingSelection['quoteConfig'] | null>(getRestoreConfig);
+  const [_restore] = useState<BookingSelection['quoteConfig'] | null>(() => {
+    // An explicit service choice starts that selection; ordinary navigation and
+    // the basket's resume link still restore the saved quote.
+    if (homepageService !== null) return null;
+    const saved = getRestoreConfig();
+    if (mode === 'eot' && saved?.deepService !== 'end_of_tenancy') return null;
+    if ((mode === 'carpet' || mode === 'upholstery') && saved?.deepService !== 'carpet_upholstery') return null;
+    return saved;
+  });
 
   // Clear the restore flag immediately after we've read it so a future
   // direct homepage visit doesn't unexpectedly hydrate an old quote.
   useEffect(() => {
-    sessionStorage.removeItem('vve_restore_quote');
+    try { sessionStorage.removeItem('vve_restore_quote'); } catch { /* Optional browser storage. */ }
   }, []);
 
   const isEotFocused        = mode === 'eot';
@@ -373,9 +396,8 @@ export default function QuoteCalculator({
       ? 'end_of_tenancy'
       : (isCarpetFocused || isUpholsteryFocused)
         ? 'carpet_upholstery'
-        // A restored quote wins over the homepage card selection, so coming
-        // back from BookingPage via "Back to quote" reopens what the customer
-        // actually had rather than resetting them to the card they first hit.
+        // Explicit homepage choices have no restore data. A normal return
+        // from the basket or booking form keeps its saved service.
         : ((_restore?.deepService as DeepServiceType | undefined)
           ?? (homepageService === 'carpet' || homepageService === 'upholstery' ? 'carpet_upholstery' : homepageService)
           ?? 'carpet_upholstery'),
@@ -534,6 +556,10 @@ export default function QuoteCalculator({
         const msg = `Hello VVE Clean, I'd like to ask about adding a rug to a carpet, upholstery or end of tenancy clean. I'll send a photo of the rug.\nMy postcode is: `;
         return `${WA_BASE}?text=${encodeURIComponent(msg)}`;
       }
+      if (rugCount > 0) {
+        const msg = `Hello VVE Clean, I would like a quote for a rug alongside my other cleaning items. I will send photos to confirm the material, method and total.\nMy postcode is: `;
+        return `${WA_BASE}?text=${encodeURIComponent(msg)}`;
+      }
       if (carpetCondition === 'delicate') {
         const msg = `Hello VVE Clean, I'd like a quote for delicate fabric cleaning (wool, silk or velvet). I'll send photos for an accurate price.\nMy postcode is: `;
         return `${WA_BASE}?text=${encodeURIComponent(msg)}`;
@@ -628,6 +654,18 @@ export default function QuoteCalculator({
     return `${DEEP_SERVICE_LABELS[deepService]} — ${deepSizeLabel}`;
   })();
 
+  useEffect(() => {
+    if (isEot || !quoteStarted.current) return;
+    if (isCarpet && !carpetResult?.totalItems) {
+      if (readQuoteBasket()?.kind === 'standard') clearQuoteBasket();
+      return;
+    }
+    saveQuoteBasket({ kind: 'standard', label: bookingServiceName, href: '', config: {
+      service, deepService, deepSize, deepBaths, addOnCounts, windowSize, gutterType, officeHours,
+      propertyType, carpetCounts, carpetCondition,
+    } });
+  }, [isEot, isCarpet, carpetResult?.totalItems, bookingServiceName, service, deepService, deepSize, deepBaths, addOnCounts, windowSize, gutterType, officeHours, propertyType, carpetCounts, carpetCondition]);
+
   const handleBookNow = () => {
     const bundle = carpetResult?.bundle;
     // Only claim a discount when the minimum booking charge hasn't overridden
@@ -658,6 +696,7 @@ export default function QuoteCalculator({
         ...(isCarpet ? { carpetCounts, carpetCondition } : {}),
       },
     };
+    trackFunnelStep('quote_complete', bookingServiceName);
     trackBookingInitiated(bookingServiceName);
     // Navigation state only, never part of the payload: lets "Back to quote"
     // return to the page the quote was built on rather than the homepage.
@@ -746,11 +785,11 @@ export default function QuoteCalculator({
     ];
 
     return (
-      <section id="quote" ref={ref} className="relative overflow-hidden bg-gradient-to-b from-sky-50 via-surface to-white pb-20 pt-24 scroll-mt-28 sm:pt-28">
+      <section id="quote" onChangeCapture={recordQuoteStart} onClickCapture={recordQuoteStart} ref={ref} className="relative overflow-hidden bg-gradient-to-b from-sky-50 via-surface to-white pb-20 pt-24 scroll-mt-28 sm:pt-28">
         <div aria-hidden="true" className="pointer-events-none absolute -left-24 top-20 h-64 w-64 rounded-full bg-sky-300/20 blur-3xl" />
         <div aria-hidden="true" className="pointer-events-none absolute -right-20 bottom-8 h-72 w-72 rounded-full bg-emerald-200/20 blur-3xl" />
         <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className={`overflow-hidden rounded-3xl border border-sky-200 bg-white shadow-[0_26px_80px_rgba(16,80,130,0.16)] ring-1 ring-white transition duration-700 ${contentVisible ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0'}`}>
+          <div className={`overflow-hidden rounded-3xl border border-sky-200 bg-white shadow-sm transition duration-700 ${contentVisible ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0'}`}>
             <div aria-hidden="true" className="h-1.5 bg-gradient-to-r from-royal-600 via-sky-400 to-emerald-400" />
             <div className="grid lg:grid-cols-[1.08fr_0.92fr]">
               <div className="p-6 sm:p-9 lg:p-11">
@@ -758,7 +797,7 @@ export default function QuoteCalculator({
                   <div>
                     <p className="mb-3 inline-flex rounded-full bg-royal-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-royal-800">Instant quote</p>
                     <h2 className="font-display text-3xl font-bold text-navy-900 sm:text-4xl">Get an instant quote</h2>
-                    <p className="mt-2 text-sm text-muted">Build a clear price in three short steps.</p>
+                    <p className="mt-2 text-sm text-muted">Choose a service, select the work and review your price.</p>
                   </div>
                   <span className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-royal-600 to-sky-500 text-white shadow-lg shadow-sky-200 sm:flex">
                     <Calculator size={24} />
@@ -785,7 +824,7 @@ export default function QuoteCalculator({
                       const selected = event.target.value as HomepageQuoteService;
                       if (selected) onHomepageServiceChange?.(selected);
                     }}
-                    className="min-h-[50px] w-full appearance-none rounded-xl border-2 border-line bg-white px-4 pr-11 text-sm font-semibold text-navy-900 outline-none transition focus:border-royal-600 focus:ring-4 focus:ring-royal-100"
+                    className="min-h-[50px] w-full appearance-none rounded-xl border-2 border-line bg-white px-4 pr-11 text-base font-semibold text-navy-900 outline-none transition focus:border-royal-600 focus:ring-4 focus:ring-royal-100"
                   >
                     <option value="" disabled>Choose what you would like cleaned</option>
                     {homepageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -794,20 +833,20 @@ export default function QuoteCalculator({
                 </div>
                 <p className="mt-4 flex items-center gap-2 text-xs text-muted">
                   <CheckCircle2 size={14} className="text-royal-700" />
-                  No hidden fees · Live price where available · No payment to request a time
+                  No payment to request a time. We agree the details with you first.
                 </p>
               </div>
 
-              <aside className="bg-gradient-to-br from-sky-100 via-royal-50 to-emerald-50 p-6 sm:p-9 lg:p-11">
+              <aside className="bg-sky-50 p-6 sm:p-9 lg:p-11">
                 <div className="flex items-center gap-3">
                   <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-royal-700 shadow-sm"><ShieldCheck size={21} /></span>
                   <h3 className="font-display text-lg font-bold text-navy-900">Why book with VVE Clean?</h3>
                 </div>
                 <ul className="mt-6 space-y-4">
                   {[
-                    'Transparent pricing with no hidden fees',
+                    'Itemised prices for your selected work',
                     'Request a preferred time with no payment',
-                    'Professional equipment and direct support',
+                    'Cleaning equipment supplied by our team',
                     '£5m public liability insurance',
                     // Was "Rated 5.0 by genuine Google reviewers". No verified
                     // rating exists in the project (see data/googleRating.ts),
@@ -821,6 +860,7 @@ export default function QuoteCalculator({
                     </li>
                   ))}
                 </ul>
+                <div className="mt-5"><GoogleBadge /></div>
               </aside>
             </div>
           </div>
@@ -837,7 +877,7 @@ export default function QuoteCalculator({
   // hook above has already run on every render (rules-of-hooks safe — this
   // only changes what JSX is returned, never which hooks fire).
   if (isEot) {
-    const eotRestoreConfig: EotBookingResult['quoteConfig'] | null = _restore && _restore.deepService === 'end_of_tenancy'
+    const eotRestoreConfig: EotBookingResult['quoteConfig'] | null = _restore && _restore.deepService === 'end_of_tenancy' && _restore.deepSize
       ? {
           service: 'deep',
           deepService: 'end_of_tenancy',
@@ -865,6 +905,8 @@ export default function QuoteCalculator({
       : null;
 
     const handleWizardBook = (result: EotBookingResult) => {
+      rememberQuoteOrigin();
+      trackFunnelStep('quote_complete', result.serviceName);
       trackBookingInitiated(result.serviceName);
       if (onBook) {
         onBook({ serviceName: result.serviceName, price: result.price, quoteConfig: result.quoteConfig });
@@ -875,7 +917,7 @@ export default function QuoteCalculator({
     };
 
     return (
-      <section id="quote" ref={ref} className={`${homepageMode ? 'bg-surface pb-20 pt-24 sm:pt-28' : 'bg-gradient-to-br from-sky-50 via-white to-royal-50 py-20'} scroll-mt-24`}>
+      <section id="quote" onChangeCapture={recordQuoteStart} onClickCapture={recordQuoteStart} ref={ref} className={`${homepageMode ? 'bg-surface pb-20 pt-24 sm:pt-28' : 'bg-gradient-to-br from-sky-50 via-white to-royal-50 py-20'} scroll-mt-24`}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`text-center mb-8 transition-all duration-700 ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             {homepageMode ? (
@@ -917,6 +959,8 @@ export default function QuoteCalculator({
   return (
     <section
       id="quote"
+      onChangeCapture={recordQuoteStart}
+      onClickCapture={recordQuoteStart}
       ref={ref}
       className={`${
         homepageMode
@@ -966,6 +1010,7 @@ export default function QuoteCalculator({
           )}
         </div>
 
+        <PriceTaxNote className="mb-5 text-center" inverse={!homepageMode} />
         {/* Card grid */}
         <div className={`grid lg:grid-cols-5 gap-0 rounded-2xl shadow-2xl transition-all duration-700 delay-200 lg:items-start ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
 
@@ -979,7 +1024,9 @@ export default function QuoteCalculator({
                 <span className="text-navy-900 text-sm font-semibold">
                   {isEotFocused
                     ? 'Tell us about the property'
-                    : (isCarpetFocused || isUpholsteryFocused)
+                    : isUpholsteryFocused
+                      ? 'Choose your furniture and see the price'
+                      : isCarpetFocused
                       ? 'Add your rooms and get an instant price'
                       : 'Select your service & get an instant price'}
                 </span>
@@ -1326,7 +1373,7 @@ export default function QuoteCalculator({
                                     >
                                       <div className="min-w-0">
                                         <div className="text-navy-800 text-xs font-medium leading-snug">{label}</div>
-                                        <div className="text-royal-600 text-[10px] font-bold mt-0.5">
+                                        <div className="text-royal-700 text-xs font-semibold mt-0.5">
                                           +£{dynamicPrice}
                                           {key === 'carpet_bundle' && (
                                             <span className="font-normal text-silver-600"> · bedrooms/hall scope shown above</span>
@@ -1373,7 +1420,7 @@ export default function QuoteCalculator({
                                   <div key={a.key} className="flex items-center justify-between rounded-xl px-3 py-2 border transition-all duration-200 bg-silver-50 border-silver-200">
                                     <div>
                                       <span className="text-navy-800 text-xs font-medium">{a.label}</span>
-                                      <div className="text-royal-600 text-[10px] font-bold mt-0.5">
+                                      <div className="text-royal-700 text-xs font-semibold mt-0.5">
                                         +£{dynamicPrice}
                                         {saving > 0 && <span className="text-green-600 ml-1">· saves £{saving}</span>}
                                       </div>
@@ -1400,7 +1447,7 @@ export default function QuoteCalculator({
                 <div>
                   <label className="block text-navy-900 font-semibold text-sm mb-2">Property Size</label>
                   <div className="grid grid-cols-3 gap-2">
-                    {[['small','1–2 Bed',35],['medium','3 Bed',45],['large','4+ Bed',55]].map(([k,l,p]) => (
+                    {[['small','1–2 Bed',windowPrices.small],['medium','3 Bed',windowPrices.medium],['large','4+ Bed',windowPrices.large]].map(([k,l,p]) => (
                       <button key={k} type="button" onClick={() => setWindowSize(k as string)}
                         className={`py-3 rounded-xl border-2 text-xs font-semibold text-center transition-all duration-200 ${windowSize === k ? 'border-royal-500 bg-royal-50 text-royal-700' : 'border-silver-200 text-navy-700 hover:border-royal-300'}`}>
                         <div className="font-bold">{l}</div>
@@ -1482,9 +1529,9 @@ export default function QuoteCalculator({
                   ) : isCarpet && carpetResult?.isPhotoQuote ? (
                     <div className="rounded-2xl px-5 py-5 bg-purple-50 border-2 border-purple-200 space-y-3 text-center">
                       <div className="text-purple-700 text-[10px] font-bold tracking-widest uppercase">Photo Quote Required</div>
-                      <div className="font-display font-bold text-2xl text-purple-900">Delicate fabric clean</div>
+                      <div className="font-display font-bold text-2xl text-purple-900">{rugCount > 0 ? 'Rug photo assessment' : 'Delicate fabric clean'}</div>
                       <p className="text-purple-700 text-sm leading-relaxed max-w-xs mx-auto">
-                        Wool, silk and velvet require assessment before we can give a fixed price. Send us a photo on WhatsApp so we can review the fabric and method.
+                        Rugs and delicate fabrics require assessment before we can give a fixed price. Send photos on WhatsApp so we can confirm the method, scope and total.
                       </p>
                     </div>
                   ) : isCarpet && (carpetResult?.totalItems ?? 0) === 0 ? (
@@ -1580,7 +1627,7 @@ export default function QuoteCalculator({
 
                       {/* Non-carpet subtitle — end_of_tenancy never reaches this render path;
                           isEot routes to EotQuoteWizard via the early return above. */}
-                      {isEot && <div className="mt-3 text-center text-sm text-royal-700">72-hour re-clean terms shown with the selected package</div>}
+                      {isEot && <div className="mt-3 text-center text-sm text-royal-700">Seven-day re-clean reporting terms shown with the selected package</div>}
                     </div>
                   )}
                 </>

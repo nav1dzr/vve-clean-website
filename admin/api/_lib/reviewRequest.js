@@ -56,8 +56,9 @@ export function reviewRequestBlockedReason(booking) {
   // is worse than not asking at all.
   if (booking.status !== 'completed') return 'not_completed';
 
-  // A booking that never paid is not a customer relationship worth mining.
-  if (booking.payment_status !== 'paid') return 'not_paid';
+  // A completed free-request job may have settled its balance manually without
+  // ever collecting an online deposit. Do not exclude those actual customers.
+  if (booking.payment_status !== 'paid' && !['paid','waived'].includes(booking.balance_status)) return 'not_paid';
 
   if (!booking.email || !String(booking.email).includes('@')) return 'no_email';
 
@@ -76,7 +77,7 @@ export function isReviewRequestEligible(booking) {
 export const BLOCKED_REASON_TEXT = {
   not_found: 'Booking not found.',
   not_completed: 'The booking is not marked completed yet.',
-  not_paid: 'The deposit has not been paid.',
+  not_paid: 'No payment or settled balance is recorded yet.',
   no_email: 'No email address is stored for this customer.',
   already_sent: 'A review request has already been sent for this booking.',
   feature_disabled: 'Review requests are switched off.',

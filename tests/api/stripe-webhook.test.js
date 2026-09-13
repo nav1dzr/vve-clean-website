@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const constructEventMock = vi.fn();
 const sendMailMock       = vi.fn().mockResolvedValue({});
@@ -71,6 +71,7 @@ const BASE_META = {
   time:     'Flexible',
   booking_ref: 'E81AA010826',
 };
+afterEach(() => vi.unstubAllEnvs());
 
 function makeEvent(metaOverrides = {}) {
   return {
@@ -100,6 +101,12 @@ describe('stripe-webhook — customer/business notification wording', () => {
     delete process.env.VITE_SUPABASE_URL;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     constructEventMock.mockReturnValue(makeEvent());
+  });
+  it.each([{ livemode: true, journey: 'v1' }, { livemode: false, journey: undefined }])('rejects unsafe approved-preview events: %o', async ({ livemode, journey }) => {
+    for (const [key, value] of Object.entries({ VERCEL_ENV: 'preview', VVE_PREVIEW_ISOLATION_APPROVED: 'true', VVE_PREVIEW_SUPABASE_PROJECT_REF: 'stageisolatedproject', VITE_SUPABASE_URL: 'https://stageisolatedproject.supabase.co', SUPABASE_URL: '', VVE_PREVIEW_TEST_EMAIL: 'preview@example.com', BOOKING_JOURNEY_MODE: 'test' })) vi.stubEnv(key, value);
+    constructEventMock.mockReturnValue({ ...makeEvent({ journey }), livemode });
+    const res = makeRes(); await handler(makeReq(), res);
+    expect(res.statusCode).toBe(403); expect(sendMailMock).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
   });
 
   it('never claims the appointment is confirmed in the customer email subject', async () => {

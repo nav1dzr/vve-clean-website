@@ -63,12 +63,11 @@ describe('EndOfTenancyPage — approved section order and real media', () => {
     const media     = indexOf('See the difference');
     const reviews   = indexOf('Rated by London customers on Google');
     const benefits  = indexOf('Why tenants and landlords choose VVE Clean');
-    const intro     = indexOf('The clean your agent actually checks for');
     const why       = indexOf('What every Complete end of tenancy clean includes');
     const pricing   = indexOf('Fixed end of tenancy cleaning prices');
     const faq       = indexOf('Common questions');
 
-    for (const idx of [hero, quote, media, reviews, benefits, intro, why, pricing, faq]) {
+    for (const idx of [hero, quote, media, reviews, benefits, why, pricing, faq]) {
       expect(idx).toBeGreaterThanOrEqual(0);
     }
 
@@ -76,8 +75,7 @@ describe('EndOfTenancyPage — approved section order and real media', () => {
     expect(quote).toBeLessThan(media);
     expect(media).toBeLessThan(reviews);
     expect(reviews).toBeLessThan(benefits);
-    expect(benefits).toBeLessThan(intro);
-    expect(intro).toBeLessThan(why);
+    expect(benefits).toBeLessThan(why);
     expect(why).toBeLessThan(pricing);
     expect(pricing).toBeLessThan(faq);
   });
@@ -128,7 +126,7 @@ describe('EndOfTenancyPage — approved section order and real media', () => {
     renderPage();
 
     const waCta = screen.getByRole('link', { name: 'WhatsApp us first' });
-    expect(waCta).toHaveClass('btn-whatsapp');
+    expect(waCta).toHaveClass('service-help-link');
     expect(waCta).toHaveAttribute('href', expect.stringContaining('wa.me'));
   });
 });

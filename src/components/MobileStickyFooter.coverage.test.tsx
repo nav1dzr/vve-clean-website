@@ -29,7 +29,7 @@ const LAYOUTS_WITH_BAR = ['ServiceLandingLayout.tsx', 'BlogPostLayout.tsx'].filt
 );
 
 function rendersBar(source: string): boolean {
-  if (source.includes('<MobileStickyFooter')) return true;
+  if (source.includes('<MobileStickyFooter') || source.includes('<MobileActionBar')) return true;
   return LAYOUTS_WITH_BAR.some((layout) => source.includes(layout.replace('.tsx', '')));
 }
 
@@ -40,6 +40,8 @@ function rendersBar(source: string): boolean {
 const INTENTIONAL_SUPPRESSIONS: Record<string, RegExp> = {
   // Owns the payment button itself; a second booking CTA would compete with it.
   'BookingPage.tsx': /Send request — no payment/,
+  // Private appointment actions replace public quote acquisition.
+  'BookingManagementPage.tsx': /Pay.*deposit|Manage your booking/,
   // Sets state 'hidden' via BookingContext and renders its own fixed bar.
   'LeafletPage.tsx': /wa\.me|tel:/,
   // Not a conversion page; offers a route back plus a quote link.
@@ -53,7 +55,7 @@ const INTENTIONAL_SUPPRESSIONS: Record<string, RegExp> = {
 };
 
 /** Pages carrying their own fixed bottom bar instead of the shared one. */
-const CUSTOM_BAR_PAGES = ['PricingPage.tsx', 'PrivacyPolicyPage.tsx', 'TermsOfServicePage.tsx'];
+const CUSTOM_BAR_PAGES = [ 'PrivacyPolicyPage.tsx', 'TermsOfServicePage.tsx'];
 
 describe('§11 — mobile sticky action bar coverage', () => {
   it('finds the layouts that render the bar for their pages', () => {
@@ -77,7 +79,7 @@ describe('§11 — mobile sticky action bar coverage', () => {
 
   it.each(pageFiles)('%s reserves safe-area room whenever it renders the bar', (file) => {
     const source = read(pagesDir, file);
-    if (!source.includes('<MobileStickyFooter')) return;
+    if (!source.includes('<MobileStickyFooter') && !source.includes('<MobileActionBar')) return;
 
     expect(
       source,
@@ -110,22 +112,31 @@ describe('§11 — hand-rolled bars meet the same standards as the shared one', 
 
   it.each(CUSTOM_BAR_PAGES)('%s offers a reachable primary action', (file) => {
     const source = read(pagesDir, file);
-    if (file === 'PricingPage.tsx') expect(source).toMatch(/to="\/#quote"/);
+    if (file === 'PricingPage.tsx') {
+      // PricingPage.test.tsx exercises the selected-service destinations in
+      // the rendered bar; this source-level coverage only checks it exists.
+      const bar = source.slice(source.indexOf('fixed bottom-0'));
+      expect(bar).toMatch(/<Link\s+to=/);
+      expect(bar).toContain('/end-of-tenancy-cleaning-london#quote');
+      expect(bar).toContain('Get my price');
+    }
     else expect(source).toMatch(/tel:02080502233/);
     expect(source).toMatch(/wa\.me\/447845451111/);
   });
 
-  it('gives the pricing page a wider, accessible price action and a secondary WhatsApp action', () => {
+  it('shares the pricing action bar while preserving service-specific quote links', () => {
     const source = read(pagesDir, 'PricingPage.tsx');
-    expect(source).toContain('flex-[1.6]');
-    expect(source).toContain('bg-sky-500');
-    expect(source).toContain('bg-[#25d366]');
-    expect(source).not.toMatch(/bg-\[#25d366\][^\n]*text-white/);
+    expect(source).toContain('<MobileActionBar');
+    expect(source).toContain('MOBILE_PRIMARY_CLASS');
+    expect(source).toContain('/sofa-cleaning-london#quote');
+    expect(source).toContain('mobile-page-bottom');
   });
+
 });
 
 describe('§11 — the approved bar treatment is intact', () => {
-  const source = read(componentsDir, 'MobileStickyFooter.tsx');
+  const source = read(componentsDir, 'MobileActionBar.tsx');
+  const behaviour = read(componentsDir, 'MobileStickyFooter.tsx');
 
   it('uses the approved lighter blue for the primary action', () => {
     expect(source).toMatch(/bg-sky-500/);
@@ -140,20 +151,20 @@ describe('§11 — the approved bar treatment is intact', () => {
   });
 
   it('gives the primary action more width and uses accessible text contrast', () => {
-    expect(source.match(/flex-\[1\.6\]/g)).toHaveLength(2);
+    expect(source.match(/flex-\[1\.6\]/g)).toHaveLength(1);
     expect(source).toContain('bg-[#25d366]');
     expect(source).not.toMatch(/bg-\[#25d366\][^\n]*text-white/);
   });
 
   it('uses the request-first CTA vocabulary, never a false booking promise', () => {
-    expect(source).toContain('Request a time · no payment');
-    expect(source).toContain('Get my price');
+    expect(behaviour).toContain('Request a time · no payment');
+    expect(behaviour).toContain('Get my price');
     expect(source).not.toMatch(/>\s*Book\s*</);
   });
 
   it('meets the 48px minimum tap target', () => {
     const targets = source.match(/min-h-\[48px\]/g) ?? [];
-    expect(targets.length).toBeGreaterThanOrEqual(3);
+    expect(targets.length).toBeGreaterThanOrEqual(2);
   });
 
   it('respects the safe area and stays off desktop', () => {
@@ -166,6 +177,6 @@ describe('§11 — the approved bar treatment is intact', () => {
   });
 
   it('renders nothing in the hidden state, for pages owning their own bar', () => {
-    expect(source).toMatch(/state === 'hidden'\) return null/);
+    expect(behaviour).toMatch(/state === 'hidden'\) return null/);
   });
 });

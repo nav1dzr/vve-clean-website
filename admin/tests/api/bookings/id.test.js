@@ -50,10 +50,10 @@ function makeReq({ url, bodyObj, headers = { authorization: 'Bearer t' }, method
   };
 }
 
-function makeUpdateClient(result) {
+function makeUpdateClient(result, managed = null) {
   const updateCall = { payload: null };
   const client = {
-    from: () => ({
+    from: (table) => table === 'booking_journeys' ? { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: managed, error: null }) }) }) } : ({
       update: (payload) => {
         updateCall.payload = payload;
         return {

@@ -12,8 +12,9 @@
 // as pictures.
 
 import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import GoogleBadge from './GoogleBadge';
+import TrustBadges from './TrustBadges';
 import Reviews from './Reviews';
 import { SHOW_AGGREGATE_STARS, VERIFIED_GOOGLE_RATING } from '../data/googleRating';
 
@@ -115,7 +116,28 @@ describe('once a rating is verified, the stars come back', () => {
 
   it.runIf(!unverified)('renders the verified value beside them', () => {
     const { container } = render(<GoogleBadge />);
-    expect(largestIconRun(container)).toBe(5);
+    expect(container.querySelector('.lucide-star')).toBeInTheDocument();
+    expect(container.querySelector('a')).toHaveAttribute('aria-label', expect.stringContaining(`${VERIFIED_GOOGLE_RATING!.value.toFixed(1)} out of 5`));
     expect(container.textContent).toContain(String(VERIFIED_GOOGLE_RATING!.value));
+  });
+});
+
+describe('the Google trust card source', () => {
+  it('provides the same source date as the main badge and a working review-profile link', () => {
+    render(<><GoogleBadge /><TrustBadges /></>);
+    const link = screen.getByRole('link', { name: 'Read VVE Clean reviews on Google (opens in a new tab)' });
+    expect(link).toHaveAttribute('href', screen.getByRole('link', { name: /Read our Google reviews|Read our reviews on Google/i }).getAttribute('href'));
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    const card = link.parentElement!;
+    if (VERIFIED_GOOGLE_RATING) {
+      const date = within(card).getByText(/^(Checked|Updated) /);
+      expect(screen.getAllByText(date.textContent!)).toHaveLength(2);
+      expect(date.textContent).toMatch(/^Checked /);
+      expect(card.textContent).toContain(`${VERIFIED_GOOGLE_RATING.value.toFixed(1)} from ${VERIFIED_GOOGLE_RATING.count} Google reviews`);
+    } else {
+      expect(card.textContent).not.toMatch(/\d/);
+      expect(within(card).queryByText(/^(Checked|Updated) /)).not.toBeInTheDocument();
+    }
   });
 });

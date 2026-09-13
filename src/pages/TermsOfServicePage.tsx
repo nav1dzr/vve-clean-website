@@ -1,7 +1,9 @@
+import { VAT_NOTE, CANCELLATION_NOTICE, RESCHEDULING_NOTICE, LATE_CHANGE_NOTICE, CANCELLATION_RIGHTS, COMMERCIAL_PAYMENT_NOTE } from '../data/businessPolicy';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { TERMS_VERSION } from '../lib/termsVersion';
+import { GUARANTEE_SUMMARY, GUARANTEE_LIMIT } from '../data/guarantee';
 
 const CONTACT_EMAIL = 'contact@vveclean.co.uk';
 // Derived from TERMS_VERSION (single source of truth, shared with the
@@ -38,7 +40,7 @@ const sections: Section[] = [
           {[
             'Carpet cleaning',
             'Sofa and upholstery cleaning',
-            'Rug cleaning',
+            'Rug cleaning as a photo-assessed add-on to a qualifying clean',
             'End of tenancy cleaning',
             'Move-in deep cleaning',
             'After builders cleaning',
@@ -67,6 +69,7 @@ const sections: Section[] = [
           service type. Our standard prices are listed on our website and apply to properties in normal,
           reasonably clean condition.
         </p>
+        <p className="mt-3">{VAT_NOTE}</p>
         <p className="mt-3">
           We reserve the right to revise a quote before starting work if, upon arrival, the actual
           condition or size of the job differs significantly from what was described or shown. This may
@@ -92,8 +95,10 @@ const sections: Section[] = [
           and contact you with a time we can offer.
         </p>
         <p className="mt-3">
-          We confirm the appointment only after we have agreed the time, scope and final price with you. Sending a
-          request does not oblige you to accept an alternative time and does not create a payment obligation.
+          After we agree the time, scope and final price with you, we send an offer with a £30 deposit link.
+          The offer states the payment deadline. Your booking is confirmed when the deposit payment is verified;
+          the deposit is deducted from the agreed total. Sending the initial request does not oblige you to
+          accept an alternative time and does not create a payment obligation.
         </p>
         <p className="mt-3">
           <strong>If we cannot offer your requested slot.</strong> We will contact you with the closest alternatives
@@ -112,14 +117,13 @@ const sections: Section[] = [
     content: (
       <>
         <p>
-          We understand that circumstances change. We ask for reasonable notice if you need to cancel or
-          reschedule your booking:
+          {CANCELLATION_NOTICE}
         </p>
         <ul className="mt-3 space-y-2 list-none">
           {[
-            'Free reschedule if you contact us before 12:00 noon the day before your booking',
-            'If you need to cancel with less than 24 hours’ notice, contact us as soon as possible',
-            'Any cancellation or call-out charge applies only if it was stated and agreed in writing when the appointment was confirmed (see Section 8)',
+            RESCHEDULING_NOTICE,
+            LATE_CHANGE_NOTICE,
+            CANCELLATION_RIGHTS,
           ].map((item) => (
             <li key={item} className="flex items-start gap-2.5 text-silver-700">
               <span className="w-1.5 h-1.5 rounded-full bg-royal-500 flex-shrink-0 mt-2" />
@@ -191,13 +195,13 @@ const sections: Section[] = [
     content: (
       <>
         <p>
-          No payment is collected when you send a booking request. For standard residential work, the full balance
-          is normally due after the service has been completed and you have had an opportunity to check the work.
-          The payment method and any different arrangement will be confirmed with you in writing before the
-          appointment.
+          No payment is collected when you send a booking request. A £30 deposit confirms an agreed residential
+          booking and counts towards its total. The remaining balance is normally due after the service has been
+          completed and you have had an opportunity to check the work. Any different payment arrangement will be
+          agreed with you in writing before the appointment.
         </p>
         <p className="mt-3">
-          Commercial customers are invoiced on 14-day payment terms unless otherwise agreed. Late payment
+          {COMMERCIAL_PAYMENT_NOTE} Late payment
           may result in suspension of future bookings.
         </p>
       </>
@@ -240,13 +244,18 @@ const sections: Section[] = [
     content: (
       <p>
         If you are unhappy with any aspect of our service, please contact us as soon as possible — ideally
-        within 24 hours of the service being completed. Please provide your contact details, booking reference,
+        after the service has been completed. Please provide your contact details, booking reference,
         a description of the issue, and photos where relevant. We will investigate promptly and aim to resolve
         any complaint within a reasonable timeframe. You can reach us at{' '}
         <a href={`mailto:${CONTACT_EMAIL}`} className="text-royal-600 hover:underline">{CONTACT_EMAIL}</a>{' '}
         or by calling <a href="tel:02080502233" className="text-royal-600 hover:underline">020 8050 2233</a>.
       </p>
     ),
+  },
+  {
+    id: 'reclean',
+    title: 'End of tenancy re-clean promise',
+    content: <><p>{GUARANTEE_SUMMARY}</p><p className="mt-3">{GUARANTEE_LIMIT}</p><p className="mt-3">See <Link to="/end-of-tenancy-cleaning-london#guarantee" className="text-royal-700 underline">the covered tasks and exclusions</Link>. This promise applies to bookings made under these terms; existing confirmed bookings retain their agreed terms.</p></>,
   },
   {
     id: 'changes',

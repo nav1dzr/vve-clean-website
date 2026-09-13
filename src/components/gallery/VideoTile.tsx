@@ -1,6 +1,7 @@
-import { PlayCircle } from 'lucide-react';
-import LazyVideo from '../media/LazyVideo';
-import type { GalleryVideoItem } from '../../data/galleryMedia';
+import { PlayCircle } from "lucide-react";
+import LazyVideo from "../media/LazyVideo";
+import ManagedVideo from "../media/ManagedVideo";
+import type { GalleryVideoItem } from "../../data/galleryMedia";
 
 // Reusable video tile. Pass a manifest `entry` to render a real clip; omit it to
 // render the "coming soon" placeholder (used on service pages that don't have
@@ -34,6 +35,16 @@ export default function VideoTile({
           Video results coming soon
         </span>
       </div>
+    );
+  }
+
+  if (entry.playerUrl) {
+    return (
+      <ManagedVideo
+        playerUrl={entry.playerUrl}
+        poster={entry.poster}
+        title={entry.description || entry.label}
+      />
     );
   }
 

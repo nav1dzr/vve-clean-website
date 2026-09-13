@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Booking request received — VVE Clean</title>
+<title>Check your booking payment | VVE Clean</title>
 <meta name="robots" content="noindex" />
+<meta name="referrer" content="no-referrer" />
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
 <!-- Google Consent Mode v2 — default to denied, then apply the visitor's
      earlier choice from the cookie banner (src/lib/consent.ts, key
@@ -34,10 +35,16 @@
 </script>
 
 <!-- Google tag (gtag.js) — AW-18214693277 -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18214693277"></script>
 <script>
-  gtag('js', new Date());
-  gtag('config', 'AW-18214693277');
+  window.vveProductionTrackingHost = ['vveclean.co.uk', 'www.vveclean.co.uk'].includes(location.hostname);
+  if (window.vveProductionTrackingHost) {
+    var googleTag = document.createElement('script');
+    googleTag.async = true;
+    googleTag.src = 'https://www.googletagmanager.com/gtag/js?id=AW-18214693277';
+    document.head.appendChild(googleTag);
+    gtag('js', new Date());
+    gtag('config', 'AW-18214693277');
+  }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -45,6 +52,8 @@
      matching the rest of the site (index.html / tailwind.config.js). -->
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
+.skip-link { position:fixed; top:8px; left:8px; z-index:100; transform:translateY(-180%); background:#0f172a; color:white; padding:12px 16px; border-radius:8px; }
+.skip-link:focus { transform:translateY(0); }
   /* Matches the site-wide design tokens in tailwind.config.js */
   :root {
     --navy:      #020b24;
@@ -259,6 +268,7 @@
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to main content</a>
 
 <header class="site-header">
   <div class="header-inner">
@@ -273,17 +283,19 @@
   </div>
 </header>
 
-<main class="wrap">
+<main id="main-content" tabindex="-1" class="wrap">
 
-  <!-- Checking state — shown when ref/sid is present while verify-payment is
-       in flight. Hidden by default; the toggle script shows it when needed. -->
-  <div id="payment-checking" style="display:none; text-align:center; padding: 44px 0 28px">
-    <p style="color:var(--muted); font-size:15px; margin:0">Verifying your payment&hellip;</p>
+  <!-- Neutral in the initial HTML, even before JavaScript or verification runs. -->
+  <div id="payment-checking" role="status" style="text-align:center; padding: 44px 0 28px">
+    <h1>Checking your payment</h1>
+    <p class="lede">We have not verified your payment yet. Please wait while we check.</p>
+    <p>If this message stays on screen, <a href="/contact">contact VVE Clean</a> for help before making another payment.</p>
   </div>
+  <noscript><p class="lede">JavaScript is needed to check your payment here. Please check your email or <a href="/contact">contact the team</a> with your booking reference.</p></noscript>
 
   <!-- Payment-unverified — verify-payment returned paid:false or errored.
        Shown instead of the success content when payment cannot be confirmed. -->
-  <div id="payment-unverified" style="display:none; text-align:center; padding: 20px 0 8px">
+  <div id="payment-unverified" style="display:none; text-align:center; padding: 20px 0 8px" role="alert">
     <div class="check-ring" aria-hidden="true" style="background:#FDEDEB; border-color:#F3C6BE">
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--error)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L14.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
     </div>
@@ -307,7 +319,7 @@
        below; toggled by the small script block near the end of the page.
        This is the one path where the page used to show the success
        checkmark unconditionally, before any verification signal existed. -->
-  <div id="unverified-state" style="display:none; text-align:center; padding: 20px 0 8px">
+  <div id="unverified-state" style="display:none; text-align:center; padding: 20px 0 8px" role="alert">
     <div class="check-ring" aria-hidden="true" style="background:#FDEDEB; border-color:#F3C6BE">
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--error)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L14.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
     </div>
@@ -326,7 +338,7 @@
     </div>
   </div>
 
-  <div id="verified-content">
+  <div id="verified-content" style="display:none" aria-live="polite">
 
   <!-- Success hero -->
   <div class="success-hero">
@@ -408,7 +420,7 @@
 
   <!-- Action buttons -->
   <div class="btns">
-    <a class="btn btn-wa" id="wa" href="#">
+    <a class="btn btn-wa" id="wa" href="https://wa.me/447845451111">
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.5 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.5-2.6-1.1-4.2-3.7-4.4-3.9-.1-.2-1-1.3-1-2.5s.6-1.8.9-2c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2.1.4 0 .5l-.3.5-.3.4c-.1.1-.3.3-.1.5.1.3.6 1 1.3 1.6.9.8 1.6 1 1.9 1.2.2.1.4.1.5-.1l.7-.8c.2-.2.3-.2.5-.1l1.8.9c.3.1.4.2.5.3 0 .2 0 .7-.2 1.3Z"/></svg>
       Message us on WhatsApp
     </a>
@@ -432,7 +444,7 @@
       <a href="/">Home</a>
       <a href="/pricing">Pricing</a>
       <a href="/commercial">Commercial</a>
-      <a href="/#contact">Contact</a>
+      <a href="/contact">Contact</a>
     </nav>
     <hr class="footer-hr" />
     <p class="footer-copy" id="footer-copy">&copy; 2026 VVE Limited trading as VVE Clean. Registered in England and Wales. Company No. 17234391.</p>
@@ -560,7 +572,6 @@
     fetch(apiQs("/api/confirmation-details"))
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        console.log("[VVE conf] response:", JSON.stringify(d));
 
         // A real response has at least one populated field beyond paid:false
         var hasData = !!(d.bookingRef || d.name || d.service || d.price);
@@ -593,8 +604,8 @@
   }
 
   // ── Verified vs unverified content toggle ─────────────────────────────────
-  // Arriving with ref/sid (only possible via Stripe success_url) triggers
-  // server-side payment verification before success content is shown.
+  // A ref/sid in the URL triggers server-side verification before success
+  // content is shown; the URL itself is not proof of payment.
   // Without any evidence of payment, the explicit "couldn't verify" state
   // is shown instead of a fabricated success page.
   if (ref || sid) {
@@ -606,6 +617,8 @@
     initVerifyUI();
   } else {
     hideLoadingIndicator();
+    var checking = document.getElementById("payment-checking");
+    if (checking) checking.style.display = "none";
     var verified   = document.getElementById("verified-content");
     var unverified = document.getElementById("unverified-state");
     if (verified)   verified.style.display   = "none";
@@ -616,13 +629,16 @@
   // Never calls gtag — conversion tracking is handled by the IIFE below.
   function initVerifyUI() {
     fetch(apiQs("/api/verify-payment"))
-      .then(function(r) { return r.json(); })
+      .then(function(r) {
+        if (!r.ok) throw new Error("Payment verification unavailable");
+        return r.json();
+      })
       .then(function(d) {
         var checkingEl   = document.getElementById("payment-checking");
         var verifiedEl   = document.getElementById("verified-content");
         var unverifiedEl = document.getElementById("payment-unverified");
         if (checkingEl) checkingEl.style.display = "none";
-        if (d.paid) {
+        if (d.paid === true) {
           if (verifiedEl) verifiedEl.style.display = "";
           // Clear the booking-form draft now that payment is confirmed.
           try { localStorage.removeItem("vve_form_draft_v1"); } catch (_) {}
@@ -646,6 +662,7 @@
   (function () {
     var SEND_TO   = "AW-18214693277/hUwdCK68gswcEJ3TuO1D";
     var PROD_HOST = "www.vveclean.co.uk";
+    if (!window.vveProductionTrackingHost) return;
 
     // ── Diagnostics (no PII logged) ────────────────────────────────────────
     var txId       = ref || sid;
@@ -706,7 +723,7 @@
           return;
         }
 
-        var isProductionHost = location.hostname === PROD_HOST;
+        var isProductionHost = window.vveProductionTrackingHost === true;
         var isLiveSession    = data.livemode === true;
         console.log("[VVE conv] hostname === " + PROD_HOST + ":", isProductionHost);
         console.log("[VVE conv] livemode === true           :", isLiveSession);
