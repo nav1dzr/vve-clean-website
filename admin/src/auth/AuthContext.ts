@@ -14,7 +14,9 @@ export interface AdminProfile {
 
 // loading       — initial session resolution, or an admin-verification check in flight
 // unauthenticated — no Supabase session at all
-// unauthorized  — a valid Supabase session exists, but the user is not in admin_users
+// unauthorized  — the server checked admin_users and denied membership
+// preview-blocked — isolated preview resources are not ready; membership was not checked
+// session-expired — the server rejected the token; sign in again without erasing recovery
 // authenticated — valid session, verified admin
 // error         — the session is valid but /api/me could not be reached (network/server
 //                 failure). Deliberately distinct from "unauthorized" — a transient
@@ -24,6 +26,8 @@ export type AuthStatus =
   | 'loading'
   | 'unauthenticated'
   | 'unauthorized'
+  | 'preview-blocked'
+  | 'session-expired'
   | 'authenticated'
   | 'error';
 
@@ -39,7 +43,7 @@ export const AuthContext = createContext<AuthContextValue | undefined>(undefined
 
 export async function fetchAdminProfile(accessToken: string, signal?: AbortSignal): Promise<
   | { ok: true; admin: AdminProfile }
-  | { ok: false; kind: 'unauthorized' | 'error' }
+  | { ok: false; kind: 'unauthorized' | 'preview-blocked' | 'session-expired' | 'error' }
 > {
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -60,8 +64,21 @@ export async function fetchAdminProfile(accessToken: string, signal?: AbortSigna
       };
     }
 
-    if (res.status === 401 || res.status === 403) {
-      return { ok: false, kind: 'unauthorized' };
+    if (res.status === 401) {
+      return { ok: false, kind: 'session-expired' };
+    }
+
+    if (res.status === 403) {
+      const data = await res.json();
+      // Accept the exact legacy responses during an API/UI rollout. An
+      // unknown 403 (including deployment protection) proves no membership
+      // decision, so it must never erase recovery or claim admin access was lost.
+      if (data?.code === 'PREVIEW_SETUP_REQUIRED' || (!data?.code && data?.error === 'This preview is read-only until approved isolated test resources are connected.')) {
+        return { ok: false, kind: 'preview-blocked' };
+      }
+      if (data?.code === 'ADMIN_ACCESS_DENIED' || (!data?.code && data?.error === 'Not an authorised admin')) {
+        return { ok: false, kind: 'unauthorized' };
+      }
     }
 
     return { ok: false, kind: 'error' };

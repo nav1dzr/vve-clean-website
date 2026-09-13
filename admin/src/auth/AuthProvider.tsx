@@ -64,9 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearInvoiceDraftRecoveries();
         setStatus('unauthorized');
       } else {
-        // Keep local recovery on a network failure, but fail closed until
-        // the server can verify access again.
-        setStatus('error');
+        // Preview setup, token expiry and network failures do not prove
+        // access was revoked. Keep recovery, while gating protected content.
+        setStatus(result.kind);
       }
     }
   }, []);

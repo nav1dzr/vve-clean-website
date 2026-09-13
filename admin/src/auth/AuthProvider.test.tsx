@@ -104,6 +104,30 @@ describe('AuthProvider phone return and access boundaries', () => {
     expect(await screen.findByLabelText('Unsaved invoice note')).toBeInTheDocument();
   });
 
+  it('gates a setup-blocked preview and retains invoice recovery until access can be reverified', async () => {
+    await editedForm();
+    mocks.verify.mockResolvedValueOnce({ ok: false, kind: 'preview-blocked' });
+    await act(async () => notify('SIGNED_IN', session()));
+    expect(screen.queryByLabelText('Unsaved invoice note')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Preview setup required' })).toBeInTheDocument();
+    expect(mocks.clear).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /try again/i }));
+    expect(await screen.findByLabelText('Unsaved invoice note')).toBeInTheDocument();
+    expect(mocks.clear).not.toHaveBeenCalled();
+  });
+
+  it('requires sign-in after token rejection without clearing that user’s saved invoice recovery', async () => {
+    await editedForm();
+    mocks.verify.mockResolvedValueOnce({ ok: false, kind: 'session-expired' });
+    await act(async () => notify('TOKEN_REFRESHED', session()));
+    expect(screen.queryByLabelText('Unsaved invoice note')).not.toBeInTheDocument();
+    expect(screen.getByText('Login')).toBeInTheDocument();
+    expect(mocks.clear).not.toHaveBeenCalled();
+    await act(async () => notify('SIGNED_IN', session('owner-a', 'replacement-token')));
+    expect(screen.getByLabelText('Auth status')).toHaveTextContent('authenticated');
+    expect(mocks.clear).not.toHaveBeenCalled();
+  });
+
   it('gates the old user immediately when the session identity changes', async () => {
     await editedForm();
     const pending = deferred<ReturnType<typeof verified>>();

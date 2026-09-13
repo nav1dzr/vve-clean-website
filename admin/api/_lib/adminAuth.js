@@ -17,7 +17,7 @@ function extractBearerToken(req) {
 // Returns one of:
 //   { ok: true, admin: { id, email, displayName } }
 //   { ok: false, status: 401, error }   — missing/invalid/expired token
-//   { ok: false, status: 403, error }   — valid account, not an admin
+//   { ok: false, status: 403, error, code } — preview setup blocked, or verified non-admin
 //   { ok: false, status: 500, error }   — server misconfigured / lookup failed
 //
 // The 500 branch never includes which env var is missing or any internal
@@ -25,7 +25,7 @@ function extractBearerToken(req) {
 // server-side only.
 export async function verifyAdminRequest(req) {
   const isolation = previewIsolation();
-  if (!isolation.ok) return { ok: false, status: 403, error: isolation.error };
+  if (!isolation.ok) return { ok: false, status: 403, error: isolation.error, code: 'PREVIEW_SETUP_REQUIRED' };
   return verifyAdminRequestForTable(req, 'admin_users');
 }
 
@@ -67,7 +67,7 @@ async function verifyAdminRequestForTable(req, adminTable) {
   }
 
   if (!adminRow) {
-    return { ok: false, status: 403, error: 'Not an authorised admin' };
+    return { ok: false, status: 403, error: 'Not an authorised admin', code: 'ADMIN_ACCESS_DENIED' };
   }
 
   return {

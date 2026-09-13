@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import RequireAuth from './RequireAuth';
 import type { AuthStatus } from './AuthContext';
@@ -64,6 +64,33 @@ describe('RequireAuth', () => {
     mockAuth('error');
     renderProtected();
 
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+    expect(screen.queryByText('Secret booking data')).not.toBeInTheDocument();
+  });
+
+  it('explains blocked preview setup without alleging missing admin access or mounting protected content', () => {
+    const retry = vi.fn();
+    mockAuth('preview-blocked', retry);
+    renderProtected();
+    expect(screen.getByRole('heading', { name: 'Preview setup required' })).toBeInTheDocument();
+    expect(screen.getByText(/Your admin access has not been checked yet/)).toBeInTheDocument();
+    expect(screen.queryByText(/not set up as an admin/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Secret booking data')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /try again/i }));
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it('sends a rejected session back to sign-in without alleging missing admin access', () => {
+    mockAuth('session-expired');
+    renderProtected();
+    expect(screen.getByText('Login page')).toBeInTheDocument();
+    expect(screen.queryByText(/not authorised/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Secret booking data')).not.toBeInTheDocument();
+  });
+
+  it('fails closed even for an unexpected runtime auth status', () => {
+    mockAuth('unknown' as AuthStatus);
+    renderProtected();
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
     expect(screen.queryByText('Secret booking data')).not.toBeInTheDocument();
   });

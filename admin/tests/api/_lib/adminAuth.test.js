@@ -34,6 +34,15 @@ describe('verifyAdminRequest', () => {
     process.env = { ...ORIGINAL_ENV };
   });
 
+  it.each([verifyAdminRequest, verifyMediaAdminRequest])('identifies preview setup before token or membership lookups', async verify => {
+    process.env.VERCEL_ENV = 'preview';
+    delete process.env.VVE_PREVIEW_ISOLATION_APPROVED;
+    const result = await verify(makeReq({ authorization: 'Bearer synthetic-token' }));
+    expect(result).toMatchObject({ ok: false, status: 403, code: 'PREVIEW_SETUP_REQUIRED' });
+    expect(getUserMock).not.toHaveBeenCalled();
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when required server env vars are missing', async () => {
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -78,6 +87,8 @@ describe('verifyAdminRequest', () => {
 
     expect(result.ok).toBe(false);
     expect(result.status).toBe(403);
+    expect(result.code).toBe('ADMIN_ACCESS_DENIED');
+    expect(fromMock).toHaveBeenCalledWith('admin_users');
   });
 
   it('returns 500 when the admin_users lookup itself fails', async () => {
