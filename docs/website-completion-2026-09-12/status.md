@@ -1,5 +1,7 @@
 # Website implementation record — 12 September 2026
 
+> Update: the [13 September handover](../website-completion-2026-09-13/status.md) supersedes the open policy, route-loading and public media-mapping items below. This document remains the historical 12 September evidence.
+
 The approved public website changes are implemented and locally validated on `feature/website-final-completion`, from baseline `7e999c80826ca5a8c88af1f583c8584a746cddcb`. Ready for owner review of the preview. This is not a production-release sign-off: factual decisions and connected-system checks remain below.
 
 Implementation commit: `3231a8dd2560048b00c2d154b1fd6226b888a6db`, pushed to the existing `nav1dzr/vve-clean-website` completion branch. The initial automatic push review required destination verification; the read-only ownership and payload checks succeeded and the retry was approved.

@@ -1,0 +1,88 @@
+{
+  "date": "2026-09-13",
+  "branch": "feature/website-final-completion",
+  "implementationCommit": "fcec1d44612df7f7f0ab97bb094b2dde075f0439",
+  "automatedTests": {
+    "passed": 1904,
+    "failed": 0,
+    "skipped": 275
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 7
+  },
+  "typecheck": "pass",
+  "clientBuild": "pass",
+  "ssrBuild": "pass",
+  "sitemapIndexableUrls": 21,
+  "routeCount": 39,
+  "routeErrors": 0,
+  "horizontalOverflow": 0,
+  "visibleBrokenImages": 0,
+  "browserPageErrors": 0,
+  "browserJourneys": [
+    {
+      "name": "basket-resume-and-reset",
+      "pass": true
+    },
+    {
+      "name": "eot-carpet-total-and-back",
+      "pass": true
+    },
+    {
+      "name": "tailored-complete-comparison",
+      "pass": true
+    },
+    {
+      "name": "fresh-booking-service-and-metadata",
+      "pass": true
+    }
+  ],
+  "responsiveWidths": [
+    1365,
+    390,
+    320
+  ],
+  "finalGalleryFocusFix": {
+    "targetedBrowserWidths": [
+      1365,
+      390
+    ],
+    "fullSweepPrecedesThisTwoLineFix": true
+  },
+  "performance": {
+    "metric": "sum of gzip sizes of built initial route JS dependencies; not Web Vitals",
+    "baselineKB": 207.07,
+    "homeKB": 163.58,
+    "pricingKB": 113.98,
+    "contactKB": 113.12,
+    "eotKB": 163.03,
+    "bookingKB": 144.76,
+    "galleryKB": 116.62,
+    "largestChunkMinifiedKB": 174.69
+  },
+  "preview": {
+    "url": "https://vve-clean-website-9ckktsc5b-nav1dzrs-projects.vercel.app",
+    "deploymentId": "dpl_B6SJPeXxacZQac2Np354gh5Hvpqr",
+    "target": "preview",
+    "platformState": "READY",
+    "authenticatedReadOnlyBrowserReview": [
+      "home",
+      "pricing",
+      "end-of-tenancy",
+      "terms",
+      "commercial",
+      "contact",
+      "404"
+    ]
+  },
+  "productionPublished": false,
+  "liveRequestDeliveryTested": false,
+  "crmUploadPublishingTested": false,
+  "ownerConfirmed": {
+    "vatRegistered": false,
+    "changeNoticeHours": 24,
+    "commercialPayment": "after the clean"
+  },
+  "completeChecklistOwnerConfirmation": "pending"
+}
