@@ -75,7 +75,7 @@ const button =
   "min-h-11 rounded-lg border border-silver-300 px-4 py-2 text-sm font-semibold disabled:opacity-50";
 const statusLabels: Record<string, string> = {
   draft: "Draft agreement",
-  offered: "Awaiting £30 deposit",
+  offered: "Awaiting direct confirmation",
   change_pending: "Customer reviewing changes",
   confirmed: "Confirmed",
   expired: "Hold expired",
@@ -111,7 +111,6 @@ export default function BookingJourneyPanel({
     [notice, setNotice] = useState(""),
     [preview, setPreview] = useState(false),
     [checked, setChecked] = useState(false),
-    [deadline, setDeadline] = useState(""),
     [paymentAmount, setPaymentAmount] = useState(""),
     [paymentReference, setPaymentReference] = useState(""),
     [paymentMethod, setPaymentMethod] = useState("bank_transfer");
@@ -194,8 +193,8 @@ export default function BookingJourneyPanel({
             Arrange and confirm this booking
           </h2>
           <p className="mt-1 text-sm text-navy-700">
-            Agree the details, send a £30 deposit request, then track payment
-            and customer changes here.
+            Agree the scope, final price and time, then confirm the appointment
+            directly. No deposit is required.
           </p>
         </div>
         <span className="rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-900">
@@ -204,8 +203,9 @@ export default function BookingJourneyPanel({
       </div>
       {!view?.enabled && (
         <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
-          Sending is disabled until the booking migration, Stripe test payment
-          and test email delivery have been checked.
+          Sending is disabled until the booking workspace and test email delivery
+          have been checked. For now, confirm directly with the customer and use
+          Status above to record the agreed appointment. No deposit is required.
         </p>
       )}
       {(!j || j.state === "draft") &&
@@ -396,7 +396,7 @@ export default function BookingJourneyPanel({
           </label>
           <p className="text-xs text-navy-600 sm:col-span-2">
             Saving a draft leaves the customer's current offer unchanged.
-            Sending a revised paid booking asks for acceptance and keeps the
+            Sending changes to a confirmed booking asks for acceptance and keeps the
             original appointment until accepted.
           </p>
           <button
@@ -420,12 +420,7 @@ export default function BookingJourneyPanel({
             onClick={() =>
               preview
                 ? setPreview(false)
-                : action(
-                    "preview",
-                    deadline
-                      ? { holdUntil: new Date(deadline).toISOString() }
-                      : {},
-                  )
+                : action("preview")
             }
           >
             {preview ? "Hide" : "Preview"} customer email
@@ -442,8 +437,8 @@ export default function BookingJourneyPanel({
                 className="h-[580px] w-full rounded-lg border border-silver-200"
               />
               <p className="mt-2 text-xs text-navy-600">
-                This is a preview. Links in it are disabled. Check the final
-                deadline before sending.
+                This is a preview. Links in it are disabled. Check the service,
+                price, date and arrival window before sending.
               </p>
             </>
           )}
@@ -451,25 +446,6 @@ export default function BookingJourneyPanel({
             j?.state || "",
           ) && (
             <div className="mt-4 space-y-3">
-              {paid < 3000 && (
-                <label className="block text-sm">
-                  Payment deadline (optional; default 48 hours)
-                  <input
-                    className={`${field} max-w-sm`}
-                    type="datetime-local"
-                    value={deadline}
-                    onChange={(e) => {
-                      setDeadline(e.target.value);
-                      setPreview(false);
-                      setChecked(false);
-                    }}
-                  />
-                  <span className="mt-1 block text-xs text-navy-600">
-                    Your device's local time. Choose an explicit deadline before
-                    arrival for near-term jobs.
-                  </span>
-                </label>
-              )}
               <label className="flex items-start gap-3 text-sm">
                 <input
                   className="mt-1 h-5 w-5"
@@ -488,15 +464,12 @@ export default function BookingJourneyPanel({
                 onClick={() =>
                   action("send", {
                     availabilityConfirmed: checked,
-                    ...(view.previewHoldUntil && paid < 3000
-                      ? { holdUntil: view.previewHoldUntil }
-                      : {}),
                   })
                 }
               >
-                {paid >= 3000
+                {["confirmed", "change_pending"].includes(j?.state || "")
                   ? "Send revised details for acceptance"
-                  : "Send £30 deposit request"}
+                  : "Confirm booking and send email"}
               </button>
             </div>
           )}
@@ -504,26 +477,6 @@ export default function BookingJourneyPanel({
       )}
       {j && (
         <div className="mt-5 flex flex-wrap gap-2 border-t border-silver-200 pt-4">
-          {j.state === "offered" && (
-            <>
-              <button
-                className={button}
-                disabled={locked}
-                onClick={() => action("remind")}
-              >
-                Send deposit reminder
-              </button>
-              {j.hold_until && new Date(j.hold_until) < new Date() && (
-                <button
-                  className={button}
-                  disabled={locked}
-                  onClick={() => action("expire")}
-                >
-                  Close expired hold
-                </button>
-              )}
-            </>
-          )}
           {j.state === "payment_review" && (
             <>
               <button

@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import nodemailer from "nodemailer";
 import { isHostedPreview, previewTestInbox } from './previewIsolation.js';
 
+// Retained only for reconciling historical Stripe deposit transactions.
 export const DEPOSIT_PENCE = 3000;
 const JOURNEY_COLUMNS =
   "booking_id,revision,offer_version,state,draft,snapshot,previous_snapshot,token_generation,token_expires_at,hold_until,reminder_sent_at,appointment_reminder_sent_at,checkout_id,checkout_kind,checkout_creating_at,paid_pence,refunded_pence,customer_request,updated_at";
@@ -93,7 +94,7 @@ export function validateAgreement(input, now = new Date()) {
     totalPence: Math.round(Number(input.totalPence)),
     changeReason: clean(input.changeReason, 1000),
     preparation: clean(input.preparation, 2000),
-    policyVersion: "2026-09-08",
+    policyVersion: "2026-09-14",
   };
   if (!data.service || !data.items || !data.address || !data.time)
     throw new JourneyError(
@@ -126,11 +127,11 @@ export function validateAgreement(input, now = new Date()) {
     );
   if (
     !Number.isSafeInteger(data.totalPence) ||
-    data.totalPence < DEPOSIT_PENCE ||
+    data.totalPence <= 0 ||
     data.totalPence > 10000000
   )
     throw new JourneyError(
-      "The agreed total must be at least £30 and a valid amount.",
+      "The agreed total must be a positive, valid amount.",
     );
   if (!data.changeReason)
     throw new JourneyError(
@@ -194,14 +195,14 @@ export async function loadJourney(db, id, create = false) {
   if (!journey && create) {
     if (booking.payment_status === "paid" || Number(booking.deposit_amount) > 0)
       throw new JourneyError(
-        "This historic deposit booking uses its existing payment journey. Do not request another deposit.",
+        "This historic paid booking uses its existing payment journey. Keep its existing payment records.",
       );
     if (
       !["new", null, undefined].includes(booking.status) ||
       ["paid", "waived"].includes(booking.balance_status)
     )
       throw new JourneyError(
-        "This existing booking is already scheduled, closed or settled. Keep its existing records; do not request a new deposit.",
+        "This existing booking is already scheduled, closed or settled. Keep its existing records.",
       );
     const draft = {
       service: booking.service || "",
@@ -280,10 +281,7 @@ export function publicJourney(booking, j) {
     refundedPence: j.refunded_pence,
     balancePence: Math.max(0, (snapshot?.totalPence || 0) - netPaid),
     customerRequest: j.customer_request,
-    canPayDeposit:
-      j.state === "offered" &&
-      netPaid === 0 &&
-      new Date(j.hold_until) > new Date(Date.now() + 31 * 60 * 1000),
+    canPayDeposit: false,
     canPayBalance:
       j.state === "completed" && netPaid < (snapshot?.totalPence || 0),
     canChange: ["offered", "confirmed", "change_pending"].includes(j.state),
@@ -360,16 +358,16 @@ export function emailForMessage(payload) {
     s = j.snapshot || j.draft;
   const labels = {
     deposit_request: [
-      "Confirm your booking with a £30 deposit",
-      "We have agreed the following arrangements. Your appointment is provisionally held until the deadline below. Paying the £30 deposit confirms it.",
+      "Please contact us to confirm your appointment",
+      "No deposit is required. We will agree the scope, final price and time with you, then confirm your appointment directly.",
     ],
     confirmation: [
       "Your booking is confirmed",
-      "Thank you. Your £30 deposit has been received and credited towards your agreed total.",
+      "We have agreed the scope, final price and time with you. Your appointment is now confirmed. No deposit is required.",
     ],
     change_proposal: [
       "Please review your revised booking",
-      "Please review and accept the revised arrangements. Your previous confirmed appointment stays in place until you accept. No second deposit is required.",
+      "Please review and accept the revised arrangements. Your previous confirmed appointment stays in place until you accept. No payment is required to accept these changes.",
     ],
     revised_confirmation: [
       "Your revised booking is confirmed",
@@ -385,19 +383,19 @@ export function emailForMessage(payload) {
     ],
     expired: [
       "Your appointment hold has expired",
-      "The deposit deadline passed and the provisional appointment is no longer held. Please contact us to agree new availability. No confirmed paid appointment has been cancelled.",
+      "The previous provisional hold has ended. Please contact us to agree availability, scope and the final price so we can confirm your appointment directly. No deposit is required.",
     ],
     reminder: [
-      "Your £30 deposit reminder",
-      "Your provisional appointment is awaiting its £30 deposit. The deadline is shown below.",
+      "Please contact us about your appointment",
+      "We will agree the scope, final price and time with you, then confirm your appointment directly. No deposit is required.",
     ],
     appointment_reminder: [
       "Your confirmed clean is tomorrow",
-      "Here are the details of your confirmed appointment. Please check access and preparation below. Your deposit remains credited; no automatic payment will be taken by this reminder. If revised arrangements are awaiting your acceptance, the existing confirmed appointment shown here remains in place.",
+      "Here are the details of your confirmed appointment. Please check access and preparation below. No automatic payment will be taken by this reminder. If revised arrangements are awaiting your acceptance, the existing confirmed appointment shown here remains in place.",
     ],
     balance_due: [
       "Your clean is completed — remaining balance",
-      "Thank you for choosing VVE Clean. Your deposit has been deducted. You can pay the remaining balance using your private booking page.",
+      "Thank you for choosing VVE Clean. Any payments already received are credited below. You can pay the remaining balance using your private booking page.",
     ],
     receipt: [
       "Payment received — thank you",
@@ -418,7 +416,7 @@ export function emailForMessage(payload) {
   const [heading, intro] = initial
     ? [
         "We received your cleaning request",
-        "Your initial request is free. We will contact you to agree availability, scope and the final price. Once agreed, a £30 deposit confirms the appointment.",
+        "Send your request with no payment. We’ll agree the scope, final price and time with you, then confirm your appointment directly.",
       ]
     : labels[payload.kind] || [
         "Your booking update",
@@ -429,13 +427,6 @@ export function emailForMessage(payload) {
       style: "currency",
       currency: "GBP",
     }).format(p / 100);
-  const deadline = j.hold_until
-    ? new Intl.DateTimeFormat("en-GB", {
-        timeZone: "Europe/London",
-        dateStyle: "full",
-        timeStyle: "short",
-      }).format(new Date(j.hold_until)) + " (London time)"
-    : "—";
   const rows = [
     ["Reference", payload.reference],
     ["Service", s.service],
@@ -458,12 +449,6 @@ export function emailForMessage(payload) {
               : "Remaining balance",
             money(Math.max(0, s.totalPence - j.paid_pence + j.refunded_pence)),
           ],
-        ]
-      : []),
-    ...(["deposit_request", "reminder"].includes(payload.kind)
-      ? [
-          ["Deposit due", money(DEPOSIT_PENCE)],
-          ["Payment deadline", deadline],
         ]
       : []),
     ...(j.customer_request?.kind === "reschedule"
@@ -498,7 +483,7 @@ export function emailForMessage(payload) {
     "",
     ...rows.map(([k, v]) => `${k}: ${v}`),
     "",
-    `View your booking, pay, request another time or cancel: ${link}`,
+    `View your booking, request another time or cancel: ${link}`,
     "",
     "VVE Clean · 020 8050 2233 · contact@vveclean.co.uk",
   ].join("\n");
@@ -657,15 +642,15 @@ export async function performAdminAction(db, id, body, actor) {
       throw new JourneyError(
         "The revised total is below money already paid. Reconcile the refund first.",
       );
-    const paid = j.paid_pence - j.refunded_pence >= DEPOSIT_PENCE;
-    const holdUntil = paid ? null : holdDeadline(body.holdUntil, snapshot);
+    const changingConfirmed = ["confirmed", "change_pending"].includes(j.state);
     const patch = {
       snapshot,
-      previous_snapshot: paid ? j.previous_snapshot || j.snapshot : null,
+      previous_snapshot: changingConfirmed ? j.previous_snapshot || j.snapshot : null,
       offer_version: j.offer_version + 1,
-      state: paid ? "change_pending" : "offered",
-      hold_until: holdUntil,
+      state: changingConfirmed ? "change_pending" : "confirmed",
+      hold_until: null,
       reminder_sent_at: null,
+      appointment_reminder_sent_at: null,
       checkout_id: null,
       checkout_kind: null,
       customer_request: null,
@@ -676,24 +661,12 @@ export async function performAdminAction(db, id, body, actor) {
       j,
       "agreement_sent",
       patch,
-      paid ? {} : bookingPatch(snapshot, "new"),
-      paid ? "change_proposal" : "deposit_request",
+      changingConfirmed ? {} : bookingPatch(snapshot, "confirmed", { balance_status: "not_due" }),
+      changingConfirmed ? "change_proposal" : "confirmation",
       actor,
     );
   } else if (action === "remind") {
-    if (j.state !== "offered" || new Date(j.hold_until) <= new Date())
-      throw new JourneyError("Only an active unpaid offer can be reminded.");
-    j = await reconcileCheckout(db, booking, j);
-    j = await apply(
-      db,
-      booking,
-      j,
-      "deposit_reminder",
-      { reminder_sent_at: new Date().toISOString() },
-      {},
-      "reminder",
-      actor,
-    );
+    throw new JourneyError("Deposits are not being requested. Agree the details and confirm the appointment directly.", 410);
   } else if (action === "appointment_reminder") {
     const active =
       j.state === "confirmed"
@@ -830,11 +803,11 @@ export async function performAdminAction(db, id, body, actor) {
       const net = j.paid_pence - j.refunded_pence;
       if (
         body.availabilityConfirmed !== true ||
-        net < DEPOSIT_PENCE ||
+        net < 0 ||
         net > j.snapshot.totalPence
       )
         throw new JourneyError(
-          "Check availability and reconcile the paid amount before confirming. At least the £30 deposit must remain credited.",
+          "Check availability and reconcile the recorded payment amount before confirming.",
         );
       const snapshot = {
         ...j.snapshot,
@@ -852,8 +825,6 @@ export async function performAdminAction(db, id, body, actor) {
           appointment_reminder_sent_at: null,
         },
         bookingPatch(snapshot, "confirmed", {
-          deposit_amount: 30,
-          payment_status: "paid",
           balance_status: "not_due",
         }),
         "revised_confirmation",
@@ -1036,21 +1007,13 @@ export async function performCustomerAction(db, token, body) {
   return { booking: publicJourney(booking, j) };
 }
 export async function createJourneyCheckout(db, booking, j) {
+  // New payments are only for a completed clean. This guard also blocks old
+  // unpaid offer links before a checkout reservation or Stripe request occurs.
+  if (j.state !== "completed")
+    throw new JourneyError("No deposit is required. Contact VVE Clean to agree and confirm your appointment directly.", 410);
   j = await recoverCheckoutReservation(db, booking, j);
-  const balance = j.state === "completed",
-    now = Date.now();
-  if (
-    !balance &&
-    (j.state !== "offered" || j.paid_pence - j.refunded_pence > 0)
-  )
-    throw new JourneyError("A deposit is not due for this booking.");
-  if (!balance && new Date(j.hold_until).getTime() - now < 31 * 60 * 1000)
-    throw new JourneyError(
-      "There is too little time left to open checkout safely. Contact the team to renew your hold.",
-    );
-  const amount = balance
-    ? j.snapshot.totalPence - j.paid_pence + j.refunded_pence
-    : DEPOSIT_PENCE;
+  const now = Date.now();
+  const amount = j.snapshot.totalPence - j.paid_pence + j.refunded_pence;
   if (amount <= 0) throw new JourneyError("This booking is already paid.");
   if (j.checkout_id) {
     const session = await stripeRequest(
@@ -1080,7 +1043,7 @@ export async function createJourneyCheckout(db, booking, j) {
       "Checkout is being prepared. Please retry shortly.",
       409,
     );
-  const kind = balance ? "balance" : "deposit";
+  const kind = "balance";
   const reservation = j.checkout_creating_at || new Date().toISOString();
   j = await apply(
     db,
@@ -1097,19 +1060,14 @@ export async function createJourneyCheckout(db, booking, j) {
     "payment_method_types[0]": "card",
     "line_items[0][price_data][currency]": "gbp",
     "line_items[0][price_data][unit_amount]": String(amount),
-    "line_items[0][price_data][product_data][name]": `VVE Clean ${kind === "deposit" ? "£30 booking deposit" : "remaining balance"} — ${booking.booking_ref}`,
+    "line_items[0][price_data][product_data][name]": `VVE Clean remaining balance — ${booking.booking_ref}`,
     "line_items[0][quantity]": "1",
     client_reference_id: j.booking_id,
     customer_email: booking.email,
     success_url: manageLink(j),
     cancel_url: manageLink(j),
     expires_at: String(
-      Math.floor(
-        Math.min(
-          new Date(reservation).getTime() + 23 * 3600000,
-          balance ? Infinity : new Date(j.hold_until).getTime(),
-        ) / 1000,
-      ),
+      Math.floor((new Date(reservation).getTime() + 23 * 3600000) / 1000),
     ),
     "metadata[journey]": "v1",
     "metadata[checkout_attempt]": reservation,
@@ -1314,11 +1272,8 @@ export async function deliverJourneyMessages(db, id, messageId = null) {
       continue;
     const { journey: current } = await loadJourney(db, id);
     const obsolete =
+      ["deposit_request", "reminder"].includes(m.kind) ||
       m.payload.journey.token_generation !== current.token_generation ||
-      (["deposit_request", "reminder"].includes(m.kind) &&
-        (current.state !== "offered" ||
-          current.offer_version !== m.payload.journey.offer_version ||
-          new Date(current.hold_until) <= new Date())) ||
       (m.kind === "change_proposal" &&
         (current.state !== "change_pending" ||
           current.offer_version !== m.payload.journey.offer_version)) ||
@@ -1445,7 +1400,7 @@ export async function deliverJourneyMessages(db, id, messageId = null) {
   }
   return results;
 }
-export async function journeyAdminView(db, id, { holdUntil } = {}) {
+export async function journeyAdminView(db, id) {
   const { booking, journey } = await loadJourney(db, id);
   if (!journey)
     return {
@@ -1483,9 +1438,7 @@ export async function journeyAdminView(db, id, { holdUntil } = {}) {
   const previewJourney = {
     ...journey,
     snapshot: journey.draft,
-    hold_until: holdUntil
-      ? holdDeadline(holdUntil, journey.draft)
-      : new Date(Date.now() + 48 * 3600000).toISOString(),
+    hold_until: null,
   };
   return {
     journey,
@@ -1498,9 +1451,9 @@ export async function journeyAdminView(db, id, { holdUntil } = {}) {
       messagePayload(
         booking,
         previewJourney,
-        journey.paid_pence - journey.refunded_pence >= DEPOSIT_PENCE
+        ["confirmed", "change_pending"].includes(journey.state)
           ? "change_proposal"
-          : "deposit_request",
+          : "confirmation",
       ),
     ),
     manageUrl: manageLink(journey),

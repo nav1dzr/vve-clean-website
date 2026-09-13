@@ -116,30 +116,16 @@ describe("bounded booking worker", () => {
       ),
     ).toBe(true);
   });
-  it("advances through more than ten eligible reminders instead of selecting reminded rows forever", async () => {
-    const rows = Array.from({ length: 25 }, (_, i) => ({
-      booking_id: `b${i}`,
-      revision: 0,
-      offer_version: 1,
-      state: "offered",
-      hold_until: "2026-09-09T10:00:00.000Z",
-      reminder_sent_at: null,
-    }));
-    const db = workerDb(rows);
-    const perform = vi.fn(async (_db, id, action) => {
-      expect(action.operation).toBe("remind");
-      rows.find((r) => r.booking_id === id).reminder_sent_at =
-        "2026-09-08T12:00:00.000Z";
-    });
-    const deliver = vi.fn();
-    for (let i = 0; i < 3; i++)
-      await processDueBookingJourneys(db, {
-        perform,
-        deliver,
-        now: new Date("2026-09-08T12:00:00Z"),
-      });
-    expect(perform).toHaveBeenCalledTimes(25);
-    expect(new Set(perform.mock.calls.map((c) => c[1])).size).toBe(25);
+  it("does not remind or expire old deposit offers", async () => {
+    const rows = [
+      { booking_id: "future-offer", state: "offered", hold_until: "2026-09-09T10:00:00Z", reminder_sent_at: null },
+      { booking_id: "expired-offer", state: "offered", hold_until: "2026-09-07T10:00:00Z", reminder_sent_at: null },
+    ];
+    const perform = vi.fn(); const deliver = vi.fn();
+    await processDueBookingJourneys(workerDb(rows), { perform, deliver, now: new Date("2026-09-08T12:00:00Z") });
+    expect(perform).not.toHaveBeenCalled();
+    expect(deliver).not.toHaveBeenCalled();
+    expect(rows.every(r => r.state === "offered")).toBe(true);
   });
   it("recovers a stale sending claim while leaving an active send and exhausted failure alone", async () => {
     const messages = [

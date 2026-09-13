@@ -36,6 +36,6 @@ describe('CRM website price review', () => {
   it('does not offer deposit, policy or coverage fields', async () => {
     render(<WebsitePricebookPage />); await screen.findByText('Current list: original website prices');
     expect(screen.queryByRole('textbox', { name: /deposit|coverage|guarantee/i })).not.toBeInTheDocument();
-    expect(screen.getByText(/£30 deposit, coverage, payment policies, guarantee and discount rules are protected/i)).toBeInTheDocument();
+    expect(screen.getByText(/Coverage, payment policies, guarantee and discount rules are protected/i)).toBeInTheDocument();
   });
 });

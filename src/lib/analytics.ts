@@ -14,12 +14,12 @@ import { canUseGoogleTags } from './privatePage';
 // | booking_initiated       | User clicks "Book Now" in calculator       | QuoteCalculator        | service_type (string)          |
 // | request_submitted       | No-payment preferred-time request saved     | BookingPage            | service_type (string)          |
 // | contact_form_submitted  | Contact form POST succeeds                 | Contact                | —                              |
-// | deposit_paid (GA4 conv) | Stripe payment confirmed (confirmation.html)| confirmation.html      | value, currency, transaction_id|
+// | legacy paid conversion | Verified historic Stripe payment only       | confirmation.html      | value, currency, transaction_id|
 //
-// Google Ads configuration:
-//   Primary conversion: AW-18214693277/hUwdCK68gswcEJ3TuO1D (deposit_paid, fires in confirmation.html)
-//   Secondary conversions below are observation-only: primary_for_goal=false and
-//   excluded from the Conversions metric/bidding in Google Ads.
+// Existing Google Ads labels are retained. Account-side goal/bidding settings
+// must be reviewed separately; source code cannot establish their current state.
+// An accepted request is only request_submitted: it is neither a paid deposit
+// nor a confirmed appointment. Legacy payment verification remains separate.
 
 const SECONDARY_ADS_CONVERSIONS = {
   bookingInitiated: 'AW-18214693277/cmLZCIm-6eEcEJ3TuO1D',

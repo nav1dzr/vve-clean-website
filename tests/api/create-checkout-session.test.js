@@ -20,7 +20,7 @@ vi.mock('@supabase/supabase-js', () => ({
   })),
 }));
 
-const { default: handler } = await import('../../api/create-checkout-session.js');
+const { default: publicHandler, archivedDepositCheckout: handler } = await import('../../api/create-checkout-session.js');
 
 function makeRes() {
   const res = {
@@ -395,5 +395,19 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
     const [table] = supabaseInsertMock.mock.calls[0];
     expect(table).toBe('bookings');
     expect(supabaseInsertMock.mock.calls.some(([t]) => t === 'customers')).toBe(false);
+  });
+});
+
+describe("public booking deposit route is retired", () => {
+  it.each([undefined, "false", "true"])("does not create a deposit for legacy flag %s", async flag => {
+    sessionsCreateMock.mockClear(); supabaseInsertMock.mockClear();
+    if (flag === undefined) delete process.env.STRIPE_BOOKING_ENABLED;
+    else process.env.STRIPE_BOOKING_ENABLED = flag;
+    const response = makeRes();
+    await publicHandler(makeReq(basePayload()), response);
+    expect(response.statusCode).toBe(410);
+    expect(JSON.parse(response.body).error).toMatch(/No deposit is required/);
+    expect(sessionsCreateMock).not.toHaveBeenCalled();
+    expect(supabaseInsertMock).not.toHaveBeenCalled();
   });
 });

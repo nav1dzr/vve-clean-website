@@ -121,7 +121,7 @@ const sections: Section[] = [
             {
               basis: 'Performance of a contract',
               detail:
-                'When you request a quote, make a booking, or pay a deposit, processing your data is necessary to carry out our agreement with you.',
+                'When you request a quote, make a booking, or pay for a service, processing your data is necessary to carry out our agreement with you.',
             },
             {
               basis: 'Legitimate interests',

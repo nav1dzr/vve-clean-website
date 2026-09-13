@@ -95,17 +95,16 @@ const sections: Section[] = [
           and contact you with a time we can offer.
         </p>
         <p className="mt-3">
-          After we agree the time, scope and final price with you, we send an offer with a £30 deposit link.
-          The offer states the payment deadline. Your booking is confirmed when the deposit payment is verified;
-          the deposit is deducted from the agreed total. Sending the initial request does not oblige you to
-          accept an alternative time and does not create a payment obligation.
+          After we agree the scope, final price and time with you, we confirm your appointment directly.
+          No deposit or advance payment is required to confirm your appointment. Sending the initial request
+          does not oblige you to accept an alternative time and does not create a payment obligation.
         </p>
         <p className="mt-3">
           <strong>If we cannot offer your requested slot.</strong> We will contact you with the closest alternatives
           we can offer. If none works for you, you can decline them and nothing is charged.
         </p>
         <p className="mt-3">
-          The remaining balance is due after the service has been completed and you have had the opportunity
+          Payment is due after the service has been completed and you have had the opportunity
           to check the work, unless a different payment arrangement has been agreed in writing in advance.
         </p>
       </>
@@ -195,10 +194,10 @@ const sections: Section[] = [
     content: (
       <>
         <p>
-          No payment is collected when you send a booking request. A £30 deposit confirms an agreed residential
-          booking and counts towards its total. The remaining balance is normally due after the service has been
-          completed and you have had an opportunity to check the work. Any different payment arrangement will be
-          agreed with you in writing before the appointment.
+          No payment is collected when you send a booking request, and no deposit is required after we agree
+          the booking details. We confirm your appointment directly. Payment is normally due after the service
+          has been completed and you have had an opportunity to check the work. Any different payment arrangement
+          will be agreed with you in writing before the appointment.
         </p>
         <p className="mt-3">
           {COMMERCIAL_PAYMENT_NOTE} Late payment

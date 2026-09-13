@@ -757,7 +757,7 @@ export default function InvoiceItemsForm({
           <label>
             <span className={labelClass}>Booking deposit received (£)</span>
             <input type="number" inputMode="decimal" min="0" step="0.01" value={value.depositApplied} onChange={(e) => setValue((v) => ({ ...v, depositApplied: Number(e.target.value) }))} className={inputClass} />
-            <span className="mt-1 block text-xs leading-5 text-navy-500">Enter only the deposit already taken (normally £30), not the full price. For a full payment, record it after issuing or <a href="/receipts/new" className="font-medium text-sky-600 hover:text-sky-700">create a receipt</a>.</span>
+            <span className="mt-1 block text-xs leading-5 text-navy-500">Leave this at £0 for new bookings. Enter a deposit here only if it was already received for a historical booking. For a full payment, record it after issuing or <a href="/receipts/new" className="font-medium text-sky-600 hover:text-sky-700">create a receipt</a>.</span>
           </label>
           <label className="sm:col-span-2">
             <span className={labelClass}>Payment terms</span>

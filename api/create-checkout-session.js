@@ -94,6 +94,27 @@ async function readBody(req) {
 
 export default async function handler(req, res) {
   if (rejectUnsafePreview(res, { legacy: true })) return;
+  const headers = { ...corsHeaders(req.headers.origin || ''), 'Content-Type': 'application/json' };
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, headers);
+    return res.end();
+  }
+  if (req.method !== 'POST') {
+    res.writeHead(405, headers);
+    return res.end(JSON.stringify({ error: 'Method not allowed' }));
+  }
+  // Owner policy from 14 September 2026: no new booking deposits, including
+  // after agreement. An old environment flag must not reopen this route.
+  res.writeHead(410, headers);
+  return res.end(JSON.stringify({
+    error: 'No deposit is required. Send a booking request and we will confirm the agreed appointment directly.',
+  }));
+}
+
+// Archived implementation retained for historical regression coverage only.
+// The public route above never calls it. Webhook reconciliation is unchanged.
+export async function archivedDepositCheckout(req, res) {
+  if (rejectUnsafePreview(res, { legacy: true })) return;
   const origin  = req.headers.origin || '';
   const headers = corsHeaders(origin);
 

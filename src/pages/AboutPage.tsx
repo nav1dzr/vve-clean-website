@@ -1,4 +1,5 @@
 import { CheckCircle2, ShieldCheck } from 'lucide-react';
+import { BOOKING_REQUEST_NOTE } from '../data/businessPolicy';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -63,7 +64,7 @@ export default function AboutPage() {
               <p className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-royal-600">How we work</p>
               <h2 className="font-display text-3xl font-bold text-navy-900 sm:text-4xl">A local team you can contact directly</h2>
               <p className="mt-5 leading-7 text-muted">
-                You can call, email or message VVE Clean before booking. Send the service, property details and preferred date with no payment. We agree availability, scope and the final price with you, then send a £30 deposit link. Your booking is confirmed when the payment is verified.
+                You can call, email or message VVE Clean before booking. Tell us the service, property details and preferred date. {BOOKING_REQUEST_NOTE}
               </p>
               <ul className="mt-7 space-y-4">
                 {principles.map((item) => (

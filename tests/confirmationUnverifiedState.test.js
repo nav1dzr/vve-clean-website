@@ -70,3 +70,38 @@ describe('legacy payment confirmation display', () => {
     expect(node('wa').getAttribute('href')).toBe('https://wa.me/447845451111');
   });
 });
+
+
+describe('legacy payment conversion stays separate from booking requests', () => {
+  const conversion = script.slice(script.indexOf('(function () {', script.indexOf('Conversion tracking')));
+  function runConversion(result) {
+    const gtag = vi.fn();
+    const storage = { getItem: vi.fn(() => null), setItem: vi.fn() };
+    const fetch = vi.fn().mockResolvedValue({ status: 200, json: async () => result });
+    new Function('window', 'location', 'localStorage', 'fetch', 'console', 'setTimeout', 'clearTimeout', 'gtag', 'ref', 'token', 'sid', 'apiQs', conversion)(
+      { vveProductionTrackingHost: true, gtag }, { hostname: 'www.vveclean.co.uk' }, storage, fetch,
+      { log: vi.fn(), warn: vi.fn(), error: vi.fn() }, vi.fn(), vi.fn(), gtag,
+      'SYNTHETIC-LEGACY-ONLY', 'a'.repeat(64), '', url => url,
+    );
+    return { gtag, storage, fetch };
+  }
+  it.each([
+    { paid: false, livemode: true, status: 'new' },
+    { paid: false, livemode: true, status: 'confirmed' },
+    { paid: true, livemode: false },
+  ])('never counts an unpaid request/appointment or test payment: %j', async result => {
+    const { gtag, storage, fetch } = runConversion(result);
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(gtag).not.toHaveBeenCalled();
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+  it('preserves the historical verified live payment event', async () => {
+    const { gtag } = runConversion({ paid: true, livemode: true });
+    await waitFor(() => expect(gtag).toHaveBeenCalledOnce());
+    expect(gtag).toHaveBeenCalledWith('event', 'conversion', expect.objectContaining({
+      send_to: 'AW-18214693277/hUwdCK68gswcEJ3TuO1D',
+      value: 30, currency: 'GBP', transaction_id: 'SYNTHETIC-LEGACY-ONLY',
+    }));
+  });
+});

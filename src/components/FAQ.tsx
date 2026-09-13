@@ -1,4 +1,4 @@
-import { VAT_NOTE, CANCELLATION_SUMMARY } from '../data/businessPolicy';
+import { VAT_NOTE, CANCELLATION_SUMMARY, BOOKING_REQUEST_NOTE } from '../data/businessPolicy';
 import { Link } from 'react-router-dom';
 import {
   EOT_GUARANTEE_HOURS,
@@ -44,7 +44,7 @@ export const FAQS = [
   {
     q: 'When do I pay?',
     group: 'Prices and payment',
-    a: 'Request your preferred time free. After we agree the scope, total and time with you, we send a £30 deposit link. Paying the deposit confirms the booking and counts towards the total. The remaining balance is normally due after the service, unless a different arrangement is agreed in writing.',
+    a: `${BOOKING_REQUEST_NOTE} Payment is normally due after the service, unless a different arrangement is agreed in writing. No deposit is required.`,
   },
   {
     q: 'Can the price change?',

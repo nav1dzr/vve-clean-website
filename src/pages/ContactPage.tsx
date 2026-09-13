@@ -1,4 +1,5 @@
 import Contact from '../components/Contact';
+import { BOOKING_REQUEST_NOTE } from '../data/businessPolicy';
 import FaqSchema from '../components/FaqSchema';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -7,7 +8,7 @@ import MobileStickyFooter from '../components/MobileStickyFooter';
 const CONTACT_FAQS = [
   { q: 'What details should I send for a quote?', a: 'Send the service you need, the property postcode, property size or items to clean, its current condition and your preferred date. Photos are helpful for unusual staining or after-builders work.' },
   { q: 'Is the Queensway address a walk-in office?', a: 'No. It is the registered office. Cleaning services are delivered at customer premises, so contact VVE Clean before arranging anything in person.' },
-  { q: 'Can I check availability before paying?', a: 'Yes. Send your request free. We check the work, final price and preferred time with you, then send a £30 deposit link. Paying the deposit confirms the booking and counts towards the total.' },
+  { q: 'How do I confirm a booking?', a: BOOKING_REQUEST_NOTE },
 ];
 
 export default function ContactPage() {
