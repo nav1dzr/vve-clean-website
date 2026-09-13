@@ -47,11 +47,11 @@ export default {
     if (!original?.body) return new Response('Not found', { status: 404 });
 
     try {
-      const transformed = await env.IMAGES
+      const output = await env.IMAGES
         .input(original.body)
         .transform({ width: target.width, fit: 'scale-down' })
-        .output({ format, quality: 85 })
-        .response();
+        .output({ format, quality: 85 });
+      const transformed = output.response();
       const response = new Response(transformed.body, { status: transformed.status, headers: responseHeaders(transformed, format) });
       ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
       return response;
