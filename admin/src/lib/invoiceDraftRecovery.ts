@@ -1,3 +1,4 @@
+import { clearPendingInvoicePayments } from './pendingInvoicePayment';
 import type { InvoiceItemsFormValue } from '../components/InvoiceItemsForm';
 
 export const INVOICE_RECOVERY_TTL_MS = 24 * 60 * 60 * 1000;
@@ -139,11 +140,12 @@ export function clearInvoiceDraftRecovery(context: Pick<InvoiceRecoveryContext, 
   } catch { /* Private browsing/storage denial must not break invoice actions. */ }
 }
 
-// Called by authentication when signing out, switching users or losing access.
+// Clear all invoice working data on sign-out, user changes or loss of access.
 // Notify mounted forms so a late pagehide cannot recreate cleared customer data.
 export function clearInvoiceDraftRecoveries(): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new Event(INVOICE_RECOVERY_CLEARED_EVENT));
+  clearPendingInvoicePayments();
   try {
     const storage = window.sessionStorage;
     for (let index = storage.length - 1; index >= 0; index -= 1) {

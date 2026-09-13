@@ -202,6 +202,10 @@ async function handleRoot(req, res, headers, supabase, invoiceId, auth) {
       res.writeHead(400, headers);
       return res.end(JSON.stringify({ error: err.message || 'Invalid request body' }));
     }
+    if (!validExpectedUpdatedAt(body.expectedUpdatedAt)) {
+      res.writeHead(400, headers);
+      return res.end(JSON.stringify({ error: 'Reload the invoice before saving to protect newer changes.' }));
+    }
     const result = await updateDraftInvoice(supabase, invoiceId, body, auth.admin.id);
     if (!result.ok) {
       res.writeHead(result.status || 400, headers);
@@ -225,22 +229,24 @@ async function handleRoot(req, res, headers, supabase, invoiceId, auth) {
   return res.end(JSON.stringify({ error: 'Method not allowed' }));
 }
 
+function validExpectedUpdatedAt(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value) && Number.isFinite(Date.parse(value));
+}
+
 async function handleIssue(req, res, headers, supabase, invoiceId, auth) {
-  if (req.method !== 'POST') {
-    console.log('[invoices route debug] issue: method not allowed, got %s', req.method);
-    res.writeHead(405, headers);
-    return res.end(JSON.stringify({ error: 'Method not allowed' }));
+  if (req.method !== 'POST') { res.writeHead(405, headers); return res.end(JSON.stringify({ error: 'Method not allowed' })); }
+  let body;
+  try { body = await readJsonBody(req); } catch { res.writeHead(400, headers); return res.end(JSON.stringify({error:'Invalid request body'})); }
+  if (!validExpectedUpdatedAt(body.expectedUpdatedAt)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({error:'Reload and review the invoice before issuing it.'}));
   }
-  console.log('[invoices route debug] issue: calling issueInvoice() for id=%s', invoiceId);
-  const result = await issueInvoice(supabase, invoiceId, auth.admin.id, { generateAndStorePdf: makeInvoicePdfGenerator(supabase) });
-  console.log('[invoices route debug] issue: issueInvoice() returned ok=%s status=%s', result.ok, result.status);
-  if (!result.ok) {
-    console.log('[invoices route debug] issue failed for id=%s: %s', invoiceId, result.error);
-    res.writeHead(result.status || 400, headers);
-    return res.end(JSON.stringify({ error: result.error }));
-  }
+  const result = await issueInvoice(supabase, invoiceId, auth.admin.id, {
+    generateAndStorePdf: makeInvoicePdfGenerator(supabase), expectedUpdatedAt: body.expectedUpdatedAt,
+  });
+  if (!result.ok) { res.writeHead(result.status || 400, headers); return res.end(JSON.stringify({error:result.error})); }
   res.writeHead(200, headers);
-  return res.end(JSON.stringify({ ok: true, invoiceNumber: result.invoiceNumber }));
+  return res.end(JSON.stringify({ok:true,invoiceNumber:result.invoiceNumber}));
 }
 
 async function handleVoid(req, res, headers, supabase, invoiceId, auth) {
@@ -327,6 +333,10 @@ async function handleRecordPayment(req, res, headers, supabase, invoiceId, auth)
     res.writeHead(400, headers);
     return res.end(JSON.stringify({ error: err.message || 'Invalid request body' }));
   }
+  if (!isValidUuid(body.operationId)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({error:'Reopen Record payment to create a safe payment request.'}));
+  }
   const result = await recordPayment(supabase, invoiceId, body, auth.admin.id, {
     createReceiptIfPaid,
     generateAndStoreReceiptPdf: makeReceiptPdfGenerator(supabase),
@@ -343,6 +353,7 @@ async function handleRecordPayment(req, res, headers, supabase, invoiceId, auth)
     amountDue: result.amountDue,
     paymentStatus: result.paymentStatus,
     receiptId: result.receiptId,
+    replayed: result.replayed,
   }));
 }
 

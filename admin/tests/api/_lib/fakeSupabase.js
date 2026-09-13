@@ -1,3 +1,4 @@
+import { fakeInvoiceFinancialMutation } from './fakeInvoiceFinancialMutation.js';
 // Minimal in-memory fake of the Supabase JS query builder, purpose-built
 // for unit-testing admin/api/_lib/invoiceLifecycle.js and
 // receiptLifecycle.js directly (they take `supabase` as a plain argument —
@@ -48,6 +49,7 @@ export function createFakeSupabase(initialData = {}) {
         const inserted = pendingInsert.map((row) => ({
           id: genId(),
           created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, 0, createdAtCounter++)).toISOString(),
+          ...(table === 'invoices' ? {document_version:1,updated_at:new Date(Date.UTC(2026,0,1,0,0,0,createdAtCounter++)).toISOString()} : {}),
           ...row,
         }));
         tables[table].push(...inserted);
@@ -140,7 +142,27 @@ export function createFakeSupabase(initialData = {}) {
     return builder;
   }
 
+  let financialQueue = Promise.resolve();
+  const financialFaults = { point: null };
+  const tick = () => new Date(Date.UTC(2026, 0, 1, 0, 0, 0, createdAtCounter++)).toISOString();
   async function rpc(fnName, args) {
+    if (fnName === 'invoice_financial_mutation') {
+      const run = financialQueue.then(async () => {
+        const before = structuredClone(tables);
+        try {
+          const data = await fakeInvoiceFinancialMutation({ tables, genId, tick, nextNumber: rpc, fault(point) {
+            if (financialFaults.point === point) { financialFaults.point = null; throw Object.assign(new Error('Synthetic transaction failure'), {code:'MOCK_FAILURE'}); }
+          } }, args);
+          return {data,error:null};
+        } catch(error) {
+          for (const key of Object.keys(tables)) delete tables[key];
+          Object.assign(tables,before);
+          return {data:null,error};
+        }
+      });
+      financialQueue = run.then(() => undefined);
+      return run;
+    }
     if (fnName === 'next_document_number') {
       const type = args.p_doc_type;
       const year = new Date().getFullYear();
@@ -180,5 +202,5 @@ export function createFakeSupabase(initialData = {}) {
     };
   }
 
-  return { from, rpc, storage: { from: storageFrom }, _tables: tables, _storedFiles: storedFiles };
+  return { from, rpc, storage: { from: storageFrom }, _tables: tables, _storedFiles: storedFiles, _failFinancialAt(point) { financialFaults.point=point; } };
 }

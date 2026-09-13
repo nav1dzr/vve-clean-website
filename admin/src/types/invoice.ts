@@ -140,7 +140,18 @@ export interface IssueResponse {
   invoiceNumber: string;
 }
 
+export interface RecordPaymentInput {
+  operationId: string;
+  amount: number;
+  paymentDate: string;
+  method: string;
+  reference: string;
+  notes: string;
+  sendAcknowledgement: boolean;
+}
+
 export interface RecordPaymentResponse {
+  replayed?: boolean;
   ok: true;
   paymentId: string;
   amountPaid: number;
@@ -179,6 +190,7 @@ export interface InvoiceDraftItemInput {
 }
 
 export interface InvoiceDraftInput {
+  expectedUpdatedAt?: string;
   bookingId?: string | null;
   customer: InvoiceCustomer;
   items: InvoiceDraftItemInput[];

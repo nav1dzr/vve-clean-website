@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createFakeSupabase } from '../_lib/fakeSupabase.js';
 
@@ -56,8 +57,22 @@ function makeRes() {
 // `query` instead exercises extractIdParam()'s manual req.url-parsing
 // fallback.
 function makeReq({
-  url, bodyObj, headers = { authorization: 'Bearer t' }, method = 'GET', query,
+  url, bodyObj, headers = { authorization: 'Bearer t' }, method = 'GET', query, withSafetyMetadata = true,
 } = {}) {
+  // Normal fixtures mirror the current client's concurrency/idempotency fields.
+  // Tests for stale/legacy clients explicitly opt out below.
+  if (withSafetyMetadata && url) {
+    const db = getServiceClientMock.getMockImplementation()?.();
+    const requestUrl = new URL(url, 'https://crm.example.invalid');
+    const id = query?.id || requestUrl.pathname.split('/').pop();
+    const inv = db?._tables.invoices?.find((row) => row.id === id);
+    if (method === 'PATCH' || requestUrl.searchParams.get('action') === 'issue') {
+      bodyObj = { expectedUpdatedAt: inv?.updated_at || '2026-09-13T00:00:00.000Z', ...bodyObj };
+    }
+    if (requestUrl.searchParams.get('action') === 'payments') {
+      bodyObj = { operationId: randomUUID(), ...bodyObj };
+    }
+  }
   const raw = bodyObj === undefined ? '' : JSON.stringify(bodyObj);
   return {
     method,
@@ -767,5 +782,30 @@ describe('Vercel-style query param routing (req.query.id) + exact frontend reque
       query: { id: invoiceId },
     }), res);
     expect(res.statusCode).toBe(200);
+  });
+});
+
+describe('financial API compatibility guards', () => {
+  beforeEach(() => { verifyAdminRequestMock.mockResolvedValue(ADMIN); });
+  it('rejects an old client missing save/issue metadata without changing its draft', async () => {
+    const db=createFakeSupabase();getServiceClientMock.mockReturnValue(db);const id=await seedDraft(db);const before=structuredClone(db._tables);
+    for (const method of ['PATCH','POST']) {
+      const res=makeRes();await handler(makeReq({url:`/api/invoices/${id}${method==='POST'?'?action=issue':''}`,method,bodyObj:{},withSafetyMetadata:false}),res);
+      expect(res.statusCode).toBe(400);expect(JSON.parse(res.body).error).toMatch(/reload/i);
+    }
+    expect(db._tables).toEqual(before);
+  });
+  it('rejects an old payment client without operationId before recording anything', async () => {
+    const db=createFakeSupabase();getServiceClientMock.mockReturnValue(db);const id=await seedDraft(db);await issueInvoice(db,id,ADMIN.admin.id);
+    const res=makeRes();await handler(makeReq({url:`/api/invoices/${id}?action=payments`,method:'POST',bodyObj:{amount:30,paymentDate:'2026-09-13',method:'cash'},withSafetyMetadata:false}),res);
+    expect(res.statusCode).toBe(400);expect(db._tables.invoice_payments||[]).toHaveLength(0);
+  });
+  it('reports a stale displayed invoice as conflict and missing RPC as unavailable', async () => {
+    const db=createFakeSupabase();getServiceClientMock.mockReturnValue(db);const id=await seedDraft(db);
+    const stale=makeRes();await handler(makeReq({url:`/api/invoices/${id}?action=issue`,method:'POST',bodyObj:{expectedUpdatedAt:'2000-01-01T00:00:00.000Z'}}),stale);
+    expect(stale.statusCode).toBe(409);expect(db._tables.invoices[0].document_status).toBe('draft');
+    db.rpc=vi.fn(async()=>({data:null,error:{code:'PGRST202'}}));const missing=makeRes();
+    await handler(makeReq({url:`/api/invoices/${id}?action=issue`,method:'POST'}),missing);
+    expect(missing.statusCode).toBe(503);expect(db._tables.invoices[0].document_status).toBe('draft');
   });
 });
