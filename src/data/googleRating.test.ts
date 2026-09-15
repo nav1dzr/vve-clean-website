@@ -154,11 +154,11 @@ describe('if a verified rating is added, it stays consistent', () => {
 
 describe('the genuine review content is untouched', () => {
   it('still links to the real Google profile', () => {
-    expect(read('components/Reviews.tsx'))
+    expect(read('components/GoogleBrand.tsx'))
       .toContain("export const GOOGLE_PROFILE_LINK = 'https://share.google/tZEyXUs0J0SxXZlDi'");
   });
 
   it('still links to the real review-writing URL', () => {
-    expect(read('components/Reviews.tsx')).toContain('https://g.page/r/');
+    expect(read('components/GoogleBrand.tsx')).toContain('https://g.page/r/');
   });
 });

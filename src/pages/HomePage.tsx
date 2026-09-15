@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BookingProvider } from '../context/BookingContext';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
+import { BOOKING_REQUEST_NOTE } from '../data/businessPolicy';
 import AreaMarquee from '../components/AreaMarquee';
 import TrustBadges from '../components/TrustBadges';
 import type { HomepageQuoteService } from '../components/HomeServiceSelector';
@@ -40,7 +41,8 @@ export default function HomePage() {
     // Deferred a tick: the section remounts on selection, so the scroll has to
     // wait for the detailed calculator to take its place.
     window.setTimeout(() => {
-      document.querySelector('#quote')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+      document.querySelector('#quote')?.scrollIntoView({ behavior, block: 'start' });
     }, 50);
   };
 
@@ -81,12 +83,13 @@ export default function HomePage() {
       <section className="border-y border-slate-200 bg-white px-4 py-12" aria-labelledby="booking-steps-heading">
         <div className="mx-auto max-w-6xl">
           <h2 id="booking-steps-heading" className="font-display text-3xl font-bold text-navy-950">From request to confirmed visit</h2>
-          <ol className="mt-7 grid gap-6 sm:grid-cols-3">
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600">{BOOKING_REQUEST_NOTE}</p>
+          <ol className="mt-7 grid gap-4 sm:grid-cols-3">
             {[
               ['01', 'Send your request', 'Choose the service and a preferred time. No payment is taken.'],
               ['02', 'Agree the details', 'We discuss the scope, final price and arrival window with you.'],
               ['03', 'We confirm your visit', 'Once we agree the details with you, we confirm your appointment directly. No deposit is required.'],
-            ].map(([step, title, body]) => <li key={step}><p className="text-sm font-bold text-royal-700">{step}</p><h3 className="mt-2 font-display text-lg font-bold text-navy-950">{title}</h3><p className="mt-2 text-sm leading-relaxed text-slate-600">{body}</p></li>)}
+            ].map(([step, title, body]) => <li key={step} className="rounded-2xl border border-sky-100 bg-sky-50/60 p-5"><p className="text-sm font-bold text-royal-700">{step}</p><h3 className="mt-2 font-display text-lg font-bold text-navy-950">{title}</h3><p className="mt-2 text-sm leading-relaxed text-slate-600">{body}</p></li>)}
           </ol>
         </div>
       </section>

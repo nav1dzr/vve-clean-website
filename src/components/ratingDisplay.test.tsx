@@ -141,3 +141,18 @@ describe('the Google trust card source', () => {
     }
   });
 });
+
+
+describe('compact Google badge', () => {
+  it('keeps a visible check date and complete accessible rating in the smaller layout', () => {
+    render(<GoogleBadge variant="compact" />);
+    const link = screen.getByRole('link');
+    expect(link).toHaveAttribute('href', 'https://share.google/tZEyXUs0J0SxXZlDi');
+    expect(link).toHaveClass('min-h-[44px]', 'max-w-full');
+    if (VERIFIED_GOOGLE_RATING) {
+      expect(screen.getByText(/^Checked /)).toBeVisible();
+      expect(link).toHaveAccessibleName(expect.stringContaining(`${VERIFIED_GOOGLE_RATING.count} Google reviews`));
+      expect(screen.getByText('Google Maps')).toHaveAttribute('translate', 'no');
+    }
+  });
+});

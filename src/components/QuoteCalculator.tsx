@@ -1004,7 +1004,7 @@ export default function QuoteCalculator({
                     ? 'Pick your rooms and stairs — fixed prices, added up as you go.'
                     : isUpholsteryFocused
                       ? 'Pick your sofas, chairs and mattresses — fixed prices, added up as you go.'
-                      : 'Transparent pricing. No hidden fees. Tailored to your needs.'}
+                      : 'Choose your service and property details to see your estimate.'}
               </p>
             </>
           )}

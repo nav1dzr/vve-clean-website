@@ -10,6 +10,7 @@ import MobileStickyFooter from '../components/MobileStickyFooter';
 import { toLightboxPhotos, useLightbox } from '../components/gallery/useLightbox';
 import { GALLERY_CATEGORIES, GALLERY_MEDIA, type GalleryCategory, type GalleryItem } from '../data/galleryMedia';
 import { useManagedGalleryMedia } from '../lib/managedGalleryMedia';
+import { suspendViewportVideos } from '../components/media/useViewportVideo';
 
 function isGalleryCategory(value: string | null): value is GalleryCategory {
   return !!value && GALLERY_CATEGORIES.some((category) => category.key === value);
@@ -44,7 +45,7 @@ function isGalleryFormat(value: string | null): value is GalleryFormat {
 const FEATURE_GUIDE = {
   'before-after': { label: 'Photo comparison', title: 'Compare the detail', description: 'Open either photo for a closer look. The labels show the stage of the clean.' },
   photo: { label: 'From the collection', title: 'See the full photo', description: 'Tap the image to enlarge it, then browse the rest using the arrows.' },
-  video: { label: 'Cleaning on film', title: 'Watch the clean', description: 'Press play to watch. You control playback, sound and full screen.' },
+  video: { label: 'Cleaning in progress', title: 'See how we clean', description: 'Press play to watch. Some clips preview silently as you browse; you can pause them or use the controls for sound and full screen.' },
 };
 
 export default function GalleryPage() {
@@ -60,6 +61,10 @@ export default function GalleryPage() {
   const managedMedia = useManagedGalleryMedia();
   const [visibleCount, setVisibleCount] = useState(20);
   const { index, open, close, setIndex } = useLightbox();
+
+  useEffect(() => {
+    if (index !== null) return suspendViewportVideos();
+  }, [index]);
 
   // URL-derived selection also handles back/forward and legacy hash links.
   useEffect(() => {
@@ -122,11 +127,11 @@ export default function GalleryPage() {
       <main id="main-content">
         <header className="bg-navy-950 px-4 pb-7 pt-24 text-white sm:pb-12 sm:pt-32">
           <div className="mx-auto max-w-6xl">
-            <p className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-sky-200"><Camera size={17} aria-hidden="true" /> Our work, up close</p>
+            <p className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-sky-200"><Camera size={17} aria-hidden="true" /> VVE Clean · Photo & video gallery</p>
             <div className="flex flex-wrap items-end justify-between gap-6">
               <div className="max-w-2xl">
-                <h1 className="font-display text-3xl font-bold leading-tight sm:text-5xl">VVE Clean Gallery</h1>
-                <p className="mt-3 max-w-xl text-sm leading-relaxed text-silver-300 sm:mt-4 sm:text-lg">Before-and-after photos and cleaning in progress, all from our own jobs.</p>
+                <h1 className="font-display text-3xl font-bold leading-tight sm:text-5xl">See our cleaning work</h1>
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-silver-300 sm:mt-4 sm:text-lg">Before-and-after photos and short videos from our carpet, sofa and end of tenancy cleans.</p>
               </div>
               <a href="#gallery-collection" className="hidden min-h-11 items-center gap-2 rounded-full border border-white/30 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300 sm:inline-flex">Browse the collection <ArrowDown size={17} aria-hidden="true" /></a>
             </div>
@@ -194,7 +199,7 @@ export default function GalleryPage() {
               </div>
             )}
             {filtered.length > visibleCount && <button type="button" onClick={() => setVisibleCount((value) => value + 20)} className="mx-auto mt-8 flex min-h-12 items-center gap-2 rounded-full border-2 border-royal-500 bg-white px-6 py-3 font-semibold text-royal-700 hover:bg-sky-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-royal-600">Show more results ({filtered.length - visibleCount} remaining)<ArrowDown size={17} aria-hidden="true" /></button>}
-            <p className="mt-8 border-t border-line pt-5 text-sm leading-relaxed text-muted">These photos show individual cleans. Results depend on the material, its condition and the marks being treated.</p>
+            <p className="mt-8 border-t border-line pt-5 text-sm leading-relaxed text-muted">These photos and videos show individual cleans. Results depend on the material, its condition and the marks being treated.</p>
           </div>
 
           <aside className="mt-10 rounded-[1.5rem] border border-line bg-white px-5 py-8 text-center sm:px-8">

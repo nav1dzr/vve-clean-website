@@ -30,6 +30,9 @@ function WhatsAppIcon({ size = 16 }: { size?: number }) {
 
 export default function Contact({ standalone = false }: { standalone?: boolean }) {
   const { ref, visible } = useReveal();
+  // Server-rendered fields must not accept work before their handlers attach.
+  const [interactive, setInteractive] = useState(false);
+  useEffect(() => { setInteractive(true); }, []);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -45,17 +48,28 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading) return;
+    if (!interactive || loading) return;
     if (honeypot) return; // bot filled the hidden field — silently drop
-    if (!name || !email || !message) {
-      setError('Please fill in all required fields.');
+    if (name.trim().length < 2) {
+      setError('Please enter your full name.');
+      document.getElementById('contact-name')?.focus();
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Please enter a valid email address.');
+      document.getElementById('contact-email')?.focus();
+      return;
+    }
+    if (message.trim().length < 5) {
+      setError('Please tell us a little more about what you need cleaned.');
+      document.getElementById('contact-message')?.focus();
       return;
     }
     setLoading(true);
     setError('');
 
     try {
-      const payload = { fullName: name, email, phone: phone || '', service: service || '', message, marketingOptIn: subscribe, sourcePage: window.location.pathname, _honeypot: honeypot, attribution: getAttribution() };
+      const payload = { fullName: name.trim(), email: email.trim(), phone: phone.trim(), service: service || '', message: message.trim(), marketingOptIn: subscribe, sourcePage: window.location.pathname, _honeypot: honeypot, attribution: getAttribution() };
       const requestKey = await submissionIdentity('contact', payload);
       const res = await fetch('/api/contact', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -199,7 +213,9 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                 </p>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit}>
+                <fieldset disabled={!interactive} aria-busy={!interactive} className="min-w-0 space-y-5">
+                  <legend className="sr-only">Send us an enquiry</legend>
                 {/* Honeypot — hidden from humans, filled by bots */}
                 <input
                   type="text"
@@ -218,6 +234,8 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                       id="contact-name"
                       type="text"
                       name="name"
+                      autoComplete="name"
+                      maxLength={150}
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="John Smith"
@@ -233,6 +251,8 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                       id="contact-email"
                       type="email"
                       name="email"
+                      autoComplete="email"
+                      maxLength={254}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="john@example.com"
@@ -250,6 +270,8 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                     id="contact-phone"
                     type="tel"
                     name="phone"
+                    autoComplete="tel"
+                    maxLength={40}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="Your phone number"
@@ -321,6 +343,8 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                   </span>
                 </label>
 
+                <p className="text-xs leading-relaxed text-slate-600">We use these details to reply to your enquiry. <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Read our privacy policy<span className="sr-only"> (opens in a new tab)</span></a>.</p>
+
                 <button
                   type="submit"
                   disabled={loading}
@@ -337,6 +361,7 @@ export default function Contact({ standalone = false }: { standalone?: boolean }
                   </a>{' '}
                   if you would rather message.
                 </p>
+                </fieldset>
               </form>
             )}
           </div>

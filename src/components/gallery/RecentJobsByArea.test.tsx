@@ -9,24 +9,24 @@ describe('collectAreaJobs', () => {
     const items: GalleryPhotoItem[] = [
       { type: 'photo', id: '1', label: 'Test', src: '/a.jpg', alt: 'a photo' },
     ];
-    expect(collectAreaJobs('Islington', ['N1'], items, [])).toHaveLength(0);
+    expect(collectAreaJobs('Islington', items, [])).toHaveLength(0);
   });
 
   it('returns nothing when a location is set but does not match this area', () => {
     const items: GalleryPhotoItem[] = [
       { type: 'photo', id: '1', label: 'Test', src: '/a.jpg', alt: 'a photo', location: 'Stratford, E15' },
     ];
-    expect(collectAreaJobs('Islington', ['N1'], items, [])).toHaveLength(0);
+    expect(collectAreaJobs('Islington', items, [])).toHaveLength(0);
   });
 
   it('matches on the area name, case-insensitively', () => {
     const items: GalleryPhotoItem[] = [
       { type: 'photo', id: '1', label: 'Test', src: '/a.jpg', alt: 'a photo', location: 'islington, N1' },
     ];
-    expect(collectAreaJobs('Islington', ['N1'], items, [])).toHaveLength(1);
+    expect(collectAreaJobs('Islington', items, [])).toHaveLength(1);
   });
 
-  it('matches on a postcode alone', () => {
+  it('does not treat a postcode alone as proof of a specific neighbourhood', () => {
     const items: GalleryBeforeAfterItem[] = [
       {
         type: 'before-after', id: 'ba-1', label: 'Living room carpet',
@@ -34,7 +34,7 @@ describe('collectAreaJobs', () => {
         location: 'N1 postcode job',
       },
     ];
-    expect(collectAreaJobs('Islington', ['N1'], items, [])).toHaveLength(1);
+    expect(collectAreaJobs('Islington', items, [])).toHaveLength(0);
   });
 
   it('includes carpet clips tagged with a matching location', () => {
@@ -42,7 +42,7 @@ describe('collectAreaJobs', () => {
       id: 'clip-1', label: 'Stair clean', src: '/v.mp4', poster: '/p.jpg',
       description: 'A stair carpet being cleaned', location: 'Islington, N1',
     };
-    const matches = collectAreaJobs('Islington', ['N1'], [], [clip]);
+    const matches = collectAreaJobs('Islington', [], [clip]);
     expect(matches).toHaveLength(1);
     expect(matches[0]).toMatchObject({ type: 'video', id: 'clip-1' });
   });
@@ -54,7 +54,14 @@ describe('RecentJobsByArea', () => {
     // "never fabricate proof" rule: it must stay true until a real photo is
     // actually tagged with a location, at which point this test is expected
     // to start failing for Islington and should be updated, not loosened.
-    const { container } = render(<RecentJobsByArea areaName="Islington" postcodes={['N1']} />);
+    const { container } = render(<RecentJobsByArea areaName="Islington" />);
     expect(container).toBeEmptyDOMElement();
   });
+});
+
+it('does not lend Islington media to Angel through their shared N1 district', () => {
+  const photo: GalleryPhotoItem = { type: 'photo', id: 'local-photo', label: 'Test', src: '/a.jpg', alt: 'Test photo', location: 'Islington, N1' };
+  const clip: CarpetVideo = { id: 'local-clip', label: 'Test', src: '/v.mp4', poster: '/p.jpg', description: 'Test clip', location: 'Islington, N1' };
+  expect(collectAreaJobs('Angel', [photo], [clip])).toEqual([]);
+  expect(collectAreaJobs('Islington', [photo], [clip])).toHaveLength(2);
 });

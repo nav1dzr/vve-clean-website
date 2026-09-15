@@ -26,6 +26,9 @@ import {
   PARKING_CHARGED_AT_ACTUAL_COST_NOTE,
 } from "../data/pricing";
 
+const requestedScrollBehavior = (): ScrollBehavior =>
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+
 const PARKING_ESTIMATE = PARKING_ESTIMATE_P / 100;
 const CONGESTION_CHARGE = CONGESTION_CHARGE_P / 100;
 
@@ -574,12 +577,12 @@ export default function BookingPage() {
     setSelection(sel);
     setShowSelector(false);
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(sel));
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: requestedScrollBehavior() });
   };
 
   const handleChangeService = () => {
     setShowSelector(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: requestedScrollBehavior() });
   };
 
   const setField =
@@ -654,7 +657,7 @@ export default function BookingPage() {
           ?.querySelector<HTMLElement>(`[data-summary-target="${item.key}"]`)
           ?.querySelector<HTMLElement>("input, select, textarea, button");
 
-    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.scrollIntoView({ behavior: requestedScrollBehavior(), block: "center" });
     el?.focus();
   };
 
@@ -674,7 +677,7 @@ export default function BookingPage() {
       requestAnimationFrame(() => {
         const summary = errorSummaryRef.current;
         if (summary) {
-          summary.scrollIntoView({ behavior: "smooth", block: "center" });
+          summary.scrollIntoView({ behavior: requestedScrollBehavior(), block: "center" });
           summary.focus();
           return;
         }
@@ -683,7 +686,7 @@ export default function BookingPage() {
         const el = formTopRef.current?.querySelector<HTMLElement>(
           '[data-error="true"]',
         );
-        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        el?.scrollIntoView({ behavior: requestedScrollBehavior(), block: "center" });
         el?.querySelector<HTMLElement>(
           "input, select, textarea, button",
         )?.focus();
@@ -776,7 +779,7 @@ export default function BookingPage() {
         /* The saved request is authoritative. */
       }
       try {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        window.scrollTo({ top: 0, behavior: requestedScrollBehavior() });
       } catch {
         /* Success does not require scrolling. */
       }

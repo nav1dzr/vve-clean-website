@@ -2,7 +2,7 @@ import BeforeAfterTile from './BeforeAfterTile';
 import VideoTile from './VideoTile';
 import { GALLERY_MEDIA, type GalleryItem, type GalleryVideoItem } from '../../data/galleryMedia';
 import { CARPET_RESULT_VIDEOS, CARPET_PROCESS_VIDEO, type CarpetVideo } from '../../data/carpetMedia';
-import { matchesArea } from '../../lib/areaMatch';
+import { matchesNamedArea } from '../../lib/areaMatch';
 
 const DEFAULT_MEDIA: GalleryItem[] = Object.values(GALLERY_MEDIA).flat();
 const DEFAULT_CARPET_CLIPS: CarpetVideo[] = [
@@ -22,9 +22,9 @@ function carpetVideoToGalleryItem(clip: CarpetVideo): GalleryVideoItem {
 }
 
 /**
- * Collects every gallery item and carpet clip whose real `location` matches
- * this area's name or one of its postcodes. `media`/`carpetClips` default to
- * the live manifests and only need overriding in tests.
+ * Collects gallery items and carpet clips explicitly tagged with this area's
+ * name. A postcode district can span several neighbourhoods and cannot prove
+ * that a job took place in any one of them.
  *
  * Nothing here invents a location: an item with no `location` set never
  * matches, so an area with no tagged jobs today returns an empty array —
@@ -32,20 +32,18 @@ function carpetVideoToGalleryItem(clip: CarpetVideo): GalleryVideoItem {
  */
 export function collectAreaJobs(
   areaName: string,
-  postcodes: string[],
   media: GalleryItem[] = DEFAULT_MEDIA,
   carpetClips: CarpetVideo[] = DEFAULT_CARPET_CLIPS,
 ): GalleryItem[] {
-  const galleryMatches = media.filter((item) => matchesArea(item.location, areaName, postcodes));
+  const galleryMatches = media.filter((item) => matchesNamedArea(item.location, areaName));
   const carpetMatches = carpetClips
-    .filter((clip) => matchesArea(clip.location, areaName, postcodes))
+    .filter((clip) => matchesNamedArea(clip.location, areaName))
     .map(carpetVideoToGalleryItem);
   return [...galleryMatches, ...carpetMatches];
 }
 
 export interface RecentJobsByAreaProps {
   areaName: string;
-  postcodes: string[];
 }
 
 /**
@@ -53,8 +51,8 @@ export interface RecentJobsByAreaProps {
  * nothing when there are none — this section must never show a placeholder
  * that implies a local job that hasn't actually happened.
  */
-export default function RecentJobsByArea({ areaName, postcodes }: RecentJobsByAreaProps) {
-  const items = collectAreaJobs(areaName, postcodes);
+export default function RecentJobsByArea({ areaName }: RecentJobsByAreaProps) {
+  const items = collectAreaJobs(areaName);
   if (items.length === 0) return null;
 
   return (

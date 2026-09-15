@@ -97,21 +97,20 @@ const DATA: ServiceLandingData = {
   schema: SCHEMA,
   breadcrumb: 'End of Tenancy Cleaning London',
 
-  eyebrow: 'End of Tenancy Cleaning',
+  eyebrow: 'For your move-out clean',
   h1: 'End of Tenancy Cleaning London',
   h1Highlight: '',
-  heroSubtitle: 'Moving out? Complete covers the kitchen, bathrooms and living areas, including the oven, listed appliance interiors and empty cupboards. Choose your property to check the price.',
+  heroSubtitle: 'Kitchen, bathrooms and living areas ready for handover. Our Complete clean includes the oven and listed appliance and cupboard interiors.',
+  heroTaxNoteCompact: true,
   heroAside: <ManagedServiceHeroPhoto service="end-of-tenancy" fallback={{ src: '/end_of_tenancy/before-after/kitchen1_after.jpg', alt: 'Kitchen hob after cleaning', caption: 'A real end of tenancy result' }} detail="See the full before-and-after pair below. Cleaning does not repair existing scratches or wear." managedDetail="Cleaning does not repair existing scratches or wear." />,
   heroAsideOnMobile: true,
   heroPriceChip: `Studio flat Complete clean from ${pDisplay(EOT_BASE_PRICES_P.studio)}`,
   heroBadges: [
     'Oven cleaning included',
     `${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee`,
-    'Photographic receipt for your agent',
   ],
   heroGoogleBadge: true,
   heroCompactMobile: true,
-  heroTrustLine: '£5m public liability insurance · scope agreed with you',
   primaryHref: '/end-of-tenancy-cleaning-london#quote',
   primaryLabel: 'Check my price',
   secondaryHref: WA,
@@ -150,6 +149,7 @@ const DATA: ServiceLandingData = {
 
   whyH2: 'What every Complete end of tenancy clean includes',
   whyPoints: [
+    '£5m public liability insurance',
     'Kitchen and living-area tasks listed in your quote',
     'Oven, hob, grill, extractor and listed appliance interiors',
     'Inside all cupboards, drawers and wardrobes',

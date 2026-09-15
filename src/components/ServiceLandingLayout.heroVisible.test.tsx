@@ -84,12 +84,13 @@ describe('ServiceLandingLayout hero is painted by the prerendered HTML', () => {
   });
 });
 
-describe('below-the-fold reveal animations are preserved', () => {
-  it('still ships reveal state for sections further down the page', () => {
+describe('supporting content survives delayed or unavailable JavaScript', () => {
+  it('ships readable supporting sections without a scroll observer', () => {
     const html = ssr('/carpet-cleaning-london', <CarpetCleaningPage />);
 
-    // Guards against "fixing" the hero by deleting useReveal everywhere.
-    expect(html).toContain('opacity-0 translate-y-8');
+    expect(html).not.toContain('opacity-0 translate-y-8');
+    expect(html).toContain('What every carpet clean includes');
+    expect(html).toContain('Common questions');
   });
 });
 

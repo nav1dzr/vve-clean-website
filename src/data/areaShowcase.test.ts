@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { selectAreaShowcaseVideos } from './areaShowcase';
+import { describe, expect, it, vi } from 'vitest';
+import { getAreaShowcaseVideos, selectAreaShowcaseVideos } from './areaShowcase';
 
 describe('area-page media selection', () => {
   it('shows two real clips from different services', () => {
@@ -26,4 +26,16 @@ describe('area-page media selection', () => {
     );
     expect(combinations.size).toBeGreaterThan(2);
   });
+});
+
+it('keeps published clips identical when prerender and navigation occur on different dates', () => {
+  vi.useFakeTimers();
+  try {
+    vi.setSystemTime(new Date('2026-09-15T23:59:00Z'));
+    const built = getAreaShowcaseVideos('islington');
+    vi.setSystemTime(new Date('2026-09-20T09:00:00Z'));
+    expect(getAreaShowcaseVideos('islington')).toEqual(built);
+  } finally {
+    vi.useRealTimers();
+  }
 });

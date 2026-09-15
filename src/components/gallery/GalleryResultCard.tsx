@@ -1,33 +1,17 @@
-import { useState } from 'react';
-import { Maximize2, Play } from 'lucide-react';
+import { Maximize2 } from 'lucide-react';
 import BeforeAfterTile from './BeforeAfterTile';
 import ManagedVideo from '../media/ManagedVideo';
+import LazyVideo from '../media/LazyVideo';
 import type { GalleryCategory, GalleryItem, GalleryVideoItem } from '../../data/galleryMedia';
 
 function GalleryVideo({ item }: { item: GalleryVideoItem }) {
-  const [playing, setPlaying] = useState(false);
-
   return (
     <figure className="overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
       {item.playerUrl ? (
         <ManagedVideo playerUrl={item.playerUrl} poster={item.poster} title={item.description || item.label} />
       ) : (
-        <div className="aspect-video bg-navy-950">
-          {playing ? (
-            <video src={item.src} poster={item.poster} controls autoPlay playsInline preload="none"
-              aria-label={item.description || item.label} className="block h-full w-full object-contain" />
-          ) : (
-            <button type="button" onClick={() => setPlaying(true)} aria-label={`Play ${item.label}`}
-              className="group relative block h-full w-full focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-400">
-              <img src={item.poster} alt="" width={640} height={360} loading="lazy" decoding="async" className="h-full w-full object-contain" />
-              <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center bg-black/15">
-                <span className="inline-flex min-h-12 items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-navy-950 shadow-lg motion-safe:transition-colors group-hover:bg-sky-100">
-                  <Play size={18} fill="currentColor" /> Play video
-                </span>
-              </span>
-            </button>
-          )}
-        </div>
+        <LazyVideo video={{ src: item.src, poster: item.poster, description: item.description || item.label, playLabel: item.label }}
+          className="aspect-video w-full min-w-0 rounded-2xl" />
       )}
       <figcaption className="flex items-start justify-between gap-3 px-5 py-4">
         <span className="text-sm font-semibold text-ink">{item.label}</span>

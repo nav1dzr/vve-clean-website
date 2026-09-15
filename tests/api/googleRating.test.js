@@ -14,13 +14,26 @@ describe('shared Google aggregate endpoint', () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ rating: 4.8, userRatingCount: 31, reviews: ['not exposed'] }) }); vi.stubGlobal('fetch', fetch);
     const res = response(); await handler({ method: 'GET', query: { place: 'attacker' } }, res);
     expect(fetch.mock.calls[0][0]).toBe('https://places.googleapis.com/v1/places/ChIJtestplace123');
-    expect(fetch.mock.calls[0][1].headers['X-Goog-FieldMask']).toBe('rating,userRatingCount');
+    expect(fetch.mock.calls[0][1].headers['X-Goog-FieldMask']).toBe('rating,userRatingCount,attributions');
     const output = JSON.parse(res.end.mock.calls[0][0]); expect(output.rating).toMatchObject({ value: 4.8, count: 31, live: true }); expect(output).not.toHaveProperty('reviews');
   });
-  it.each([{ rating: 7, userRatingCount: 2 }, { rating: 5, userRatingCount: '26' }, { rating: 5, userRatingCount: 0 }])('rejects invalid aggregates', async data => {
+  it.each([{ rating: 7, userRatingCount: 2 }, { rating: 5, userRatingCount: '26' }, { rating: 5, userRatingCount: 0 }, { rating: NaN, userRatingCount: 26 }, { rating: Infinity, userRatingCount: 26 }, { rating: 5, userRatingCount: Number.MAX_SAFE_INTEGER + 1 }, null])('rejects invalid aggregates', async data => {
     vi.stubEnv('GOOGLE_RATING_ENABLED', 'true'); vi.stubEnv('GOOGLE_PLACES_API_KEY', 'test-key'); vi.stubEnv('GOOGLE_PLACES_PLACE_ID', 'ChIJtestplace123');
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => data }));
     const res = response(); await handler({ method: 'GET' }, res); expect(res.writeHead.mock.calls[0][0]).toBe(503);
   });
-  it('does not allow mutation methods', async () => { const res = response(); await handler({ method: 'POST' }, res); expect(res.writeHead.mock.calls[0][0]).toBe(405); });
+  it.each([{ attributions: [{ provider: 'Another provider', providerUri: 'https://example.com' }] }, { attributions: 'invalid' }])('keeps the fallback when extra provider attribution cannot be displayed', async extra => {
+    vi.stubEnv('GOOGLE_RATING_ENABLED', 'true'); vi.stubEnv('GOOGLE_PLACES_API_KEY', 'test-key'); vi.stubEnv('GOOGLE_PLACES_PLACE_ID', 'ChIJtestplace123');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ rating: 4.8, userRatingCount: 31, ...extra }) }));
+    const res = response(); await handler({ method: 'GET' }, res);
+    expect(res.writeHead.mock.calls[0][0]).toBe(503); expect(JSON.parse(res.end.mock.calls[0][0])).toEqual({ rating: null });
+  });
+  it('does not expose credentials or provider errors and prevents caching', async () => {
+    vi.stubEnv('GOOGLE_RATING_ENABLED', 'true'); vi.stubEnv('GOOGLE_PLACES_API_KEY', 'private-test-key'); vi.stubEnv('GOOGLE_PLACES_PLACE_ID', 'ChIJtestplace123');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('private-test-key provider error')));
+    const res = response(); await handler({ method: 'GET' }, res);
+    expect(res.writeHead).toHaveBeenCalledWith(503, expect.objectContaining({ 'Cache-Control': 'no-store' }));
+    expect(res.end).toHaveBeenCalledWith(JSON.stringify({ rating: null }));
+  });
+  it('does not allow mutation methods' , async () => { const res = response(); await handler({ method: 'POST' }, res); expect(res.writeHead.mock.calls[0][0]).toBe(405); });
 });

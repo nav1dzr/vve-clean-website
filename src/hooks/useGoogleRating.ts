@@ -1,24 +1,25 @@
 import { useEffect, useState } from 'react';
-import { VERIFIED_GOOGLE_RATING, type VerifiedGoogleRating } from '../data/googleRating';
+import { VERIFIED_GOOGLE_RATING } from '../data/googleRating';
+import { parseGoogleRating, type GoogleRating } from '../lib/googleRatingDisplay';
 import { isPrivatePage } from '../lib/privatePage';
 
-type Rating = VerifiedGoogleRating & { live?: boolean };
-let pending: Promise<Rating | null> | undefined;
-/** One same-origin request shared by all badges during this page visit. */
+let pending: Promise<GoogleRating | null> | undefined;
+/** One same-origin request shared by badges in this visit; no persisted API data. */
 export function useGoogleRating() {
-  const [rating, setRating] = useState<Rating | null>(VERIFIED_GOOGLE_RATING);
+  const [rating, setRating] = useState<GoogleRating | null>(VERIFIED_GOOGLE_RATING);
   useEffect(() => {
     if (isPrivatePage()) return;
     let active = true;
-    pending ??= fetch('/api/google-rating', { credentials: 'omit', signal: AbortSignal.timeout(6000) })
-      .then(async response => {
-        if (!response.ok) return null;
-        const { rating: next } = await response.json();
-        return next && typeof next.value === 'number' && next.value >= 1 && next.value <= 5
-          && Number.isInteger(next.count) && next.count > 0 && Number.isFinite(Date.parse(next.verifiedOn))
-          ? next as Rating : null;
-      }).catch(() => null);
-    pending.then(next => { if (active && next) setRating(next); });
+    // Promise.resolve also catches browsers where fetch or timeout support fails
+    // synchronously, leaving the server-rendered, dated snapshot intact.
+    pending ??= Promise.resolve().then(() => fetch('/api/google-rating', {
+      credentials: 'omit', cache: 'no-store', signal: AbortSignal.timeout(6000),
+    })).then(async response => {
+      if (!response.ok) return null;
+      const data: unknown = await response.json();
+      return data && typeof data === 'object' && 'rating' in data ? parseGoogleRating(data.rating) : null;
+    }).catch(() => null);
+    pending.then(next => { if (active && next && !isPrivatePage()) setRating(next); });
     return () => { active = false; };
   }, []);
   return rating;

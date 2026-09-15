@@ -16,9 +16,8 @@ describe("managed video loading", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Play Carpet extraction" }),
     );
-    expect(screen.getByTitle("Carpet extraction")).toHaveAttribute(
-      "src",
-      "https://player.mux.com/test",
-    );
+    const url = new URL(screen.getByTitle("Carpet extraction").getAttribute("src")!);
+    expect(url.origin + url.pathname).toBe("https://player.mux.com/test");
+    expect(url.searchParams.get("muted")).toBe("true");
   });
 });

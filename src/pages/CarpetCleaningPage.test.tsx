@@ -40,7 +40,9 @@ describe('CarpetCleaningPage — quote placement and proof placeholders', () => 
     });
     expect(heroImage).toHaveAttribute('src', '/images/carpet-cleaning-hero.webp');
     expect(screen.getByText('Carpet extraction in progress')).toBeInTheDocument();
-    expect(heroImage.closest('figure')?.querySelector('figcaption')).toHaveTextContent(/stain removal varies/i);
+    expect(within(heroImage.closest('figure')!).getByRole('link', { name: 'See before & after results' })).toHaveAttribute('href', '#results');
+    expect(screen.getByRole('heading', { name: 'Before your carpet clean' })).toBeInTheDocument();
+    expect(screen.getByText(/We check the fibre and discuss any stains/)).toBeInTheDocument();
   });
 
   it('surfaces a carpet-focused instant quote calculator directly after the hero, and the hero CTA reaches it', () => {
@@ -59,7 +61,7 @@ describe('CarpetCleaningPage — quote placement and proof placeholders', () => 
     expect(screen.getByText('Would you also like upholstery cleaning?')).toBeInTheDocument();
     expect(screen.queryByText('2-seater sofa')).not.toBeInTheDocument();
 
-    const heroCta = screen.getAllByRole('link', { name: 'Build my carpet quote' })[0];
+    const heroCta = screen.getAllByRole('link', { name: 'Choose my rooms' })[0];
     expect(heroCta).toHaveAttribute('href', '/carpet-cleaning-london#quote');
   });
 

@@ -5,7 +5,7 @@ import { useReveal } from '../hooks/useReveal';
 import GoogleBadge from './GoogleBadge';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import MobileStickyFooter from './MobileStickyFooter';
+import MobileStickyFooter, { type MobileLandingAction } from './MobileStickyFooter';
 import Gallery from './Gallery';
 import Reviews from './Reviews';
 import ServiceHeroPhoto from './ServiceHeroPhoto';
@@ -91,6 +91,8 @@ export interface ServiceLandingData {
   secondaryHref: string;
   secondaryLabel: string;
   secondaryIsWa?: boolean;
+  // Optional first step for area pages without an inline quote calculator.
+  mobileLandingAction?: MobileLandingAction;
 
   // Optional section rendered directly after the hero (before Intro) — used
   // for the compact, service-specific quote calculator so it sits as close
@@ -433,7 +435,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
           className={`transition-all duration-700 ${relatedReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
         >
           <h2 className="font-display text-xl font-bold text-navy-900 mb-5 text-center">
-            Other services
+            Explore services and advice
           </h2>
           <div className="flex flex-wrap justify-center gap-3">
             {data.relatedLinks.map((link) => {
@@ -444,7 +446,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
                   href={link.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 border border-slate-300 hover:border-royal-500 text-slate-700 hover:text-royal-600 text-sm font-medium px-4 py-2 rounded-full transition-all duration-200 bg-white hover:bg-royal-50"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 border border-slate-300 hover:border-royal-500 text-slate-700 hover:text-royal-600 text-sm font-medium px-4 py-2 rounded-full transition-all duration-200 bg-white hover:bg-royal-50"
                 >
                   {link.label}
                 </a>
@@ -452,7 +454,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
                 <Link
                   key={link.href}
                   to={link.href}
-                  className="inline-flex items-center gap-1.5 border border-slate-300 hover:border-royal-500 text-slate-700 hover:text-royal-600 text-sm font-medium px-4 py-2 rounded-full transition-all duration-200 bg-white hover:bg-royal-50"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 border border-slate-300 hover:border-royal-500 text-slate-700 hover:text-royal-600 text-sm font-medium px-4 py-2 rounded-full transition-all duration-200 bg-white hover:bg-royal-50"
                 >
                   {link.label}
                 </Link>
@@ -510,7 +512,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
               {data.heroBadges.length > 0 && <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-700">
                 {data.heroBadges.map((badge) => <li key={badge} className="flex items-start gap-2"><span className="font-bold text-royal-700" aria-hidden="true">✓</span>{badge}</li>)}
               </ul>}
-              {data.heroGoogleBadge && <div className="mt-5"><GoogleBadge /></div>}
+              {data.heroGoogleBadge && <div className="mt-4"><GoogleBadge variant="compact" /></div>}
               {data.heroTrustLine && <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-600">{data.heroTrustLine}</p>}
             </div>
             {data.heroAside ? <div className={data.heroAsideOnMobile ? 'min-w-0' : 'hidden min-w-0 lg:block'}>{data.heroAside}</div> : data.heroBgImage ? (
@@ -581,7 +583,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
         <Footer />
       </div>
 
-      <MobileStickyFooter />
+      <MobileStickyFooter landingAction={data.mobileLandingAction} />
     </BookingProvider>
   );
 }
