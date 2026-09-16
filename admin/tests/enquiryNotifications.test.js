@@ -83,7 +83,9 @@ describe('durable enquiry delivery claims', () => {
       expect(part).toContain('opening hours'); expect(part).toContain('VVE Limited trading as VVE Clean');
       expect(part).toContain('17234391'); expect(part).not.toMatch(/within (one|the) hour/);
     }
-    expect(customer.replyTo).toBe('business@example.com');
+    expect(customer.replyTo).toBe('contact@vveclean.co.uk');
+    const business = sendMail.mock.calls.map(([mail]) => mail).find(mail => mail.to === 'business@example.com');
+    expect(business.replyTo).toBe(row.email);
   });
 
   it('keeps long Telegram summaries within the platform limit with a CRM continuation', () => {

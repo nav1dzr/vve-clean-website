@@ -8,6 +8,7 @@ type Agreement = {
   items: string;
   scope: string;
   exclusions: string;
+  accessNotes: string;
   address: string;
   postcode: string;
   date: string;
@@ -127,7 +128,7 @@ export default function BookingJourneyPanel({
       .then((data) => {
         if (active) {
           setView(data);
-          if (data.journey) setAgreement(data.journey.draft);
+          if (data.journey) setAgreement({ ...data.journey.draft, accessNotes: data.journey.draft.accessNotes || "" });
         }
       })
       .catch((e) => {
@@ -154,7 +155,7 @@ export default function BookingJourneyPanel({
         }),
       });
       setView(result);
-      if (result.journey) setAgreement(result.journey.draft);
+      if (result.journey) setAgreement({ ...result.journey.draft, accessNotes: result.journey.draft.accessNotes || "" });
       setNotice(
         result.deliveries?.some((d) => d.status === "failed")
           ? "Booking saved. A notification or calendar update needs attention; review the delivery history below."
@@ -246,16 +247,16 @@ export default function BookingJourneyPanel({
             <dt className="text-xs text-navy-500">Version</dt>
             <dd>{j.offer_version || "Draft"}</dd>
           </div>
-          <div>
+          {j.paid_pence > 0 && <div>
             <dt className="text-xs text-navy-500">Paid</dt>
             <dd>{money(j.paid_pence)}</dd>
-          </div>
-          <div>
+          </div>}
+          {j.refunded_pence > 0 && <div>
             <dt className="text-xs text-navy-500">Refunded</dt>
             <dd>{money(j.refunded_pence)}</dd>
-          </div>
+          </div>}
           <div>
-            <dt className="text-xs text-navy-500">Balance</dt>
+            <dt className="text-xs text-navy-500">{j.paid_pence > 0 ? "Balance" : "Total"}</dt>
             <dd>
               {money(
                 Math.max(
@@ -286,7 +287,7 @@ export default function BookingJourneyPanel({
         </summary>
         <div className="mt-4 rounded-xl bg-sky-50 p-4 text-sm text-navy-800">
           <p className="font-semibold">1. Check the details · 2. Preview the email · 3. Send</p>
-          <p className="mt-2">The request supplies the items, address and estimated price. Check these against your conversation and set the agreed date and arrival window. Suggested wording is editable; blank optional fields are left out of the email.</p>
+          <p className="mt-2">Check the cleaning list, total and arrival time against your conversation. New requests include suggested wording where the selected service is known. Edit it to match the work you agreed; optional blank fields stay out of the customer email.</p>
           <button type="button" className={`${button} mt-3 bg-white`} disabled={busy}
             onClick={() => {
               setAgreement((old) => fillMissingAgreementText(old, booking));
@@ -313,7 +314,7 @@ export default function BookingJourneyPanel({
             />
           </label>
           <label className="text-sm">
-            Agreed total (£)
+            Total (£)
             <input
               required
               className={field}
@@ -327,36 +328,51 @@ export default function BookingJourneyPanel({
             />
           </label>
           <label className="text-sm sm:col-span-2">
-            Included items and quantities
+            Your cleaning includes
             <textarea
               required
               className={field}
-              rows={3}
+              rows={6}
               value={agreement.items}
               onChange={(e) => update("items", e.target.value)}
               maxLength={3000}
             />
+            <span className="mt-1 block text-xs text-navy-600">One item or cleaning task per line. Include the rooms, quantities and extras you agreed. Put parking and other access charges in their own section below.</span>
           </label>
           <label className="text-sm">
-            Included scope
+            Additional details (optional)
             <textarea
               className={field}
               rows={3}
               value={agreement.scope}
               onChange={(e) => update("scope", e.target.value)}
               maxLength={3000}
+              placeholder="Anything specific to this clean, such as a treatment or an area needing extra care."
             />
+            <span className="mt-1 block text-xs text-navy-600">Only add details the cleaning list does not already cover. You can leave this blank.</span>
           </label>
           <label className="text-sm">
-            Exclusions / agreed access costs
+            Not included (optional)
             <textarea
               className={field}
               rows={3}
               value={agreement.exclusions}
               onChange={(e) => update("exclusions", e.target.value)}
               maxLength={2000}
-              placeholder="Optional: only record exclusions or additional charges actually agreed."
+              placeholder="Any work you specifically agreed to leave out."
             />
+          </label>
+          <label className="text-sm sm:col-span-2">
+            Parking and access costs (optional)
+            <textarea
+              className={field}
+              rows={3}
+              value={agreement.accessNotes}
+              onChange={(e) => update("accessNotes", e.target.value)}
+              maxLength={2000}
+              placeholder="For example: parking arrangements and any agreed Congestion Charge."
+            />
+            <span className="mt-1 block text-xs text-navy-600">Use one line per arrangement or charge. These are shown separately from the cleaning tasks. This wording does not change the total above.</span>
           </label>
           <label className="text-sm">
             Appointment date
@@ -399,25 +415,26 @@ export default function BookingJourneyPanel({
             />
           </label>
           <label className="text-sm sm:col-span-2">
-            Preparation / access instructions
+            Message to help the customer prepare (optional)
             <textarea
               className={field}
               rows={2}
               value={agreement.preparation}
               onChange={(e) => update("preparation", e.target.value)}
             />
+            <span className="mt-1 block text-xs text-navy-600">Shown as a separate “Before we arrive” message in the email and booking page.</span>
           </label>
           <label className="text-sm">Payment arrangement
             <select className={field} value={agreement.paymentPlan || "after_clean"} onChange={(e) => update("paymentPlan", e.target.value)} disabled={["confirmed", "change_pending"].includes(j?.state || "")}>
               <option value="deposit_after_agreement">£30 deposit after agreeing the details</option>
-              <option value="after_clean">Confirm directly — payment after the clean</option>
+              <option value="after_clean">Confirm directly — payment on the cleaning day</option>
             </select>
           </label>
           {agreement.paymentPlan === "deposit_after_agreement" && <label className="text-sm">Pay within
             <select className={field} value={agreement.paymentWindowHours || 48} onChange={(e) => update("paymentWindowHours", Number(e.target.value))}>
               {[2, 6, 12, 24, 48].map((hours) => <option key={hours} value={hours}>{hours} hours</option>)}
             </select>
-            <span className="mt-1 block text-xs text-navy-600">Choose a deadline before the arrival window. The £30 comes off the agreed total.</span>
+            <span className="mt-1 block text-xs text-navy-600">Choose a deadline before the arrival window. The £30 comes off the total; the rest is due on the cleaning day.</span>
           </label>}
           <label className="text-sm sm:col-span-2">
             Reason for agreed scope, price or changes

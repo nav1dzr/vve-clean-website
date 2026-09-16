@@ -657,6 +657,7 @@ describe("booking lifecycle and payment races", () => {
 });
 describe("communication failure handling", () => {
   it("never automatically resends an email because the legacy request flag failed after successful delivery", async () => {
+    vi.stubEnv("BUSINESS_EMAIL", "admin@vveclean.co.uk");
     const db = memoryDb();
     db.tables.bookings[0].email_customer_sent = false;
     db.tables.bookings[0].email_business_sent = true;
@@ -674,6 +675,7 @@ describe("communication failure handling", () => {
     );
     const transport = nodemailer.createTransport.mock.results.at(-1).value;
     expect(transport.sendMail).toHaveBeenCalledTimes(1);
+    expect(transport.sendMail.mock.calls[0][0].replyTo).toBe("contact@vveclean.co.uk");
     db.failLegacyFlag = false;
     await performAdminAction(
       db,
@@ -783,15 +785,15 @@ describe("bank instructions in directly confirmed bookings", () => {
     const email = emailForMessage(message.payload);
     expect(email.text).toContain("EXAMPLE ONLY");
     expect(email.text).not.toContain("LATER SETTINGS");
-    expect(email.text).toContain("no payment is needed now");
-    expect(email.html).toContain("Payment after your clean");
+    expect(email.text).toContain("No deposit is needed");
+    expect(email.html).toContain("Paying your balance");
     expect(email.text).not.toContain("Internal agreement note");
     expect(publicJourney(db.tables.bookings[0], j).canPayBalance).toBe(false);
     expect(fetch).not.toHaveBeenCalled();
     await performAdminAction(db, ID, { operation: "complete", revision: j.revision }, "test");
     j = db.tables.booking_journeys[0];
     expect(publicJourney(db.tables.bookings[0], j).canPayBalance).toBe(true);
-    expect(emailForMessage(db.tables.booking_journey_messages.find((m) => m.kind === "balance_due").payload).text).toContain("Payment is now due");
+    expect(emailForMessage(db.tables.booking_journey_messages.find((m) => m.kind === "balance_due").payload).text).toContain("pay the remaining balance by card");
   });
   it("keeps the reviewed bank account and customer reference when settings or the appointment date change", async () => {
     configureBank();
@@ -830,6 +832,17 @@ describe("bank instructions in directly confirmed bookings", () => {
 
 describe("deposit after owner agreement", () => {
   const offered = (extra = {}) => memoryDb({ state: "offered", snapshot: depositSnapshot, draft: depositSnapshot, offer_version: 1, hold_until: "2026-09-10T12:00:00Z", ...extra });
+  it("preserves separate access notes from the editable draft through the sent agreement and customer view", async () => {
+    const db = memoryDb();
+    const agreement = { ...depositSnapshot, accessNotes: "Parking permit supplied. Congestion charge £18 included in the total." };
+    await performAdminAction(db, ID, { operation: "draft", revision: 0, agreement }, "admin:test");
+    await performAdminAction(db, ID, { operation: "send", revision: 1, availabilityConfirmed: true }, "admin:test");
+    const j = db.tables.booking_journeys[0];
+    expect(j.snapshot.accessNotes).toBe(agreement.accessNotes);
+    expect(j.snapshot.totalPence).toBe(depositSnapshot.totalPence);
+    expect(publicJourney(db.tables.bookings[0], j).agreement.accessNotes).toBe(agreement.accessNotes);
+    expect(emailForMessage(db.tables.booking_journey_messages[0].payload).text).toContain(agreement.accessNotes);
+  });
   it("sends an agreed £30 request, creates a fixed card checkout, and confirms one payment only", async () => {
     const db = memoryDb({ draft: depositSnapshot });
     await performAdminAction(db, ID, { operation: "send", revision: 0, availabilityConfirmed: true }, "admin:test");
@@ -857,7 +870,7 @@ describe("deposit after owner agreement", () => {
     expect(db.tables.booking_journey_messages.filter(m => m.kind === "confirmation")).toHaveLength(1);
     expect(db.tables.booking_journey_messages.find(m => m.kind === "deposit_request").status).toBe("sent");
     const confirmation = db.tables.booking_journey_messages.find(m => m.kind === "confirmation");
-    expect(emailForMessage(confirmation.payload).text).toContain("received your deposit");
+    expect(emailForMessage(confirmation.payload).text).toContain("Your payment is recorded below");
   });
   it("records a checked bank transfer and credits £30 without Stripe or a second payment", async () => {
     const db = offered(), j = db.tables.booking_journeys[0];

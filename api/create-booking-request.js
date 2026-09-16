@@ -289,7 +289,7 @@ async function sendNotifications(data) {
       transport.sendMail({
         from: `"VVE Clean" <${process.env.GMAIL_SENDER}>`,
         to: preview ? testInbox : data.email,
-        replyTo: preview ? testInbox : process.env.BUSINESS_EMAIL,
+        replyTo: preview ? testInbox : "contact@vveclean.co.uk",
         subject: `${preview ? '[TEST] ' : ''}Request received — ${data.bookingRef}`,
         text: customerText(data),
         html: emailHtml(data),

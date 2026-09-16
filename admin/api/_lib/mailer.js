@@ -46,6 +46,7 @@ export async function sendMail({ to, subject, html, text, attachments, fromName 
     const info = await transport.sendMail({
       from: fromName ? `"${fromName}" <${process.env.GMAIL_SENDER}>` : process.env.GMAIL_SENDER,
       to: isolation.preview ? previewTestInbox() : to,
+      replyTo: isolation.preview ? previewTestInbox() : 'contact@vveclean.co.uk',
       subject: `${isolation.preview ? '[TEST] ' : ''}${subject}`,
       html,
       text: text || undefined,

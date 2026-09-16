@@ -235,7 +235,7 @@ export async function deliverEnquiry(supabase, row, { retryUnconfirmed = false }
     ['sheet', !preview && process.env.GOOGLE_SHEET_CONTACT && process.env.CONTACT_SHEET_SECRET, () => sendToGoogleSheets(data)],
     ['telegram', !preview && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID, () => sendTelegram(contactTelegramText(data))],
     ['businessEmail', emailReady, () => transport.sendMail({ from: `"VVE Clean Enquiries" <${process.env.GMAIL_SENDER}>`, to: preview ? testInbox : process.env.BUSINESS_EMAIL, replyTo: preview ? testInbox : data.email, subject: `${preview ? '[TEST] ' : ''}New website enquiry`, text: contactBusinessText(data), html: businessEmailHtml(data) })],
-    ['customerEmail', emailReady, () => transport.sendMail({ from: `"VVE Clean" <${process.env.GMAIL_SENDER}>`, to: preview ? testInbox : data.email, replyTo: preview ? testInbox : process.env.BUSINESS_EMAIL, subject: `${preview ? '[TEST] ' : ''}We received your message – VVE Clean`, text: contactCustomerText(data), html: customerEmailHtml(data) })],
+    ['customerEmail', emailReady, () => transport.sendMail({ from: `"VVE Clean" <${process.env.GMAIL_SENDER}>`, to: preview ? testInbox : data.email, replyTo: preview ? testInbox : 'contact@vveclean.co.uk', subject: `${preview ? '[TEST] ' : ''}We received your message – VVE Clean`, text: contactCustomerText(data), html: customerEmailHtml(data) })],
   ];
   const results = await Promise.allSettled(jobs.map(async ([key, ready, send]) => {
     if (delivery[key]?.status === 'sent') return;

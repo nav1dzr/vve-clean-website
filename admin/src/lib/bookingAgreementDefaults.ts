@@ -1,12 +1,37 @@
 import type { BookingDetail } from "../types/booking";
+import { bookingContent } from "../../shared/bookingPresentation.js";
 
 export type AgreementText = {
   service: string;
   items: string;
   scope: string;
   exclusions: string;
+  accessNotes: string;
   preparation: string;
 };
+
+// Compact, editable summaries of the package inclusions already published in
+// EotQuoteWizard and EotProcessSection. An absent package never means Complete.
+function tenancyChecklist(config: Record<string, unknown>): string[] {
+  if (config.service !== "deep" || config.deepService !== "end_of_tenancy") return [];
+  if (config.eotPackage === "complete") return [
+    "Oven, hob, grill and extractor",
+    "Microwave, emptied fridge/freezer, dishwasher and washing-machine interiors",
+    "Empty cupboards, drawers and wardrobes, inside and out",
+    "Kitchen and bathroom detailing, including accessible tiles, grouting and fittings",
+    "Bedrooms and living areas: accessible internal windows, skirting boards, doors, frames and switches",
+    "Standard vacuuming and suitable hard-floor mopping",
+    "Photographic cleaning receipt",
+  ];
+  if (config.eotPackage === "tailored") return [
+    "One standard oven, hob, grill and extractor clean",
+    "Kitchen and bathroom surfaces",
+    "Bedrooms and reception rooms: accessible internal windows, skirting boards, doors, frames and switches",
+    "Standard vacuuming and suitable hard-floor mopping",
+    "Photographic cleaning receipt",
+  ];
+  return [];
+}
 
 // Suggestions only: the owner reviews them before sending. Never calculate a
 // price or infer a guarantee, extra service, access charge or customer agreement.
@@ -23,15 +48,26 @@ export function bookingAgreementText(booking: Pick<BookingDetail, "service" | "q
     ? names[String(config.deepService)] || original.split(/\r?\n/)[0]
     : ({ window: "Window cleaning", gutter: "Gutter cleaning", office: "Office cleaning" } as Record<string, string>)[String(config.service)] || original.split(/\r?\n/)[0];
   const isFabric = config.service === "deep" && config.deepService === "carpet_upholstery";
+  const content = bookingContent({ items: original });
+  const cleaning = content.cleaning.join("\n");
+  const checklist = tenancyChecklist(config).map((task) =>
+    /^(?:One standard )?Oven, hob/i.test(task) && /inside oven|oven clean/i.test(cleaning)
+      ? "Hob, grill and extractor"
+      : task,
+  );
+  // Keep the original quantities and selected extras. A short package task
+  // list supplements them only for a new draft whose package is known.
+  const withChecklist = checklist.length
+    ? `${cleaning}\n${checklist.join("\n")}`.trim()
+    : cleaning;
   return {
     service: service.slice(0, 200),
-    // Keep every original selection, condition note and access charge visible.
-    // Staff can shorten this after checking the original request below the form.
-    items: original,
+    items: withChecklist.length <= 3000 ? withChecklist : cleaning,
     scope: isFabric
       ? "Clean the listed items, with the fibre and condition checked before choosing a suitable treatment. Hot-water extraction is used where suitable. Stain removal depends on the material and the mark."
-      : "Clean the items and areas listed above. Any additional work or change in price will be agreed with you before it is carried out.",
+      : "",
     exclusions: "",
+    accessNotes: content.access.join("\n"),
     preparation: isFabric
       ? "Please clear small belongings from the areas being cleaned and arrange access for our team. Let us know about any access restrictions before the visit."
       : "Please arrange access for the agreed arrival window and let us know about any access restrictions before the visit.",
@@ -52,6 +88,6 @@ export function fillMissingAgreementText<T extends AgreementText>(current: T, bo
   const suggested = bookingAgreementText(booking);
   return {
     ...current,
-    ...Object.fromEntries(Object.entries(suggested).filter(([key]) => !current[key as keyof AgreementText].trim())),
+    ...Object.fromEntries(Object.entries(suggested).filter(([key]) => !current[key as keyof AgreementText]?.trim())),
   };
 }

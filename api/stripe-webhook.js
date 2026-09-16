@@ -875,7 +875,7 @@ export default async function handler(req, res) {
         await transport.sendMail({
           from:    `"VVE Clean" <${process.env.GMAIL_SENDER}>`,
           to:      meta.email,
-          replyTo: process.env.BUSINESS_EMAIL,
+          replyTo: "contact@vveclean.co.uk",
           subject: `We've received your booking request — ${meta.service || 'VVE Clean'}`,
           text:    bookingCustomerText(meta, bookingRef),
           html:    customerEmailHtml(meta, bookingRef),
