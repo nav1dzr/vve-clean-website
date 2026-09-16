@@ -27,6 +27,10 @@ type Booking = {
   refundedPence: number;
   balancePence: number;
   customerRequest: { kind: string; date?: string; time?: string } | null;
+  paymentInstructions?: {
+    due: "after_clean";
+    bank: { accountName: string; sortCode: string; accountNumber: string; reference: string } | null;
+  } | null;
   canPayDeposit: boolean;
   canPayBalance: boolean;
   canChange: boolean;
@@ -395,6 +399,26 @@ export default function BookingManagementPage() {
                       ? "Preparing…"
                       : `Pay ${money(booking.balancePence)} remaining balance`}
                   </button>
+                )}
+                {booking.paymentInstructions && ["confirmed", "completed"].includes(booking.state) && booking.balancePence > 0 && (
+                  <section className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-5" aria-labelledby="bank-payment-heading">
+                    <h3 id="bank-payment-heading" className="font-semibold">Bank transfer</h3>
+                    <p className="mt-2 text-sm leading-relaxed">
+                      {booking.state === "completed"
+                        ? "You can transfer the remaining balance using these details. If you have already paid, please do not pay again while we check receipt."
+                        : "Keep these details for after the clean. Your appointment is already confirmed; no payment is needed now. Card payment will also be available from this page after the clean."}
+                    </p>
+                    {booking.paymentInstructions.bank ? (
+                      <>
+                        <dl className="mt-4 space-y-3 text-sm">
+                          {Object.entries({ "Account name": booking.paymentInstructions.bank.accountName, "Sort code": booking.paymentInstructions.bank.sortCode, "Account number": booking.paymentInstructions.bank.accountNumber, "Payment reference": booking.paymentInstructions.bank.reference }).map(([label, value]) => (
+                            <div key={label}><dt className="text-slate-600">{label}</dt><dd className="mt-1 break-words font-semibold">{value}</dd></div>
+                          ))}
+                        </dl>
+                        <p className="mt-4 text-sm">Use this exact reference so we can match your transfer. We record a bank payment after checking it has arrived.</p>
+                      </>
+                    ) : <p className="mt-3 text-sm">Please contact the team for bank-transfer details.</p>}
+                  </section>
                 )}
                 {booking.canAccept && (
                   <button

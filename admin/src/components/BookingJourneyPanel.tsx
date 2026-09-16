@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { authFetch } from "../lib/authFetch";
 import type { BookingDetail } from "../types/booking";
+import { bookingAgreementText, fillMissingAgreementText, requestedArrivalWindow } from "../lib/bookingAgreementDefaults";
 
 type Agreement = {
   service: string;
@@ -70,7 +71,7 @@ const money = (p: number) =>
     p / 100,
   );
 const field =
-  "mt-1 block min-h-11 w-full rounded-lg border border-silver-300 bg-white px-3 py-2 text-sm text-navy-950";
+  "mt-1 block min-h-11 w-full rounded-lg border border-silver-300 bg-white px-3 py-2 text-base text-navy-950";
 const button =
   "min-h-11 rounded-lg border border-silver-300 px-4 py-2 text-sm font-semibold disabled:opacity-50";
 const statusLabels: Record<string, string> = {
@@ -92,17 +93,13 @@ export default function BookingJourneyPanel({
   onChanged: () => void;
 }) {
   const initial: Agreement = {
-    service: booking.service || "",
-    items: booking.service || "",
-    scope: "",
-    exclusions: "",
+    ...bookingAgreementText(booking),
     address: booking.address || "",
     postcode: booking.postcode || "",
     date: booking.serviceDate || booking.preferredDate || "",
-    time: booking.preferredTime || "",
+    time: requestedArrivalWindow(booking.preferredTime),
     totalPence: Math.round((booking.totalPrice || 0) * 100),
     changeReason: "",
-    preparation: "",
   };
   const [view, setView] = useState<View | null>(null),
     [agreement, setAgreement] = useState(initial),
@@ -279,6 +276,23 @@ export default function BookingJourneyPanel({
         <summary className="cursor-pointer font-semibold text-navy-950">
           Edit service, price and appointment
         </summary>
+        <div className="mt-4 rounded-xl bg-sky-50 p-4 text-sm text-navy-800">
+          <p className="font-semibold">1. Check the details · 2. Preview the email · 3. Send</p>
+          <p className="mt-2">The request supplies the items, address and estimated price. Check these against your conversation and set the agreed date and arrival window. Suggested wording is editable; blank optional fields are left out of the email.</p>
+          <button type="button" className={`${button} mt-3 bg-white`} disabled={busy}
+            onClick={() => {
+              setAgreement((old) => fillMissingAgreementText(old, booking));
+              setPreview(false);
+              setChecked(false);
+            }}>
+            Fill empty wording from this request
+          </button>
+          <details className="mt-3">
+            <summary className="cursor-pointer underline">Original customer request</summary>
+            <p className="mt-2 whitespace-pre-line">{booking.service || "No service details recorded."}</p>
+            {booking.notes && <p className="mt-2 whitespace-pre-line">Customer notes: {booking.notes}</p>}
+          </details>
+        </div>
         <form onSubmit={save} className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="text-sm">
             Service
@@ -296,7 +310,7 @@ export default function BookingJourneyPanel({
               required
               className={field}
               type="number"
-              min="30"
+              min="0.01"
               step="0.01"
               value={agreement.totalPence / 100}
               onChange={(e) =>
@@ -333,6 +347,7 @@ export default function BookingJourneyPanel({
               value={agreement.exclusions}
               onChange={(e) => update("exclusions", e.target.value)}
               maxLength={2000}
+              placeholder="Optional: only record exclusions or additional charges actually agreed."
             />
           </label>
           <label className="text-sm">
@@ -354,6 +369,7 @@ export default function BookingJourneyPanel({
               value={agreement.time}
               onChange={(e) => update("time", e.target.value)}
             />
+            <span className="mt-1 block text-xs text-navy-600">Prefilled from the request where possible. Replace it with the arrival window you agreed.</span>
           </label>
           <label className="text-sm">
             Service address
@@ -393,7 +409,16 @@ export default function BookingJourneyPanel({
               onChange={(e) => update("changeReason", e.target.value)}
               placeholder="Record what was agreed during your conversation."
             />
+            <span className="mt-1 block text-xs text-navy-600">Internal note — not shown in the customer email.</span>
           </label>
+          <div className="flex flex-wrap gap-2 sm:col-span-2" aria-label="Internal note shortcuts">
+            {["Details agreed by phone with the customer.", "Details agreed by message with the customer.", "Date and arrival window changed at the customer's request."].map((note) => (
+              <button key={note} type="button" className={button} disabled={busy}
+                onClick={() => update("changeReason", agreement.changeReason ? `${agreement.changeReason}\n${note}` : note)}>
+                {note.startsWith("Details agreed by phone") ? "Agreed by phone" : note.startsWith("Details agreed by message") ? "Agreed by message" : "Customer requested a new time"}
+              </button>
+            ))}
+          </div>
           <p className="text-xs text-navy-600 sm:col-span-2">
             Saving a draft leaves the customer's current offer unchanged.
             Sending changes to a confirmed booking asks for acceptance and keeps the

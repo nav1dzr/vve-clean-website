@@ -746,3 +746,68 @@ describe("retired deposit communications", () => {
     expect(mail.text + mail.html).not.toMatch(/£30|Deposit due|Payment deadline|deposit confirms|paying.*confirms/i);
   });
 });
+
+
+describe("bank instructions in directly confirmed bookings", () => {
+  function configureBank() {
+    vi.stubEnv("INVOICE_BANK_ACCOUNT_NAME", "EXAMPLE ONLY");
+    vi.stubEnv("INVOICE_BANK_SORT_CODE", "00-00-00");
+    vi.stubEnv("INVOICE_BANK_ACCOUNT_NUMBER", "00000000");
+  }
+  it("freezes server bank details and the existing reference, without requesting payment before completion", async () => {
+    configureBank();
+    const db = memoryDb();
+    db.tables.bookings[0].booking_ref = "E11AA101026-1";
+    await performAdminAction(db, ID, { operation: "send", revision: 0, availabilityConfirmed: true }, "test");
+    let j = db.tables.booking_journeys[0];
+    expect(j.state).toBe("confirmed");
+    expect(j.snapshot.paymentInstructions.bank.reference).toBe("E11AA101026-1");
+    const message = db.tables.booking_journey_messages.find((m) => m.kind === "confirmation");
+    vi.stubEnv("INVOICE_BANK_ACCOUNT_NAME", "LATER SETTINGS");
+    const email = emailForMessage(message.payload);
+    expect(email.text).toContain("EXAMPLE ONLY");
+    expect(email.text).not.toContain("LATER SETTINGS");
+    expect(email.text).toContain("no payment is needed now");
+    expect(email.html).toContain("Payment after your clean");
+    expect(email.text).not.toContain("Internal agreement note");
+    expect(publicJourney(db.tables.bookings[0], j).canPayBalance).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+    await performAdminAction(db, ID, { operation: "complete", revision: j.revision }, "test");
+    j = db.tables.booking_journeys[0];
+    expect(publicJourney(db.tables.bookings[0], j).canPayBalance).toBe(true);
+    expect(emailForMessage(db.tables.booking_journey_messages.find((m) => m.kind === "balance_due").payload).text).toContain("Payment is now due");
+  });
+  it("keeps the reviewed bank account and customer reference when settings or the appointment date change", async () => {
+    configureBank();
+    const db = memoryDb();
+    await performAdminAction(db, ID, { operation: "draft", revision: 0, agreement: snapshot }, "test");
+    vi.stubEnv("INVOICE_BANK_ACCOUNT_NAME", "CHANGED AFTER PREVIEW");
+    await performAdminAction(db, ID, { operation: "send", revision: db.tables.booking_journeys[0].revision, availabilityConfirmed: true }, "test");
+    expect(db.tables.booking_journeys[0].snapshot.paymentInstructions.bank.accountName).toBe("EXAMPLE ONLY");
+    await performAdminAction(db, ID, { operation: "draft", revision: db.tables.booking_journeys[0].revision, agreement: { ...snapshot, date: "2026-10-11" } }, "test");
+    await performAdminAction(db, ID, { operation: "send", revision: db.tables.booking_journeys[0].revision, availabilityConfirmed: true }, "test");
+    expect(db.tables.bookings[0].booking_ref).toBe("TEST-001");
+    expect(db.tables.booking_journeys[0].snapshot.paymentInstructions.bank).toMatchObject({ reference: "TEST-001", accountName: "EXAMPLE ONLY" });
+  });
+  it("does not invent a bank account or accept browser-supplied payment instructions", async () => {
+    vi.stubEnv("INVOICE_BANK_ACCOUNT_NAME", "");
+    vi.stubEnv("INVOICE_BANK_SORT_CODE", "");
+    vi.stubEnv("INVOICE_BANK_ACCOUNT_NUMBER", "");
+    const db = memoryDb();
+    await performAdminAction(db, ID, { operation: "draft", revision: 0, agreement: { ...snapshot, paymentInstructions: { bank: { accountName: "ATTACKER" } } } }, "test");
+    await performAdminAction(db, ID, { operation: "send", revision: db.tables.booking_journeys[0].revision, availabilityConfirmed: true }, "test");
+    const j = db.tables.booking_journeys[0];
+    expect(j.snapshot.paymentInstructions.bank).toBeNull();
+    expect(emailForMessage(db.tables.booking_journey_messages.find((m) => m.kind === "confirmation").payload).text).not.toContain("ATTACKER");
+  });
+  it("hides transfer instructions on cancellations, revisions, drafts and settled bookings", () => {
+    const instructions = { due: "after_clean", bank: { accountName: "EXAMPLE ONLY", sortCode: "00-00-00", accountNumber: "00000000", reference: "E11AA101026" } };
+    for (const state of ["draft", "cancelled", "change_pending", "payment_review", "expired"]) {
+      const db = memoryDb({ state, snapshot: { ...snapshot, paymentInstructions: instructions } });
+      expect(publicJourney(db.tables.bookings[0], db.tables.booking_journeys[0]).paymentInstructions).toBeNull();
+      expect(emailForMessage({ kind: state === "cancelled" ? "cancelled" : "change_proposal", reference: "TEST", journey: db.tables.booking_journeys[0] }).text).not.toContain("Account number:");
+    }
+    const db = memoryDb({ state: "completed", snapshot: { ...snapshot, paymentInstructions: instructions }, paid_pence: snapshot.totalPence });
+    expect(publicJourney(db.tables.bookings[0], db.tables.booking_journeys[0]).paymentInstructions).toBeNull();
+  });
+});

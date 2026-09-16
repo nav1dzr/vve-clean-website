@@ -47,8 +47,8 @@ export function getBusinessSettings() {
     currency: 'GBP',
     currencySymbol: '£',
 
-    defaultPaymentTermsDays: 14,
-    defaultPaymentTermsText: 'Payment due within 14 days of the invoice date.',
+    defaultPaymentTermsDays: 0,
+    defaultPaymentTermsText: 'Payment is due after the clean.',
 
     invoicePrefix: 'INV',
     receiptPrefix: 'REC',

@@ -228,3 +228,22 @@ describe("private customer management journey", () => {
     ).toBeInTheDocument();
   });
 });
+
+
+describe("bank-transfer details", () => {
+  const paymentInstructions = { due: "after_clean", bank: { accountName: "EXAMPLE ONLY", sortCode: "00-00-00", accountNumber: "00000000", reference: "E11AA101026-1" } };
+  it("shows the saved reference without a pre-clean payment button or a client-side paid action", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => ({ booking: { ...booking, paymentInstructions } }) } as Response);
+    render(<BookingManagementPage />);
+    await screen.findByText("E11AA101026-1");
+    expect(screen.getByText(/no payment is needed now/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Pay|I've paid/i })).not.toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("withholds transfer details for cancelled bookings even with stale payment instructions", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => ({ booking: { ...booking, state: "cancelled", paymentInstructions } }) } as Response);
+    render(<BookingManagementPage />);
+    await screen.findByRole("heading", { name: "Your booking is cancelled" });
+    expect(screen.queryByText("00000000")).not.toBeInTheDocument();
+  });
+});
