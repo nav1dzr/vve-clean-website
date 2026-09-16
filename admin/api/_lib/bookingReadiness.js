@@ -1,5 +1,4 @@
 import { timingSafeEqual } from 'node:crypto';
-import Stripe from 'stripe';
 import nodemailer from 'nodemailer';
 import { isHostedPreview } from './previewIsolation.js';
 
@@ -20,9 +19,16 @@ export async function bookingReadiness({ notify = false } = {}) {
     catch { result[name] = { ok: false }; }
   };
   await check('stripe', async () => {
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { timeout: 8000, maxNetworkRetries: 0 });
-    const account = await stripe.accounts.retrieve();
-    const hooks = await stripe.webhookEndpoints.list({ limit: 100 });
+    const stripeGet = async path => {
+      if (!process.env.STRIPE_SECRET_KEY) throw new Error('Missing settings');
+      const response = await fetch(`https://api.stripe.com/v1/${path}`, {
+        headers: { Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}` }, signal: AbortSignal.timeout(8000),
+      });
+      if (!response.ok) throw new Error('Stripe connection failed');
+      return response.json();
+    };
+    const account = await stripeGet('account');
+    const hooks = await stripeGet('webhook_endpoints?limit=100');
     const hook = hooks.data.find(x => x.status === 'enabled' && x.url === 'https://www.vveclean.co.uk/api/stripe-webhook'
       && (x.enabled_events.includes('checkout.session.completed') || x.enabled_events.includes('*')));
     return { ok: Boolean(hook && account.charges_enabled), account: account.id, chargesEnabled: account.charges_enabled,
