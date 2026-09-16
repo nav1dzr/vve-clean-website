@@ -141,9 +141,9 @@ export default function BookingDetailPage() {
 
       {b.awaitingAvailabilityReview && (
         <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-relaxed text-navy-900">
-          <p className="font-semibold">Preferred-time request — no deposit required</p>
+          <p className="font-semibold">Preferred-time request — no payment taken</p>
           <p className="mt-1">
-            Check availability and agree the scope, final price and time with the customer, then confirm the appointment directly. No deposit is required.
+            Agree the scope, final price and time with the customer, then send the booking details and £30 deposit request from the CRM. This request is not a confirmed appointment.
           </p>
         </div>
       )}

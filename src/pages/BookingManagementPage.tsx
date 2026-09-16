@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { applyRouteMetadata } from "../lib/routeMetadata";
 
 type Agreement = {
@@ -13,6 +13,7 @@ type Agreement = {
   totalPence: number;
   preparation: string;
   policyVersion?: string;
+  paymentPlan?: string;
 };
 type Booking = {
   reference: string;
@@ -28,7 +29,7 @@ type Booking = {
   balancePence: number;
   customerRequest: { kind: string; date?: string; time?: string } | null;
   paymentInstructions?: {
-    due: "after_clean";
+    due: "after_clean" | "deposit";
     bank: { accountName: string; sortCode: string; accountNumber: string; reference: string } | null;
   } | null;
   canPayDeposit: boolean;
@@ -51,8 +52,8 @@ const states: Record<string, { title: string; text: string }> = {
     text: "The team is reviewing your preferred service and time. No appointment is confirmed yet.",
   },
   offered: {
-    title: "Your appointment is being arranged",
-    text: "We'll agree the scope, final price and time with you, then confirm your appointment directly. No deposit is required.",
+    title: "Your agreed booking details",
+    text: "Check the details below. If a deposit is requested, we confirm your appointment after it is received.",
   },
   change_pending: {
     title: "Please review your revised arrangements",
@@ -80,6 +81,12 @@ const states: Record<string, { title: string; text: string }> = {
   },
 };
 
+function depositAvailable(booking: Booking | null) {
+  return !!booking && booking.canPayDeposit && booking.state === "offered" &&
+    booking.agreement.paymentPlan === "deposit_after_agreement" && !booking.customerRequest &&
+    booking.paidPence === 0 && !!booking.holdUntil && new Date(booking.holdUntil) > new Date();
+}
+
 function privateToken() {
   if (typeof window === "undefined") return "";
   const hashToken = new URLSearchParams(window.location.hash.slice(1)).get(
@@ -101,6 +108,8 @@ function privateToken() {
   }
 }
 export default function BookingManagementPage() {
+  const [payFromEmail] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.hash.slice(1)).get("pay") === "deposit");
+  const automaticCheckoutAttempted = useRef(false);
   const [token] = useState(privateToken),
     [booking, setBooking] = useState<Booking | null>(null),
     [error, setError] = useState(""),
@@ -197,7 +206,7 @@ export default function BookingManagementPage() {
         operation === "reschedule"
           ? "Your rescheduling request is saved. We will contact you after checking availability."
           : operation === "cancel"
-            ? "Your cancellation is saved. Check the booking status and your email for the details."
+            ? "Your cancellation request is with the team. We will email you when it is confirmed."
             : "Your revised arrangements have been accepted.",
       );
     } catch (e) {
@@ -208,6 +217,14 @@ export default function BookingManagementPage() {
       setBusy(false);
     }
   }
+  useEffect(() => {
+    if (!payFromEmail || loading || !booking || automaticCheckoutAttempted.current) return;
+    automaticCheckoutAttempted.current = true;
+    if (depositAvailable(booking)) void act("checkout");
+    // Only an explicit Pay link in the email initiates checkout, once. A normal
+    // booking link remains read-only. The server rechecks the saved agreement.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payFromEmail, loading, booking]);
   function submit(e: FormEvent) {
     e.preventDefault();
     if (panel) void act(panel, { confirm: confirmed, date, time, reason });
@@ -220,6 +237,7 @@ export default function BookingManagementPage() {
     booking?.state === "offered" &&
     booking.holdUntil &&
     new Date(booking.holdUntil) <= new Date();
+  const depositPayable = depositAvailable(booking);
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:py-12">
       <div className="mx-auto max-w-3xl">
@@ -387,9 +405,9 @@ export default function BookingManagementPage() {
                 <p className="mt-2 text-sm text-slate-600">
                   {booking.state === "cancelled"
                     ? "The unpaid part of your quote is not a cancellation charge. Contact us about any refund due under the agreed terms."
-                    : "Payment is due after the clean. Any previous payment counts towards your agreed total."}
+                    : depositPayable ? "Pay the £30 deposit to confirm this appointment. It comes off your agreed total; the rest is due after the clean." : "The remaining balance is due after the clean. Any payment already received counts towards your agreed total."}
                 </p>
-                {booking.canPayBalance && (
+                {(depositPayable || booking.canPayBalance) && (
                   <button
                     disabled={busy}
                     onClick={() => act("checkout")}
@@ -397,14 +415,14 @@ export default function BookingManagementPage() {
                   >
                     {busy
                       ? "Preparing…"
-                      : `Pay ${money(booking.balancePence)} remaining balance`}
+                      : depositPayable ? "Pay £30 deposit by card" : `Pay ${money(booking.balancePence)} remaining balance`}
                   </button>
                 )}
-                {booking.paymentInstructions && ["confirmed", "completed"].includes(booking.state) && booking.balancePence > 0 && (
+                {booking.paymentInstructions && (depositPayable || ["confirmed", "completed"].includes(booking.state)) && booking.balancePence > 0 && (
                   <section className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-5" aria-labelledby="bank-payment-heading">
                     <h3 id="bank-payment-heading" className="font-semibold">Bank transfer</h3>
                     <p className="mt-2 text-sm leading-relaxed">
-                      {booking.state === "completed"
+                      {depositPayable ? "Transfer £30 using these details. We will confirm your appointment after checking it has arrived. If you have already transferred it, please do not pay again." : booking.state === "completed"
                         ? "You can transfer the remaining balance using these details. If you have already paid, please do not pay again while we check receipt."
                         : "Keep these details for after the clean. Your appointment is already confirmed; no payment is needed now. Card payment will also be available from this page after the clean."}
                     </p>
@@ -436,6 +454,7 @@ export default function BookingManagementPage() {
                     existing appointment has not changed.
                   </p>
                 )}
+                {booking.customerRequest?.kind === "cancel" && <p role="status" className="mt-5 rounded-xl bg-amber-50 p-4">Your cancellation request is with the team. Payment is paused until we have reviewed it.</p>}
                 {booking.canChange && (
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                     <button
@@ -456,7 +475,7 @@ export default function BookingManagementPage() {
                         setConfirmed(false);
                       }}
                     >
-                      Cancel appointment
+                      Request cancellation
                     </button>
                   </div>
                 )}
@@ -481,12 +500,12 @@ export default function BookingManagementPage() {
               <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
                 <h2 className="text-2xl font-semibold">
                   {panel === "cancel"
-                    ? "Confirm cancellation"
+                    ? "Request cancellation"
                     : "Request a different time"}
                 </h2>
                 <p className="mt-3 leading-relaxed text-slate-600">
                   {panel === "cancel"
-                    ? "This cancels your appointment. Any refund is reviewed separately under the agreed terms. No new cancellation fee is added by this page."
+                    ? "Send your cancellation request to the team. We will email you when the cancellation is confirmed. Any refund is reviewed separately; this request does not issue a refund."
                     : "Tell us what works for you. We will check availability before changing your appointment."}
                 </p>
                 <form className="mt-5 space-y-4" onSubmit={submit}>
@@ -546,7 +565,7 @@ export default function BookingManagementPage() {
                       className={`${buttonClass} ${panel === "cancel" ? "bg-red-700" : "bg-blue-700"} text-white`}
                     >
                       {panel === "cancel"
-                        ? "Confirm cancellation"
+                        ? "Send cancellation request"
                         : "Send rescheduling request"}
                     </button>
                     <button

@@ -886,8 +886,8 @@ export default function BookingPage() {
               </div>
             </dl>
             <p className="mt-5 text-sm leading-relaxed text-silver-600">
-              We'll agree the scope, final price and time with you, then confirm
-              your appointment directly. No deposit is required.
+              We’ll agree the service, final price and time with you, then send your booking
+              details and £30 deposit payment options. Nothing is charged with this request.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <a
@@ -1487,7 +1487,7 @@ export default function BookingPage() {
               </li>
               <li>
                 <strong>3.</strong> After we agree the scope, final price and time
-                with you, we confirm your appointment directly. No deposit is required.
+                with you, we send the booking details and £30 deposit payment options. The deposit comes off your total.
               </li>
             </ol>
           </div>

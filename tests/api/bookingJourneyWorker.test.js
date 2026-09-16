@@ -163,3 +163,20 @@ describe("bounded booking worker", () => {
     expect(deliver.mock.calls[0].slice(1)).toEqual(["b1", "stale"]);
   });
 });
+
+describe("agreed deposit reminders", () => {
+  it("selects only an unpaid agreed offer halfway through its hold and closes an expired hold", async () => {
+    const base = { state: "offered", revision: 1, snapshot: { paymentPlan: "deposit_after_agreement", paymentWindowHours: 48 }, customer_request: null, reminder_sent_at: null };
+    const rows = [
+      { ...base, booking_id: "due", hold_until: "2026-09-09T10:00:00Z" },
+      { ...base, booking_id: "too-early", hold_until: "2026-09-10T10:00:00Z" },
+      { ...base, booking_id: "already-sent", hold_until: "2026-09-09T10:00:00Z", reminder_sent_at: "sent" },
+      { ...base, booking_id: "paid", state: "confirmed", hold_until: "2026-09-09T10:00:00Z" },
+      { ...base, booking_id: "customer-change", customer_request: { kind: "cancel" }, hold_until: "2026-09-09T10:00:00Z" },
+      { ...base, booking_id: "expired", hold_until: "2026-09-08T10:00:00Z" },
+    ];
+    const perform = vi.fn();
+    await processDueBookingJourneys(workerDb(rows), { perform, deliver: vi.fn(), now: new Date("2026-09-08T12:00:00Z") });
+    expect(perform.mock.calls.map(c => [c[1], c[2].operation])).toEqual([["expired", "expire"], ["due", "remind"]]);
+  });
+});

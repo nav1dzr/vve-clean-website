@@ -377,11 +377,11 @@ describe("POST /api/create-booking-request", () => {
     for (const [message] of sendMailMock.mock.calls) {
       expect(message.text).toBeTruthy();
       expect(message.html).toBeTruthy();
-      expect(message.text).toMatch(/confirm.*appointment directly/i);
-      expect(message.text).not.toMatch(/£30|payment confirms|deposit request|pay.*deposit/i);
-      expect(message.text).toMatch(/agree.*scope.*final price.*time/i);
-      expect(message.html).toMatch(/confirm.*appointment directly/i);
-      expect(message.html).not.toMatch(/£30|payment confirms|deposit request|pay.*deposit/i);
+      expect(message.text).toMatch(/booking details.*£30 deposit/i);
+      expect(message.text).not.toMatch(/Pay £30 deposit by card|checkout.stripe.com/i);
+      expect(message.text).toMatch(/agree.*(?:scope|service).*final price.*time/i);
+      expect(message.html).toMatch(/booking details.*£30 deposit/i);
+      expect(message.html).not.toMatch(/Pay £30 deposit by card|checkout.stripe.com/i);
     }
     expect(updateEqMock).toHaveBeenCalledWith(
       expect.objectContaining({

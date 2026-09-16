@@ -125,3 +125,37 @@ describe("CRM booking agreement controls", () => {
     });
   });
 });
+
+describe("deposit operator controls", () => {
+  const agreement = { service: "Carpet cleaning", items: "Two bedrooms", scope: "Extraction", exclusions: "", address: "Test address", postcode: "E1 1AA", date: "2026-10-10", time: "09:00–11:00", totalPence: 10000, changeReason: "Agreed by WhatsApp", preparation: "", paymentPlan: "deposit_after_agreement", paymentWindowHours: 48 };
+  const offered = { ...empty, journey: { revision: 2, offer_version: 1, state: "offered", draft: agreement, snapshot: agreement, paid_pence: 0, refunded_pence: 0, customer_request: null, hold_until: "2099-01-01T00:00:00Z", reminder_sent_at: null } };
+  it("defaults new agreements to £30 after agreement and keeps the public request free", async () => {
+    authFetchMock.mockResolvedValue(empty);
+    render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
+    expect(await screen.findByLabelText("Payment arrangement")).toHaveValue("deposit_after_agreement");
+    expect(screen.getByLabelText(/Pay within/)).toHaveValue("48");
+  });
+  it("requires actual bank receipt before confirming and retains its bank reference", async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockResolvedValue(offered);
+    const changed = vi.fn();
+    render(<BookingJourneyPanel booking={{ ...booking, bookingRef: "E11AA101026" }} onChanged={changed} />);
+    const button = await screen.findByRole("button", { name: "Record £30 bank deposit and send confirmation" });
+    expect(button).toBeDisabled();
+    await user.click(screen.getByRole("checkbox", { name: /I checked the bank account/ }));
+    authFetchMock.mockResolvedValueOnce({ ...offered, journey: { ...offered.journey, revision: 3, state: "confirmed", paid_pence: 3000 } });
+    await user.click(button);
+    await waitFor(() => expect(changed).toHaveBeenCalled());
+    expect(JSON.parse(authFetchMock.mock.calls[authFetchMock.mock.calls.length - 1][1].body)).toMatchObject({ operation: "manual_deposit", amountPence: 3000, method: "bank_transfer", reference: "E11AA101026", receivedConfirmed: true });
+  });
+  it("offers a reminder only until one is sent", async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockResolvedValueOnce(offered);
+    render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
+    const remind = await screen.findByRole("button", { name: "Send unpaid deposit reminder" });
+    authFetchMock.mockResolvedValueOnce({ ...offered, journey: { ...offered.journey, revision: 3, reminder_sent_at: "2026-09-16T12:00:00Z" } });
+    await user.click(remind);
+    expect(await screen.findByRole("button", { name: "Deposit reminder sent" })).toBeDisabled();
+    expect(JSON.parse(authFetchMock.mock.calls[authFetchMock.mock.calls.length - 1][1].body)).toMatchObject({ operation: "remind", revision: 2 });
+  });
+});
