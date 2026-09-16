@@ -6,6 +6,7 @@ import { isValidUuid, validateNote } from '../_lib/normalise.js';
 import { extractIdParam } from '../_lib/routeParams.js';
 import { readJsonBody } from '../_lib/body.js';
 import { handleBookingJourney } from '../_lib/bookingJourneyAction.js';
+import { bookingReadiness, isBookingWorker } from '../_lib/bookingReadiness.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -41,6 +42,21 @@ export default async function handler(req, res) {
   // unauthenticated caller sending the wrong method still gets 405, not
   // 401) — this only needs req.method/req.url, not a verified admin.
   const action = new URL(req.url, 'https://x').searchParams.get('action');
+  if (action === 'readiness') {
+    if (req.method !== 'POST' || !isBookingWorker(req)) {
+      res.writeHead(401, headers);
+      return res.end(JSON.stringify({ error: 'Unauthorised' }));
+    }
+    try {
+      const body = await readJsonBody(req);
+      const readiness = await bookingReadiness({ notify: body.notify === true });
+      res.writeHead(200, headers);
+      return res.end(JSON.stringify(readiness));
+    } catch {
+      res.writeHead(503, headers);
+      return res.end(JSON.stringify({ error: 'Readiness check unavailable' }));
+    }
+  }
   if (action === 'journey') return handleBookingJourney(req, res, headers);
   if (action === 'status') return handleStatus(req, res, headers);
   if (action === 'notes') return handleNotes(req, res, headers);

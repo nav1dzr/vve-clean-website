@@ -1350,6 +1350,10 @@ export async function deliverJourneyMessages(db, id, messageId = null) {
     return [{ status: "failed", error: "Could not load pending messages." }];
   const results = [];
   for (const m of messages || []) {
+    if (m.payload.channel === 'calendar' && process.env.BOOKING_CALENDAR_ENABLED === 'false') {
+      results.push({ id: m.id, status: 'deferred', channel: 'calendar' });
+      continue;
+    }
     if (m.status === "failed" && m.attempts >= 5 && !messageId) continue;
     if (
       m.status === "sending" &&

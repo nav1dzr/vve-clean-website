@@ -739,6 +739,15 @@ describe("communication failure handling", () => {
 });
 
 describe("retired deposit communications", () => {
+  it('defers disabled calendar delivery without consuming retries or contacting Google', async () => {
+    vi.stubEnv('BOOKING_CALENDAR_ENABLED', 'false');
+    const db = memoryDb({ state: 'confirmed', snapshot });
+    db.tables.booking_journey_messages.push({ id: 'calendar', booking_id: ID, kind: 'calendar_sync', payload: { channel: 'calendar' }, status: 'pending', attempts: 0 });
+    const result = await deliverJourneyMessages(db, ID);
+    expect(result).toEqual([{ id: 'calendar', status: 'deferred', channel: 'calendar' }]);
+    expect(db.tables.booking_journey_messages[0]).toMatchObject({ status: 'pending', attempts: 0 });
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it("suppresses queued deposit requests and reminders without sending", async () => {
     const db = memoryDb({ state: "offered", snapshot, offer_version: 1, hold_until: "2026-09-10T12:00:00Z" });
     for (const kind of ["deposit_request", "reminder"]) db.tables.booking_journey_messages.push({ id: kind, booking_id: ID, kind, payload: { kind, journey: structuredClone(db.tables.booking_journeys[0]) }, status: "pending", attempts: 0 });
