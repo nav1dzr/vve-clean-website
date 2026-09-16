@@ -54,8 +54,7 @@ describe("private customer management journey", () => {
       } }),
     } as Response);
     render(<BookingManagementPage />);
-    await screen.findByRole("heading", { name: "Your appointment is being arranged" });
-    expect(screen.getByText(/No deposit is required/)).toBeInTheDocument();
+    await screen.findByRole("heading", { name: "Your agreed booking details" });
     expect(screen.queryByRole("button", { name: /^Pay / })).not.toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/£30|deposit deadline|payment deadline|payment confirms/i);
     expect(fetch).toHaveBeenCalledTimes(1);
@@ -102,11 +101,11 @@ describe("private customer management journey", () => {
     render(<BookingManagementPage />);
     await screen.findByRole("heading", { name: "Your booking is confirmed" });
     await user.click(
-      screen.getByRole("button", { name: "Cancel appointment" }),
+      screen.getByRole("button", { name: "Request cancellation" }),
     );
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(
-      screen.getByRole("button", { name: "Confirm cancellation" }),
+      screen.getByRole("button", { name: "Send cancellation request" }),
     ).toBeDisabled();
     await user.click(
       screen.getByRole("checkbox", {
@@ -116,18 +115,18 @@ describe("private customer management journey", () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        booking: { ...booking, state: "cancelled", canChange: false },
+        booking: { ...booking, customerRequest: { kind: "cancel" }, canChange: false },
       }),
     } as Response);
     await user.click(
-      screen.getByRole("button", { name: "Confirm cancellation" }),
+      screen.getByRole("button", { name: "Send cancellation request" }),
     );
-    await screen.findByRole("heading", { name: "Your booking is cancelled" });
+    await screen.findByText(/Payment is paused until we have reviewed/);
     expect(
       JSON.parse(String(vi.mocked(fetch).mock.calls[1][1]?.body)),
     ).toMatchObject({ operation: "cancel", revision: 3, confirm: true });
     expect(
-      screen.getByText(/refund is handled separately/),
+      screen.getByText(/Your cancellation request is with the team. We will email/),
     ).toBeInTheDocument();
   });
   it("posts a reschedule preference and explains that the original appointment remains in place", async () => {
@@ -210,7 +209,7 @@ describe("private customer management journey", () => {
     render(<BookingManagementPage />);
     await screen.findByRole("heading", { name: "Your booking is confirmed" });
     await user.click(
-      screen.getByRole("button", { name: "Cancel appointment" }),
+      screen.getByRole("button", { name: "Request cancellation" }),
     );
     await user.click(screen.getByRole("checkbox"));
     vi.mocked(fetch).mockResolvedValueOnce({
@@ -218,7 +217,7 @@ describe("private customer management journey", () => {
       json: async () => ({ error: "Payment is processing. Please wait." }),
     } as Response);
     await user.click(
-      screen.getByRole("button", { name: "Confirm cancellation" }),
+      screen.getByRole("button", { name: "Send cancellation request" }),
     );
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Payment is processing",
@@ -244,6 +243,33 @@ describe("bank-transfer details", () => {
     vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => ({ booking: { ...booking, state: "cancelled", paymentInstructions } }) } as Response);
     render(<BookingManagementPage />);
     await screen.findByRole("heading", { name: "Your booking is cancelled" });
+    expect(screen.queryByText("00000000")).not.toBeInTheDocument();
+  });
+});
+
+describe("agreed deposit customer controls", () => {
+  const offered = { ...booking, state: "offered", paidPence: 0, balancePence: 10000, canPayDeposit: true, holdUntil: "2099-10-10T09:00:00Z", agreement: { ...booking.agreement, paymentPlan: "deposit_after_agreement" } };
+  it("shows the deposit after agreement while a normal booking link stays read-only", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => ({ booking: offered }) } as Response);
+    render(<BookingManagementPage />);
+    expect(await screen.findByRole("button", { name: "Pay £30 deposit by card" })).toBeEnabled();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("prepares checkout once only when the customer follows the explicit email Pay button", async () => {
+    window.history.replaceState(null, "", "/manage-booking#token=private-test-token&pay=deposit");
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => ({ booking: offered }) } as Response);
+    render(<BookingManagementPage />);
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[1][1]?.body))).toMatchObject({ operation: "checkout", revision: 3 });
+    expect(window.location.hash).toBe("");
+  });
+  it.each(["expired", "change_requested", "paid"])("withholds all deposit instructions when %s even with a stale response", async kind => {
+    const stopped = { ...offered, ...(kind === "expired" ? { holdUntil: "2020-01-01T00:00:00Z" } : kind === "paid" ? { paidPence: 3000 } : { customerRequest: { kind: "cancel" } }), paymentInstructions: { due: "deposit", bank: { accountName: "EXAMPLE", sortCode: "00-00-00", accountNumber: "00000000", reference: "TEST" } } };
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => ({ booking: stopped }) } as Response);
+    render(<BookingManagementPage />);
+    await screen.findByRole("heading", { level: 1 });
+    await waitFor(() => expect(screen.queryByText("Loading your booking…")).not.toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /^Pay/ })).not.toBeInTheDocument();
     expect(screen.queryByText("00000000")).not.toBeInTheDocument();
   });
 });

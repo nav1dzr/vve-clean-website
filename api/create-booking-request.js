@@ -207,7 +207,7 @@ function customerText(data) {
     "",
     detailText(data),
     "",
-    "Send your request with no payment. We’ll agree the scope, final price and time with you, then confirm your appointment directly.",
+    "No payment is taken with your request. We’ll agree the service, final price and time, then send your booking details and £30 deposit payment options.",
     "",
     "VVE Clean",
     "020 8050 2233 · contact@vveclean.co.uk",
@@ -225,7 +225,7 @@ function businessText(data) {
     `Estimated total: £${data.totalPrice}`,
     `Notes: ${data.message || "—"}`,
     "",
-    "Manager next step: check availability and agree the scope, final price and time with the customer, then confirm the appointment directly. No deposit is required.",
+    "Manager next step: agree the scope, final price and time with the customer, then send the booking details and £30 deposit request from the CRM.",
   ].join("\n");
 }
 
@@ -249,9 +249,9 @@ function emailHtml(data, business = false) {
     .join("");
 
   const intro = business
-    ? "Check availability and agree the scope, final price and time with the customer, then confirm the appointment directly. No deposit is required."
+    ? "Agree the scope, final price and time with the customer, then send the booking details and £30 deposit request from the CRM. This request is not a confirmed appointment."
     : "No payment has been taken. Your requested time is not confirmed yet; we will review availability, the final scope and price during opening hours and contact you.";
-  return `<!doctype html><html lang="en"><body style="margin:0;background:#f5f6f8;font-family:Arial,sans-serif;color:#020b24"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="560" style="max-width:560px;width:100%;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#020b24;padding:24px 28px">${emailWordmarkHtml({ inverse: true })}</td></tr><tr><td style="padding:28px"><h1 style="font-size:22px;margin:0 0 12px">${business ? "New booking request" : "We received your request"}</h1><p style="font-size:15px;line-height:1.6;margin:0 0 18px">${esc(intro)}</p><table role="presentation" width="100%" cellspacing="0" style="border:1px solid #e3e7ee;border-radius:10px;border-collapse:separate;border-spacing:0">${rows}</table>${business ? "" : '<p style="font-size:14px;line-height:1.6;margin:18px 0 0">Send your request with no payment. We’ll agree the scope, final price and time with you, then confirm your appointment directly.</p>'}</td></tr></table></td></tr></table></body></html>`;
+  return `<!doctype html><html lang="en"><body style="margin:0;background:#f5f6f8;font-family:Arial,sans-serif;color:#020b24"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="560" style="max-width:560px;width:100%;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#020b24;padding:24px 28px">${emailWordmarkHtml({ inverse: true })}</td></tr><tr><td style="padding:28px"><h1 style="font-size:22px;margin:0 0 12px">${business ? "New booking request" : "We received your request"}</h1><p style="font-size:15px;line-height:1.6;margin:0 0 18px">${esc(intro)}</p><table role="presentation" width="100%" cellspacing="0" style="border:1px solid #e3e7ee;border-radius:10px;border-collapse:separate;border-spacing:0">${rows}</table>${business ? "" : '<p style="font-size:14px;line-height:1.6;margin:18px 0 0">No payment is taken with your request. We’ll agree the service, final price and time, then send your booking details and £30 deposit payment options.</p>'}</td></tr></table></td></tr></table></body></html>`;
 }
 
 async function sendNotifications(data) {

@@ -15,6 +15,8 @@ type Agreement = {
   totalPence: number;
   changeReason: string;
   preparation: string;
+  paymentPlan?: string;
+  paymentWindowHours?: number;
   policyVersion?: string;
 };
 type Journey = {
@@ -25,6 +27,7 @@ type Journey = {
   snapshot: Agreement | null;
   previous_snapshot: Agreement | null;
   hold_until: string | null;
+  reminder_sent_at?: string | null;
   paid_pence: number;
   refunded_pence: number;
   customer_request: {
@@ -35,6 +38,8 @@ type Journey = {
   } | null;
 };
 type Message = {
+  channel?: string;
+  audience?: string;
   id: string;
   kind: string;
   status: string;
@@ -76,7 +81,7 @@ const button =
   "min-h-11 rounded-lg border border-silver-300 px-4 py-2 text-sm font-semibold disabled:opacity-50";
 const statusLabels: Record<string, string> = {
   draft: "Draft agreement",
-  offered: "Awaiting direct confirmation",
+  offered: "Awaiting £30 deposit",
   change_pending: "Customer reviewing changes",
   confirmed: "Confirmed",
   expired: "Hold expired",
@@ -100,6 +105,8 @@ export default function BookingJourneyPanel({
     time: requestedArrivalWindow(booking.preferredTime),
     totalPence: Math.round((booking.totalPrice || 0) * 100),
     changeReason: "",
+    paymentPlan: "deposit_after_agreement",
+    paymentWindowHours: 48,
   };
   const [view, setView] = useState<View | null>(null),
     [agreement, setAgreement] = useState(initial),
@@ -110,7 +117,9 @@ export default function BookingJourneyPanel({
     [checked, setChecked] = useState(false),
     [paymentAmount, setPaymentAmount] = useState(""),
     [paymentReference, setPaymentReference] = useState(""),
-    [paymentMethod, setPaymentMethod] = useState("bank_transfer");
+    [paymentMethod, setPaymentMethod] = useState("bank_transfer"),
+    [bankDepositReference, setBankDepositReference] = useState(booking.bookingRef || ""),
+    [bankDepositReceived, setBankDepositReceived] = useState(false);
   const endpoint = `/api/bookings/${booking.id}?action=journey`;
   useEffect(() => {
     let active = true;
@@ -148,13 +157,13 @@ export default function BookingJourneyPanel({
       if (result.journey) setAgreement(result.journey.draft);
       setNotice(
         result.deliveries?.some((d) => d.status === "failed")
-          ? "Booking saved. An email could not be delivered; review and retry below."
+          ? "Booking saved. A notification or calendar update needs attention; review the delivery history below."
           : operation === "draft"
             ? "Agreement saved. Preview the email before sending."
             : "Booking action saved. Delivery status is shown below.",
       );
       if (operation === "draft" || operation === "preview") setPreview(true);
-      if (["send", "complete", "cancel", "manual_payment"].includes(operation))
+      if (["send", "complete", "cancel", "manual_payment", "manual_deposit"].includes(operation))
         onChanged();
     } catch (e) {
       setError(
@@ -190,8 +199,8 @@ export default function BookingJourneyPanel({
             Arrange and confirm this booking
           </h2>
           <p className="mt-1 text-sm text-navy-700">
-            Agree the scope, final price and time, then confirm the appointment
-            directly. No deposit is required.
+            Agree the details with the customer, then send the £30 deposit request.
+            Their appointment is confirmed when the deposit is received.
           </p>
         </div>
         <span className="rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-900">
@@ -201,8 +210,7 @@ export default function BookingJourneyPanel({
       {!view?.enabled && (
         <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
           Sending is disabled until the booking workspace and test email delivery
-          have been checked. For now, confirm directly with the customer and use
-          Status above to record the agreed appointment. No deposit is required.
+          have been checked. Deposit requests and automatic confirmations are not active yet.
         </p>
       )}
       {(!j || j.state === "draft") &&
@@ -399,6 +407,18 @@ export default function BookingJourneyPanel({
               onChange={(e) => update("preparation", e.target.value)}
             />
           </label>
+          <label className="text-sm">Payment arrangement
+            <select className={field} value={agreement.paymentPlan || "after_clean"} onChange={(e) => update("paymentPlan", e.target.value)} disabled={["confirmed", "change_pending"].includes(j?.state || "")}>
+              <option value="deposit_after_agreement">£30 deposit after agreeing the details</option>
+              <option value="after_clean">Confirm directly — payment after the clean</option>
+            </select>
+          </label>
+          {agreement.paymentPlan === "deposit_after_agreement" && <label className="text-sm">Pay within
+            <select className={field} value={agreement.paymentWindowHours || 48} onChange={(e) => update("paymentWindowHours", Number(e.target.value))}>
+              {[2, 6, 12, 24, 48].map((hours) => <option key={hours} value={hours}>{hours} hours</option>)}
+            </select>
+            <span className="mt-1 block text-xs text-navy-600">Choose a deadline before the arrival window. The £30 comes off the agreed total.</span>
+          </label>}
           <label className="text-sm sm:col-span-2">
             Reason for agreed scope, price or changes
             <textarea
@@ -489,12 +509,13 @@ export default function BookingJourneyPanel({
                 onClick={() =>
                   action("send", {
                     availabilityConfirmed: checked,
+                    ...(agreement.paymentPlan === "deposit_after_agreement" ? { holdUntil: view.previewHoldUntil } : {}),
                   })
                 }
               >
                 {["confirmed", "change_pending"].includes(j?.state || "")
                   ? "Send revised details for acceptance"
-                  : "Confirm booking and send email"}
+                  : agreement.paymentPlan === "deposit_after_agreement" ? "Send booking details and £30 deposit request" : "Confirm booking and send email"}
               </button>
             </div>
           )}
@@ -502,6 +523,11 @@ export default function BookingJourneyPanel({
       )}
       {j && (
         <div className="mt-5 flex flex-wrap gap-2 border-t border-silver-200 pt-4">
+          {j.state === "offered" && j.snapshot?.paymentPlan === "deposit_after_agreement" && (
+            <button className={button} disabled={locked || !!j.reminder_sent_at || !!j.customer_request || (!!j.hold_until && new Date(j.hold_until) <= new Date())} onClick={() => action("remind")}>
+              {j.reminder_sent_at ? "Deposit reminder sent" : "Send unpaid deposit reminder"}
+            </button>
+          )}
           {j.state === "payment_review" && (
             <>
               <button
@@ -595,6 +621,15 @@ export default function BookingJourneyPanel({
           </button>
         </div>
       )}
+      {j && ["offered", "expired"].includes(j.state) && j.snapshot?.paymentPlan === "deposit_after_agreement" && (
+        <section className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4" aria-labelledby="bank-deposit-heading">
+          <h3 id="bank-deposit-heading" className="font-semibold">Received the £30 by bank transfer?</h3>
+          <p className="mt-2 text-sm">Check your bank account first. This records £30 against the booking, sends the customer their confirmation, alerts you by email and Telegram, and queues the Calendar update. If the hold expired or the customer requested a change, the payment is recorded for your review before any appointment is confirmed.</p>
+          <label className="mt-3 block text-sm">Bank payment reference<input className={field} value={bankDepositReference} onChange={(e) => setBankDepositReference(e.target.value)} /></label>
+          <label className="my-4 flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1 h-5 w-5" checked={bankDepositReceived} onChange={(e) => setBankDepositReceived(e.target.checked)} />I checked the bank account and £30 has arrived for this booking.</label>
+          <button className={`${button} bg-green-800 text-white`} disabled={locked || !bankDepositReceived || !bankDepositReference.trim()} onClick={() => action("manual_deposit", { amountPence: 3000, method: "bank_transfer", reference: bankDepositReference.trim(), receivedConfirmed: bankDepositReceived })}>Record £30 bank deposit and send confirmation</button>
+        </section>
+      )}
       {j?.state === "completed" && (
         <details className="mt-5">
           <summary className="cursor-pointer font-semibold">
@@ -652,14 +687,14 @@ export default function BookingJourneyPanel({
       {!!view?.notifications?.length && (
         <div className="mt-5">
           <h3 className="font-semibold text-navy-950">
-            Email delivery history
+            Email, Telegram and Calendar delivery
           </h3>
           <ul className="mt-2 space-y-2">
             {view.notifications.map((m) => (
               <li key={m.id} className="rounded-lg bg-silver-100 p-3 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span>
-                    {m.kind.replace(/_/g, " ")} · <strong>{m.status}</strong>
+                    {m.channel === "calendar" ? "Google Calendar" : m.channel === "telegram" ? "Your Telegram" : m.audience === "business" ? "Your email" : "Customer email"} · {m.kind.replace(/_/g, " ")} · <strong>{m.status}</strong>
                   </span>
                   {m.status === "failed" && (
                     <button
@@ -667,7 +702,7 @@ export default function BookingJourneyPanel({
                       disabled={locked}
                       onClick={() => action("retry", { messageId: m.id })}
                     >
-                      Retry this email
+                      Retry this delivery
                     </button>
                   )}
                 </div>

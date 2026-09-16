@@ -270,7 +270,9 @@ describe('when the visitor rejects optional cookies', () => {
     const { container } = enterAt('/?utm_source=google&gclid=click_persisted');
     await waitFor(() => expect(getAttribution().gclid).toBe('click_persisted'));
 
-    await user.click(await screen.findByRole('button', { name: 'Cookie settings' }));
+    // This control is in the lazy-loaded page footer, unlike the global
+    // consent banner. Allow the real route to finish loading before clicking.
+    await user.click(await screen.findByRole('button', { name: 'Cookie settings' }, { timeout: 15000 }));
     const advertising = container.querySelector('#consent-advertising') as HTMLButtonElement;
     expect(advertising.getAttribute('aria-checked')).toBe('true');
     await user.click(advertising);

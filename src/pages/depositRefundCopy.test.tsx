@@ -33,21 +33,21 @@ const renderBooking = () => render(
   <MemoryRouter initialEntries={['/booking']}><BookingPage /></MemoryRouter>,
 );
 
-describe('Terms — no deposit before or after agreement', () => {
+describe('Terms — free request and deposit after agreement', () => {
   it('allows an unavailable time to be declined without a charge', () => {
     const { container } = renderTerms();
     expect(container.textContent ?? '').toMatch(/closest alternatives we can offer/i);
     expect(container.textContent ?? '').toMatch(/decline them and nothing is charged/i);
   });
 
-  it('confirms agreed appointments directly without advance payment', () => {
+  it('separates the free request from the agreed deposit', () => {
     const { container } = renderTerms();
     const text = container.textContent ?? '';
     expect(text).toMatch(/No payment is taken when you send that request/i);
-    expect(text).toMatch(/we confirm your appointment directly/i);
-    expect(text).toMatch(/No deposit or advance payment is required/i);
-    expect(text).toMatch(/Payment is normally due after the service/i);
-    expect(text).not.toMatch(/£30|deposit link|payment confirms/i);
+    expect(text).toMatch(/£30 deposit request/i);
+    expect(text).toMatch(/appointment is confirmed when we receive the deposit/i);
+    expect(text).toMatch(/remaining balance is normally due after the service/i);
+    expect(text).toMatch(/deposit is credited towards your agreed total/i);
   });
 
   it('makes any late-cancellation or call-out charge depend on written agreement', () => {
@@ -63,14 +63,14 @@ describe('Booking page — no-payment request', () => {
     expect(note).toHaveTextContent(/no payment is taken at this stage/i);
   });
 
-  it('keeps the request free and explains direct confirmation after agreement', () => {
+  it('keeps the request free and explains deposit options after agreement', () => {
     const { container } = renderBooking();
     const text = container.textContent ?? '';
     expect(screen.queryByRole('checkbox', { name: /terms of service/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send request — no payment' })).toBeInTheDocument();
     expect(text).not.toMatch(/Stripe checkout|pay now/i);
-    expect(text).toMatch(/we confirm your appointment directly\. No deposit is required/i);
-    expect(text).not.toMatch(/£30|deposit request|payment confirms/i);
+    expect(text).toMatch(/booking details and £30 deposit payment options/i);
+    expect(text).not.toMatch(/Pay £30 deposit by card|checkout.stripe.com/i);
     expect(text).toMatch(/Booking and cancellation terms apply once an appointment is confirmed/i);
   });
 
@@ -79,6 +79,6 @@ describe('Booking page — no-payment request', () => {
     const text = container.textContent ?? '';
     expect(text).toMatch(/Our team will review your request/i);
     expect(text).toMatch(/We check the date, access details and final price, then contact you/i);
-    expect(text).toMatch(/After we agree the scope, final price and time with you, we confirm your appointment directly/i);
+    expect(text).toMatch(/After we agree the scope, final price and time with you, we send the booking details and £30 deposit payment options/i);
   });
 });

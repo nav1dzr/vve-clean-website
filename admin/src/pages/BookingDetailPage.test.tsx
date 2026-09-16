@@ -193,8 +193,8 @@ describe('BookingDetailPage', () => {
     renderDetail();
 
     expect(await screen.findAllByText('Check availability')).not.toHaveLength(0);
-    expect(screen.getByText('Preferred-time request — no deposit required')).toBeInTheDocument();
-    expect(screen.getByText(/Check availability and agree the scope, final price and time with the customer, then confirm the appointment directly/i)).toBeInTheDocument();
+    expect(screen.getByText('Preferred-time request — no payment taken')).toBeInTheDocument();
+    expect(screen.getByText(/agree.*scope.*final price.*time/i)).toBeInTheDocument();
   });
 
   it('shows "unavailable" action states instead of broken links when contact info is missing', async () => {

@@ -10,6 +10,7 @@ import {
 } from "../admin/api/_lib/bookingJourney.js";
 
 import { processDueBookingJourneys } from "./_lib/bookingJourneyWorker.js";
+import { bookingReadiness, isBookingWorker } from '../admin/api/_lib/bookingReadiness.js';
 export const config = { api: { bodyParser: false } };
 async function readBody(req) {
   if (req.body) {
@@ -55,6 +56,11 @@ export default async function handler(req, res) {
   if (!["GET", "POST"].includes(req.method))
     return send(405, { error: "Method not allowed" });
   try {
+    if (new URL(req.url, 'https://x').searchParams.get('action') === 'readiness') {
+      if (req.method !== 'POST' || !isBookingWorker(req)) return send(401, { error: 'Unauthorised' });
+      const body = await readBody(req);
+      return send(200, await bookingReadiness({ notify: body.notify === true }));
+    }
     requireJourneyEnabled();
     const url = process.env.VITE_SUPABASE_URL,
       key = process.env.SUPABASE_SERVICE_ROLE_KEY;

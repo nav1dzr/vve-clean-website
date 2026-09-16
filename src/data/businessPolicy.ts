@@ -9,4 +9,4 @@ export const CANCELLATION_RIGHTS = 'This notice policy does not limit your statu
 export const CANCELLATION_SUMMARY = [CANCELLATION_NOTICE, RESCHEDULING_NOTICE, LATE_CHANGE_NOTICE, CANCELLATION_RIGHTS].join(' ');
 export const COMMERCIAL_PAYMENT_NOTE = 'Commercial payment is due after the clean, unless a different arrangement has been agreed in writing in advance.';
 // Booking policy confirmed by Navid on 14 September 2026.
-export const BOOKING_REQUEST_NOTE = "Send your request with no payment. We'll agree the scope, final price and time with you, then confirm your appointment directly.";
+export const BOOKING_REQUEST_NOTE = "Send your request with no payment. Once we agree the service, final price and time, we’ll send your booking details and £30 deposit payment options. The deposit comes off your total.";
