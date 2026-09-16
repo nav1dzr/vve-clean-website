@@ -75,7 +75,7 @@ export function emptyFormValue(prefill?: Partial<InvoiceItemsFormValue>): Invoic
     depositApplied: 0,
     customerNotes: '',
     internalNotes: '',
-    paymentTerms: 'Payment due within 14 days.',
+    paymentTerms: 'Payment is due after the clean.',
     paymentOption: 'bank_transfer',
     stripePaymentLinkUrl: '',
     serviceContact: emptyServiceContact,

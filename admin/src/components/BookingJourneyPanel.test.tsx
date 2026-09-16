@@ -20,6 +20,21 @@ const booking = {
 const empty = { enabled: true, journey: null, notifications: [], events: [] };
 beforeEach(() => authFetchMock.mockReset());
 describe("CRM booking agreement controls", () => {
+  it("uses request wording and a phone shortcut without sending anything", async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockResolvedValue(empty);
+    render(<BookingJourneyPanel booking={{ ...booking, preferredTime: "Morning (8am–12pm)", quoteConfig: { service: "deep", deepService: "carpet_upholstery" } }} onChanged={() => {}} />);
+    expect(screen.getByLabelText("Service")).toHaveValue("Carpet and upholstery cleaning");
+    expect(screen.getByLabelText(/Arrival window/)).toHaveValue("08:00–12:00");
+    await user.click(screen.getByRole("button", { name: "Agreed by phone" }));
+    expect(screen.getByLabelText(/Reason for agreed scope/)).toHaveValue("Details agreed by phone with the customer.");
+    await user.clear(screen.getByLabelText("Included scope"));
+    await user.type(screen.getByLabelText("Included scope"), "My own scope");
+    await user.click(screen.getByRole("button", { name: "Fill empty wording from this request" }));
+    expect(screen.getByLabelText("Included scope")).toHaveValue("My own scope");
+    expect(authFetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps Send unavailable when the integration is disabled", async () => {
     authFetchMock.mockResolvedValue({ ...empty, enabled: false });
     render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
@@ -42,7 +57,7 @@ describe("CRM booking agreement controls", () => {
       ).toBeEnabled(),
     );
     await user.type(
-      screen.getByLabelText("Reason for agreed scope, price or changes"),
+      screen.getByLabelText(/Reason for agreed scope, price or changes/),
       "Agreed after customer discussion",
     );
     const agreement = {
