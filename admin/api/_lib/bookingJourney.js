@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import nodemailer from "nodemailer";
+import { bookingPaymentInstructions, visibleBookingPaymentInstructions } from "./bookingPaymentInstructions.js";
 import { isHostedPreview, previewTestInbox } from './previewIsolation.js';
 
 // Retained only for reconciling historical Stripe deposit transactions.
@@ -281,6 +282,7 @@ export function publicJourney(booking, j) {
     refundedPence: j.refunded_pence,
     balancePence: Math.max(0, (snapshot?.totalPence || 0) - netPaid),
     customerRequest: j.customer_request,
+    paymentInstructions: visibleBookingPaymentInstructions(j),
     canPayDeposit: false,
     canPayBalance:
       j.state === "completed" && netPaid < (snapshot?.totalPence || 0),
@@ -427,6 +429,9 @@ export function emailForMessage(payload) {
       style: "currency",
       currency: "GBP",
     }).format(p / 100);
+  const appointmentDate = /^\d{4}-\d{2}-\d{2}$/.test(s.date || "") && Number.isFinite(Date.parse(`${s.date}T12:00:00Z`))
+    ? new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" }).format(new Date(`${s.date}T12:00:00Z`))
+    : s.date;
   const rows = [
     ["Reference", payload.reference],
     ["Service", s.service],
@@ -435,7 +440,7 @@ export function emailForMessage(payload) {
     ["Not included", s.exclusions],
     [
       initial ? "Requested date / time" : "Appointment",
-      `${s.date} · ${s.time} (London time)`,
+      `${appointmentDate} · ${s.time} (London time)`,
     ],
     ["Address", `${s.address}, ${s.postcode}`],
     [initial ? "Estimated total" : "Agreed total", money(s.totalPence)],
@@ -475,6 +480,24 @@ export function emailForMessage(payload) {
         })[c],
     );
   const link = manageLink(j);
+  const paymentInstructions = !initial && ["confirmation", "revised_confirmation", "appointment_reminder", "balance_due", "receipt"].includes(payload.kind)
+    ? visibleBookingPaymentInstructions(j) : null;
+  const bank = paymentInstructions?.bank;
+  const paymentNote = paymentInstructions
+    ? j.state === "completed"
+      ? `Payment is now due. Open your private booking page to pay the remaining balance by card${bank ? ", or use the bank details below" : ""}. If you have already transferred it, please do not pay again while we check receipt.`
+      : "Payment is due after the clean. Your appointment is already confirmed; no payment is needed now. After the clean, your private booking page offers card payment, or you can pay by bank transfer."
+    : "";
+  const paymentRows = bank ? [
+    ["Account name", bank.accountName], ["Sort code", bank.sortCode],
+    ["Account number", bank.accountNumber], ["Payment reference", bank.reference],
+  ] : [];
+  const bankNote = bank
+    ? "Use this exact reference so we can match your transfer. We record a bank payment after checking it has arrived."
+    : "For bank-transfer details, please contact the team.";
+  const paymentHtml = paymentInstructions
+    ? `<div style="margin-top:24px;padding:20px;background:#f0f7fc;border-radius:12px"><h2 style="margin:0 0 12px;font-size:19px">${j.state === "completed" ? "Payment options" : "Payment after your clean"}</h2><p style="font-size:14px;line-height:1.6">${esc(paymentNote)}</p>${bank ? `<table role="presentation" width="100%">${paymentRows.map(([k, v]) => `<tr><td style="padding:6px 0;font-size:14px">${esc(k)}</td><td style="padding:6px 0;font-size:14px;font-weight:bold">${esc(v)}</td></tr>`).join("")}</table>` : ""}<p style="font-size:13px;line-height:1.6">${esc(bankNote)}</p></div>`
+    : "";
   const text = [
     `Hi ${payload.name || "there"},`,
     "",
@@ -482,12 +505,13 @@ export function emailForMessage(payload) {
     intro,
     "",
     ...rows.map(([k, v]) => `${k}: ${v}`),
+    ...(paymentInstructions ? ["", paymentNote, ...paymentRows.map(([k, v]) => `${k}: ${v}`), bankNote] : []),
     "",
     `View your booking, request another time or cancel: ${link}`,
     "",
     "VVE Clean · 020 8050 2233 · contact@vveclean.co.uk",
   ].join("\n");
-  const html = `<!doctype html><html lang="en"><body style="margin:0;background:#edf3fa;color:#10203d;font-family:Arial,sans-serif"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 12px"><table role="presentation" width="600" style="width:100%;max-width:600px;background:white;border-radius:16px;overflow:hidden"><tr><td style="background:#071a3e;padding:28px;color:white;font-size:25px;font-weight:bold">VVE <span style="color:#6cb5ff">Clean</span></td></tr><tr><td style="padding:28px"><p>Hi ${esc(payload.name || "there")},</p><h1 style="font-size:26px;line-height:1.2">${esc(heading)}</h1><p style="line-height:1.6">${esc(intro)}</p><table role="presentation" width="100%" style="border-collapse:collapse">${rows.map(([k, v]) => `<tr><td style="padding:12px 0;border-bottom:1px solid #e5eaf2;vertical-align:top;width:36%;font-size:14px;color:#52627c">${esc(k)}</td><td style="padding:12px 8px;border-bottom:1px solid #e5eaf2;font-size:14px;white-space:pre-line">${esc(v)}</td></tr>`).join("")}</table><p style="margin:28px 0"><a href="${esc(link)}" style="background:#1266df;border-radius:8px;color:white;padding:15px 20px;text-decoration:none;display:inline-block;font-weight:bold">View and manage booking</a></p><p style="font-size:13px;line-height:1.6">The button opens your private booking page. No payment or cancellation happens until you choose and confirm an action.</p><p style="font-size:12px;word-break:break-all">${esc(link)}</p><p style="font-size:14px">020 8050 2233 · contact@vveclean.co.uk</p></td></tr></table></td></tr></table></body></html>`;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(heading)}</title></head><body style="margin:0;background:#edf3fa;color:#10203d;font-family:Arial,sans-serif"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 12px"><table role="presentation" width="600" style="width:100%;max-width:600px;background:white;border-radius:16px;overflow:hidden"><tr><td style="background:#071a3e;padding:28px;color:white;font-size:25px;font-weight:bold">VVE <span style="color:#6cb5ff">Clean</span></td></tr><tr><td style="padding:28px"><p>Hi ${esc(payload.name || "there")},</p><h1 style="font-size:26px;line-height:1.2">${esc(heading)}</h1><p style="line-height:1.6">${esc(intro)}</p><table role="presentation" width="100%" style="border-collapse:collapse">${rows.map(([k, v]) => `<tr><td style="padding:12px 0;border-bottom:1px solid #e5eaf2;vertical-align:top;width:36%;font-size:14px;color:#52627c">${esc(k)}</td><td style="padding:12px 8px;border-bottom:1px solid #e5eaf2;font-size:14px;white-space:pre-line">${esc(v)}</td></tr>`).join("")}</table>${paymentHtml}<p style="margin:28px 0"><a href="${esc(link)}" style="background:#1266df;border-radius:8px;color:white;padding:15px 20px;text-decoration:none;display:inline-block;font-weight:bold">View and manage booking</a></p><p style="font-size:13px;line-height:1.6">The button opens your private booking page. No payment or cancellation happens until you choose and confirm an action.</p><p style="font-size:12px;word-break:break-all">${esc(link)}</p><p style="font-size:14px">020 8050 2233 · contact@vveclean.co.uk</p></td></tr></table></td></tr></table></body></html>`;
   return {
     subject: `${payload.audience === "business" || payload.kind === "initial_business" ? "Staff update: " : ""}${heading} — ${payload.reference}`,
     text,
@@ -621,7 +645,10 @@ export async function performAdminAction(db, id, body, actor) {
     );
   const action = body.operation;
   if (action === "draft") {
-    const draft = validateAgreement(body.agreement);
+    const draft = {
+      ...validateAgreement(body.agreement),
+      paymentInstructions: bookingPaymentInstructions(booking.booking_ref, j.snapshot),
+    };
     if (["cancelled", "completed", "payment_review"].includes(j.state))
       throw new JourneyError(
         "This booking cannot be edited in its current state.",
@@ -637,7 +664,10 @@ export async function performAdminAction(db, id, body, actor) {
         "This booking cannot be offered in its current state.",
       );
     j = await reconcileCheckout(db, booking, j, { close: true });
-    const snapshot = validateAgreement(j.draft);
+    const snapshot = {
+      ...validateAgreement(j.draft),
+      paymentInstructions: bookingPaymentInstructions(booking.booking_ref, j.snapshot?.paymentInstructions ? j.snapshot : j.draft),
+    };
     if (snapshot.totalPence < j.paid_pence - j.refunded_pence)
       throw new JourneyError(
         "The revised total is below money already paid. Reconcile the refund first.",
@@ -1437,7 +1467,11 @@ export async function journeyAdminView(db, id) {
     throw new JourneyError("Booking history could not be loaded.", 503);
   const previewJourney = {
     ...journey,
-    snapshot: journey.draft,
+    snapshot: {
+      ...journey.draft,
+      paymentInstructions: bookingPaymentInstructions(booking.booking_ref, journey.snapshot?.paymentInstructions ? journey.snapshot : journey.draft),
+    },
+    state: ["draft", "offered", "expired"].includes(journey.state) ? "confirmed" : journey.state,
     hold_until: null,
   };
   return {

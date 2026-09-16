@@ -22,6 +22,11 @@ function draftInput(overrides = {}) {
 }
 
 describe('createDraftInvoice', () => {
+  it('preserves explicitly agreed invoice payment terms', async () => {
+    const supabase = createFakeSupabase();
+    const result = await createDraftInvoice(supabase, draftInput({ paymentTerms: 'Existing agreed terms: 14 days.' }), ADMIN_ID);
+    expect(supabase._tables.invoices.find((i) => i.id === result.invoiceId).payment_terms).toBe('Existing agreed terms: 14 days.');
+  });
   it('creates a draft invoice with items and a created event, no formal number', async () => {
     const supabase = createFakeSupabase();
     const result = await createDraftInvoice(supabase, draftInput(), ADMIN_ID);
@@ -31,6 +36,7 @@ describe('createDraftInvoice', () => {
     expect(invoice.document_status).toBe('draft');
     expect(invoice.invoice_number).toBeUndefined();
     expect(invoice.total).toBe(150);
+    expect(invoice.payment_terms).toBe('Payment is due after the clean.');
 
     const items = supabase._tables.invoice_items.filter((i) => i.invoice_id === result.invoiceId);
     expect(items).toHaveLength(1);
