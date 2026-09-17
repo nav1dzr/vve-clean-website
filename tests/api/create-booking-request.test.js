@@ -147,6 +147,16 @@ describe("POST /api/create-booking-request", () => {
     };
   }
 
+  it('routes customer replies to contact while owner alerts can reply to the customer', async () => {
+    configureEmails();
+    const response = res();
+    await handler(req(payload()), response);
+    expect(response.statusCode).toBe(201);
+    const messages = sendMailMock.mock.calls.map(([mail]) => mail);
+    expect(messages.find(mail => mail.to === 'jane@example.com')?.replyTo).toBe('contact@vveclean.co.uk');
+    expect(messages.find(mail => mail.to === 'manager@example.com')?.replyTo).toBe('"Jane Smith" <jane@example.com>');
+  });
+
   const requestKey = "ac4e6421-0e54-4086-944e-3b08e5a4ce67";
 
   it("replays a saved request and its saved total after a pricebook change without another insert or email", async () => {

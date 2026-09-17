@@ -1,10 +1,11 @@
-import { emailWordmarkHtml } from "./brandWordmark.js";
+import { renderBookingEmail } from "./bookingEmailLayout.js";
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import nodemailer from "nodemailer";
 import { bookingPaymentInstructions, visibleBookingPaymentInstructions } from "./bookingPaymentInstructions.js";
 import { isHostedPreview, previewTestInbox } from './previewIsolation.js';
 import { DEPOSIT_PENCE, DEPOSIT_PLAN, requiresDeposit, canCollectDeposit } from './bookingDeposit.js';
 import { ownerBookingTitle, sendBookingTelegram, syncBookingCalendar } from './bookingIntegrations.js';
+
 
 export { DEPOSIT_PENCE } from './bookingDeposit.js';
 const JOURNEY_COLUMNS =
@@ -90,6 +91,7 @@ export function validateAgreement(input, now = new Date()) {
     items: clean(input.items, 3000),
     scope: clean(input.scope, 3000),
     exclusions: clean(input.exclusions, 2000),
+    accessNotes: clean(input.accessNotes, 2000),
     address: clean(input.address, 500),
     postcode: clean(input.postcode, 12).toUpperCase(),
     date: clean(input.date, 10),
@@ -268,6 +270,7 @@ export function publicJourney(booking, j) {
             "items",
             "scope",
             "exclusions",
+            "accessNotes",
             "address",
             "postcode",
             "date",
@@ -372,12 +375,12 @@ export function emailForMessage(payload) {
     s = j.snapshot || j.draft;
   const labels = {
     deposit_request: [
-      "Your booking details — £30 deposit",
-      "Here are the details we agreed with you. Pay the £30 deposit by card or bank transfer to confirm this appointment. It comes off your agreed total; the remaining balance is due after the clean.",
+      "Please check your booking details",
+      "Please check your cleaning list, date and arrival time below. If everything looks right, pay the £30 deposit to secure your slot. Need a different time or another change? Send us a request from your booking page before paying.",
     ],
     confirmation: [
       "Your booking is confirmed",
-      j.paid_pence > 0 ? "Thank you — we have received your deposit and your appointment is confirmed. Your payment is credited towards the agreed total below." : "We have agreed the scope, final price and time with you. Your appointment is now confirmed. No deposit is required for this booking.",
+      j.paid_pence > 0 ? "Thank you, your clean is booked. Your payment is recorded below. We look forward to seeing you." : "Your clean is booked. Please keep the date and arrival time below handy. No deposit is needed; payment is due on the day of your clean.",
     ],
     change_proposal: [
       "Please review your revised booking",
@@ -404,8 +407,8 @@ export function emailForMessage(payload) {
       "The payment deadline for these arrangements has passed. Please contact us to check availability before making any payment.",
     ],
     reminder: [
-      "Your booking deposit is still outstanding",
-      "Pay the £30 deposit to confirm the agreed appointment. If you have already transferred it, please contact us so we can check receipt before you pay again.",
+      "A reminder to secure your cleaning slot",
+      "If the details still work for you, please pay the £30 deposit by the deadline below to secure your slot. If you have already made a bank transfer, reply to this email so we can check it before you pay again.",
     ],
     appointment_reminder: [
       "Your confirmed clean is tomorrow",
@@ -449,100 +452,11 @@ export function emailForMessage(payload) {
     heading = ownerBookingTitle(payload);
     intro = `${payload.name || "Customer"} · ${payload.reference}. ${payload.payment ? `Payment recorded by ${payload.payment.method.replaceAll("_", " ")}. ` : ""}Check the agreed appointment and balance below. This is a booking update, not a new enquiry.`;
   }
-  const money = (p) =>
-    new Intl.NumberFormat("en-GB", {
-      style: "currency",
-      currency: "GBP",
-    }).format(p / 100);
-  const appointmentDate = /^\d{4}-\d{2}-\d{2}$/.test(s.date || "") && Number.isFinite(Date.parse(`${s.date}T12:00:00Z`))
-    ? new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" }).format(new Date(`${s.date}T12:00:00Z`))
-    : s.date;
-  const rows = [
-    ["Reference", payload.reference],
-    ...(business ? [["Customer", payload.name]] : []),
-    ["Service", s.service],
-    ["Included items", s.items],
-    ["Scope", s.scope],
-    ["Not included", s.exclusions],
-    [
-      initial ? "Requested date / time" : "Appointment",
-      `${appointmentDate} · ${s.time} (London time)`,
-    ],
-    ["Address", `${s.address}, ${s.postcode}`],
-    [initial ? "Estimated total" : "Agreed total", money(s.totalPence)],
-    ...(canCollectDeposit(j) ? [["Deposit to confirm", money(DEPOSIT_PENCE)], ["Payment deadline", new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/London" }).format(new Date(j.hold_until)) + " (London time)"]] : []),
-    ...(!initial
-      ? [
-          ["Paid", money(j.paid_pence)],
-          ["Refunded", money(j.refunded_pence)],
-          [
-            j.state === "cancelled"
-              ? "Unpaid portion of original quote (not a cancellation charge)"
-              : "Remaining balance",
-            money(Math.max(0, s.totalPence - j.paid_pence + j.refunded_pence)),
-          ],
-        ]
-      : []),
-    ...(j.customer_request?.kind === "reschedule"
-      ? [
-          [
-            "Requested new time",
-            `${j.customer_request.date} · ${j.customer_request.time}`,
-          ],
-          ["Customer message", j.customer_request.reason],
-        ]
-      : []),
-    ["Preparation", s.preparation],
-  ].filter(([, v]) => v);
-  const esc = (v) =>
-    String(v ?? "").replace(
-      /[&<>"']/g,
-      (c) =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#39;",
-        })[c],
-    );
   const link = business ? `https://admin.vveclean.co.uk/bookings/${j.booking_id}` : manageLink(j);
   const depositDue = !business && canCollectDeposit(j);
   const paymentInstructions = !initial && !business && ["deposit_request", "reminder", "confirmation", "revised_confirmation", "appointment_reminder", "balance_due", "receipt"].includes(payload.kind)
     ? visibleBookingPaymentInstructions(j) : null;
-  const bank = paymentInstructions?.bank;
-  const paymentNote = paymentInstructions
-    ? depositDue ? "Pay £30 by card using the button below, or transfer £30 using these bank details. We confirm your appointment after the deposit is received. Please do not pay twice."
-    : j.state === "completed"
-      ? `Payment is now due. Open your private booking page to pay the remaining balance by card${bank ? ", or use the bank details below" : ""}. If you have already transferred it, please do not pay again while we check receipt.`
-      : "Payment is due after the clean. Your appointment is already confirmed; no payment is needed now. After the clean, your private booking page offers card payment, or you can pay by bank transfer."
-    : "";
-  const paymentRows = bank ? [
-    ["Account name", bank.accountName], ["Sort code", bank.sortCode],
-    ["Account number", bank.accountNumber], ["Payment reference", bank.reference],
-  ] : [];
-  const bankNote = bank
-    ? "Use this exact reference so we can match your transfer. We record a bank payment after checking it has arrived."
-    : "For bank-transfer details, please contact the team.";
-  const paymentHtml = paymentInstructions
-    ? `<div style="margin-top:24px;padding:20px;background:#f0f7fc;border-radius:12px"><h2 style="margin:0 0 12px;font-size:19px">${depositDue ? "£30 deposit payment options" : j.state === "completed" ? "Payment options" : "Payment after your clean"}</h2><p style="font-size:14px;line-height:1.6">${esc(paymentNote)}</p>${bank ? `<table role="presentation" width="100%">${paymentRows.map(([k, v]) => `<tr><td style="padding:6px 0;font-size:14px">${esc(k)}</td><td style="padding:6px 0;font-size:14px;font-weight:bold">${esc(v)}</td></tr>`).join("")}</table>` : ""}<p style="font-size:13px;line-height:1.6">${esc(bankNote)}</p></div>`
-    : "";
-  const paymentButton = depositDue ? `<p style="margin:24px 0"><a href="${esc(manageLink(j) + "&pay=deposit")}" style="background:#1266df;border-radius:8px;color:white;padding:16px 24px;text-decoration:none;display:inline-block;font-weight:bold">Pay £30 deposit by card</a></p>` : "";
-  const text = [
-    business ? "VVE Clean booking update" : `Hi ${payload.name || "there"},`,
-    "",
-    heading,
-    intro,
-    "",
-    ...rows.map(([k, v]) => `${k}: ${v}`),
-    ...(paymentInstructions ? ["", paymentNote, ...paymentRows.map(([k, v]) => `${k}: ${v}`), bankNote] : []),
-    "",
-    ...(depositDue ? [`Pay £30 deposit by card: ${manageLink(j)}&pay=deposit`] : []),
-    `View booking details or request a change: ${link}`,
-    "",
-    "VVE Clean · 020 8050 2233 · contact@vveclean.co.uk",
-  ].join("\n");
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(heading)}</title></head><body style="margin:0;background:#edf3fa;color:#10203d;font-family:Arial,sans-serif"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 12px"><table role="presentation" width="600" style="width:100%;max-width:600px;background:white;border-radius:16px;overflow:hidden"><tr><td style="background:#f6f9ff;border-top:5px solid #1266df;padding:24px 28px">${emailWordmarkHtml()}</td></tr><tr><td style="padding:28px"><p>${business ? "VVE Clean booking update" : `Hi ${esc(payload.name || "there")},`}</p><h1 style="font-size:26px;line-height:1.2">${esc(heading)}</h1><p style="line-height:1.6">${esc(intro)}</p><table role="presentation" width="100%" style="border-collapse:collapse">${rows.map(([k, v]) => `<tr><td style="padding:12px 0;border-bottom:1px solid #e5eaf2;vertical-align:top;width:36%;font-size:14px;color:#52627c">${esc(k)}</td><td style="padding:12px 8px;border-bottom:1px solid #e5eaf2;font-size:14px;white-space:pre-line">${esc(v)}</td></tr>`).join("")}</table>${paymentHtml}${paymentButton}<p style="margin:28px 0"><a href="${esc(link)}" style="background:#1266df;border-radius:8px;color:white;padding:15px 20px;text-decoration:none;display:inline-block;font-weight:bold">${business ? "Open booking in CRM" : "View details, reschedule or cancel"}</a></p><p style="font-size:13px;line-height:1.6">The button opens your private booking page. No payment or cancellation happens until you choose and confirm an action.</p><p style="font-size:12px;word-break:break-all">${esc(link)}</p><p style="font-size:14px">020 8050 2233 · contact@vveclean.co.uk</p></td></tr></table></td></tr></table></body></html>`;
+  const { html, text } = renderBookingEmail({ payload, heading, intro, initial, business, link, depositDue, paymentInstructions });
   return {
     subject: `${payload.audience === "business" || payload.kind === "initial_business" ? "Staff update: " : ""}${heading} — ${payload.reference}`,
     text,
@@ -1440,7 +1354,7 @@ export async function deliverJourneyMessages(db, id, messageId = null) {
       await transport.sendMail({
         from: `"VVE Clean" <${process.env.GMAIL_SENDER}>`,
         to: recipient,
-        replyTo: preview ? previewTestInbox() : process.env.BUSINESS_EMAIL || "contact@vveclean.co.uk",
+        replyTo: preview ? previewTestInbox() : "contact@vveclean.co.uk",
         messageId: `<booking-${m.id}@vveclean.co.uk>`,
         ...content,
         subject: `${test ? "[TEST] " : ""}${content.subject}`,

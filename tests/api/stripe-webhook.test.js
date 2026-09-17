@@ -109,6 +109,14 @@ describe('stripe-webhook — customer/business notification wording', () => {
     expect(res.statusCode).toBe(403); expect(sendMailMock).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
   });
 
+  it('routes legacy booking customer replies to contact without changing the owner alert recipient', async () => {
+    const res = makeRes();
+    await handler(makeReq(), res);
+    const messages = sendMailMock.mock.calls.map(([mail]) => mail);
+    expect(messages.find(mail => mail.to === 'jane@example.com')?.replyTo).toBe('contact@vveclean.co.uk');
+    expect(messages.find(mail => mail.to === 'business@example.com')?.replyTo).toBe('"Jane Smith" <jane@example.com>');
+  });
+
   it('never claims the appointment is confirmed in the customer email subject', async () => {
     const res = makeRes();
     await handler(makeReq(), res);
