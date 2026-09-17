@@ -13,10 +13,19 @@ const build = (patch = {}, options = {}) => renderBookingEmail({
 });
 
 describe('customer booking presentation', () => {
+  it.each(['P', 'P.', 'P. J.', 'PJ', 'Paul Example'])('uses the full entered name without guessing: %s', (name) => {
+    const email = build({}, { payload: { name, reference: 'EXAMPLE', journey: { snapshot, state: 'offered', paid_pence: 0, refunded_pence: 0 } } });
+    expect(email.text.startsWith(`Hello ${name},`)).toBe(true);
+  });
+  it('places the escaped reference in the header before the greeting', () => {
+    const email = build();
+    expect(email.html.indexOf('Booking reference')).toBeLessThan(email.html.indexOf('Hello Example Customer,'));
+    expect(email.html).not.toContain('Your appointment · EXAMPLE');
+  });
   it('keeps the surname when the customer uses an initial', () => {
     const email = build({}, { payload: { name: 'P. Example', reference: 'EXAMPLE', journey: { snapshot, state: 'offered', paid_pence: 0, refunded_pence: 0 } } });
-    expect(email.text).toContain('Hi P. Example,');
-    expect(email.html).toContain('Hi P. Example,');
+    expect(email.text).toContain('Hello P. Example,');
+    expect(email.html).toContain('Hello P. Example,');
   });
   it('separates saved access charges without inventing or changing their amounts', () => {
     const original = structuredClone(snapshot);
