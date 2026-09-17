@@ -159,7 +159,9 @@ export default function BookingJourneyPanel({
       setNotice(
         result.deliveries?.some((d) => d.status === "failed")
           ? "Booking saved. A notification or calendar update needs attention; review the delivery history below."
-          : operation === "draft"
+          : operation === "preview"
+            ? "Email preview refreshed. Nothing has been sent."
+            : operation === "draft"
             ? "Agreement saved. Preview the email before sending."
             : "Booking action saved. Delivery status is shown below.",
       );

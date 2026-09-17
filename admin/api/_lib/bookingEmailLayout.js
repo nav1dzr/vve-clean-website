@@ -54,7 +54,9 @@ export function renderBookingEmail({ payload, heading, intro, initial, business,
     : ['offered', 'confirmed', 'change_pending'].includes(j.state)
       ? 'You can request a different time or cancellation from your booking page. We’ll email you once a change is confirmed.'
       : 'If you need help with these details, reply to this email and we’ll help.';
-  const greeting = business ? 'VVE Clean booking update' : `Hi ${String(payload.name || 'there').trim().split(/\s+/)[0]},`;
+  const fullName = String(payload.name || 'there').trim() || 'there';
+  const firstName = fullName.split(/\s+/)[0];
+  const greeting = business ? 'VVE Clean booking update' : `Hi ${firstName.replace(/\./g, '').length > 1 ? firstName : fullName},`;
   const preheader = depositDue ? 'Check your date, cleaning list and total, then secure your slot with a £30 deposit.' : `${heading}. ${appointment}`;
   const text = [greeting, '', heading, intro, '', `Reference: ${payload.reference}`,
     ...(business ? [`Customer: ${payload.name}`] : []),
