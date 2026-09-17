@@ -60,6 +60,10 @@ export function bookingAgreementText(booking: Pick<BookingDetail, "service" | "q
   const withChecklist = checklist.length
     ? `${cleaning}\n${checklist.join("\n")}`.trim()
     : cleaning;
+  const preparationByService: Record<string, string> = {
+    end_of_tenancy: "Please have the property empty and arrange access for our team. Empty any cupboards and appliances included in your cleaning list, and defrost the freezer if its interior is booked. Let us know about access restrictions before the visit.",
+    after_builders: "Please arrange the clean after the main building work is finished. Tell us if trades will still be on site, and confirm access, parking and any site restrictions before we arrive.",
+  };
   return {
     service: service.slice(0, 200),
     items: withChecklist.length <= 3000 ? withChecklist : cleaning,
@@ -70,7 +74,7 @@ export function bookingAgreementText(booking: Pick<BookingDetail, "service" | "q
     accessNotes: content.access.join("\n"),
     preparation: isFabric
       ? "Please clear small belongings from the areas being cleaned and arrange access for our team. Let us know about any access restrictions before the visit."
-      : "Please arrange access for the agreed arrival window and let us know about any access restrictions before the visit.",
+      : preparationByService[String(config.deepService)] || "Please arrange access for the agreed arrival window and let us know about any access restrictions before the visit.",
   };
 }
 

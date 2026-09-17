@@ -29,3 +29,9 @@ Local review: http://127.0.0.1:8826/ while the preview server is running.
 The changes are prepared on codex/booking-customer-experience-20260916 from main 5d3466b. They are not live. This specific release needs owner approval before push, normal PR checks, merge and deployment under AGENTS.md. Existing production Stripe configuration and the £30 amount are unchanged.
 
 Design references reviewed: [VoltAgent design collection](https://github.com/VoltAgent/awesome-design-md), [W3C content structure](https://www.w3.org/WAI/tutorials/page-structure/content/), and [Nodemailer message configuration](https://nodemailer.com/message). No external package, workflow or service was installed.
+
+## Approved follow-up — 17 September
+
+Navid approved publishing the latest email update together with a simpler CRM editor and further design refinement. Optional notes/preparation are now grouped in a disclosure. Leaving the internal note blank records only that details were prepared in CRM, without inventing a phone call or customer agreement. Existing edited wording stays intact. New tenancy and after-builders requests receive preparation guidance drawn from the existing service pages. The email adds state-specific status, a navy appointment card and a separate price panel. No payment state, amount, customer record or Stripe behavior was changed.
+
+Focused validation: 81 tests passed, admin type-check/build and focused lint passed. Mobile email reviewed at 390px. Full prior release validation is recorded above; required GitHub CI must pass before merge.

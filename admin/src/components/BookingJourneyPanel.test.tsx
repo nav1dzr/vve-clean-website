@@ -20,12 +20,24 @@ const booking = {
 const empty = { enabled: true, journey: null, notifications: [], events: [] };
 beforeEach(() => authFetchMock.mockReset());
 describe("CRM booking agreement controls", () => {
+  it("saves a new request without optional typing and never sends it automatically", async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockResolvedValue(empty);
+    render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
+    const save = await screen.findByRole("button", { name: "Save agreement and preview email" });
+    await waitFor(() => expect(save).toBeEnabled());
+    expect(screen.getByText("Extra notes and preparation — optional").closest("details")).not.toHaveAttribute("open");
+    await user.click(save);
+    await waitFor(() => expect(authFetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(authFetchMock.mock.calls[1][1].body)).toMatchObject({ operation: "draft", agreement: { totalPence: 10000, changeReason: "Booking details prepared in CRM for customer review." } });
+  });
   it("uses request wording and a phone shortcut without sending anything", async () => {
     const user = userEvent.setup();
     authFetchMock.mockResolvedValue(empty);
     render(<BookingJourneyPanel booking={{ ...booking, preferredTime: "Morning (8am–12pm)", quoteConfig: { service: "deep", deepService: "carpet_upholstery" } }} onChanged={() => {}} />);
     expect(screen.getByLabelText("Service")).toHaveValue("Carpet and upholstery cleaning");
     expect(screen.getByLabelText(/Arrival window/)).toHaveValue("08:00–12:00");
+    await user.click(screen.getByText("Extra notes and preparation — optional"));
     await user.click(screen.getByRole("button", { name: "Agreed by phone" }));
     expect(screen.getByLabelText(/Reason for agreed scope/)).toHaveValue("Details agreed by phone with the customer.");
     await user.clear(screen.getByLabelText(/Additional details \(optional\)/));
@@ -50,6 +62,7 @@ describe("CRM booking agreement controls", () => {
     render(<BookingJourneyPanel booking={{ ...booking, service: "Carpet cleaning\n2 × bedrooms\nParking: free — £0\nCongestion Charge: £18" }} onChanged={() => {}} />);
     await waitFor(() => expect(screen.getByRole("button", { name: "Save agreement and preview email" })).toBeEnabled());
     expect(screen.getByLabelText(/Your cleaning includes/)).toHaveValue("Carpet cleaning\n2 × bedrooms");
+    await user.click(screen.getByText("Extra notes and preparation — optional"));
     const access = screen.getByLabelText(/Parking and access costs \(optional\)/);
     expect(access).toHaveValue("Parking: free — £0\nCongestion Charge: £18");
     await user.clear(access);
@@ -89,6 +102,7 @@ describe("CRM booking agreement controls", () => {
         }),
       ).toBeEnabled(),
     );
+    await user.click(screen.getByText("Extra notes and preparation — optional"));
     await user.type(
       screen.getByLabelText(/Reason for agreed scope, price or changes/),
       "Agreed after customer discussion",

@@ -176,7 +176,7 @@ export default function BookingJourneyPanel({
   }
   function save(e: FormEvent) {
     e.preventDefault();
-    void action("draft", { agreement });
+    void action("draft", { agreement: { ...agreement, changeReason: agreement.changeReason.trim() || "Booking details prepared in CRM for customer review." } });
   }
   const j = view?.journey;
   const paid = j ? j.paid_pence - j.refunded_pence : 0;
@@ -287,7 +287,7 @@ export default function BookingJourneyPanel({
         </summary>
         <div className="mt-4 rounded-xl bg-sky-50 p-4 text-sm text-navy-800">
           <p className="font-semibold">1. Check the details · 2. Preview the email · 3. Send</p>
-          <p className="mt-2">Check the cleaning list, total and arrival time against your conversation. New requests include suggested wording where the selected service is known. Edit it to match the work you agreed; optional blank fields stay out of the customer email.</p>
+          <p className="mt-2">Your request details are filled in below. Check the date, arrival time, cleaning list and total. You only need to edit what changed. Extra notes are optional, and blank notes stay out of the email.</p>
           <button type="button" className={`${button} mt-3 bg-white`} disabled={busy}
             onClick={() => {
               setAgreement((old) => fillMissingAgreementText(old, booking));
@@ -340,41 +340,6 @@ export default function BookingJourneyPanel({
             <span className="mt-1 block text-xs text-navy-600">One item or cleaning task per line. Include the rooms, quantities and extras you agreed. Put parking and other access charges in their own section below.</span>
           </label>
           <label className="text-sm">
-            Additional details (optional)
-            <textarea
-              className={field}
-              rows={3}
-              value={agreement.scope}
-              onChange={(e) => update("scope", e.target.value)}
-              maxLength={3000}
-              placeholder="Anything specific to this clean, such as a treatment or an area needing extra care."
-            />
-            <span className="mt-1 block text-xs text-navy-600">Only add details the cleaning list does not already cover. You can leave this blank.</span>
-          </label>
-          <label className="text-sm">
-            Not included (optional)
-            <textarea
-              className={field}
-              rows={3}
-              value={agreement.exclusions}
-              onChange={(e) => update("exclusions", e.target.value)}
-              maxLength={2000}
-              placeholder="Any work you specifically agreed to leave out."
-            />
-          </label>
-          <label className="text-sm sm:col-span-2">
-            Parking and access costs (optional)
-            <textarea
-              className={field}
-              rows={3}
-              value={agreement.accessNotes}
-              onChange={(e) => update("accessNotes", e.target.value)}
-              maxLength={2000}
-              placeholder="For example: parking arrangements and any agreed Congestion Charge."
-            />
-            <span className="mt-1 block text-xs text-navy-600">Use one line per arrangement or charge. These are shown separately from the cleaning tasks. This wording does not change the total above.</span>
-          </label>
-          <label className="text-sm">
             Appointment date
             <input
               required
@@ -414,16 +379,6 @@ export default function BookingJourneyPanel({
               maxLength={12}
             />
           </label>
-          <label className="text-sm sm:col-span-2">
-            Message to help the customer prepare (optional)
-            <textarea
-              className={field}
-              rows={2}
-              value={agreement.preparation}
-              onChange={(e) => update("preparation", e.target.value)}
-            />
-            <span className="mt-1 block text-xs text-navy-600">Shown as a separate “Before we arrive” message in the email and booking page.</span>
-          </label>
           <label className="text-sm">Payment arrangement
             <select className={field} value={agreement.paymentPlan || "after_clean"} onChange={(e) => update("paymentPlan", e.target.value)} disabled={["confirmed", "change_pending"].includes(j?.state || "")}>
               <option value="deposit_after_agreement">£30 deposit after agreeing the details</option>
@@ -436,17 +391,65 @@ export default function BookingJourneyPanel({
             </select>
             <span className="mt-1 block text-xs text-navy-600">Choose a deadline before the arrival window. The £30 comes off the total; the rest is due on the cleaning day.</span>
           </label>}
+          <details className="rounded-xl border border-silver-200 bg-silver-50 p-4 sm:col-span-2">
+            <summary className="cursor-pointer font-semibold text-navy-950">Extra notes and preparation — optional</summary>
+            <p className="mt-2 text-sm text-navy-600">Suggested wording is ready where available. Leave anything irrelevant blank. Saved notes still appear in the email even when this section is closed.</p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm">
+            Additional details (optional)
+            <textarea
+              className={field}
+              rows={3}
+              value={agreement.scope}
+              onChange={(e) => update("scope", e.target.value)}
+              maxLength={3000}
+              placeholder="Anything specific to this clean, such as a treatment or an area needing extra care."
+            />
+            <span className="mt-1 block text-xs text-navy-600">Only add details the cleaning list does not already cover. You can leave this blank.</span>
+          </label>
+          <label className="text-sm">
+            Not included (optional)
+            <textarea
+              className={field}
+              rows={3}
+              value={agreement.exclusions}
+              onChange={(e) => update("exclusions", e.target.value)}
+              maxLength={2000}
+              placeholder="Any work you specifically agreed to leave out."
+            />
+          </label>
+          <label className="text-sm sm:col-span-2">
+            Parking and access costs (optional)
+            <textarea
+              className={field}
+              rows={3}
+              value={agreement.accessNotes}
+              onChange={(e) => update("accessNotes", e.target.value)}
+              maxLength={2000}
+              placeholder="For example: parking arrangements and any agreed Congestion Charge."
+            />
+            <span className="mt-1 block text-xs text-navy-600">Use one line per arrangement or charge. These are shown separately from the cleaning tasks. This wording does not change the total above.</span>
+          </label>
+          <label className="text-sm sm:col-span-2">
+            Message to help the customer prepare (optional)
+            <textarea
+              className={field}
+              rows={2}
+              value={agreement.preparation}
+              onChange={(e) => update("preparation", e.target.value)}
+            />
+            <span className="mt-1 block text-xs text-navy-600">Shown as a separate “Before we arrive” message in the email and booking page.</span>
+          </label>
           <label className="text-sm sm:col-span-2">
             Reason for agreed scope, price or changes
             <textarea
-              required
               className={field}
               rows={2}
               value={agreement.changeReason}
               onChange={(e) => update("changeReason", e.target.value)}
               placeholder="Record what was agreed during your conversation."
             />
-            <span className="mt-1 block text-xs text-navy-600">Internal note — not shown in the customer email.</span>
+            <span className="mt-1 block text-xs text-navy-600">Optional internal note — not shown to the customer. Leave blank to record that you prepared these details in CRM, or use a shortcut below.</span>
           </label>
           <div className="flex flex-wrap gap-2 sm:col-span-2" aria-label="Internal note shortcuts">
             {["Details agreed by phone with the customer.", "Details agreed by message with the customer.", "Date and arrival window changed at the customer's request."].map((note) => (
@@ -456,6 +459,8 @@ export default function BookingJourneyPanel({
               </button>
             ))}
           </div>
+            </div>
+          </details>
           <p className="text-xs text-navy-600 sm:col-span-2">
             Saving a draft leaves the customer's current offer unchanged.
             Sending changes to a confirmed booking asks for acceptance and keeps the
