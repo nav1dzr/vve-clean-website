@@ -13,6 +13,11 @@ const build = (patch = {}, options = {}) => renderBookingEmail({
 });
 
 describe('customer booking presentation', () => {
+  it('keeps the surname when the customer uses an initial', () => {
+    const email = build({}, { payload: { name: 'P. Example', reference: 'EXAMPLE', journey: { snapshot, state: 'offered', paid_pence: 0, refunded_pence: 0 } } });
+    expect(email.text).toContain('Hi P. Example,');
+    expect(email.html).toContain('Hi P. Example,');
+  });
   it('separates saved access charges without inventing or changing their amounts', () => {
     const original = structuredClone(snapshot);
     const content = bookingContent(snapshot);
