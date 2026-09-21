@@ -4,6 +4,7 @@ import {
   JourneyError,
   londonToday,
 } from "../../admin/api/_lib/bookingJourney.js";
+import { deliverDepositMeasurements } from "./depositMeasurement.js";
 
 export async function processDueBookingJourneys(
   db,
@@ -11,6 +12,7 @@ export async function processDueBookingJourneys(
     perform = performAdminAction,
     deliver = deliverJourneyMessages,
     now = new Date(),
+    deliverMeasurements = deliverDepositMeasurements,
   } = {},
 ) {
   const results = [];
@@ -80,5 +82,6 @@ export async function processDueBookingJourneys(
     .limit(20);
   if (me) throw new JourneyError("Could not load message retries.", 503);
   for (const m of messages || []) await deliver(db, m.booking_id, m.id);
-  return { results };
+  const measurement = await deliverMeasurements(db);
+  return { results, measurement };
 }
