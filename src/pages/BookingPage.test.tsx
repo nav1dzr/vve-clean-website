@@ -191,7 +191,7 @@ describe("BookingPage — booking request wording", () => {
     renderBookingPage();
     expect(
       screen.getByText(
-        /Send your preferred date with no payment\. Our team will check availability, the final scope and price, then contact you to agree the arrangements\./,
+        /No payment is required to submit a booking request\. After we review and confirm the job details, we’ll email your deposit payment instructions\. Your booking is confirmed once the deposit is paid\./,
       ),
     ).toBeInTheDocument();
   });
@@ -581,8 +581,8 @@ describe("BookingPage — no-payment request submission", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("VVE-TEST123")).toBeInTheDocument();
-    expect(screen.getByText(/No payment has been taken/i)).toBeInTheDocument();
-    expect(screen.getByText(/booking details and £30 deposit payment options/i)).toBeInTheDocument();
+    expect(screen.getByText(/No payment is required to submit a booking request/i)).toBeInTheDocument();
+    expect(screen.getByText(/secure payment instructions/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /pay.*deposit/i })).not.toBeInTheDocument();
 
     vi.unstubAllGlobals();

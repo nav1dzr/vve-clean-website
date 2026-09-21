@@ -26,7 +26,7 @@ describe('Google Ads analytics events', () => {
     trackPhoneClick('header');
 
     expect(gtag).toHaveBeenCalledOnce();
-    expect(gtag).toHaveBeenCalledWith('event', 'phone_click', {
+    expect(gtag).toHaveBeenCalledWith('event', 'phone_contact', {
       event_category: 'engagement',
       event_label: 'header',
     });
@@ -52,12 +52,13 @@ describe('Google Ads analytics events', () => {
     const gtag = vi.fn();
     (window as GtagWindow).gtag = gtag;
 
-    trackBookingRequestSubmitted('Window cleaning');
+    trackBookingRequestSubmitted('Window cleaning', '11111111-1111-4111-8111-111111111111');
 
     expect(gtag).toHaveBeenCalledOnce();
-    expect(gtag).toHaveBeenCalledWith('event', 'request_submitted', {
+    expect(gtag).toHaveBeenCalledWith('event', 'booking_request_submitted', {
       event_category: 'funnel',
       event_label: 'Window cleaning',
+      transaction_id: '11111111-1111-4111-8111-111111111111',
     });
   });
 
@@ -71,6 +72,11 @@ describe('Google Ads analytics events', () => {
       send_to: 'AW-18214693277/zzetCIy-6eEcEJ3TuO1D',
       event_label: 'sticky-mobile-cta',
     });
+  });
+  it('does not report a successful booking request without the server UUID', () => {
+    const gtag = vi.fn(); (window as GtagWindow).gtag = gtag;
+    trackBookingRequestSubmitted('Carpet cleaning');
+    expect(gtag).not.toHaveBeenCalled();
   });
 
   it('sends successful contact forms to the dedicated secondary conversion action', () => {

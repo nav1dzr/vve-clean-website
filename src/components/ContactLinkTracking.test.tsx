@@ -33,7 +33,7 @@ describe('shared contact-link tracking', () => {
 
     fireEvent.click(document.querySelector('span')!);
 
-    expect(gtag).toHaveBeenNthCalledWith(1, 'event', 'whatsapp_click', {
+    expect(gtag).toHaveBeenNthCalledWith(1, 'event', 'whatsapp_contact', {
       event_category: 'engagement',
       event_label: 'test-wa',
     });
@@ -59,7 +59,7 @@ describe('shared contact-link tracking', () => {
     fireEvent.click(getByRole('link', { name: 'Pricing' }));
 
     expect(gtag).toHaveBeenCalledTimes(1);
-    expect(gtag).toHaveBeenCalledWith('event', 'phone_click', {
+    expect(gtag).toHaveBeenCalledWith('event', 'phone_contact', {
       event_category: 'engagement',
       event_label: '/:phone',
     });

@@ -7,45 +7,8 @@
 <meta name="robots" content="noindex" />
 <meta name="referrer" content="no-referrer" />
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-<!-- Google Consent Mode v2 — default to denied, then apply the visitor's
-     earlier choice from the cookie banner (src/lib/consent.ts, key
-     "vve_consent") if one was already made on an earlier page. This page
-     never shows the banner itself. Must run before the gtag.js loader. -->
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('consent', 'default', {
-    ad_storage: 'denied',
-    analytics_storage: 'denied',
-    ad_user_data: 'denied',
-    ad_personalization: 'denied',
-  });
-  try {
-    var storedConsent = JSON.parse(localStorage.getItem('vve_consent') || 'null');
-    if (storedConsent && typeof storedConsent.analytics === 'boolean' && typeof storedConsent.advertising === 'boolean') {
-      var adState = storedConsent.advertising ? 'granted' : 'denied';
-      gtag('consent', 'update', {
-        ad_storage: adState,
-        ad_user_data: adState,
-        ad_personalization: adState,
-        analytics_storage: storedConsent.analytics ? 'granted' : 'denied',
-      });
-    }
-  } catch (e) { /* localStorage unavailable — stay at default denied */ }
-</script>
-
-<!-- Google tag (gtag.js) — AW-18214693277 -->
-<script>
-  window.vveProductionTrackingHost = ['vveclean.co.uk', 'www.vveclean.co.uk'].includes(location.hostname);
-  if (window.vveProductionTrackingHost) {
-    var googleTag = document.createElement('script');
-    googleTag.async = true;
-    googleTag.src = 'https://www.googletagmanager.com/gtag/js?id=AW-18214693277';
-    document.head.appendChild(googleTag);
-    gtag('js', new Date());
-    gtag('config', 'AW-18214693277');
-  }
-</script>
+<!-- This private historic payment page deliberately loads no analytics.
+     Payment verification and customer access remain server-backed below. -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <!-- Bricolage Grotesque replaces Playfair Display as the heading font,
@@ -654,12 +617,11 @@
       });
   }
 
-  // ── Conversion tracking — Google Ads "Booking Deposit Paid" ─────────────
-  // Fires once per transaction. localStorage is only marked AFTER event_callback
-  // confirms the hit reached Google (or a 5s timeout fires as fallback).
-  // Verify the send_to label in Google Ads → Goals → Conversions →
-  // "Booking Deposit Paid" → Tag setup — must match exactly.
+  // ── Retired legacy conversion tracking ──────────────────────────────────
+  // The current CRM journey records a verified payment server-side. This
+  // private page must not expose its reference, token or session to analytics.
   (function () {
+    return;
     var SEND_TO   = "AW-18214693277/hUwdCK68gswcEJ3TuO1D";
     var PROD_HOST = "www.vveclean.co.uk";
     if (!window.vveProductionTrackingHost) return;

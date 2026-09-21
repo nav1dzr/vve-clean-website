@@ -733,7 +733,11 @@ export default function BookingPage() {
       utm_medium: attribution.utm_medium,
       utm_campaign: attribution.utm_campaign,
       utm_content: attribution.utm_content,
+      utm_term: attribution.utm_term,
       gclid: attribution.gclid,
+      gbraid: attribution.gbraid,
+      wbraid: attribution.wbraid,
+      measurement_consent: attribution.measurement_consent,
     };
 
     try {
@@ -858,8 +862,9 @@ export default function BookingPage() {
               Your request is with our team
             </h1>
             <p className="mt-3 text-base leading-relaxed text-silver-700">
-              No payment has been taken. We will check your preferred time
-              during opening hours and contact you to confirm what is available.
+              No payment is required to submit a booking request. After we review
+              and confirm the job details, we’ll email your deposit payment instructions.
+              Your booking is confirmed once the deposit is paid.
             </p>
             <div className="mt-5 rounded-2xl bg-silver-100 px-4 py-3">
               <p className="text-xs font-bold uppercase tracking-widest text-silver-600">
@@ -886,8 +891,8 @@ export default function BookingPage() {
               </div>
             </dl>
             <p className="mt-5 text-sm leading-relaxed text-silver-600">
-              We’ll agree the service, final price and time with you, then send your booking
-              details and £30 deposit payment options. Nothing is charged with this request.
+              We’ll agree the service, final price and time with you before sending
+              the secure payment instructions. Nothing is charged with this request.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <a
@@ -929,9 +934,9 @@ export default function BookingPage() {
             Request a preferred cleaning time
           </h1>
           <p className="text-silver-600 text-sm">
-            Send your preferred date with no payment. Our team will check
-            availability, the final scope and price, then contact you to agree
-            the arrangements.
+            No payment is required to submit a booking request. After we review
+            and confirm the job details, we’ll email your deposit payment instructions.
+            Your booking is confirmed once the deposit is paid.
           </p>
         </div>
 
@@ -1486,8 +1491,8 @@ export default function BookingPage() {
                 price, then contact you.
               </li>
               <li>
-                <strong>3.</strong> After we agree the scope, final price and time
-                with you, we send the booking details and £30 deposit payment options. The deposit comes off your total.
+                <strong>3.</strong> We email your deposit payment instructions.
+                Your booking is confirmed once the deposit is paid, and the deposit comes off your total.
               </li>
             </ol>
           </div>

@@ -387,10 +387,10 @@ describe("POST /api/create-booking-request", () => {
     for (const [message] of sendMailMock.mock.calls) {
       expect(message.text).toBeTruthy();
       expect(message.html).toBeTruthy();
-      expect(message.text).toMatch(/booking details.*£30 deposit/i);
+      expect(message.text).toMatch(/deposit (?:request|payment instructions)/i);
       expect(message.text).not.toMatch(/Pay £30 deposit by card|checkout.stripe.com/i);
-      expect(message.text).toMatch(/agree.*(?:scope|service).*final price.*time/i);
-      expect(message.html).toMatch(/booking details.*£30 deposit/i);
+      expect(message.text).toMatch(/(?:review and confirm the job details|agree the scope, final price and time)/i);
+      expect(message.html).toMatch(/deposit (?:request|payment instructions)/i);
       expect(message.html).not.toMatch(/Pay £30 deposit by card|checkout.stripe.com/i);
     }
     expect(updateEqMock).toHaveBeenCalledWith(
@@ -404,7 +404,7 @@ describe("POST /api/create-booking-request", () => {
   });
 
   it("sends the manager Telegram notification using the existing bot settings", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
     vi.stubGlobal("fetch", fetchMock);
     process.env.TELEGRAM_BOT_TOKEN = "test-bot-token";
     process.env.TELEGRAM_CHAT_ID = "test-chat-id";
@@ -420,13 +420,24 @@ describe("POST /api/create-booking-request", () => {
     expect(telegramBody.chat_id).toBe("test-chat-id");
     expect(telegramBody.text).toMatch(/New booking request/);
     expect(telegramBody.text).toMatch(
-      /Request received; no payment taken or required to confirm/,
+      /No payment was taken.*booking is confirmed once the deposit is paid/s,
     );
     expect(telegramBody.text).not.toMatch(/£30 deposit|deposit link|Stripe/i);
     expect(updateEqMock).toHaveBeenCalledWith(
       expect.objectContaining({ telegram_sent: true }),
       "id",
       "booking-1",
+    );
+  });
+  it("recognises a Telegram provider rejection even when HTTP succeeds", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: false, description: "rejected" }) });
+    vi.stubGlobal("fetch", fetchMock);
+    process.env.TELEGRAM_BOT_TOKEN = "test-bot-token";
+    process.env.TELEGRAM_CHAT_ID = "test-chat-id";
+    const response = res();
+    await handler(req(payload()), response);
+    expect(updateEqMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ telegram_sent: true }), "id", "booking-1",
     );
   });
 });

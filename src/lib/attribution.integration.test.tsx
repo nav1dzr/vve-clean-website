@@ -335,13 +335,14 @@ describe('when the visitor accepts advertising', () => {
     expect(screen.queryByRole('button', { name: 'Accept all' })).toBeNull();
   });
 
-  it('stores nothing the API would reject', async () => {
+  it('stores utm_term now that the booking API accepts it', async () => {
     const user = userEvent.setup();
     enterAt('/?utm_term=should_be_ignored&utm_source=google');
     await user.click(await waitForBanner());
 
     await waitFor(() => expect(getAttribution().utm_source).toBe('google'));
-    expect(Object.keys(localStorage).some((k) => k.includes('utm_term'))).toBe(false);
+    expect(Object.keys(localStorage).some((k) => k.includes('utm_term'))).toBe(true);
+    expect(getAttribution().utm_term).toBe('should_be_ignored');
   });
 });
 

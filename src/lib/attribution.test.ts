@@ -33,9 +33,9 @@ beforeEach(() => {
 });
 
 describe('capturing a campaign click on any route', () => {
-  it('records the full utm set and gclid from the landing URL', () => {
+  it('records the full approved utm set and Google click identifiers', () => {
     writeAdvertisingAttribution(
-      '?utm_source=google&utm_medium=cpc&utm_campaign=carpet_aug&utm_content=ad_a&gclid=abc123',
+      '?utm_source=google&utm_medium=cpc&utm_campaign=carpet_aug&utm_content=ad_a&utm_term=carpet&gclid=abc123&gbraid=braid1&wbraid=braid2',
       '/carpet-cleaning-london',
     );
 
@@ -44,7 +44,10 @@ describe('capturing a campaign click on any route', () => {
     expect(a.utm_medium).toBe('cpc');
     expect(a.utm_campaign).toBe('carpet_aug');
     expect(a.utm_content).toBe('ad_a');
+    expect(a.utm_term).toBe('carpet');
     expect(a.gclid).toBe('abc123');
+    expect(a.gbraid).toBe('braid1');
+    expect(a.wbraid).toBe('braid2');
     expect(a.first_source).toBe('google');
     expect(a.last_source).toBe('google');
     expect(a.landing_page).toBe('/carpet-cleaning-london');
@@ -282,15 +285,12 @@ describe('reading is gated as well as writing', () => {
   });
 });
 
-describe('only fields the backend actually accepts are captured', () => {
-  it('does not capture utm_term', () => {
-    // utm_term is absent from api/create-checkout-session.js, the webhook, the
-    // CRM allow-list and the bookings row mapping. Capturing it would imply a
-    // coverage that does not exist — it would be dropped at the API boundary.
+describe('all approved fields accepted by the booking backend are captured', () => {
+  it('captures utm_term for the server-side payment join', () => {
     writeAdvertisingAttribution('?utm_term=carpet+cleaning+london&utm_source=google', '/');
 
     const stored = Object.keys(localStorage);
-    expect(stored.some((k) => k.includes('utm_term'))).toBe(false);
-    expect(getAttribution()).not.toHaveProperty('utm_term');
+    expect(stored.some((k) => k.includes('utm_term'))).toBe(true);
+    expect(getAttribution().utm_term).toBe('carpet cleaning london');
   });
 });

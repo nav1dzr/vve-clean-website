@@ -1337,13 +1337,13 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   </div>
                   <PriceTaxNote className="mt-2" />
                   <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-sm text-navy-800">
-                    <strong>No payment now.</strong> Send your preferred time first. We check availability, scope and the final price, then contact you to confirm the appointment.
+                    <strong>No payment is required to submit a booking request.</strong> After we review and confirm the job details, we’ll email your deposit payment instructions. Your booking is confirmed once the deposit is paid.
                   </div>
                   <div className="mt-4 inline-flex items-center gap-1.5 text-green-800 bg-green-50 border border-green-200 rounded-full px-3 py-1.5 text-xs font-semibold">
                     <ShieldCheck size={13} /> {state.pkg === 'complete' ? `${EOT_GUARANTEE_HOURS / 24}-day reporting window on the agreed checklist` : `${EOT_GUARANTEE_HOURS / 24}-day reporting window on selected tasks`}
                   </div>
                   <p className="text-navy-600 text-[11px] mt-3 leading-relaxed">
-                    Your preferred time is a request until our team confirms it. The remaining balance is due after the work is completed and you have had the opportunity to inspect it.
+                    Your preferred time remains a request until the job details are agreed and the deposit is paid. The remaining balance is due on the day of the clean.
                   </p>
                 </div>
               )}

@@ -327,8 +327,8 @@ describe('EotQuoteWizard — Step 4: Add-ons and final review', () => {
     expect(screen.getByText('Total')).toBeInTheDocument();
     expect(screen.queryByText('Total service price')).not.toBeInTheDocument();
     expect(screen.queryByText('Final total')).not.toBeInTheDocument();
-    expect(screen.getByText('No payment now.')).toBeInTheDocument();
-    expect(screen.getByText(/We check availability, scope and the final price, then contact you to confirm the appointment/i)).toBeInTheDocument();
+    expect(screen.getByText(/No payment is required to submit a booking request/i)).toBeInTheDocument();
+    expect(screen.getByText(/Your booking is confirmed once the deposit is paid/i)).toBeInTheDocument();
     expect(screen.queryByText('Deposit today')).not.toBeInTheDocument();
     expect(screen.getByText(/7-day reporting window on selected tasks/)).toBeInTheDocument();
   });

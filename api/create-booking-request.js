@@ -20,6 +20,25 @@ const ALLOWED_ORIGINS = [
   "http://localhost:4173",
 ].filter(Boolean);
 
+function cleanCampaignValue(value, max = 200) {
+  if (typeof value !== "string") return null;
+  const cleaned = value.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, max);
+  return cleaned || null;
+}
+function cleanClickId(value) {
+  const cleaned = cleanCampaignValue(value, 200);
+  return cleaned && /^[A-Za-z0-9._~-]+$/.test(cleaned) ? cleaned : null;
+}
+function cleanLandingPath(value) {
+  const cleaned = cleanCampaignValue(value, 500);
+  return cleaned && /^\/(?!\/)[^?#]*$/.test(cleaned) ? cleaned : null;
+}
+function validConsentTime(value) {
+  if (typeof value !== "string") return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && parsed <= Date.now() + 60000 ? new Date(parsed).toISOString() : null;
+}
+
 function corsHeaders(origin) {
   const allowed = ALLOWED_ORIGINS.includes(origin);
   return {
@@ -202,12 +221,12 @@ function customerText(data) {
   return [
     `Hi ${data.fullName},`,
     "",
-    "We received your cleaning request. No payment has been taken.",
-    "Your requested time is not confirmed yet. We will review availability, the final scope and price during opening hours and contact you.",
+    "We received your cleaning request.",
+    "No payment is required to submit a booking request. After we review and confirm the job details, we’ll email your deposit payment instructions. Your booking is confirmed once the deposit is paid.",
     "",
     detailText(data),
     "",
-    "No payment is taken with your request. We’ll agree the service, final price and time, then send your booking details and £30 deposit payment options.",
+    "Nothing has been charged with this request.",
     "",
     "VVE Clean",
     "020 8050 2233 · contact@vveclean.co.uk",
@@ -250,8 +269,8 @@ function emailHtml(data, business = false) {
 
   const intro = business
     ? "Agree the scope, final price and time with the customer, then send the booking details and £30 deposit request from the CRM. This request is not a confirmed appointment."
-    : "No payment has been taken. Your requested time is not confirmed yet; we will review availability, the final scope and price during opening hours and contact you.";
-  return `<!doctype html><html lang="en"><body style="margin:0;background:#f5f6f8;font-family:Arial,sans-serif;color:#020b24"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="560" style="max-width:560px;width:100%;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#020b24;padding:24px 28px">${emailWordmarkHtml({ inverse: true })}</td></tr><tr><td style="padding:28px"><h1 style="font-size:22px;margin:0 0 12px">${business ? "New booking request" : "We received your request"}</h1><p style="font-size:15px;line-height:1.6;margin:0 0 18px">${esc(intro)}</p><table role="presentation" width="100%" cellspacing="0" style="border:1px solid #e3e7ee;border-radius:10px;border-collapse:separate;border-spacing:0">${rows}</table>${business ? "" : '<p style="font-size:14px;line-height:1.6;margin:18px 0 0">No payment is taken with your request. We’ll agree the service, final price and time, then send your booking details and £30 deposit payment options.</p>'}</td></tr></table></td></tr></table></body></html>`;
+    : "No payment is required to submit a booking request. After we review and confirm the job details, we’ll email your deposit payment instructions. Your booking is confirmed once the deposit is paid.";
+  return `<!doctype html><html lang="en"><body style="margin:0;background:#f5f6f8;font-family:Arial,sans-serif;color:#020b24"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="560" style="max-width:560px;width:100%;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#020b24;padding:24px 28px">${emailWordmarkHtml({ inverse: true })}</td></tr><tr><td style="padding:28px"><h1 style="font-size:22px;margin:0 0 12px">${business ? "New booking request" : "We received your request"}</h1><p style="font-size:15px;line-height:1.6;margin:0 0 18px">${esc(intro)}</p><table role="presentation" width="100%" cellspacing="0" style="border:1px solid #e3e7ee;border-radius:10px;border-collapse:separate;border-spacing:0">${rows}</table>${business ? "" : '<p style="font-size:14px;line-height:1.6;margin:18px 0 0">Nothing has been charged with this request.</p>'}</td></tr></table></td></tr></table></body></html>`;
 }
 
 async function sendNotifications(data) {
@@ -319,11 +338,14 @@ async function sendNotifications(data) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: process.env.TELEGRAM_CHAT_ID,
-            text: `New booking request\n${data.bookingRef}\n${data.fullName} · ${data.phone}\n${data.service}\n${data.date} · ${data.time}\nEstimated total: £${data.totalPrice}\nRequest received; no payment taken or required to confirm. Agree the scope, final price and time, then confirm directly.`,
+            text: `New booking request\n${data.bookingRef}\n${data.fullName} · ${data.phone}\n${data.service}\n${data.date} · ${data.time}\nEstimated total: £${data.totalPrice}\nNo payment was taken. Review and agree the job details, then email the deposit instructions. The booking is confirmed once the deposit is paid.`,
           }),
         },
       );
-      result.telegramSent = response.ok;
+      const provider = await response.json().catch(() => null);
+      result.telegramSent = response.ok && provider?.ok === true;
+      if (!result.telegramSent)
+        console.error("[booking-request] Telegram rejected the notification.");
     } catch (error) {
       console.error("[booking-request] Telegram failed:", error.message);
     }
@@ -381,7 +403,11 @@ export default async function handler(req, res) {
     utm_medium,
     utm_campaign,
     utm_content,
+    utm_term,
     gclid,
+    gbraid,
+    wbraid,
+    measurement_consent,
   } = payload;
 
   if (!quoteConfig)
@@ -606,21 +632,21 @@ export default async function handler(req, res) {
     standard_total: priced.standard_total,
     discount_amount: priced.discount_amount,
     final_total_after_discount: priced.final_total_after_discount,
-    first_source:
-      typeof first_source === "string" ? first_source.slice(0, 500) : null,
-    last_source:
-      typeof last_source === "string" ? last_source.slice(0, 500) : null,
-    landing_page:
-      typeof landing_page === "string" ? landing_page.slice(0, 500) : null,
-    utm_source:
-      typeof utm_source === "string" ? utm_source.slice(0, 500) : null,
-    utm_medium:
-      typeof utm_medium === "string" ? utm_medium.slice(0, 500) : null,
-    utm_campaign:
-      typeof utm_campaign === "string" ? utm_campaign.slice(0, 500) : null,
-    utm_content:
-      typeof utm_content === "string" ? utm_content.slice(0, 500) : null,
-    gclid: typeof gclid === "string" ? gclid.slice(0, 500) : null,
+    first_source: cleanCampaignValue(first_source),
+    last_source: cleanCampaignValue(last_source),
+    landing_page: cleanLandingPath(landing_page),
+    utm_source: cleanCampaignValue(utm_source),
+    utm_medium: cleanCampaignValue(utm_medium),
+    utm_campaign: cleanCampaignValue(utm_campaign),
+    utm_content: cleanCampaignValue(utm_content),
+    utm_term: cleanCampaignValue(utm_term),
+    gclid: cleanClickId(gclid),
+    gbraid: cleanClickId(gbraid),
+    wbraid: cleanClickId(wbraid),
+    measurement_advertising_consent: measurement_consent?.advertising === true && measurement_consent?.version === "2026-07-14",
+    measurement_consent_version: measurement_consent?.version === "2026-07-14" ? measurement_consent.version : null,
+    measurement_consent_recorded_at: validConsentTime(measurement_consent?.recorded_at),
+    measurement_is_test: isHostedPreview(),
   };
 
   const {

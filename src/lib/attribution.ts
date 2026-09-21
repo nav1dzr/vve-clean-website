@@ -1,4 +1,5 @@
 import { isPrivatePage } from './privatePage';
+import { getStoredConsent } from './consent';
 // Campaign measurement waits for advertising consent. The requested leaflet offer
 // is separate essential storage; rejecting cookies never removes the discount.
 export interface AttributionData {
@@ -11,7 +12,11 @@ export interface AttributionData {
   utm_medium:      string | null;
   utm_campaign:    string | null;
   utm_content:     string | null;
+  utm_term:        string | null;
   gclid:           string | null;
+  gbraid:          string | null;
+  wbraid:          string | null;
+  measurement_consent: { advertising: boolean; version: string | null; recorded_at: string | null };
 }
 
 const KEYS = {
@@ -24,7 +29,10 @@ const KEYS = {
   utm_medium:       'vve_utm_medium',
   utm_campaign:     'vve_utm_campaign',
   utm_content:      'vve_utm_content',
+  utm_term:         'vve_utm_term',
   gclid:            'vve_gclid',
+  gbraid:           'vve_gbraid',
+  wbraid:           'vve_wbraid',
   captured_at:      'vve_attribution_captured_at',
 };
 
@@ -44,7 +52,10 @@ export const ADVERTISING_KEYS = [
   KEYS.utm_medium,
   KEYS.utm_campaign,
   KEYS.utm_content,
+  KEYS.utm_term,
   KEYS.gclid,
+  KEYS.gbraid,
+  KEYS.wbraid,
   KEYS.captured_at,
 ] as const;
 
@@ -54,7 +65,7 @@ export const ADVERTISING_KEYS = [
  * anything added here without the matching API and schema change is dropped
  * silently at the boundary.
  */
-const CAPTURED_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'gclid'] as const;
+const CAPTURED_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid', 'gbraid', 'wbraid'] as const;
 type CapturedParam = typeof CAPTURED_PARAMS[number];
 
 /** The API truncates these to 500 chars; match it so what we store is sendable. */
@@ -246,7 +257,7 @@ export function resetAttributionMemory(): void {
 const NO_ADVERTISING_ATTRIBUTION = {
   first_source: null, last_source: null, landing_page: null,
   utm_source: null, utm_medium: null, utm_campaign: null,
-  utm_content: null, gclid: null,
+  utm_content: null, utm_term: null, gclid: null, gbraid: null, wbraid: null,
 } as const;
 
 /**
@@ -273,8 +284,14 @@ export function getAttribution(): AttributionData {
       offer_code:       localStorage.getItem(KEYS.offer_code),
       discount_percent: pct !== null ? Number(pct) : null,
     };
+    const storedConsent = getStoredConsent();
+    const measurementConsent = {
+      advertising: advertisingConsent,
+      version: storedConsent?.version ?? null,
+      recorded_at: storedConsent?.timestamp ?? null,
+    };
 
-    if (!advertisingConsent) return { ...NO_ADVERTISING_ATTRIBUTION, ...essential };
+    if (!advertisingConsent) return { ...NO_ADVERTISING_ATTRIBUTION, ...essential, measurement_consent: measurementConsent };
     expireAttribution();
 
     return {
@@ -286,9 +303,13 @@ export function getAttribution(): AttributionData {
       utm_medium:       localStorage.getItem(KEYS.utm_medium),
       utm_campaign:     localStorage.getItem(KEYS.utm_campaign),
       utm_content:      localStorage.getItem(KEYS.utm_content),
+      utm_term:         localStorage.getItem(KEYS.utm_term),
       gclid:            localStorage.getItem(KEYS.gclid),
+      gbraid:           localStorage.getItem(KEYS.gbraid),
+      wbraid:           localStorage.getItem(KEYS.wbraid),
+      measurement_consent: measurementConsent,
     };
   } catch {
-    return { ...NO_ADVERTISING_ATTRIBUTION, offer_code: null, discount_percent: null };
+    return { ...NO_ADVERTISING_ATTRIBUTION, offer_code: null, discount_percent: null, measurement_consent: { advertising: false, version: null, recorded_at: null } };
   }
 }
