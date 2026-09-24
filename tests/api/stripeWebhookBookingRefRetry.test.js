@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { upsertBookingWithRefRetry } from '../../api/stripe-webhook.js';
+import { stripeEventOccurredAt, upsertBookingWithRefRetry } from '../../api/stripe-webhook.js';
 
 // Unit tests for the booking_ref collision retry extracted from the
 // webhook's DB-persistence step (see D2 in docs/kimi-audit — a race in
@@ -63,4 +63,17 @@ describe('upsertBookingWithRefRetry', () => {
 
     expect(upsert.mock.calls[0][1]).toEqual({ onConflict: 'stripe_session_id' });
   });
+});
+
+describe('stripeEventOccurredAt', () => {
+  it('converts a verified Stripe event creation time to an ISO timestamp', () => {
+    expect(stripeEventOccurredAt(1_796_032_800)).toBe('2026-11-30T10:00:00.000Z');
+  });
+
+  it.each([undefined, null, '1796032800', -1, Number.MAX_SAFE_INTEGER])(
+    'omits an invalid Stripe creation time: %s',
+    (created) => {
+      expect(stripeEventOccurredAt(created)).toBeNull();
+    },
+  );
 });

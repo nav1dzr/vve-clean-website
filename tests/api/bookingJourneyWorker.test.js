@@ -3,6 +3,7 @@ import { processDueBookingJourneys } from "../../api/_lib/bookingJourneyWorker.j
 
 function workerDb(journeys, messages = []) {
   const db = {
+    rpc: vi.fn(async () => ({ data: null, error: null })),
     from(table) {
       let filters = [],
         limit = Infinity,
@@ -67,6 +68,49 @@ function workerDb(journeys, messages = []) {
   return db;
 }
 describe("bounded booking worker", () => {
+  it("runs retention maintenance before measurement delivery through the scheduled worker", async () => {
+    const order = [];
+    const deliverRequestNotifications = vi.fn(async () => { order.push("request-notifications"); return { claimed: 0, results: [] }; });
+    const purgeMeasurements = vi.fn(async () => { order.push("purge"); return { status: "completed" }; });
+    const deliverMeasurements = vi.fn(async () => { order.push("deliver"); return { status: "disabled", processed: 0 }; });
+
+    const result = await processDueBookingJourneys(workerDb([]), {
+      perform: vi.fn(),
+      deliver: vi.fn(),
+      deliverRequestNotifications,
+      purgeMeasurements,
+      deliverMeasurements,
+      now: new Date("2026-09-08T12:00:00Z"),
+    });
+
+    expect(order).toEqual(["request-notifications", "purge", "deliver"]);
+    expect(deliverRequestNotifications).toHaveBeenCalledWith(expect.anything(), { limit: 12 });
+    expect(result.measurementMaintenance).toEqual({ status: "completed" });
+  });
+
+  it("keeps measurement work running when request notification retry is deferred", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const deliverMeasurements = vi.fn(async () => ({ status: "disabled", processed: 0 }));
+    const result = await processDueBookingJourneys(workerDb([]), {
+      perform: vi.fn(),
+      deliver: vi.fn(),
+      deliverRequestNotifications: vi.fn(async () => {
+        throw Object.assign(new Error("private database detail"), { code: "PGRST202" });
+      }),
+      purgeMeasurements: vi.fn(async () => ({ status: "completed" })),
+      deliverMeasurements,
+      now: new Date("2026-09-08T12:00:00Z"),
+    });
+
+    expect(deliverMeasurements).toHaveBeenCalledOnce();
+    expect(result.requestNotifications).toEqual({
+      status: "needs_review",
+      code: "PGRST202",
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("private database detail");
+    log.mockRestore();
+  });
+
   it("selects tomorrow in London and uses the existing appointment during a pending change", async () => {
     const rows = [
       {

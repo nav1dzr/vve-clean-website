@@ -64,6 +64,7 @@ const fullBooking: BookingDetail = {
     firstSource: 'google', lastSource: 'google', landingPage: '/', utmSource: null, utmMedium: null,
     utmCampaign: null, utmContent: null, gclid: null,
   },
+  measurement: { advertisingConsent: true, consentWithdrawnAt: null },
   notifications: { emailCustomerSent: true, emailBusinessSent: true, telegramSent: true, sheetsSent: true },
   createdAt: '2026-07-01T00:00:00.000Z',
   updatedAt: '2026-07-01T00:00:00.000Z',
@@ -108,6 +109,12 @@ function setupAuthFetchMock(
       if (overrides.statusError) return Promise.reject(overrides.statusError);
       const body = JSON.parse((init?.body as string) || '{}');
       return Promise.resolve({ id: fullBooking.id, status: body.status, updatedAt: '2026-07-14T00:00:00.000Z' });
+    }
+
+    if (path.includes('action=measurement-consent')) {
+      return Promise.resolve({
+        measurement: { advertisingConsent: false, consentWithdrawnAt: '2026-07-14T12:00:00.000Z' },
+      });
     }
 
     if (/\/balance$/.test(path)) {
@@ -233,6 +240,23 @@ describe('BookingDetailPage', () => {
     const { container } = renderDetail();
     await screen.findByText('N15NJ180726');
     expect(container.innerHTML).not.toMatch(/confirmation_?token/i);
+  });
+
+  it('requires confirmation, then withdraws advertising measurement consent', async () => {
+    setupAuthFetchMock();
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: 'Withdraw measurement consent' }));
+    expect(screen.getByText(/confirm the customer has asked/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Confirm withdrawal' }));
+
+    await waitFor(() => expect(authFetchMock).toHaveBeenCalledWith(
+      `/api/bookings/${fullBooking.id}?action=measurement-consent`,
+      { method: 'POST' },
+    ));
+    expect(await screen.findByText(/consent withdrawn/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Withdraw measurement consent' })).not.toBeInTheDocument();
   });
 
   describe('linked customer', () => {

@@ -86,7 +86,7 @@ function seedPreConsentAttribution() {
 
 /** Every advertising field, blanked — the shape BookingPage must receive. */
 const NO_CAMPAIGN = {
-  first_source: null, last_source: null, landing_page: null,
+  first_source: null, last_source: null, landing_page: null, first_touch_at: null,
   utm_source: null, utm_medium: null, utm_campaign: null,
   utm_content: null, gclid: null,
 };
@@ -373,6 +373,7 @@ describe('when advertising is enabled later in the same visit', () => {
     // path a visitor takes when they decide the banner was too aggressive.
     saveConsent(REJECT_OPTIONAL_CATEGORIES, 'rejected_optional');
     const user = userEvent.setup();
+    const entryStartedAt = Date.now();
     const { container } = enterAt('/?utm_source=google&gclid=late_click');
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Cookie settings' })).toBeTruthy());
@@ -386,6 +387,9 @@ describe('when advertising is enabled later in the same visit', () => {
 
     await waitFor(() => expect(getAttribution().gclid).toBe('late_click'));
     expect(getAttribution().first_source).toBe('google');
+    const firstTouchAt = Date.parse(getAttribution().first_touch_at || '');
+    expect(firstTouchAt).toBeGreaterThanOrEqual(entryStartedAt);
+    expect(firstTouchAt).toBeLessThanOrEqual(Date.now());
   });
 });
 

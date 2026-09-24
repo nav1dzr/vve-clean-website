@@ -48,15 +48,15 @@ describe('Google Ads analytics events', () => {
     });
   });
 
-  it('records a saved no-payment request as its own funnel event', () => {
+  it('records the browser response separately from the canonical server event', () => {
     const gtag = vi.fn();
     (window as GtagWindow).gtag = gtag;
 
     trackBookingRequestSubmitted('Window cleaning', '11111111-1111-4111-8111-111111111111');
 
     expect(gtag).toHaveBeenCalledOnce();
-    expect(gtag).toHaveBeenCalledWith('event', 'booking_request_submitted', {
-      event_category: 'funnel',
+    expect(gtag).toHaveBeenCalledWith('event', 'booking_request_response_received', {
+      event_category: 'diagnostic',
       event_label: 'Window cleaning',
       transaction_id: '11111111-1111-4111-8111-111111111111',
     });
@@ -100,13 +100,17 @@ describe('Google Ads analytics events', () => {
     }
     expect(gtag).not.toHaveBeenCalled();
   });
-  it('deduplicates saved requests and sends only a configured real request label', () => {
+  it('deduplicates saved requests without a second direct Ads conversion', () => {
     const gtag = vi.fn(); (window as GtagWindow).gtag = gtag;
     vi.stubEnv('VITE_GOOGLE_ADS_REQUEST_CONVERSION_LABEL', 'AW-18214693277/testActualLabel');
     const id = '8f761dbb-8c42-4e26-95ba-e12c151277d6';
     trackBookingRequestSubmitted('Carpet cleaning', id); trackBookingRequestSubmitted('Carpet cleaning', id);
-    expect(gtag).toHaveBeenCalledTimes(2);
-    expect(gtag).toHaveBeenLastCalledWith('event', 'conversion', { send_to: 'AW-18214693277/testActualLabel', transaction_id: id });
+    expect(gtag).toHaveBeenCalledOnce();
+    expect(gtag).toHaveBeenLastCalledWith('event', 'booking_request_response_received', {
+      event_category: 'diagnostic',
+      event_label: 'Carpet cleaning',
+      transaction_id: id,
+    });
   });
   it.each(['https://www.vveclean.co.uk/Manage-Booking?token=secret', 'https://www.vveclean.co.uk/%6danage-booking?token=secret', 'http://localhost:5173/', 'http://127.0.0.1:4173/', 'https://vve-clean-preview.vercel.app/'])(
     'does not measure private or preview URLs: %s', url => {

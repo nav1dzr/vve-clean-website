@@ -33,6 +33,8 @@ export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [state, setState] = useState<State>({ status: 'loading' });
   const [copied, setCopied] = useState<'address' | 'ref' | null>(null);
+  const [withdrawalStep, setWithdrawalStep] = useState<'idle' | 'confirm' | 'saving'>('idle');
+  const [withdrawalError, setWithdrawalError] = useState<string | null>(null);
 
   function load() {
     if (!id) return;
@@ -118,6 +120,25 @@ export default function BookingDetailPage() {
     if (ok) {
       setCopied(kind);
       setTimeout(() => setCopied(null), 2000);
+    }
+  }
+
+  async function withdrawMeasurementConsent() {
+    if (!id || withdrawalStep === 'saving') return;
+    setWithdrawalStep('saving');
+    setWithdrawalError(null);
+    try {
+      const result = await authFetch<{ measurement: BookingDetail['measurement'] }>(
+        `/api/bookings/${id}?action=measurement-consent`,
+        { method: 'POST' },
+      );
+      setState((previous) => previous.status === 'success'
+        ? { status: 'success', data: { ...previous.data, measurement: result.measurement } }
+        : previous);
+      setWithdrawalStep('idle');
+    } catch (error) {
+      setWithdrawalError(error instanceof ApiError ? error.message : 'Could not withdraw measurement consent.');
+      setWithdrawalStep('confirm');
     }
   }
 
@@ -217,6 +238,38 @@ export default function BookingDetailPage() {
           <dt className="text-navy-700">Offer code</dt>
           <dd className="text-right text-navy-950">{b.attribution.offerCode || 'None'}</dd>
         </dl>
+      </Section>
+
+      <Section title="Advertising measurement">
+        {b.measurement.consentWithdrawnAt ? (
+          <p className="text-sm text-navy-700">
+            Consent withdrawn {formatDateTime(b.measurement.consentWithdrawnAt)}. Stored measurement identifiers were removed and unsent events were suppressed.
+          </p>
+        ) : b.measurement.advertisingConsent ? (
+          <div className="space-y-3">
+            <p className="text-sm text-navy-700">Advertising measurement consent is currently recorded for this booking.</p>
+            {withdrawalStep !== 'idle' ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                <p className="text-sm text-red-900">Confirm the customer has asked to withdraw advertising measurement consent. This removes stored measurement identifiers and suppresses unsent events.</p>
+                {withdrawalError && <p role="alert" className="mt-2 text-sm text-red-800">{withdrawalError}</p>}
+                <div className="mt-3 flex gap-2">
+                  <button type="button" disabled={withdrawalStep === 'saving'} onClick={withdrawMeasurementConsent} className="min-h-11 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white disabled:opacity-60">
+                    {withdrawalStep === 'saving' ? 'Withdrawing…' : 'Confirm withdrawal'}
+                  </button>
+                  <button type="button" disabled={withdrawalStep === 'saving'} onClick={() => { setWithdrawalStep('idle'); setWithdrawalError(null); }} className="min-h-11 rounded-lg border border-silver-300 px-4 text-sm font-medium text-navy-900 disabled:opacity-60">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setWithdrawalStep('confirm')} className="min-h-11 rounded-lg border border-red-300 px-4 text-sm font-medium text-red-800">
+                Withdraw measurement consent
+              </button>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-navy-700">Advertising measurement consent was not granted for this booking.</p>
+        )}
       </Section>
 
       <Section title="Stripe reference">

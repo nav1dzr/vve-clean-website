@@ -575,6 +575,7 @@ describe("BookingPage — no-payment request submission", () => {
     expect(body.time).toBe("Flexible");
     expect(body.quoteConfig.parkingAvailable).toBe("yes");
     expect(body.quoteConfig.congestionZone).toBe("no");
+    expect(body).toHaveProperty("first_touch_at", null);
     expect(
       await screen.findByRole("heading", {
         name: "Your request is with our team",

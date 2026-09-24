@@ -6,10 +6,10 @@
 //
 // The subtle requirements are the ones worth pinning: first-touch must not be
 // overwritten, an internal navigation must not clobber a real campaign source
-// with "direct", and gclid must stay write-once because it decides which click
-// Google credits for the conversion.
+// with "direct", and the retention clock must remain tied to the first touch
+// together with the original campaign and click identifiers.
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ADVERTISING_KEYS,
   getAttribution,
@@ -30,6 +30,10 @@ beforeEach(() => {
   resetAttributionMemory();
   setAdvertisingConsent(true);
   vi.restoreAllMocks();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('capturing a campaign click on any route', () => {
@@ -68,6 +72,18 @@ describe('capturing a campaign click on any route', () => {
     expect(a.last_source).toBe('google-ads');
   });
 
+  it.each([
+    ['gbraid', 'ios-app-click'],
+    ['wbraid', 'ios-web-click'],
+  ])('names a bare %s as a paid click rather than direct', (field, value) => {
+    writeAdvertisingAttribution(`?${field}=${value}`, '/carpet-cleaning-london');
+
+    const a = getAttribution();
+    expect(a[field as 'gbraid' | 'wbraid']).toBe(value);
+    expect(a.first_source).toBe('google-ads');
+    expect(a.last_source).toBe('google-ads');
+  });
+
   it('records an organic entry as direct', () => {
     writeAdvertisingAttribution('', '/pricing');
 
@@ -102,13 +118,42 @@ describe('first touch is not overwritten', () => {
     expect(a.first_source).toBe('leaflet_qr');      // unchanged
     expect(a.landing_page).toBe('/leaflet');        // unchanged
     expect(a.last_source).toBe('google');           // updated
-    expect(a.utm_source).toBe('google');            // updated
+    expect(a.utm_source).toBe('leaflet_qr');        // original campaign retained
   });
 
   it('keeps a real first_source when a later visit is organic', () => {
     writeAdvertisingAttribution('?utm_source=google', '/');
     writeAdvertisingAttribution('', '/pricing');
     expect(getAttribution().first_source).toBe('google');
+  });
+
+  it('keeps the original timestamp and expires from it rather than a later campaign', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T12:00:00.000Z'));
+    writeAdvertisingAttribution('?utm_source=google&gclid=first', '/');
+    expect(getAttribution().first_touch_at).toBe('2026-01-01T12:00:00.000Z');
+
+    vi.setSystemTime(new Date('2026-01-30T12:00:00.000Z'));
+    writeAdvertisingAttribution('?utm_source=google&gclid=later', '/pricing');
+    expect(getAttribution().first_touch_at).toBe('2026-01-01T12:00:00.000Z');
+    expect(getAttribution().gclid).toBe('first');
+
+    vi.setSystemTime(new Date('2026-02-01T12:00:00.001Z'));
+    expect(getAttribution().first_touch_at).toBeNull();
+    expect(getAttribution().gclid).toBeNull();
+  });
+
+  it('adopts the previous timestamp key once without restarting the clock', () => {
+    localStorage.setItem('vve_attribution_captured_at', '2026-01-10T09:30:00.000Z');
+    localStorage.setItem('vve_first_source', 'google');
+    localStorage.setItem('vve_landing_page', '/carpet-cleaning-london');
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-20T09:30:00.000Z'));
+
+    writeAdvertisingAttribution('?utm_source=google&gclid=newer', '/pricing');
+
+    expect(getAttribution().first_touch_at).toBe('2026-01-10T09:30:00.000Z');
+    expect(localStorage.getItem('vve_attribution_captured_at')).toBeNull();
   });
 });
 
@@ -137,21 +182,21 @@ describe('internal navigation cannot clobber a campaign source', () => {
   });
 });
 
-describe('gclid belongs to the latest complete campaign', () => {
-  it('replaces an old click id with the newer paid click', () => {
-    // Overwriting would change which click Google credits for the conversion.
+describe('click attribution belongs to the first visit', () => {
+  it('keeps the original paid click identifier', () => {
     writeAdvertisingAttribution('?gclid=first_click', '/');
     writeAdvertisingAttribution('?gclid=second_click', '/pricing');
-    expect(getAttribution().gclid).toBe('second_click');
+    expect(getAttribution().gclid).toBe('first_click');
+    expect(getAttribution().last_source).toBe('google-ads');
   });
 
-  it('still updates the utm set on the newer click', () => {
+  it('keeps the original campaign fields with the original click', () => {
     writeAdvertisingAttribution('?gclid=first_click&utm_campaign=old', '/');
     writeAdvertisingAttribution('?gclid=second_click&utm_campaign=new', '/');
 
     const a = getAttribution();
-    expect(a.gclid).toBe('second_click');
-    expect(a.utm_campaign).toBe('new');
+    expect(a.gclid).toBe('first_click');
+    expect(a.utm_campaign).toBe('old');
   });
 });
 
@@ -232,7 +277,7 @@ describe('reading is gated as well as writing', () => {
 
     const a = getAttribution();
     expect(a).toMatchObject({
-      first_source: null, last_source: null, landing_page: null,
+      first_source: null, last_source: null, landing_page: null, first_touch_at: null,
       utm_source: null, utm_medium: null, utm_campaign: null,
       utm_content: null, gclid: null,
     });

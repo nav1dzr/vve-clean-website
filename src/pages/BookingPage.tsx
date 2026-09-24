@@ -729,6 +729,7 @@ export default function BookingPage() {
       first_source: attribution.first_source,
       last_source: attribution.last_source,
       landing_page: attribution.landing_page,
+      first_touch_at: attribution.first_touch_at,
       utm_source: attribution.utm_source,
       utm_medium: attribution.utm_medium,
       utm_campaign: attribution.utm_campaign,

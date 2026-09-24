@@ -6,6 +6,7 @@ export interface AttributionData {
   first_source:    string | null;
   last_source:     string | null;
   landing_page:    string | null;
+  first_touch_at:  string | null;
   offer_code:      string | null;
   discount_percent: number | null;
   utm_source:      string | null;
@@ -33,7 +34,10 @@ const KEYS = {
   gclid:            'vve_gclid',
   gbraid:           'vve_gbraid',
   wbraid:           'vve_wbraid',
-  captured_at:      'vve_attribution_captured_at',
+  first_touch_at:   'vve_attribution_first_touch_at',
+  // Kept so withdrawal and the one-time compatibility migration can remove
+  // data written by the previous implementation.
+  legacy_captured_at: 'vve_attribution_captured_at',
 };
 
 /**
@@ -56,14 +60,15 @@ export const ADVERTISING_KEYS = [
   KEYS.gclid,
   KEYS.gbraid,
   KEYS.wbraid,
-  KEYS.captured_at,
+  KEYS.first_touch_at,
+  KEYS.legacy_captured_at,
 ] as const;
 
 /**
  * Campaign parameters carried end-to-end into the CRM. This list is exactly
- * what api/create-checkout-session.js accepts and the bookings table stores —
- * anything added here without the matching API and schema change is dropped
- * silently at the boundary.
+ * what the booking-request API accepts and the bookings table stores. The
+ * first-touch timestamp is handled separately because it is not a URL query
+ * parameter and must never be refreshed with the latest-campaign fields.
  */
 const CAPTURED_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid', 'gbraid', 'wbraid'] as const;
 type CapturedParam = typeof CAPTURED_PARAMS[number];
@@ -78,6 +83,7 @@ const MAX_VALUE_LENGTH = 500;
 interface EntrySnapshot {
   search: string;
   pathname: string;
+  firstTouchAt: string;
 }
 
 let entry: EntrySnapshot | null = null;
@@ -96,7 +102,7 @@ export function rememberEntry(
   pathname: string = typeof window === 'undefined' ? '/' : window.location.pathname,
 ): void {
   if (isPrivatePage(pathname)) return;
-  if (!entry) entry = { search, pathname };
+  if (!entry) entry = { search, pathname, firstTouchAt: new Date().toISOString() };
   persistIfConsented();
 }
 
@@ -176,11 +182,19 @@ export function clearAdvertisingAttribution(): void {
  */
 function persistIfConsented(): void {
   if (!advertisingConsent) return;
-  // Leaflet first, then the entry URL — the same order the two effects ran in
-  // before, so a /leaflet?gclid=… landing still ends up with last_source
-  // 'google-ads' and utm_source 'leaflet', exactly as it did.
-  if (leafletVisit) writeLeafletAttribution();
-  if (entry) writeAdvertisingAttribution(entry.search, entry.pathname);
+  if (entry) {
+    if (leafletVisit) {
+      const params = new URLSearchParams(entry.search);
+      if (!params.has('utm_source')) params.set('utm_source', 'leaflet');
+      if (!params.has('utm_medium')) params.set('utm_medium', 'qr');
+      if (!params.has('utm_campaign')) params.set('utm_campaign', 'leaflet20');
+      writeAdvertisingAttribution(`?${params.toString()}`, entry.pathname, entry.firstTouchAt);
+    } else {
+      writeAdvertisingAttribution(entry.search, entry.pathname, entry.firstTouchAt);
+    }
+  } else if (leafletVisit) {
+    writeLeafletAttribution();
+  }
 }
 
 /**
@@ -190,13 +204,16 @@ function persistIfConsented(): void {
  * caller is persistIfConsented() above; it is exported so the storage rules
  * below can be tested in isolation.
  *
- * First-touch values (`first_source`, `landing_page`) are written once and then
- * never replaced — that is the point of first-touch. `last_source` and the
- * `utm_*` set are only updated when the URL actually carries campaign
- * parameters, so an internal navigation cannot overwrite a real campaign source
- * with "direct".
+ * First-touch values (`first_source`, `landing_page`, `first_touch_at`, click
+ * IDs and `utm_*`) are written once and never replaced. `last_source` may be
+ * updated when a later campaign URL is seen, but that diagnostic value cannot
+ * change which first visit is attributed to the booking.
  */
-export function writeAdvertisingAttribution(search: string, pathname: string): void {
+export function writeAdvertisingAttribution(
+  search: string,
+  pathname: string,
+  firstTouchAt: string = new Date().toISOString(),
+): void {
   if (isPrivatePage(pathname)) return;
   try {
     const params = new URLSearchParams(search);
@@ -208,22 +225,21 @@ export function writeAdvertisingAttribution(search: string, pathname: string): v
 
     // A gclid with no utm_source is still a paid click; name it rather than
     // recording the visit as organic.
-    const source = present.utm_source ?? (present.gclid ? 'google-ads' : null);
+    const hasGoogleClickId = Boolean(present.gclid || present.gbraid || present.wbraid);
+    const source = present.utm_source ?? (hasGoogleClickId ? 'google-ads' : null);
 
     expireAttribution();
+    const isFirstTouch = !localStorage.getItem(KEYS.first_touch_at);
     if (!localStorage.getItem(KEYS.landing_page)) localStorage.setItem(KEYS.landing_page, pathname.split(/[?#]/)[0].slice(0, MAX_VALUE_LENGTH));
     if (!localStorage.getItem(KEYS.first_source)) localStorage.setItem(KEYS.first_source, source ?? 'direct');
-    // Replace the whole latest campaign together. A new paid click must never
-    // inherit a different campaign's old click ID, content or medium.
+    if (!localStorage.getItem(KEYS.first_touch_at)) localStorage.setItem(KEYS.first_touch_at, firstTouchAt);
     if (Object.keys(present).length) {
       localStorage.setItem(KEYS.last_source, source ?? 'campaign');
-      for (const key of CAPTURED_PARAMS) {
-        if (present[key]) localStorage.setItem(KEYS[key], present[key]!);
-        else localStorage.removeItem(KEYS[key]);
+      if (isFirstTouch) {
+        for (const key of CAPTURED_PARAMS) {
+          if (present[key]) localStorage.setItem(KEYS[key], present[key]!);
+        }
       }
-      localStorage.setItem(KEYS.captured_at, new Date().toISOString());
-    } else if (!localStorage.getItem(KEYS.captured_at)) {
-      localStorage.setItem(KEYS.captured_at, new Date().toISOString());
     }
   } catch {
     // localStorage unavailable (private mode, storage disabled) — attribution
@@ -235,14 +251,24 @@ export function writeAdvertisingAttribution(search: string, pathname: string): v
  * The advertising half of the old setLeafletAttribution: which campaign brought
  * them, not which discount to give them. Consent-gated via persistIfConsented.
  */
-export function writeLeafletAttribution(): void {
-  writeAdvertisingAttribution('?utm_source=leaflet&utm_medium=qr&utm_campaign=leaflet20', '/leaflet');
+export function writeLeafletAttribution(firstTouchAt?: string): void {
+  writeAdvertisingAttribution('?utm_source=leaflet&utm_medium=qr&utm_campaign=leaflet20', '/leaflet', firstTouchAt);
 }
 
 const ATTRIBUTION_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
 function expireAttribution(): void {
-  const captured = localStorage.getItem(KEYS.captured_at);
-  const timestamp = captured ? Date.parse(captured) : NaN;
+  let firstTouch = localStorage.getItem(KEYS.first_touch_at);
+  if (!firstTouch) {
+    // Existing consented browsers may still carry the previous timestamp key.
+    // Adopt it once, then keep it immutable instead of restarting retention.
+    const legacy = localStorage.getItem(KEYS.legacy_captured_at);
+    if (legacy) {
+      firstTouch = legacy;
+      localStorage.setItem(KEYS.first_touch_at, legacy);
+      localStorage.removeItem(KEYS.legacy_captured_at);
+    }
+  }
+  const timestamp = firstTouch ? Date.parse(firstTouch) : NaN;
   if (!Number.isFinite(timestamp) || Date.now() - timestamp > ATTRIBUTION_MAX_AGE || timestamp > Date.now() + 60000) clearAdvertisingAttribution();
 }
 
@@ -255,7 +281,7 @@ export function resetAttributionMemory(): void {
 
 /** The advertising half of the payload, blanked. */
 const NO_ADVERTISING_ATTRIBUTION = {
-  first_source: null, last_source: null, landing_page: null,
+  first_source: null, last_source: null, landing_page: null, first_touch_at: null,
   utm_source: null, utm_medium: null, utm_campaign: null,
   utm_content: null, utm_term: null, gclid: null, gbraid: null, wbraid: null,
 } as const;
@@ -299,6 +325,7 @@ export function getAttribution(): AttributionData {
       first_source:     localStorage.getItem(KEYS.first_source),
       last_source:      localStorage.getItem(KEYS.last_source),
       landing_page:     localStorage.getItem(KEYS.landing_page),
+      first_touch_at:   localStorage.getItem(KEYS.first_touch_at),
       utm_source:       localStorage.getItem(KEYS.utm_source),
       utm_medium:       localStorage.getItem(KEYS.utm_medium),
       utm_campaign:     localStorage.getItem(KEYS.utm_campaign),

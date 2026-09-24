@@ -4,7 +4,18 @@ import {
   JourneyError,
   londonToday,
 } from "../../admin/api/_lib/bookingJourney.js";
-import { deliverDepositMeasurements } from "./depositMeasurement.js";
+import { deliverBookingMeasurements } from "./depositMeasurement.js";
+import {
+  deliverBookingRequestNotifications,
+  safeOperationalCode,
+} from "./bookingRequestNotifications.js";
+
+export async function purgeExpiredBookingMeasurements(db) {
+  const { error } = await db.rpc("purge_expired_booking_measurement");
+  if (error)
+    throw new JourneyError("Measurement retention maintenance failed.", 503);
+  return { status: "completed" };
+}
 
 export async function processDueBookingJourneys(
   db,
@@ -12,7 +23,9 @@ export async function processDueBookingJourneys(
     perform = performAdminAction,
     deliver = deliverJourneyMessages,
     now = new Date(),
-    deliverMeasurements = deliverDepositMeasurements,
+    deliverRequestNotifications = deliverBookingRequestNotifications,
+    deliverMeasurements = deliverBookingMeasurements,
+    purgeMeasurements = purgeExpiredBookingMeasurements,
   } = {},
 ) {
   const results = [];
@@ -82,6 +95,28 @@ export async function processDueBookingJourneys(
     .limit(20);
   if (me) throw new JourneyError("Could not load message retries.", 503);
   for (const m of messages || []) await deliver(db, m.booking_id, m.id);
+  let requestNotifications;
+  try {
+    requestNotifications = await deliverRequestNotifications(db, {
+      limit: 12,
+    });
+  } catch (error) {
+    const code = safeOperationalCode(
+      error,
+      "booking_request_notification_worker_failed",
+    );
+    console.error("[booking-worker] request notification delivery deferred", code);
+    requestNotifications = { status: "needs_review", code };
+  }
+  // The existing protected follow-up scheduler invokes this worker every ten
+  // minutes. The purge RPC is idempotent, so this gives retention a durable
+  // schedule without introducing another public endpoint or cron secret.
+  const measurementMaintenance = await purgeMeasurements(db);
   const measurement = await deliverMeasurements(db);
-  return { results, measurement };
+  return {
+    results,
+    requestNotifications,
+    measurement,
+    measurementMaintenance,
+  };
 }

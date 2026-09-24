@@ -10,6 +10,13 @@ import { bookingReadiness, isBookingWorker } from '../_lib/bookingReadiness.js';
 
 export const config = { api: { bodyParser: false } };
 
+function safeOperationalCode(error, fallback = 'database_error') {
+  const code = String(error?.code ?? '')
+    .replace(/[^A-Za-z0-9_.:-]/g, '')
+    .slice(0, 40);
+  return code || fallback;
+}
+
 // GET   /api/bookings/:id               — booking detail by internal UUID
 //       only (never the human booking_ref, which is guessable —
 //       ADMIN_CRM_PLAN.md §4). Returns the explicit DETAIL_SELECT column
@@ -60,6 +67,7 @@ export default async function handler(req, res) {
   if (action === 'journey') return handleBookingJourney(req, res, headers);
   if (action === 'status') return handleStatus(req, res, headers);
   if (action === 'notes') return handleNotes(req, res, headers);
+  if (action === 'measurement-consent') return handleMeasurementConsentWithdrawal(req, res, headers);
   if (req.method !== 'GET') {
     res.writeHead(405, headers);
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
@@ -91,7 +99,7 @@ export default async function handler(req, res) {
       .maybeSingle();
 
     if (error) {
-      console.error('[admin/api] booking detail query failed:', error.code, error.message);
+      console.error('[admin/api] booking detail query failed — code:', safeOperationalCode(error));
       res.writeHead(500, headers);
       return res.end(JSON.stringify({ error: 'Failed to load booking' }));
     }
@@ -108,10 +116,68 @@ export default async function handler(req, res) {
     }
     res.writeHead(200, headers);
     res.end(JSON.stringify(detail));
-  } catch (err) {
-    console.error('[admin/api] booking detail unexpected error:', err?.message);
+  } catch {
+    console.error('[admin/api] booking detail unexpected error');
     res.writeHead(500, headers);
     res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
+}
+
+// POST /api/bookings/:id?action=measurement-consent — an authorised operator
+// can honour a customer's advertising-measurement withdrawal. The browser
+// never receives service-role credentials; the restricted database RPC clears
+// measurement match/attribution data and suppresses anything not yet sent.
+async function handleMeasurementConsentWithdrawal(req, res, headers) {
+  if (req.method !== 'POST') {
+    res.writeHead(405, headers);
+    return res.end(JSON.stringify({ error: 'Method not allowed' }));
+  }
+
+  const auth = await verifyAdminRequest(req);
+  if (!auth.ok) {
+    res.writeHead(auth.status, headers);
+    return res.end(JSON.stringify({ error: auth.error }));
+  }
+
+  const bookingId = extractIdParam(req);
+  if (!isValidUuid(bookingId)) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'Invalid booking id' }));
+  }
+
+  const supabase = getServiceClient();
+  if (!supabase) {
+    res.writeHead(500, headers);
+    return res.end(JSON.stringify({ error: 'Server misconfiguration' }));
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('withdraw_booking_measurement_consent', {
+      p_booking_id: bookingId,
+    });
+    if (error) {
+      const code = safeOperationalCode(error);
+      console.error('[admin/api] measurement consent withdrawal failed:', code || 'database_error');
+      res.writeHead(error.code === 'P0002' ? 404 : 503, headers);
+      return res.end(JSON.stringify({
+        error: error.code === 'P0002'
+          ? 'Booking not found'
+          : 'Could not withdraw measurement consent. Please retry.',
+      }));
+    }
+    if (typeof data !== 'string' || !Number.isFinite(Date.parse(data))) {
+      console.error('[admin/api] measurement consent withdrawal failed: invalid_rpc_result');
+      res.writeHead(503, headers);
+      return res.end(JSON.stringify({ error: 'Could not withdraw measurement consent. Please retry.' }));
+    }
+    res.writeHead(200, headers);
+    return res.end(JSON.stringify({
+      measurement: { advertisingConsent: false, consentWithdrawnAt: data },
+    }));
+  } catch {
+    console.error('[admin/api] measurement consent withdrawal failed: unexpected_error');
+    res.writeHead(503, headers);
+    return res.end(JSON.stringify({ error: 'Could not withdraw measurement consent. Please retry.' }));
   }
 }
 
@@ -177,7 +243,7 @@ async function handleStatus(req, res, headers) {
       .maybeSingle();
 
     if (error) {
-      console.error('[admin/api] status update failed:', error.code, error.message, '| booking:', bookingId, '| admin:', auth.admin.id);
+      console.error('[admin/api] status update failed — code:', safeOperationalCode(error));
       res.writeHead(500, headers);
       return res.end(JSON.stringify({ error: 'Failed to update status' }));
     }
@@ -187,14 +253,12 @@ async function handleStatus(req, res, headers) {
       return res.end(JSON.stringify({ error: 'Booking not found' }));
     }
 
-    // Safe operational metadata only — never customer phone/email/address/
-    // note text/tokens.
-    console.log('[admin/api] status updated | booking:', bookingId, '| admin:', auth.admin.id, '| status:', body.status);
+    console.log('[admin/api] status updated | status:', body.status);
 
     res.writeHead(200, headers);
     res.end(JSON.stringify({ id: data.id, status: data.status, updatedAt: data.updated_at }));
-  } catch (err) {
-    console.error('[admin/api] status unexpected error:', err?.message);
+  } catch {
+    console.error('[admin/api] status unexpected error');
     res.writeHead(500, headers);
     res.end(JSON.stringify({ error: 'Internal server error' }));
   }
@@ -249,7 +313,7 @@ async function handleNotes(req, res, headers) {
       .maybeSingle();
 
     if (bookingErr) {
-      console.error('[admin/api] notes: booking lookup failed:', bookingErr.code, bookingErr.message);
+      console.error('[admin/api] notes: booking lookup failed — code:', safeOperationalCode(bookingErr));
       res.writeHead(500, headers);
       return res.end(JSON.stringify({ error: 'Failed to load booking' }));
     }
@@ -267,7 +331,7 @@ async function handleNotes(req, res, headers) {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('[admin/api] notes list failed:', error.code, error.message);
+        console.error('[admin/api] notes list failed — code:', safeOperationalCode(error));
         res.writeHead(500, headers);
         return res.end(JSON.stringify({ error: 'Failed to load notes' }));
       }
@@ -302,17 +366,17 @@ async function handleNotes(req, res, headers) {
       .single();
 
     if (insertErr) {
-      console.error('[admin/api] note insert failed:', insertErr.code, insertErr.message);
+      console.error('[admin/api] note insert failed — code:', safeOperationalCode(insertErr));
       res.writeHead(500, headers);
       return res.end(JSON.stringify({ error: 'Failed to save note' }));
     }
 
-    console.log('[admin/api] note added | booking:', bookingId, '| admin:', auth.admin.id);
+    console.log('[admin/api] note added');
 
     res.writeHead(201, headers);
     res.end(JSON.stringify(toNote(inserted)));
-  } catch (err) {
-    console.error('[admin/api] notes unexpected error:', err?.message);
+  } catch {
+    console.error('[admin/api] notes unexpected error');
     res.writeHead(500, headers);
     res.end(JSON.stringify({ error: 'Internal server error' }));
   }
