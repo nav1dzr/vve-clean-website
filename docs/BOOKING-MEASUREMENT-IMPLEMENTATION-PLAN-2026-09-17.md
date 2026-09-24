@@ -1,5 +1,11 @@
 # VVE Clean booking measurement implementation plan
 
+> **Historical plan.** The implementation changed after this document was written. Use
+> [`BOOKING-MEASUREMENT-RELEASE-2026-09-24.md`](./BOOKING-MEASUREMENT-RELEASE-2026-09-24.md)
+> for the current architecture, configuration names, event contract, validation evidence,
+> release gates and rollback steps. The older provider and status notes below are retained
+> only as an audit trail and must not be used to configure or release the current code.
+
 Prepared 17 September 2026 on `codex/booking-measurement-audit-20260917`. Nothing in this branch has been pushed, migrated or deployed.
 
 ## Release decision
@@ -61,7 +67,7 @@ Consent withdrawal clears browser attribution immediately. For an already-create
 
 ## Google delivery and secrets
 
-Delivery is disabled unless `DEPOSIT_MEASUREMENT_ENABLED=true` and all required values exist. Required secret/configuration names only:
+Delivery is disabled unless `BOOKING_MEASUREMENT_MODE` is `validate` or `live` and all required values exist. `validate` uses Data Manager validation without attribution; `live` is reserved for an approved release. Required secret/configuration names only:
 
 - `GOOGLE_ADS_API_VERSION`
 - `GOOGLE_ADS_CUSTOMER_ID`
@@ -71,7 +77,7 @@ Delivery is disabled unless `DEPOSIT_MEASUREMENT_ENABLED=true` and all required 
 - `GOOGLE_ADS_CLIENT_SECRET`
 - `GOOGLE_ADS_REFRESH_TOKEN`
 - `GOOGLE_ADS_DEPOSIT_CONVERSION_ACTION_ID`
-- `DEPOSIT_MEASUREMENT_ENABLED`
+- `BOOKING_MEASUREMENT_MODE` (`disabled`, `validate` or `live`; missing/unknown is disabled)
 
 Provider success requires HTTP success, no partial failure, and exactly one result; acknowledgement is saved. Failed delivery remains retryable, with an eight-attempt database ceiling. Claiming uses row locks and `SKIP LOCKED`. Ads `orderId` supplies provider-side replay protection in addition to the database unique key.
 
@@ -100,7 +106,7 @@ No Ads/GA4 dashboard setting or conversion was created by this work.
 
 ## Rollback
 
-Before enabling delivery, keep `DEPOSIT_MEASUREMENT_ENABLED` unset/false. Application rollback is the normal revert of this scoped commit/deployment. Database rollback is non-destructive: disable delivery and the trigger, retain outbox records for audit, then drop the trigger/functions/table and only the newly added columns after confirming no approved implementation depends on them. Never delete or rewrite `booking_journey_payments`, bookings or historical Stripe data. Re-enabling the retired browser conversion is not part of rollback; paid measurement remains paused until the server route is healthy.
+Before enabling delivery, set `BOOKING_MEASUREMENT_MODE=disabled` or leave it unset. Application rollback is the normal revert of this scoped commit/deployment. Database rollback is non-destructive: disable delivery and the trigger, retain outbox records for audit, then drop the trigger/functions/table and only the newly added columns after confirming no approved implementation depends on them. Never delete or rewrite `booking_journey_payments`, bookings or historical Stripe data. Re-enabling the retired browser conversion is not part of rollback; paid measurement remains paused until the server route is healthy.
 
 ## Deployment status
 

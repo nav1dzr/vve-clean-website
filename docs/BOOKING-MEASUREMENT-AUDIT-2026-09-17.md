@@ -1,5 +1,7 @@
 # VVE Clean booking and advertising measurement audit
 
+> **Historical baseline audit.** This file records the system found on 17 September 2026, before the canonical server measurement and durable initial-notification work was implemented. Its event inventory, gaps, line references and release conclusion are retained only as an audit trail. Use [Booking measurement release record](./BOOKING-MEASUREMENT-RELEASE-2026-09-24.md) for the current implementation, validation evidence, release order and outstanding manual work.
+
 Reviewed 17 September 2026. Baseline: `db960ecffbf075377f1039f7b97da2cadc130ee5` (latest approved website/email release). Audit branch: `codex/booking-measurement-audit-20260917`.
 
 ## Decision
