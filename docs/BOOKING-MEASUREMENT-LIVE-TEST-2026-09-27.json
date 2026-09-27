@@ -1,0 +1,52 @@
+{
+  "testId": "VVE-LIVE-MEAS-20260927-01",
+  "reference": "E81AA171026",
+  "bookingId": "6cb7e8ff-9ee8-45a0-818a-31373f77f886",
+  "date": "2026-09-27",
+  "productionCommit": "541536317e6014aca4bef8b7402bf711a9801ff2",
+  "explicitApproval": true,
+  "invalidDateAttempt": {
+    "bookingCount": 0
+  },
+  "successfulRequest": {
+    "bookingCount": 1,
+    "eventName": "booking_request_submitted",
+    "eventCountAfterRefresh": 1
+  },
+  "notifications": {
+    "customer_email": {
+      "status": "sent",
+      "attempts": 1,
+      "inboxReceiptVerified": true,
+      "receivedAt": "2026-09-27T21:54:02+00:00"
+    },
+    "business_email": {
+      "status": "sent",
+      "attempts": 1,
+      "inboxReceiptVerified": false
+    },
+    "telegram": {
+      "status": "sent",
+      "attempts": 1,
+      "chatReceiptIndependentlyVerified": false
+    }
+  },
+  "finalState": {
+    "bookingStatus": "cancelled",
+    "measurementIsTest": true,
+    "eventIsTest": true,
+    "eventStatus": "suppressed",
+    "reason": "test_record",
+    "journeyRows": 0,
+    "paymentRows": 0
+  },
+  "google": {
+    "mode": "disabled",
+    "countedConversions": 0
+  },
+  "limitations": [
+    "No real payment performed",
+    "Provider-send status is not recipient-view evidence for business email or Telegram",
+    "Validation-only Google tests do not prove attribution or counted conversions"
+  ]
+}

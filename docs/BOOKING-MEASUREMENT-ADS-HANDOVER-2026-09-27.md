@@ -27,7 +27,7 @@ Browser response diagnostics do not submit a second request conversion. Stable e
 
 ## Still required
 
-1. Finish live internal test `VVE-LIVE-MEAS-20260927-01` after the pending specific approval. It is currently prepared but **not submitted**. Verify one saved request, one request milestone, customer/business email and Telegram receipt, then mark only the test record cancelled/test and exclude its measurement rows. No deposit request or charge belongs to this test.
+1. Live internal test **completed** with explicit approval: `VVE-LIVE-MEAS-20260927-01` / `E81AA171026`. One request, one submitted milestone even after refresh; customer email verified in the owner inbox. Business email and Telegram each recorded one successful provider-send attempt (recipient inbox/chat not independently opened). Test cancelled, marked test and measurement suppressed. No journey/payment rows or deposit request. The rejected empty-date attempt created zero bookings.
 2. Ads owner/task: verify and, with authorization, configure enhanced-conversion eligibility. `enhanced_conversions_for_leads_enabled` was selected but omitted from the API response (default false/not reported enabled). Do not assume terms acceptance alone enables hashed matching. See [Google's setting definition](https://developers.google.com/google-ads/api/reference/rpc/v24/ConversionTrackingSetting) and [account-level setup](https://support.google.com/google-ads/answer/14662970?hl=en). Review the current UI before changing any automatic user-data collection behavior.
 3. After prerequisites and production test pass, activate website reporting through the controlled release process. Currently `BOOKING_MEASUREMENT_MODE=disabled`; saved OAuth credentials alone do not start uploads.
 4. Reconcile the first genuine consented, attributed request/payment through outbox acknowledgement and Ads diagnostics. Validation-only receipts prove payload acceptance, not attribution or counted conversions. Do not fabricate a click or submit synthetic paid conversions to obtain a dashboard count.
@@ -35,6 +35,6 @@ Browser response diagnostics do not submit a second request conversion. Stable e
 
 ## Boundaries
 
-Prices, configured deposit amounts, Stripe behavior, DNS and real customer records were not changed in this release. No real customer emails were sent by these release tests. Production booking notification delivery is therefore not newly proven by this run. The customer's earlier reported successful paid booking remains separate historical evidence.
+Prices, configured deposit amounts, Stripe behavior, DNS and real customer records were not changed in this release. No real customer emails were sent by these release tests. The explicitly approved synthetic request sent owner/business email and Telegram alerts. Its customer email was independently verified in the owner inbox; business and Telegram evidence is the successful provider-send status. The customer's earlier reported successful paid booking remains separate historical evidence.
 
 Full release record and OS test evidence are in `BOOKING-MEASUREMENT-RELEASE-2026-09-24.md`, `BOOKING-MEASUREMENT-OS-E2E-2026-09-27.json` and `BOOKING-MEASUREMENT-OS-GOOGLE-2026-09-27.json`.
