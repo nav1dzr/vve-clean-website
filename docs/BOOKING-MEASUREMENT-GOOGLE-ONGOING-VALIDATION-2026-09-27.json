@@ -1,0 +1,54 @@
+{
+  "test_label": "VVE-DM-VALIDATE-20260927-02",
+  "validate_only": true,
+  "synthetic": true,
+  "production_records_read": 0,
+  "conversions_uploaded": 0,
+  "created_at": "2026-09-27T19:19:09.986Z",
+  "events": [
+    {
+      "event": "booking_request_submitted",
+      "state": "validated",
+      "receipt": {
+        "provider": "google_data_manager",
+        "requestId": "v-b97cd8ce-978a-4302-814f-3e2e266c5852",
+        "status": "VALIDATED",
+        "validateOnly": true,
+        "fieldWarningCount": 0
+      }
+    },
+    {
+      "event": "booking_request_qualified",
+      "state": "validated",
+      "receipt": {
+        "provider": "google_data_manager",
+        "requestId": "v-1338ec52-1651-4409-ac5f-8eaf6ba6d3a3",
+        "status": "VALIDATED",
+        "validateOnly": true,
+        "fieldWarningCount": 0
+      }
+    },
+    {
+      "event": "deposit_paid",
+      "state": "validated",
+      "receipt": {
+        "provider": "google_data_manager",
+        "requestId": "v-f9a38c1a-90a4-4e6f-91e2-fa0ef323c4ef",
+        "status": "VALIDATED",
+        "validateOnly": true,
+        "fieldWarningCount": 0
+      }
+    },
+    {
+      "event": "booking_confirmed",
+      "state": "validated",
+      "receipt": {
+        "provider": "google_data_manager",
+        "requestId": "v-3da56479-4c1a-4af7-b643-e8c5a1746b9d",
+        "status": "VALIDATED",
+        "validateOnly": true,
+        "fieldWarningCount": 0
+      }
+    }
+  ]
+}
