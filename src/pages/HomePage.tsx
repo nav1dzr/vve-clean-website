@@ -85,7 +85,7 @@ export default function HomePage() {
             {[
               ['01', 'Send your request', 'Choose the service and a preferred time. No payment is taken.'],
               ['02', 'Agree the details', 'We discuss the scope, final price and arrival window with you.'],
-              ['03', 'We confirm your visit', 'Once we agree the details with you, we confirm your appointment directly. No deposit is required.'],
+              ['03', 'Confirm your agreed visit', 'After we agree the details, we send a £30 deposit request. We confirm your appointment when the deposit is received; it comes off your total.'],
             ].map(([step, title, body]) => <li key={step}><p className="text-sm font-bold text-royal-700">{step}</p><h3 className="mt-2 font-display text-lg font-bold text-navy-950">{title}</h3><p className="mt-2 text-sm leading-relaxed text-slate-600">{body}</p></li>)}
           </ol>
         </div>

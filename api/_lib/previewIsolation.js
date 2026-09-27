@@ -1,6 +1,7 @@
 // Keep this deployment-local copy identical to admin/api/_lib/previewIsolation.js.
 // NODE_ENV is deliberately ignored: Vercel preview functions also use production.
-const ACTIVE_PROJECTS = new Set(['temlphabsqukkiqmrvhl', 'spbrstpxrimuuorkbsbo']);
+const LIVE_WEBSITE_PROJECT = 'temlphabsqukkiqmrvhl';
+const VVE_OS_TEST_PROJECT = 'spbrstpxrimuuorkbsbo';
 export const PREVIEW_ISOLATION_ERROR = 'This preview is read-only until approved isolated test resources are connected.';
 
 export function isHostedPreview(env = process.env) {
@@ -19,7 +20,10 @@ export function previewIsolation(env = process.env) {
   if (env.VVE_PREVIEW_ISOLATION_APPROVED !== 'true') return blocked;
   if (!previewTestInbox(env)) return blocked;
   const ref = env.VVE_PREVIEW_SUPABASE_PROJECT_REF || '';
-  if (!/^[a-z0-9]{20}$/.test(ref) || ACTIVE_PROJECTS.has(ref)) return blocked;
+  if (!/^[a-z0-9]{20}$/.test(ref) || ref === LIVE_WEBSITE_PROJECT) return blocked;
+  // VVE OS remains blocked by default. Navid may opt a preview into that exact
+  // project for synthetic tests only; the other preview safeguards still apply.
+  if (ref === VVE_OS_TEST_PROJECT && env.VVE_PREVIEW_ALLOW_VVE_OS !== 'true') return blocked;
   const urls = [env.VITE_SUPABASE_URL, env.SUPABASE_URL].filter(Boolean);
   if (!urls.length) return blocked;
   for (const value of urls) {

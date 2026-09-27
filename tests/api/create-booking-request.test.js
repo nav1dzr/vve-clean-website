@@ -1,15 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
 import { createPricingCatalogue } from "../../shared/pricingCatalogue.js";
 
 const selectLikeMock = vi.fn();
 const selectRequestMock = vi.fn();
 const loadPricebookMock = vi.fn();
 const insertSingleMock = vi.fn();
-const updateEqMock = vi.fn();
+const claimNotificationsMock = vi.fn();
+const recordNotificationMock = vi.fn();
 const sendMailMock = vi.fn();
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(() => ({
+    rpc: (name, args) => {
+      if (name === "claim_booking_request_notifications")
+        return claimNotificationsMock(args);
+      if (name === "record_booking_request_notification")
+        return recordNotificationMock(args);
+      throw new Error(`Unexpected RPC: ${name}`);
+    },
     from: () => ({
       select: () => ({
         like: (...args) => selectLikeMock(...args),
@@ -18,7 +27,6 @@ vi.mock("@supabase/supabase-js", () => ({
       insert: (row) => ({
         select: () => ({ single: () => insertSingleMock(row) }),
       }),
-      update: (row) => ({ eq: (...args) => updateEqMock(row, ...args) }),
     }),
   })),
 }));
@@ -39,6 +47,7 @@ const { default: handler } =
   await import("../../api/create-booking-request.js");
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
@@ -48,6 +57,8 @@ function futureDate() {
   date.setDate(date.getDate() + 20);
   return date.toISOString().slice(0, 10);
 }
+
+const REQUEST_KEY = "ac4e6421-0e54-4086-944e-3b08e5a4ce67";
 
 function payload(overrides = {}) {
   return {
@@ -67,8 +78,44 @@ function payload(overrides = {}) {
     date: futureDate(),
     time: "Flexible",
     message: "",
+    requestKey: REQUEST_KEY,
     ...overrides,
   };
+}
+
+function notificationClaims(channels = [
+  "business_email",
+  "customer_email",
+  "telegram",
+]) {
+  const channelIds = {
+    business_email: 0,
+    customer_email: 1,
+    telegram: 2,
+  };
+  const booking = {
+    bookingRef: "E81AA010127",
+    fullName: "Jane Smith",
+    email: "jane@example.com",
+    phone: "07700900000",
+    address: "12 High Street",
+    postcode: "E8 1AA",
+    service: "Window cleaning",
+    date: futureDate(),
+    time: "Flexible",
+    message: null,
+    totalPrice: 85,
+  };
+  return channels.map((channel) => {
+    const index = channelIds[channel];
+    return {
+      outbox_id: `00000000-0000-4000-8000-00000000000${index}`,
+      booking_id: "booking-1",
+      channel,
+      claim_token: `10000000-0000-4000-8000-00000000000${index}`,
+      booking,
+    };
+  });
 }
 
 function req(body) {
@@ -114,7 +161,14 @@ describe("POST /api/create-booking-request", () => {
       data: { id: "booking-1" },
       error: null,
     });
-    updateEqMock.mockResolvedValue({ error: null });
+    const claimedBookings = new Set();
+    claimNotificationsMock.mockImplementation(async ({ p_booking_id }) => {
+      const key = p_booking_id || "worker";
+      if (claimedBookings.has(key)) return { data: [], error: null };
+      claimedBookings.add(key);
+      return { data: notificationClaims(), error: null };
+    });
+    recordNotificationMock.mockResolvedValue({ data: true, error: null });
   });
 
   function configureEmails() {
@@ -130,6 +184,7 @@ describe("POST /api/create-booking-request", () => {
     const fetchMock = vi.fn(); vi.stubGlobal('fetch', fetchMock);
     const response = res(); await handler(req(payload()), response);
     expect(response.statusCode).toBe(201); expect(sendMailMock).toHaveBeenCalledTimes(2);
+    expect(insertSingleMock.mock.calls[0][0].measurement_is_test).toBe(true);
     for (const [mail] of sendMailMock.mock.calls) { expect(mail.to).toBe('preview@example.com'); expect(mail.replyTo).toBe('preview@example.com'); expect(mail.subject).toMatch(/^\[TEST\]/); }
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -147,7 +202,28 @@ describe("POST /api/create-booking-request", () => {
     };
   }
 
-  const requestKey = "ac4e6421-0e54-4086-944e-3b08e5a4ce67";
+  it('routes customer replies to contact while owner alerts can reply to the customer', async () => {
+    configureEmails();
+    const response = res();
+    await handler(req(payload()), response);
+    expect(response.statusCode).toBe(201);
+    const messages = sendMailMock.mock.calls.map(([mail]) => mail);
+    expect(messages.find(mail => mail.to === 'jane@example.com')?.replyTo).toBe('contact@vveclean.co.uk');
+    expect(messages.find(mail => mail.to === 'manager@example.com')?.replyTo).toBe('"Jane Smith" <jane@example.com>');
+  });
+
+  const requestKey = REQUEST_KEY;
+
+  it.each([null, "not-a-uuid", "ac4e6421-0e54-1086-944e-3b08e5a4ce67"])(
+    "rejects a missing or invalid durable request identity (%s)",
+    async (invalidKey) => {
+      const response = res();
+      await handler(req(payload({ requestKey: invalidKey })), response);
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.body).error).toMatch(/request identifier/i);
+      expect(insertSingleMock).not.toHaveBeenCalled();
+    },
+  );
 
   it("replays a saved request and its saved total after a pricebook change without another insert or email", async () => {
     process.env.WEBSITE_PRICEBOOK_ENABLED = "true";
@@ -179,6 +255,55 @@ describe("POST /api/create-booking-request", () => {
     expect(loadPricebookMock).toHaveBeenCalledTimes(1);
     expect(insertSingleMock).toHaveBeenCalledTimes(1);
     expect(sendMailMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries only the failed notification channel on a saved-request replay", async () => {
+    configureEmails();
+    claimNotificationsMock
+      .mockResolvedValueOnce({
+        data: notificationClaims(),
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: notificationClaims(["customer_email"]),
+        error: null,
+      });
+    sendMailMock
+      .mockResolvedValueOnce({ accepted: ["manager@example.com"] })
+      .mockRejectedValueOnce(Object.assign(new Error("private SMTP response"), {
+        code: "ECONNECTION",
+      }))
+      .mockResolvedValueOnce({ accepted: ["jane@example.com"] });
+
+    const original = payload({ requestKey });
+    const first = res();
+    await handler(req(original), first);
+    const saved = { ...insertSingleMock.mock.calls[0][0], id: "booking-1" };
+    selectRequestMock.mockResolvedValue({ data: saved, error: null });
+    const replay = res();
+    await handler(req(original), replay);
+
+    expect(first.statusCode).toBe(201);
+    expect(replay.statusCode).toBe(200);
+    expect(sendMailMock).toHaveBeenCalledTimes(3);
+    expect(sendMailMock.mock.calls[2][0].messageId).toBe(
+      sendMailMock.mock.calls[1][0].messageId,
+    );
+    const customerResults = recordNotificationMock.mock.calls
+      .map(([result]) => result)
+      .filter((result) => result.p_id.endsWith("001"));
+    expect(customerResults.map((result) => result.p_status)).toEqual([
+      "failed",
+      "sent",
+    ]);
+    expect(
+      recordNotificationMock.mock.calls
+        .map(([result]) => result)
+        .filter(
+          (result) =>
+            result.p_id.endsWith("000") && result.p_status === "sent",
+        ),
+    ).toHaveLength(1);
   });
 
   it("rejects a changed payload using an already saved request key", async () => {
@@ -304,6 +429,137 @@ describe("POST /api/create-booking-request", () => {
     expect(saved.total_price).toBe(85);
   });
 
+  it("persists consented first-touch attribution with its original timestamp", async () => {
+    const firstTouchAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const consentRecordedAt = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const response = res();
+    await handler(req(payload({
+      first_source: "google",
+      last_source: "google",
+      landing_page: "/carpet-cleaning-london",
+      first_touch_at: firstTouchAt,
+      utm_source: "google",
+      utm_medium: "cpc",
+      utm_campaign: "carpet",
+      utm_term: "carpet cleaning",
+      gclid: "valid-click-id",
+      measurement_consent: {
+        advertising: true,
+        version: "2026-07-14",
+        recorded_at: consentRecordedAt,
+      },
+    })), response);
+
+    expect(response.statusCode).toBe(201);
+    expect(insertSingleMock.mock.calls[0][0]).toMatchObject({
+      first_source: "google",
+      last_source: "google",
+      landing_page: "/carpet-cleaning-london",
+      attribution_first_touch_at: firstTouchAt,
+      utm_source: "google",
+      utm_medium: "cpc",
+      utm_campaign: "carpet",
+      utm_term: "carpet cleaning",
+      gclid: "valid-click-id",
+      measurement_advertising_consent: true,
+      measurement_consent_recorded_at: consentRecordedAt,
+      measurement_email_sha256: createHash("sha256").update("jane@example.com").digest("hex"),
+      measurement_phone_sha256: createHash("sha256").update("+447700900000").digest("hex"),
+      measurement_is_test: false,
+    });
+    expect(JSON.stringify(insertSingleMock.mock.calls[0][0])).not.toContain("+447700900000");
+  });
+
+  it("normalises consented Gmail and UK phone identifiers before hashing", async () => {
+    const response = res();
+    await handler(req(payload({
+      email: " Jane.Smith+booking@GMAIL.com ",
+      phone: "+44 (0) 7700 900000",
+      measurement_consent: {
+        advertising: true,
+        version: "2026-07-14",
+        recorded_at: new Date().toISOString(),
+      },
+    })), response);
+
+    expect(response.statusCode).toBe(201);
+    expect(insertSingleMock.mock.calls[0][0]).toMatchObject({
+      measurement_email_sha256: createHash("sha256").update("janesmith@gmail.com").digest("hex"),
+      measurement_phone_sha256: createHash("sha256").update("+447700900000").digest("hex"),
+    });
+  });
+
+  it("fails closed when advertising consent is denied or its timestamp is not canonical ISO", async () => {
+    const baseAttribution = {
+      first_source: "google",
+      last_source: "google",
+      landing_page: "/",
+      first_touch_at: "2026-09-24 10:00:00",
+      utm_source: "google",
+      gclid: "consented-click-id",
+    };
+
+    const denied = res();
+    await handler(req(payload({
+      ...baseAttribution,
+      measurement_consent: {
+        advertising: false,
+        version: "2026-07-14",
+        recorded_at: new Date().toISOString(),
+      },
+    })), denied);
+    expect(denied.statusCode).toBe(201);
+    expect(insertSingleMock.mock.calls[0][0]).toMatchObject({
+      first_source: null,
+      landing_page: null,
+      attribution_first_touch_at: null,
+      utm_source: null,
+      gclid: null,
+      measurement_advertising_consent: false,
+      measurement_email_sha256: null,
+      measurement_phone_sha256: null,
+    });
+
+    insertSingleMock.mockClear();
+    const malformed = res();
+    await handler(req(payload({
+      ...baseAttribution,
+      postcode: "E8 2BB",
+      measurement_consent: {
+        advertising: true,
+        version: "2026-07-14",
+        recorded_at: "2026-09-24T10:00:00+00:00",
+      },
+    })), malformed);
+    expect(malformed.statusCode).toBe(201);
+    expect(insertSingleMock.mock.calls[0][0]).toMatchObject({
+      attribution_first_touch_at: null,
+      gclid: null,
+      measurement_advertising_consent: false,
+      measurement_consent_recorded_at: null,
+      measurement_email_sha256: null,
+      measurement_phone_sha256: null,
+    });
+
+    insertSingleMock.mockClear();
+    const invalidFirstTouch = res();
+    await handler(req(payload({
+      ...baseAttribution,
+      postcode: "E8 3CC",
+      measurement_consent: {
+        advertising: true,
+        version: "2026-07-14",
+        recorded_at: new Date().toISOString(),
+      },
+    })), invalidFirstTouch);
+    expect(invalidFirstTouch.statusCode).toBe(201);
+    expect(insertSingleMock.mock.calls[0][0]).toMatchObject({
+      attribution_first_touch_at: null,
+      gclid: "consented-click-id",
+      measurement_advertising_consent: true,
+    });
+  });
+
   it("uses the trusted server price rather than the browser price", async () => {
     const response = res();
     await handler(req(payload({ price: 9999 })), response);
@@ -377,24 +633,24 @@ describe("POST /api/create-booking-request", () => {
     for (const [message] of sendMailMock.mock.calls) {
       expect(message.text).toBeTruthy();
       expect(message.html).toBeTruthy();
-      expect(message.text).toMatch(/confirm.*appointment directly/i);
-      expect(message.text).not.toMatch(/£30|payment confirms|deposit request|pay.*deposit/i);
-      expect(message.text).toMatch(/agree.*scope.*final price.*time/i);
-      expect(message.html).toMatch(/confirm.*appointment directly/i);
-      expect(message.html).not.toMatch(/£30|payment confirms|deposit request|pay.*deposit/i);
+      expect(message.text).toMatch(/deposit (?:request|payment instructions)/i);
+      expect(message.text).not.toMatch(/Pay £30 deposit by card|checkout.stripe.com/i);
+      expect(message.text).toMatch(/(?:review and confirm the job details|agree the scope, final price and time)/i);
+      expect(message.html).toMatch(/deposit (?:request|payment instructions)/i);
+      expect(message.html).not.toMatch(/Pay £30 deposit by card|checkout.stripe.com/i);
     }
-    expect(updateEqMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        email_customer_sent: true,
-        email_business_sent: true,
-      }),
-      "id",
-      "booking-1",
+    expect(recordNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({ p_status: "sent" }),
     );
+    expect(
+      recordNotificationMock.mock.calls.filter(
+        ([result]) => result.p_status === "sent",
+      ),
+    ).toHaveLength(2);
   });
 
   it("sends the manager Telegram notification using the existing bot settings", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
     vi.stubGlobal("fetch", fetchMock);
     process.env.TELEGRAM_BOT_TOKEN = "test-bot-token";
     process.env.TELEGRAM_CHAT_ID = "test-chat-id";
@@ -410,13 +666,87 @@ describe("POST /api/create-booking-request", () => {
     expect(telegramBody.chat_id).toBe("test-chat-id");
     expect(telegramBody.text).toMatch(/New booking request/);
     expect(telegramBody.text).toMatch(
-      /Request received; no payment taken or required to confirm/,
+      /No payment was taken.*booking is confirmed once the deposit is paid/s,
     );
     expect(telegramBody.text).not.toMatch(/£30 deposit|deposit link|Stripe/i);
-    expect(updateEqMock).toHaveBeenCalledWith(
-      expect.objectContaining({ telegram_sent: true }),
-      "id",
-      "booking-1",
+    expect(recordNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_status: "sent",
+        p_error_code: null,
+      }),
     );
+  });
+  it("recognises a Telegram provider rejection even when HTTP succeeds", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: false, description: "rejected" }) });
+    vi.stubGlobal("fetch", fetchMock);
+    process.env.TELEGRAM_BOT_TOKEN = "test-bot-token";
+    process.env.TELEGRAM_CHAT_ID = "test-chat-id";
+    const response = res();
+    await handler(req(payload()), response);
+    expect(recordNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_status: "failed",
+        p_error_code: "telegram_rejected",
+      }),
+    );
+  });
+
+  it("quarantines an ambiguous Telegram timeout instead of automatically resending it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(
+        Object.assign(new Error("private timeout detail"), { code: "ETIMEDOUT" }),
+      ),
+    );
+    process.env.TELEGRAM_BOT_TOKEN = "test-bot-token";
+    process.env.TELEGRAM_CHAT_ID = "test-chat-id";
+    const response = res();
+
+    await handler(req(payload()), response);
+
+    expect(response.statusCode).toBe(201);
+    expect(recordNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_status: "uncertain",
+        p_error_code: "ETIMEDOUT",
+      }),
+    );
+  });
+
+  it("logs only fixed event labels and safe provider codes", async () => {
+    const spies = ["error", "warn", "log"].map((method) =>
+      vi.spyOn(console, method).mockImplementation(() => {}),
+    );
+    const providerText = "private provider rejection for navid@example.invalid";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: false, description: providerText }),
+      }),
+    );
+    process.env.TELEGRAM_BOT_TOKEN = "test-bot-token";
+    process.env.TELEGRAM_CHAT_ID = "test-chat-id";
+    const privatePayload = payload({
+      fullName: "Private Customer",
+      email: "navid@example.invalid",
+      phone: "07700900999",
+      postcode: "N15 2NG",
+    });
+    const response = res();
+    await handler(req(privatePayload), response);
+
+    expect(response.statusCode).toBe(201);
+    const logs = JSON.stringify(spies.flatMap((spy) => spy.mock.calls));
+    const derivedRef = JSON.parse(response.body).bookingRef;
+    for (const privateValue of [
+      privatePayload.fullName,
+      privatePayload.email,
+      privatePayload.phone,
+      derivedRef,
+      providerText,
+    ]) expect(logs).not.toContain(privateValue);
+    expect(logs).toContain("telegram_rejected");
   });
 });

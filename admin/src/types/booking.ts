@@ -109,6 +109,10 @@ export interface BookingDetail {
     utmContent: string | null;
     gclid: string | null;
   };
+  measurement: {
+    advertisingConsent: boolean;
+    consentWithdrawnAt: string | null;
+  };
   notifications: {
     emailCustomerSent: boolean | null;
     emailBusinessSent: boolean | null;

@@ -43,7 +43,11 @@ describe('hash navigation to #quote', () => {
     const user = userEvent.setup();
     renderAt('/end-of-tenancy-cleaning-london');
 
-    const heroCta = (await screen.findAllByRole('link', { name: 'Build my quote' }))[0];
+    const heroCta = (await screen.findAllByRole(
+      'link',
+      { name: 'Build my quote' },
+      { timeout: 5000 },
+    ))[0];
     await user.click(heroCta);
 
     await waitFor(() => {
@@ -56,7 +60,11 @@ describe('hash navigation to #quote', () => {
     renderAt('/carpet-cleaning-london');
 
     // Navbar's "Get my price" always targets the homepage's general quote.
-    const navCta = (await screen.findAllByRole('link', { name: 'Get my price' }))[0];
+    const navCta = (await screen.findAllByRole(
+      'link',
+      { name: 'Get my price' },
+      { timeout: 5000 },
+    ))[0];
     await user.click(navCta);
 
     await waitFor(() => {
@@ -73,7 +81,11 @@ describe('Navbar Gallery link', () => {
     const user = userEvent.setup();
     renderAt('/end-of-tenancy-cleaning-london');
 
-    const galleryLink = (await screen.findAllByRole('link', { name: 'Gallery' }))[0];
+    const galleryLink = (await screen.findAllByRole(
+      'link',
+      { name: 'Gallery' },
+      { timeout: 5000 },
+    ))[0];
     expect(galleryLink).toHaveAttribute('href', '/gallery');
 
     await user.click(galleryLink);

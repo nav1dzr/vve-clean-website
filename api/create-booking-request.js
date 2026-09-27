@@ -1,11 +1,13 @@
-import { rejectUnsafePreview, isHostedPreview, previewTestInbox } from './_lib/previewIsolation.js';
+import { rejectUnsafePreview, isHostedPreview } from './_lib/previewIsolation.js';
 import { randomBytes, createHash } from "node:crypto";
-import nodemailer from "nodemailer";
 import { createClient } from "@supabase/supabase-js";
 import { loadWebsitePricebook } from "./_lib/websitePricebook.js";
 import { priceBookingRequest } from "../shared/requestPricing.js";
 import { formatServiceDetail } from "./_lib/formatBookingItems.js";
-import { emailWordmarkHtml } from "./_lib/emailBrand.js";
+import {
+  deliverBookingRequestNotifications,
+  safeOperationalCode,
+} from "./_lib/bookingRequestNotifications.js";
 
 export const config = { api: { bodyParser: false } };
 
@@ -19,6 +21,58 @@ const ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "http://localhost:4173",
 ].filter(Boolean);
+
+function cleanCampaignValue(value, max = 200) {
+  if (typeof value !== "string") return null;
+  const cleaned = value.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, max);
+  return cleaned || null;
+}
+function cleanClickId(value) {
+  const cleaned = cleanCampaignValue(value, 200);
+  return cleaned && /^[A-Za-z0-9._~-]+$/.test(cleaned) ? cleaned : null;
+}
+function cleanLandingPath(value) {
+  const cleaned = cleanCampaignValue(value, 500);
+  return cleaned && /^\/(?!\/)[^?#]*$/.test(cleaned) ? cleaned : null;
+}
+function validIsoTimestamp(value) {
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)
+  ) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) &&
+    parsed <= Date.now() + 60000 &&
+    new Date(parsed).toISOString() === value
+    ? value
+    : null;
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function measurementEmailHash(value) {
+  const compact = String(value || "").trim().toLowerCase().replace(/\s+/g, "");
+  const parts = compact.split("@");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+  const [local, domain] = parts;
+  const normalizedLocal = ["gmail.com", "googlemail.com"].includes(domain)
+    ? local.split("+")[0].replace(/\./g, "")
+    : local;
+  const normalized = `${normalizedLocal}@${domain}`;
+  return EMAIL_RE.test(normalized) ? sha256(normalized) : null;
+}
+
+function measurementPhoneHash(value) {
+  let normalized = String(value || "").trim().replace(/[^\d+]/g, "");
+  if (normalized.startsWith("00")) normalized = `+${normalized.slice(2)}`;
+  else if (/^0\d+$/.test(normalized)) normalized = `+44${normalized.slice(1)}`;
+  else if (/^44\d+$/.test(normalized)) normalized = `+${normalized}`;
+  if (normalized.startsWith("+440")) normalized = `+44${normalized.slice(4)}`;
+  if (!/^\+[1-9]\d{7,14}$/.test(normalized)) return null;
+  return sha256(normalized);
+}
 
 function corsHeaders(origin) {
   const allowed = ALLOWED_ORIGINS.includes(origin);
@@ -164,176 +218,31 @@ async function insertBookingWithRefRetry(
       }
     }
     console.warn(
-      "[booking-request] booking_ref collision on",
-      bookingRef,
-      "— retrying",
+      "[booking-request] booking reference collision; retrying",
+      safeOperationalCode(error, "unique_constraint"),
     );
   }
 
   return { data: null, error: lastError, bookingRef: baseRef };
 }
 
-function esc(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function detailRows(data) {
-  return [
-    ["Reference", data.bookingRef],
-    ["Service", data.serviceDetail || data.service],
-    ["Preferred date", data.date],
-    ["Arrival window", data.time],
-    ["Address", data.address],
-    ["Postcode", data.postcode],
-  ];
-}
-
-function detailText(data) {
-  return detailRows(data)
-    .map(([label, value]) => `${label}: ${value || "—"}`)
-    .join("\n");
-}
-
-function customerText(data) {
-  return [
-    `Hi ${data.fullName},`,
-    "",
-    "We received your cleaning request. No payment has been taken.",
-    "Your requested time is not confirmed yet. We will review availability, the final scope and price during opening hours and contact you.",
-    "",
-    detailText(data),
-    "",
-    "Send your request with no payment. We’ll agree the scope, final price and time with you, then confirm your appointment directly.",
-    "",
-    "VVE Clean",
-    "020 8050 2233 · contact@vveclean.co.uk",
-  ].join("\n");
-}
-
-function businessText(data) {
-  return [
-    `New booking request — ${data.bookingRef}`,
-    "",
-    `Customer: ${data.fullName}`,
-    `Phone: ${data.phone}`,
-    `Email: ${data.email}`,
-    detailText(data),
-    `Estimated total: £${data.totalPrice}`,
-    `Notes: ${data.message || "—"}`,
-    "",
-    "Manager next step: check availability and agree the scope, final price and time with the customer, then confirm the appointment directly. No deposit is required.",
-  ].join("\n");
-}
-
-function emailHtml(data, business = false) {
-  const rows = (
-    business
-      ? [
-          ["Customer", data.fullName],
-          ["Phone", data.phone],
-          ["Email", data.email],
-          ...detailRows(data),
-          ["Estimated total", `£${data.totalPrice}`],
-          ["Notes", data.message || "—"],
-        ]
-      : detailRows(data)
-  )
-    .map(
-      ([label, value]) =>
-        `<tr><td style="padding:8px 12px;border-top:1px solid #e3e7ee;color:#667085;font-size:13px">${esc(label)}</td><td style="padding:8px 12px;border-top:1px solid #e3e7ee;color:#020b24;font-size:13px;font-weight:600">${esc(value || "—")}</td></tr>`,
-    )
-    .join("");
-
-  const intro = business
-    ? "Check availability and agree the scope, final price and time with the customer, then confirm the appointment directly. No deposit is required."
-    : "No payment has been taken. Your requested time is not confirmed yet; we will review availability, the final scope and price during opening hours and contact you.";
-  return `<!doctype html><html lang="en"><body style="margin:0;background:#f5f6f8;font-family:Arial,sans-serif;color:#020b24"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="560" style="max-width:560px;width:100%;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#020b24;padding:24px 28px">${emailWordmarkHtml({ inverse: true })}</td></tr><tr><td style="padding:28px"><h1 style="font-size:22px;margin:0 0 12px">${business ? "New booking request" : "We received your request"}</h1><p style="font-size:15px;line-height:1.6;margin:0 0 18px">${esc(intro)}</p><table role="presentation" width="100%" cellspacing="0" style="border:1px solid #e3e7ee;border-radius:10px;border-collapse:separate;border-spacing:0">${rows}</table>${business ? "" : '<p style="font-size:14px;line-height:1.6;margin:18px 0 0">Send your request with no payment. We’ll agree the scope, final price and time with you, then confirm your appointment directly.</p>'}</td></tr></table></td></tr></table></body></html>`;
-}
-
-async function sendNotifications(data) {
-  const preview = isHostedPreview();
-  const testInbox = previewTestInbox();
-  const result = {
-    emailCustomerSent: false,
-    emailBusinessSent: false,
-    telegramSent: false,
-  };
-  if (
-    process.env.GMAIL_SENDER &&
-    process.env.GMAIL_APP_PASSWORD &&
-    (preview ? testInbox : process.env.BUSINESS_EMAIL)
-  ) {
-    const transport = nodemailer.createTransport({
-      service: "gmail",
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-      auth: {
-        user: process.env.GMAIL_SENDER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-    });
-    const [business, customer] = await Promise.allSettled([
-      transport.sendMail({
-        from: `"VVE Clean Requests" <${process.env.GMAIL_SENDER}>`,
-        to: preview ? testInbox : process.env.BUSINESS_EMAIL,
-        replyTo: preview ? testInbox : `"${data.fullName}" <${data.email}>`,
-        subject: `${preview ? '[TEST] ' : ''}New booking request — ${data.bookingRef}`,
-        text: businessText(data),
-        html: emailHtml(data, true),
-      }),
-      transport.sendMail({
-        from: `"VVE Clean" <${process.env.GMAIL_SENDER}>`,
-        to: preview ? testInbox : data.email,
-        replyTo: preview ? testInbox : process.env.BUSINESS_EMAIL,
-        subject: `${preview ? '[TEST] ' : ''}Request received — ${data.bookingRef}`,
-        text: customerText(data),
-        html: emailHtml(data),
-      }),
-    ]);
-    result.emailBusinessSent = business.status === "fulfilled";
-    result.emailCustomerSent = customer.status === "fulfilled";
-    if (business.status === "rejected")
-      console.error(
-        "[booking-request] business email failed:",
-        business.reason?.message || business.reason,
-      );
-    if (customer.status === "rejected")
-      console.error(
-        "[booking-request] customer email failed:",
-        customer.reason?.message || customer.reason,
-      );
-  }
-
-  if (!preview && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-    try {
-      const response = await fetch(
-        `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
-        {
-          method: "POST",
-          signal: AbortSignal.timeout(10000),
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: process.env.TELEGRAM_CHAT_ID,
-            text: `New booking request\n${data.bookingRef}\n${data.fullName} · ${data.phone}\n${data.service}\n${data.date} · ${data.time}\nEstimated total: £${data.totalPrice}\nRequest received; no payment taken or required to confirm. Agree the scope, final price and time, then confirm directly.`,
-          }),
-        },
-      );
-      result.telegramSent = response.ok;
-    } catch (error) {
-      console.error("[booking-request] Telegram failed:", error.message);
-    }
-  }
-  return result;
-}
-
 function errorResponse(res, headers, status, error) {
   res.writeHead(status, { ...headers, "Content-Type": "application/json" });
   return res.end(JSON.stringify({ error }));
+}
+
+async function attemptNotificationDelivery(supabase, bookingId) {
+  try {
+    await deliverBookingRequestNotifications(supabase, {
+      bookingId,
+      limit: 3,
+    });
+  } catch (error) {
+    console.error(
+      "[booking-request] notification delivery deferred",
+      safeOperationalCode(error, "notification_delivery_deferred"),
+    );
+  }
 }
 
 export default async function handler(req, res) {
@@ -377,11 +286,16 @@ export default async function handler(req, res) {
     first_source,
     last_source,
     landing_page,
+    first_touch_at,
     utm_source,
     utm_medium,
     utm_campaign,
     utm_content,
+    utm_term,
     gclid,
+    gbraid,
+    wbraid,
+    measurement_consent,
   } = payload;
 
   if (!quoteConfig)
@@ -390,7 +304,7 @@ export default async function handler(req, res) {
     return errorResponse(res, headers, 400, "A full name is required");
   if (!phone || String(phone).replace(/\D/g, "").length < 10)
     return errorResponse(res, headers, 400, "A valid phone number is required");
-  if (!email || !EMAIL_RE.test(String(email)))
+  if (!email || !EMAIL_RE.test(String(email).trim()))
     return errorResponse(
       res,
       headers,
@@ -444,6 +358,16 @@ export default async function handler(req, res) {
       400,
       "Your message is too long. Please keep it under 500 characters.",
     );
+  // Every accepted request needs a durable idempotency key. The website
+  // creates this before sending so retries and database measurement use the
+  // same identity rather than creating another lead.
+  if (
+    !requestKey ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      requestKey,
+    )
+  )
+    return errorResponse(res, headers, 400, "Invalid request identifier. Please refresh and try again.");
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -460,16 +384,9 @@ export default async function handler(req, res) {
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false },
   });
-  if (
-    requestKey &&
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      requestKey,
-    )
-  )
-    return errorResponse(res, headers, 400, "Invalid request identifier.");
   const fingerprint = requestFingerprint(payload);
   const findRetry = () => findSavedRequest(supabase, requestKey);
-  const respondRetry = (existing) => {
+  const respondRetry = async (existing) => {
     if (existing.request_fingerprint !== fingerprint)
       return errorResponse(
         res,
@@ -477,6 +394,7 @@ export default async function handler(req, res) {
         409,
         "This request changed. Please refresh the form before sending again.",
       );
+    await attemptNotificationDelivery(supabase, existing.id);
     res.writeHead(200, { ...headers, "Content-Type": "application/json" });
     return res.end(
       JSON.stringify({
@@ -555,7 +473,10 @@ export default async function handler(req, res) {
   try {
     bookingRef = await buildBookingRef(postcode, date, supabase);
   } catch (error) {
-    console.error("[booking-request] reference lookup failed:", error.message);
+    console.error(
+      "[booking-request] reference lookup failed",
+      safeOperationalCode(error, "reference_lookup_failed"),
+    );
     return errorResponse(
       res,
       headers,
@@ -572,11 +493,15 @@ export default async function handler(req, res) {
     );
 
   const serviceDetail = formatServiceDetail(quoteConfig, service);
+  const consentRecordedAt = validIsoTimestamp(measurement_consent?.recorded_at);
+  const hasMeasurementConsent =
+    measurement_consent?.advertising === true &&
+    measurement_consent?.version === "2026-07-14" &&
+    consentRecordedAt !== null;
   const row = {
     booking_ref: bookingRef,
-    ...(requestKey
-      ? { request_key: requestKey, request_fingerprint: fingerprint }
-      : {}),
+    request_key: requestKey,
+    request_fingerprint: fingerprint,
     confirmation_token: randomBytes(32).toString("hex"),
     stripe_session_id: null,
     stripe_payment_intent_id: null,
@@ -606,21 +531,24 @@ export default async function handler(req, res) {
     standard_total: priced.standard_total,
     discount_amount: priced.discount_amount,
     final_total_after_discount: priced.final_total_after_discount,
-    first_source:
-      typeof first_source === "string" ? first_source.slice(0, 500) : null,
-    last_source:
-      typeof last_source === "string" ? last_source.slice(0, 500) : null,
-    landing_page:
-      typeof landing_page === "string" ? landing_page.slice(0, 500) : null,
-    utm_source:
-      typeof utm_source === "string" ? utm_source.slice(0, 500) : null,
-    utm_medium:
-      typeof utm_medium === "string" ? utm_medium.slice(0, 500) : null,
-    utm_campaign:
-      typeof utm_campaign === "string" ? utm_campaign.slice(0, 500) : null,
-    utm_content:
-      typeof utm_content === "string" ? utm_content.slice(0, 500) : null,
-    gclid: typeof gclid === "string" ? gclid.slice(0, 500) : null,
+    first_source: hasMeasurementConsent ? cleanCampaignValue(first_source) : null,
+    last_source: hasMeasurementConsent ? cleanCampaignValue(last_source) : null,
+    landing_page: hasMeasurementConsent ? cleanLandingPath(landing_page) : null,
+    attribution_first_touch_at: hasMeasurementConsent ? validIsoTimestamp(first_touch_at) : null,
+    utm_source: hasMeasurementConsent ? cleanCampaignValue(utm_source) : null,
+    utm_medium: hasMeasurementConsent ? cleanCampaignValue(utm_medium) : null,
+    utm_campaign: hasMeasurementConsent ? cleanCampaignValue(utm_campaign) : null,
+    utm_content: hasMeasurementConsent ? cleanCampaignValue(utm_content) : null,
+    utm_term: hasMeasurementConsent ? cleanCampaignValue(utm_term) : null,
+    gclid: hasMeasurementConsent ? cleanClickId(gclid) : null,
+    gbraid: hasMeasurementConsent ? cleanClickId(gbraid) : null,
+    wbraid: hasMeasurementConsent ? cleanClickId(wbraid) : null,
+    measurement_advertising_consent: hasMeasurementConsent,
+    measurement_consent_version: measurement_consent?.version === "2026-07-14" ? measurement_consent.version : null,
+    measurement_consent_recorded_at: consentRecordedAt,
+    measurement_email_sha256: hasMeasurementConsent ? measurementEmailHash(email) : null,
+    measurement_phone_sha256: hasMeasurementConsent ? measurementPhoneHash(phone) : null,
+    measurement_is_test: isHostedPreview(),
   };
 
   const {
@@ -637,7 +565,10 @@ export default async function handler(req, res) {
     } catch {
       /* Report a retryable save failure below. */
     }
-    console.error("[booking-request] insert failed:", insertError?.message);
+    console.error(
+      "[booking-request] insert failed",
+      safeOperationalCode(insertError, "booking_insert_failed"),
+    );
     return errorResponse(
       res,
       headers,
@@ -647,40 +578,7 @@ export default async function handler(req, res) {
   }
   bookingRef = persistedBookingRef;
 
-  const notificationData = {
-    bookingRef,
-    service: String(service || ""),
-    serviceDetail,
-    fullName: row.full_name,
-    email: row.email,
-    phone: row.phone,
-    address: row.address,
-    postcode: row.postcode,
-    date,
-    time: row.preferred_time,
-    message: row.notes,
-    totalPrice: validatedPrice,
-  };
-  const delivery = await sendNotifications(notificationData);
-  if (
-    delivery.emailCustomerSent ||
-    delivery.emailBusinessSent ||
-    delivery.telegramSent
-  ) {
-    const { error: updateError } = await supabase
-      .from("bookings")
-      .update({
-        email_customer_sent: delivery.emailCustomerSent,
-        email_business_sent: delivery.emailBusinessSent,
-        telegram_sent: delivery.telegramSent,
-      })
-      .eq("id", saved.id);
-    if (updateError)
-      console.error(
-        "[booking-request] notification flags update failed:",
-        updateError.message,
-      );
-  }
+  await attemptNotificationDelivery(supabase, saved.id);
 
   res.writeHead(201, { ...headers, "Content-Type": "application/json" });
   return res.end(

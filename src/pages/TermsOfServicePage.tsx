@@ -95,8 +95,9 @@ const sections: Section[] = [
           and contact you with a time we can offer.
         </p>
         <p className="mt-3">
-          After we agree the scope, final price and time with you, we confirm your appointment directly.
-          No deposit or advance payment is required to confirm your appointment. Sending the initial request
+          After we agree the scope, final price and time with you, we send the agreed booking details
+          and a £30 deposit request. Your appointment is confirmed when we receive the deposit, unless we agree
+          in writing to confirm without one. The deposit is credited towards your agreed total. Sending the initial request
           does not oblige you to accept an alternative time and does not create a payment obligation.
         </p>
         <p className="mt-3">
@@ -104,7 +105,7 @@ const sections: Section[] = [
           we can offer. If none works for you, you can decline them and nothing is charged.
         </p>
         <p className="mt-3">
-          Payment is due after the service has been completed and you have had the opportunity
+          The remaining balance is due after the service has been completed and you have had the opportunity
           to check the work, unless a different payment arrangement has been agreed in writing in advance.
         </p>
       </>
@@ -194,8 +195,9 @@ const sections: Section[] = [
     content: (
       <>
         <p>
-          No payment is collected when you send a booking request, and no deposit is required after we agree
-          the booking details. We confirm your appointment directly. Payment is normally due after the service
+          No payment is collected when you send a booking request. After agreeing the booking details,
+          we request a £30 deposit by card or bank transfer and confirm the appointment when it is received.
+          The deposit comes off the agreed total. The remaining balance is normally due after the service
           has been completed and you have had an opportunity to check the work. Any different payment arrangement
           will be agreed with you in writing before the appointment.
         </p>

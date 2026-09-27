@@ -1,5 +1,8 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { CalendarDays, Check, Clock3, MapPin } from "lucide-react";
+import BrandLogo from "../components/BrandLogo";
 import { applyRouteMetadata } from "../lib/routeMetadata";
+import { bookingContent, friendlyBookingDate } from "../../admin/shared/bookingPresentation.js";
 
 type Agreement = {
   service: string;
@@ -12,7 +15,9 @@ type Agreement = {
   time: string;
   totalPence: number;
   preparation: string;
+  accessNotes?: string;
   policyVersion?: string;
+  paymentPlan?: string;
 };
 type Booking = {
   reference: string;
@@ -27,6 +32,10 @@ type Booking = {
   refundedPence: number;
   balancePence: number;
   customerRequest: { kind: string; date?: string; time?: string } | null;
+  paymentInstructions?: {
+    due: "after_clean" | "deposit";
+    bank: { accountName: string; sortCode: string; accountNumber: string; reference: string } | null;
+  } | null;
   canPayDeposit: boolean;
   canPayBalance: boolean;
   canChange: boolean;
@@ -40,23 +49,23 @@ const money = (p: number) =>
 const inputClass =
   "mt-2 block min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900";
 const buttonClass =
-  "inline-flex min-h-12 items-center justify-center rounded-xl px-5 py-3 text-base font-semibold disabled:cursor-wait disabled:opacity-50";
+  "inline-flex min-h-12 items-center justify-center rounded-xl px-5 py-3 text-base font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-royal-600 disabled:cursor-wait disabled:opacity-50";
 const states: Record<string, { title: string; text: string }> = {
   draft: {
     title: "Your request is being arranged",
     text: "The team is reviewing your preferred service and time. No appointment is confirmed yet.",
   },
   offered: {
-    title: "Your appointment is being arranged",
-    text: "We'll agree the scope, final price and time with you, then confirm your appointment directly. No deposit is required.",
+    title: "Please check your booking details",
+    text: "Check your cleaning, date and arrival time below. If anything needs changing, let us know before we confirm your appointment.",
   },
   change_pending: {
     title: "Please review your revised arrangements",
     text: "Your original confirmed appointment remains in place until you accept these changes. Your existing payment stays credited.",
   },
   confirmed: {
-    title: "Your booking is confirmed",
-    text: "The agreed details are below. Any previous payment remains included in the amount paid.",
+    title: "Your clean is booked",
+    text: "You're all set. Your appointment details are below. We look forward to seeing you.",
   },
   expired: {
     title: "Your appointment hold has expired",
@@ -75,6 +84,12 @@ const states: Record<string, { title: string; text: string }> = {
     text: "We have recorded your payment. The team needs to check the latest arrangements before confirming the appointment. Please contact us.",
   },
 };
+
+function depositAvailable(booking: Booking | null) {
+  return !!booking && booking.canPayDeposit && booking.state === "offered" &&
+    booking.agreement.paymentPlan === "deposit_after_agreement" && !booking.customerRequest &&
+    booking.paidPence === 0 && !!booking.holdUntil && new Date(booking.holdUntil) > new Date();
+}
 
 function privateToken() {
   if (typeof window === "undefined") return "";
@@ -97,6 +112,8 @@ function privateToken() {
   }
 }
 export default function BookingManagementPage() {
+  const [payFromEmail] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.hash.slice(1)).get("pay") === "deposit");
+  const automaticCheckoutAttempted = useRef(false);
   const [token] = useState(privateToken),
     [booking, setBooking] = useState<Booking | null>(null),
     [error, setError] = useState(""),
@@ -193,7 +210,7 @@ export default function BookingManagementPage() {
         operation === "reschedule"
           ? "Your rescheduling request is saved. We will contact you after checking availability."
           : operation === "cancel"
-            ? "Your cancellation is saved. Check the booking status and your email for the details."
+            ? "Your cancellation request is with the team. We will email you when it is confirmed."
             : "Your revised arrangements have been accepted.",
       );
     } catch (e) {
@@ -204,6 +221,14 @@ export default function BookingManagementPage() {
       setBusy(false);
     }
   }
+  useEffect(() => {
+    if (!payFromEmail || loading || !booking || automaticCheckoutAttempted.current) return;
+    automaticCheckoutAttempted.current = true;
+    if (depositAvailable(booking)) void act("checkout");
+    // Only an explicit Pay link in the email initiates checkout, once. A normal
+    // booking link remains read-only. The server rechecks the saved agreement.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payFromEmail, loading, booking]);
   function submit(e: FormEvent) {
     e.preventDefault();
     if (panel) void act(panel, { confirm: confirmed, date, time, reason });
@@ -216,17 +241,17 @@ export default function BookingManagementPage() {
     booking?.state === "offered" &&
     booking.holdUntil &&
     new Date(booking.holdUntil) <= new Date();
+  const depositPayable = depositAvailable(booking);
+  const content = booking ? bookingContent(booking.agreement) : null;
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:py-12">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 sm:py-10">
       <div className="mx-auto max-w-3xl">
-        <a
-          href="/"
-          className="inline-block text-2xl font-bold text-slate-950"
-          aria-label="VVE Clean home"
-        >
-          VVE <span className="text-blue-700">Clean</span>
-        </a>
-        <p className="mt-2 text-sm text-slate-600">Your private booking page</p>
+        <header className="flex items-center justify-between gap-5 px-1">
+          <a href="/" className="inline-block rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-royal-600" aria-label="VVE Clean home">
+            <BrandLogo compact />
+          </a>
+          <p className="text-right text-sm text-slate-600">Your private<br className="sm:hidden" /> booking page</p>
+        </header>
         {(!booking || loading) && (
           <h1 className="mt-7 text-3xl font-bold leading-tight">Manage your booking</h1>
         )}
@@ -261,75 +286,88 @@ export default function BookingManagementPage() {
             {notice}
           </p>
         )}
-        {booking && !loading && (
+        {booking && content && !loading && (
           <>
             <section className="mt-7 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-              <div className="bg-slate-950 px-6 py-8 text-white sm:px-8">
-                <p className="text-sm text-blue-200">
-                  Booking {booking.reference} · Version {booking.offerVersion}
+              <div className="border-b border-sky-100 bg-sky-50 px-5 py-7 sm:px-8 sm:py-8">
+                <p className="break-words text-sm font-medium text-royal-700">
+                  Booking {booking.reference}
                 </p>
-                <h1 className="mt-3 text-3xl font-bold leading-tight">
+                <h1 className="mt-3 text-2xl font-bold leading-tight text-navy-950 sm:text-3xl">
                   {expired ? "Please check your appointment with the team" : summary.title}
                 </h1>
-                <p className="mt-3 max-w-xl leading-relaxed text-slate-200">
+                <p className="mt-3 max-w-xl leading-relaxed text-slate-700">
                   {expired
                     ? "Please contact the team to check whether this appointment can still be held."
+                    : depositPayable
+                      ? "Happy with the details below? Pay the £30 deposit to secure your slot. If you need a different time or any changes, let us know first."
                     : summary.text}
                 </p>
               </div>
-              <div className="p-6 sm:p-8">
-                <h2 className="text-xl font-semibold">
-                  {booking.agreement.service}
-                </h2>
-                <p className="mt-3 whitespace-pre-line leading-relaxed text-slate-700">
-                  {booking.agreement.items}
-                </p>
-                <dl className="mt-6 grid gap-5 sm:grid-cols-2">
-                  <div>
-                    <dt className="text-sm text-slate-500">Appointment date</dt>
-                    <dd className="mt-1 font-semibold">
-                      {booking.agreement.date}
-                    </dd>
+              <div className="p-5 sm:p-8">
+                <dl className="grid gap-5 border-b border-slate-200 pb-6 sm:grid-cols-2">
+                  <div className="flex items-start gap-3">
+                    <CalendarDays aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-royal-600" />
+                    <div>
+                      <dt className="text-sm text-slate-600">Appointment date</dt>
+                      <dd className="mt-1 font-semibold text-navy-950">
+                        {friendlyBookingDate(booking.agreement.date)}
+                      </dd>
+                    </div>
                   </div>
-                  <div>
-                    <dt className="text-sm text-slate-500">Arrival window</dt>
-                    <dd className="mt-1 font-semibold">
-                      {booking.agreement.time}{" "}
-                      <span className="text-sm font-normal">(London time)</span>
-                    </dd>
+                  <div className="flex items-start gap-3">
+                    <Clock3 aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-royal-600" />
+                    <div>
+                      <dt className="text-sm text-slate-600">Arrival window</dt>
+                      <dd className="mt-1 font-semibold text-navy-950">
+                        {booking.agreement.time}{" "}
+                        <span className="text-sm font-normal text-slate-600">(London time)</span>
+                      </dd>
+                    </div>
                   </div>
-                  <div className="sm:col-span-2">
-                    <dt className="text-sm text-slate-500">Service address</dt>
-                    <dd className="mt-1">
-                      {booking.agreement.address}, {booking.agreement.postcode}
-                    </dd>
+                  <div className="flex items-start gap-3 sm:col-span-2">
+                    <MapPin aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-royal-600" />
+                    <div>
+                      <dt className="text-sm text-slate-600">Service address</dt>
+                      <dd className="mt-1 leading-relaxed">
+                        {booking.agreement.address}, {booking.agreement.postcode}
+                      </dd>
+                    </div>
                   </div>
                 </dl>
-                {booking.agreement.scope && (
+                <section className="mt-6" aria-labelledby="cleaning-heading">
+                  <h2 id="cleaning-heading" className="text-xl font-semibold text-navy-950">Your cleaning includes</h2>
+                  <p className="mt-1 text-sm font-medium text-slate-600">{booking.agreement.service}</p>
+                  <ul className="mt-4 space-y-3">
+                    {content.cleaning.map((item, index) => (
+                      <li key={`${index}-${item}`} className="flex items-start gap-3 leading-relaxed text-slate-700">
+                        <Check aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-success" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+                {content.access.length > 0 && (
+                  <section className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4" aria-labelledby="access-heading">
+                    <h3 id="access-heading" className="font-semibold">Parking and access costs</h3>
+                    <ul className="mt-2 space-y-2 text-sm leading-relaxed text-slate-700">
+                      {content.access.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}
+                    </ul>
+                  </section>
+                )}
+                {content.details && (
                   <div className="mt-5">
-                    <h3 className="font-semibold">Included scope</h3>
-                    <p className="mt-2 whitespace-pre-line text-slate-700">
-                      {booking.agreement.scope}
+                    <h3 className="font-semibold">Additional details</h3>
+                    <p className="mt-2 whitespace-pre-line leading-relaxed text-slate-700">
+                      {content.details}
                     </p>
                   </div>
                 )}
-                {booking.agreement.exclusions && (
+                {content.exclusions && (
                   <div className="mt-5">
-                    <h3 className="font-semibold">
-                      Exclusions and agreed access costs
-                    </h3>
-                    <p className="mt-2 whitespace-pre-line text-slate-700">
-                      {booking.agreement.exclusions}
-                    </p>
-                  </div>
-                )}
-                {booking.agreement.preparation && (
-                  <div className="mt-5 rounded-xl bg-slate-50 p-4">
-                    <h3 className="font-semibold">
-                      Getting ready for your clean
-                    </h3>
-                    <p className="mt-2 whitespace-pre-line text-slate-700">
-                      {booking.agreement.preparation}
+                    <h3 className="font-semibold">Not included</h3>
+                    <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-700">
+                      {content.exclusions}
                     </p>
                   </div>
                 )}
@@ -339,7 +377,7 @@ export default function BookingManagementPage() {
                       Your existing confirmed arrangement
                     </h3>
                     <p className="mt-2">
-                      {booking.previousAgreement.date} ·{" "}
+                      {friendlyBookingDate(booking.previousAgreement.date)} ·{" "}
                       {booking.previousAgreement.time}
                     </p>
                     <p>
@@ -352,71 +390,114 @@ export default function BookingManagementPage() {
                     </p>
                   </div>
                 )}
-                <dl className="mt-6 space-y-3 border-t border-slate-200 pt-5">
-                  <div className="flex justify-between">
-                    <dt>Agreed total</dt>
-                    <dd className="font-semibold">
-                      {money(booking.agreement.totalPence)}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt>Paid so far</dt>
-                    <dd>{money(booking.paidPence)}</dd>
-                  </div>
-                  {booking.refundedPence > 0 && (
-                    <div className="flex justify-between">
-                      <dt>Refunded</dt>
-                      <dd>{money(booking.refundedPence)}</dd>
+                <section className="mt-7 rounded-2xl border border-sky-100 bg-sky-50 p-5" aria-labelledby="payment-heading">
+                  <h2 id="payment-heading" className="font-semibold text-navy-950">{depositPayable ? "Secure your appointment" : "Payment summary"}</h2>
+                  <dl className="mt-4 space-y-3">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <dt>Total</dt>
+                      <dd className="shrink-0 font-semibold">
+                        {money(booking.agreement.totalPence)}
+                      </dd>
                     </div>
+                    {depositPayable && (
+                      <div className="flex items-baseline justify-between gap-4 text-royal-700">
+                        <dt className="font-semibold">Deposit due now</dt>
+                        <dd className="shrink-0 text-xl font-bold">£30.00</dd>
+                      </div>
+                    )}
+                    {booking.paidPence > 0 && (
+                      <div className="flex items-baseline justify-between gap-4">
+                        <dt>Paid</dt>
+                        <dd className="shrink-0">{money(booking.paidPence)}</dd>
+                      </div>
+                    )}
+                    {booking.refundedPence > 0 && (
+                      <div className="flex items-baseline justify-between gap-4">
+                        <dt>Refunded</dt>
+                        <dd className="shrink-0">{money(booking.refundedPence)}</dd>
+                      </div>
+                    )}
+                    <div className="flex items-baseline justify-between gap-4 border-t border-sky-200 pt-3">
+                      <dt>
+                        {booking.state === "cancelled"
+                          ? "Unpaid part of original quote"
+                          : depositPayable ? "Balance after deposit" : "Remaining balance"}
+                      </dt>
+                      <dd className="shrink-0 font-semibold">
+                        {money(depositPayable ? Math.max(0, booking.agreement.totalPence - 3000) : booking.balancePence)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                    {booking.state === "cancelled"
+                      ? "The unpaid part of your quote is not a cancellation charge. Contact us about any refund due under the agreed terms."
+                      : depositPayable
+                        ? "Your deposit is part of the total. The balance shown will be due on the day of your clean once the deposit is received."
+                        : ["confirmed", "completed", "change_pending"].includes(booking.state) && booking.balancePence > 0
+                          ? "The remaining balance is due on the day of your clean. Any payment received is already included above."
+                          : ["confirmed", "completed"].includes(booking.state) && booking.balancePence === 0 && booking.paidPence > 0 && booking.refundedPence === 0
+                            ? "Your total is paid in full. Thank you."
+                            : "Please check the appointment details with the team before making a payment."}
+                  </p>
+                  {depositPayable && booking.holdUntil && (
+                    <p className="mt-3 text-sm font-semibold text-navy-950">
+                      Please pay by {new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/London" }).format(new Date(booking.holdUntil))} (London time).
+                    </p>
                   )}
-                  <div className="flex justify-between border-t border-slate-200 pt-3 text-lg">
-                    <dt>
-                      {booking.state === "cancelled"
-                        ? "Unpaid part of original quote"
-                        : "Remaining balance"}
-                    </dt>
-                    <dd className="font-semibold">
-                      {money(booking.balancePence)}
-                    </dd>
-                  </div>
-                </dl>
-                <p className="mt-2 text-sm text-slate-600">
-                  {booking.state === "cancelled"
-                    ? "The unpaid part of your quote is not a cancellation charge. Contact us about any refund due under the agreed terms."
-                    : "Payment is due after the clean. Any previous payment counts towards your agreed total."}
-                </p>
-                {booking.canPayBalance && (
-                  <button
-                    disabled={busy}
-                    onClick={() => act("checkout")}
-                    className={`${buttonClass} mt-5 w-full bg-blue-700 text-white hover:bg-blue-800`}
-                  >
-                    {busy
-                      ? "Preparing…"
-                      : `Pay ${money(booking.balancePence)} remaining balance`}
-                  </button>
+                  {(depositPayable || booking.canPayBalance) && (
+                    <button
+                      disabled={busy}
+                      onClick={() => act("checkout")}
+                      className={`${buttonClass} mt-5 w-full bg-royal-500 text-white hover:bg-royal-600`}
+                    >
+                      {busy
+                        ? "Preparing…"
+                        : depositPayable ? "Pay £30 deposit by card" : `Pay ${money(booking.balancePence)} remaining balance`}
+                    </button>
+                  )}
+                </section>
+                {booking.paymentInstructions && (depositPayable || ["confirmed", "completed"].includes(booking.state)) && booking.balancePence > 0 && (
+                  <section className="mt-4 rounded-2xl border border-slate-200 p-5" aria-labelledby="bank-payment-heading">
+                    <h3 id="bank-payment-heading" className="font-semibold">{depositPayable ? "Prefer a bank transfer?" : "Bank transfer details"}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                      {depositPayable ? "Transfer £30 with the reference below. We'll email your confirmation once we've checked receipt." : booking.state === "completed"
+                        ? "Use these details to pay your remaining balance."
+                        : "Your appointment is confirmed; no payment is needed now. Use these details on the day of your clean. Card payment will be available here once the team marks the clean complete."}
+                    </p>
+                    {booking.paymentInstructions.bank ? (
+                      <>
+                        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
+                          {Object.entries({ "Account name": booking.paymentInstructions.bank.accountName, "Sort code": booking.paymentInstructions.bank.sortCode, "Account number": booking.paymentInstructions.bank.accountNumber, "Payment reference": booking.paymentInstructions.bank.reference }).map(([label, value]) => (
+                            <div key={label} className={label === "Payment reference" ? "col-span-2 rounded-lg bg-slate-50 p-3" : "min-w-0"}><dt className="text-slate-600">{label}</dt><dd className="mt-1 break-words font-semibold">{value}</dd></div>
+                          ))}
+                        </dl>
+                        <p className="mt-3 text-sm leading-relaxed text-slate-600">Already transferred? Please don’t pay again while we check receipt.</p>
+                      </>
+                    ) : <p className="mt-3 text-sm">Please contact the team for bank-transfer details.</p>}
+                  </section>
                 )}
                 {booking.canAccept && (
                   <button
                     disabled={busy}
                     onClick={() => act("accept_change", { confirm: true })}
-                    className={`${buttonClass} mt-5 w-full bg-blue-700 text-white`}
+                    className={`${buttonClass} mt-5 w-full bg-royal-500 text-white hover:bg-royal-600`}
                   >
                     Accept these revised arrangements
                   </button>
                 )}
                 {booking.customerRequest?.kind === "reschedule" && (
                   <p role="status" className="mt-5 rounded-xl bg-amber-50 p-4">
-                    Your request for {booking.customerRequest.date} ·{" "}
+                    Your request for {friendlyBookingDate(booking.customerRequest.date || "")} ·{" "}
                     {booking.customerRequest.time} is with the team. Your
                     existing appointment has not changed.
                   </p>
                 )}
+                {booking.customerRequest?.kind === "cancel" && <p role="status" className="mt-5 rounded-xl bg-amber-50 p-4">Your cancellation request is with the team. Payment is paused until we have reviewed it.</p>}
                 {booking.canChange && (
-                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                  <div className="mt-6 flex flex-col gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:gap-3">
                     <button
                       disabled={busy}
-                      className={`${buttonClass} flex-1 border border-slate-300 bg-white`}
+                      className={`${buttonClass} flex-1 border border-slate-300 bg-white text-royal-700 hover:bg-slate-50`}
                       onClick={() => {
                         setPanel("reschedule");
                         setConfirmed(false);
@@ -426,15 +507,23 @@ export default function BookingManagementPage() {
                     </button>
                     <button
                       disabled={busy}
-                      className={`${buttonClass} flex-1 border border-slate-300 bg-white text-red-700`}
+                      className={`${buttonClass} flex-1 bg-white text-slate-600 underline decoration-slate-300 underline-offset-4 hover:text-red-700`}
                       onClick={() => {
                         setPanel("cancel");
                         setConfirmed(false);
                       }}
                     >
-                      Cancel appointment
+                      Request cancellation
                     </button>
                   </div>
+                )}
+                {booking.agreement.preparation && !["cancelled", "completed"].includes(booking.state) && (
+                  <aside className="mt-6 rounded-xl border-l-4 border-sky-200 bg-slate-50 p-4">
+                    <h3 className="font-semibold">Getting ready for your clean</h3>
+                    <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-700">
+                      {booking.agreement.preparation}
+                    </p>
+                  </aside>
                 )}
                 <p className="mt-5 text-xs text-slate-500">
                   Agreement terms:{" "}
@@ -457,12 +546,12 @@ export default function BookingManagementPage() {
               <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
                 <h2 className="text-2xl font-semibold">
                   {panel === "cancel"
-                    ? "Confirm cancellation"
+                    ? "Request cancellation"
                     : "Request a different time"}
                 </h2>
                 <p className="mt-3 leading-relaxed text-slate-600">
                   {panel === "cancel"
-                    ? "This cancels your appointment. Any refund is reviewed separately under the agreed terms. No new cancellation fee is added by this page."
+                    ? "Send your cancellation request to the team. We will email you when the cancellation is confirmed. Any refund is reviewed separately; this request does not issue a refund."
                     : "Tell us what works for you. We will check availability before changing your appointment."}
                 </p>
                 <form className="mt-5 space-y-4" onSubmit={submit}>
@@ -522,7 +611,7 @@ export default function BookingManagementPage() {
                       className={`${buttonClass} ${panel === "cancel" ? "bg-red-700" : "bg-blue-700"} text-white`}
                     >
                       {panel === "cancel"
-                        ? "Confirm cancellation"
+                        ? "Send cancellation request"
                         : "Send rescheduling request"}
                     </button>
                     <button

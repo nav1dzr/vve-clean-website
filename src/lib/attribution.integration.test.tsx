@@ -86,7 +86,7 @@ function seedPreConsentAttribution() {
 
 /** Every advertising field, blanked — the shape BookingPage must receive. */
 const NO_CAMPAIGN = {
-  first_source: null, last_source: null, landing_page: null,
+  first_source: null, last_source: null, landing_page: null, first_touch_at: null,
   utm_source: null, utm_medium: null, utm_campaign: null,
   utm_content: null, gclid: null,
 };
@@ -270,7 +270,9 @@ describe('when the visitor rejects optional cookies', () => {
     const { container } = enterAt('/?utm_source=google&gclid=click_persisted');
     await waitFor(() => expect(getAttribution().gclid).toBe('click_persisted'));
 
-    await user.click(await screen.findByRole('button', { name: 'Cookie settings' }));
+    // This control is in the lazy-loaded page footer, unlike the global
+    // consent banner. Allow the real route to finish loading before clicking.
+    await user.click(await screen.findByRole('button', { name: 'Cookie settings' }, { timeout: 15000 }));
     const advertising = container.querySelector('#consent-advertising') as HTMLButtonElement;
     expect(advertising.getAttribute('aria-checked')).toBe('true');
     await user.click(advertising);
@@ -333,13 +335,14 @@ describe('when the visitor accepts advertising', () => {
     expect(screen.queryByRole('button', { name: 'Accept all' })).toBeNull();
   });
 
-  it('stores nothing the API would reject', async () => {
+  it('stores utm_term now that the booking API accepts it', async () => {
     const user = userEvent.setup();
     enterAt('/?utm_term=should_be_ignored&utm_source=google');
     await user.click(await waitForBanner());
 
     await waitFor(() => expect(getAttribution().utm_source).toBe('google'));
-    expect(Object.keys(localStorage).some((k) => k.includes('utm_term'))).toBe(false);
+    expect(Object.keys(localStorage).some((k) => k.includes('utm_term'))).toBe(true);
+    expect(getAttribution().utm_term).toBe('should_be_ignored');
   });
 });
 
@@ -370,6 +373,7 @@ describe('when advertising is enabled later in the same visit', () => {
     // path a visitor takes when they decide the banner was too aggressive.
     saveConsent(REJECT_OPTIONAL_CATEGORIES, 'rejected_optional');
     const user = userEvent.setup();
+    const entryStartedAt = Date.now();
     const { container } = enterAt('/?utm_source=google&gclid=late_click');
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Cookie settings' })).toBeTruthy());
@@ -383,6 +387,9 @@ describe('when advertising is enabled later in the same visit', () => {
 
     await waitFor(() => expect(getAttribution().gclid).toBe('late_click'));
     expect(getAttribution().first_source).toBe('google');
+    const firstTouchAt = Date.parse(getAttribution().first_touch_at || '');
+    expect(firstTouchAt).toBeGreaterThanOrEqual(entryStartedAt);
+    expect(firstTouchAt).toBeLessThanOrEqual(Date.now());
   });
 });
 

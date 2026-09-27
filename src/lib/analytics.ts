@@ -9,17 +9,18 @@ import { canUseGoogleTags } from './privatePage';
 //
 // | Event                   | Trigger                                    | Component              | Key params                     |
 // |-------------------------|--------------------------------------------|------------------------|--------------------------------|
-// | phone_click             | User clicks a tel: link                    | Hero, Contact, Navbar  | location (string)              |
-// | whatsapp_click          | User clicks a WhatsApp link                | Hero, Contact, CTAs    | location (string)              |
+// | phone_contact           | User clicks a tel: link                    | Hero, Contact, Navbar  | location (string)              |
+// | whatsapp_contact        | User clicks a WhatsApp link                | Hero, Contact, CTAs    | location (string)              |
 // | booking_initiated       | User clicks "Book Now" in calculator       | QuoteCalculator        | service_type (string)          |
-// | request_submitted       | No-payment preferred-time request saved     | BookingPage            | service_type (string)          |
+// | booking_request_response_received | Browser receives saved response   | BookingPage            | service_type, opaque UUID      |
 // | contact_form_submitted  | Contact form POST succeeds                 | Contact                | —                              |
 // | legacy paid conversion | Verified historic Stripe payment only       | confirmation.html      | value, currency, transaction_id|
 //
 // Existing Google Ads labels are retained. Account-side goal/bidding settings
 // must be reviewed separately; source code cannot establish their current state.
-// An accepted request is only request_submitted: it is neither a paid deposit
-// nor a confirmed appointment. Legacy payment verification remains separate.
+// The canonical booking_request_submitted conversion is created once by the
+// durable server outbox. This browser-only response event is diagnostic and is
+// neither a paid deposit nor a confirmed appointment.
 
 const SECONDARY_ADS_CONVERSIONS = {
   bookingInitiated: 'AW-18214693277/cmLZCIm-6eEcEJ3TuO1D',
@@ -45,11 +46,11 @@ function safeAdsConversion(sendTo: string, params?: GtagEventParams): void {
 }
 
 export function trackPhoneClick(location: string): void {
-  safeGtag('phone_click', { event_category: 'engagement', event_label: location });
+  safeGtag('phone_contact', { event_category: 'engagement', event_label: location });
 }
 
 export function trackWhatsAppClick(location: string): void {
-  safeGtag('whatsapp_click', { event_category: 'engagement', event_label: location });
+  safeGtag('whatsapp_contact', { event_category: 'engagement', event_label: location });
   safeAdsConversion(SECONDARY_ADS_CONVERSIONS.whatsappContact, { event_label: location });
 }
 
@@ -59,11 +60,11 @@ export function trackBookingInitiated(serviceType: string): void {
 }
 
 export function trackBookingRequestSubmitted(serviceType: string, requestId?: string): void {
-  if (!canMeasure() || (requestId !== undefined && !UUID.test(requestId))) return;
-  if (requestId && !once('request', requestId)) return;
-  safeGtag('request_submitted', { event_category: 'funnel', event_label: serviceType, ...(requestId ? { transaction_id: requestId } : {}) });
-  const sendTo = import.meta.env.VITE_GOOGLE_ADS_REQUEST_CONVERSION_LABEL;
-  if (requestId && /^AW-18214693277\/[A-Za-z0-9_-]+$/.test(sendTo || '')) safeAdsConversion(sendTo, { transaction_id: requestId });
+  if (!canMeasure() || !requestId || !UUID.test(requestId)) return;
+  if (!once('request', requestId)) return;
+  safeGtag('booking_request_response_received', { event_category: 'diagnostic', event_label: serviceType, transaction_id: requestId });
+  // No direct Ads label: Google Ads receives booking_request_submitted from
+  // the committed server record, so this acknowledgement cannot count it twice.
 }
 
 export function trackContactFormSubmitted(enquiryId?: string): void {
@@ -85,7 +86,7 @@ function once(kind: string, id: string): boolean {
   return true;
 }
 export function trackFunnelStep(step: 'quote_start' | 'quote_complete' | 'request_start' | 'form_error', service: string): void {
-  safeGtag(step, { event_category: 'funnel', event_label: service });
+  safeGtag(step === 'request_start' ? 'booking_request_started' : step, { event_category: 'funnel', event_label: service });
 }
 export function trackEmailClick(location: string): void { safeGtag('email_click', { event_category: 'engagement', event_label: location }); }
 

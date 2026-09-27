@@ -39,8 +39,17 @@ describe('preview isolation boundary', () => {
     await handler({ method: 'POST', headers: {} }, res);
     expect(res.writeHead.mock.calls[0][0]).toBe(403); expect(createClient).not.toHaveBeenCalled();
   });
-  it.each(['temlphabsqukkiqmrvhl','spbrstpxrimuuorkbsbo'])('never accepts the active project %s as a preview test database', active => {
+  it('never accepts the live website project as a preview test database', () => {
+    const active = 'temlphabsqukkiqmrvhl';
     expect(previewIsolation({ ...approved, VVE_PREVIEW_SUPABASE_PROJECT_REF: active, VITE_SUPABASE_URL: `https://${active}.supabase.co` }).ok).toBe(false);
+  });
+  it('allows VVE OS only behind its explicit synthetic-test gate', () => {
+    const testRef = 'spbrstpxrimuuorkbsbo';
+    const osPreview = { ...approved, VVE_PREVIEW_SUPABASE_PROJECT_REF: testRef, VITE_SUPABASE_URL: `https://${testRef}.supabase.co` };
+    expect(previewIsolation(osPreview).ok).toBe(false);
+    expect(previewIsolation({ ...osPreview, VVE_PREVIEW_ALLOW_VVE_OS: 'true' })).toMatchObject({ ok: true, preview: true });
+    expect(previewIsolation({ ...osPreview, VVE_PREVIEW_ALLOW_VVE_OS: 'true', BOOKING_JOURNEY_MODE: 'live' }).ok).toBe(false);
+    expect(previewIsolation({ ...osPreview, VVE_PREVIEW_ALLOW_VVE_OS: 'true', STRIPE_SECRET_KEY: 'sk_live_fake' }).ok).toBe(false);
   });
   it.each(handlers)('rejects %s before parsing input or creating a database/email client', async (_name, handler) => {
     vi.stubEnv('VERCEL_ENV', 'preview'); vi.stubEnv('VVE_PREVIEW_ISOLATION_APPROVED', '');

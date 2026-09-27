@@ -373,6 +373,34 @@ try {
     },
   );
 
+  await check("Channel migration is additive, repeatable and creates four independent confirmation deliveries exactly once", async () => {
+    const before = await state();
+    await db.exec("RESET ROLE");
+    const channels = await readFile(new URL("../supabase/migrations/20260916183000_booking_confirmation_channels.sql", import.meta.url), "utf8");
+    await db.exec(channels);
+    await db.exec(channels);
+    await db.exec("SET ROLE service_role");
+    assert.deepEqual(await state(), before);
+    const revision = (await journey()).revision;
+    const message = { kind: "confirmation", dedup_key: "synthetic:channels:1", payload: { kind: "confirmation", reference: "TEST" } };
+    const payment = { external_id: "bank-deposit:synthetic", kind: "manual_deposit", amount_pence: 3000 };
+    await mutate(revision, "bank_deposit_received", { state: "confirmed" }, { status: "confirmed" }, message, payment);
+    const saved = await state();
+    const messages = saved.messages.filter(row => row.dedup_key.startsWith("synthetic:channels:1"));
+    assert.equal(messages.length, 4);
+    assert.equal(messages.filter(row => !row.payload.channel && row.payload.audience !== "business").length, 1);
+    assert.equal(messages.filter(row => !row.payload.channel && row.payload.audience === "business").length, 1);
+    assert.equal(messages.filter(row => row.payload.channel === "telegram").length, 1);
+    assert.equal(messages.filter(row => row.payload.channel === "calendar").length, 1);
+    await mutate(revision, "duplicate", {}, {}, message, payment);
+    assert.deepEqual(await state(), saved);
+    for (const role of ["anon", "authenticated"]) {
+      await db.exec(`RESET ROLE; SET ROLE ${role}`);
+      await denied(() => mutate(revision, "unauthorized", {}));
+    }
+    await db.exec("RESET ROLE; SET ROLE service_role");
+  });
+
   console.log(
     JSON.stringify(
       {

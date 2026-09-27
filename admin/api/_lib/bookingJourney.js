@@ -1,9 +1,13 @@
+import { renderBookingEmail } from "./bookingEmailLayout.js";
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import nodemailer from "nodemailer";
+import { bookingPaymentInstructions, visibleBookingPaymentInstructions } from "./bookingPaymentInstructions.js";
 import { isHostedPreview, previewTestInbox } from './previewIsolation.js';
+import { DEPOSIT_PENCE, DEPOSIT_PLAN, requiresDeposit, canCollectDeposit } from './bookingDeposit.js';
+import { ownerBookingTitle, sendBookingTelegram, syncBookingCalendar } from './bookingIntegrations.js';
 
-// Retained only for reconciling historical Stripe deposit transactions.
-export const DEPOSIT_PENCE = 3000;
+
+export { DEPOSIT_PENCE } from './bookingDeposit.js';
 const JOURNEY_COLUMNS =
   "booking_id,revision,offer_version,state,draft,snapshot,previous_snapshot,token_generation,token_expires_at,hold_until,reminder_sent_at,appointment_reminder_sent_at,checkout_id,checkout_kind,checkout_creating_at,paid_pence,refunded_pence,customer_request,updated_at";
 const BOOKING_COLUMNS =
@@ -87,6 +91,7 @@ export function validateAgreement(input, now = new Date()) {
     items: clean(input.items, 3000),
     scope: clean(input.scope, 3000),
     exclusions: clean(input.exclusions, 2000),
+    accessNotes: clean(input.accessNotes, 2000),
     address: clean(input.address, 500),
     postcode: clean(input.postcode, 12).toUpperCase(),
     date: clean(input.date, 10),
@@ -94,8 +99,14 @@ export function validateAgreement(input, now = new Date()) {
     totalPence: Math.round(Number(input.totalPence)),
     changeReason: clean(input.changeReason, 1000),
     preparation: clean(input.preparation, 2000),
-    policyVersion: "2026-09-14",
+    paymentPlan: input.paymentPlan || "after_clean",
+    paymentWindowHours: Number(input.paymentWindowHours || 48),
+    policyVersion: requiresDeposit(input) ? "2026-09-16" : "2026-09-14",
   };
+  if (![DEPOSIT_PLAN, "after_clean"].includes(data.paymentPlan) || ![2, 6, 12, 24, 48].includes(data.paymentWindowHours))
+    throw new JourneyError("Choose a valid payment arrangement and deadline.");
+  if (requiresDeposit(data) && data.totalPence < DEPOSIT_PENCE)
+    throw new JourneyError("The agreed total cannot be lower than the £30 deposit.");
   if (!data.service || !data.items || !data.address || !data.time)
     throw new JourneyError(
       "Enter service, included items, address and arrival window.",
@@ -216,6 +227,8 @@ export async function loadJourney(db, id, create = false) {
       totalPence: Math.round(Number(booking.total_price || 0) * 100),
       changeReason: "",
       preparation: "",
+      paymentPlan: DEPOSIT_PLAN,
+      paymentWindowHours: 48,
     };
     const { error } = await db
       .from("booking_journeys")
@@ -257,6 +270,7 @@ export function publicJourney(booking, j) {
             "items",
             "scope",
             "exclusions",
+            "accessNotes",
             "address",
             "postcode",
             "date",
@@ -264,6 +278,7 @@ export function publicJourney(booking, j) {
             "totalPence",
             "preparation",
             "policyVersion",
+            "paymentPlan",
           ].map((key) => [key, s[key]]),
         )
       : null;
@@ -281,7 +296,8 @@ export function publicJourney(booking, j) {
     refundedPence: j.refunded_pence,
     balancePence: Math.max(0, (snapshot?.totalPence || 0) - netPaid),
     customerRequest: j.customer_request,
-    canPayDeposit: false,
+    paymentInstructions: visibleBookingPaymentInstructions(j),
+    canPayDeposit: canCollectDeposit(j),
     canPayBalance:
       j.state === "completed" && netPaid < (snapshot?.totalPence || 0),
     canChange: ["offered", "confirmed", "change_pending"].includes(j.state),
@@ -301,12 +317,13 @@ function bookingPatch(s, status, extra = {}) {
     ...extra,
   };
 }
-function messagePayload(booking, j, kind) {
+function messagePayload(booking, j, kind, payment) {
   return {
     kind,
     reference: booking.booking_ref,
     name: booking.full_name,
     email: booking.email,
+    ...(payment ? { payment: { method: payment.method || "stripe", amountPence: payment.amount_pence } } : {}),
     journey:
       kind === "appointment_reminder" && j.state === "change_pending"
         ? { ...j, snapshot: j.previous_snapshot }
@@ -331,7 +348,7 @@ async function apply(
         dedup_key: kind.startsWith("initial_")
           ? `${j.booking_id}:${kind}`
           : `${j.booking_id}:${next.revision}:${kind}`,
-        payload: messagePayload(booking, next, kind),
+        payload: messagePayload(booking, next, kind, payment),
       }
     : null;
   const { data, error } = await db.rpc("apply_booking_journey", {
@@ -358,12 +375,12 @@ export function emailForMessage(payload) {
     s = j.snapshot || j.draft;
   const labels = {
     deposit_request: [
-      "Please contact us to confirm your appointment",
-      "No deposit is required. We will agree the scope, final price and time with you, then confirm your appointment directly.",
+      "Please check your booking details",
+      "Please check your cleaning list, date and arrival time below. If everything looks right, pay the £30 deposit to secure your slot. Need a different time or another change? Send us a request from your booking page before paying.",
     ],
     confirmation: [
       "Your booking is confirmed",
-      "We have agreed the scope, final price and time with you. Your appointment is now confirmed. No deposit is required.",
+      j.paid_pence > 0 ? "Thank you, your clean is booked. Your payment is recorded below. We look forward to seeing you." : "Your clean is booked. Please keep the date and arrival time below handy. No deposit is needed; payment is due on the day of your clean.",
     ],
     change_proposal: [
       "Please review your revised booking",
@@ -377,17 +394,21 @@ export function emailForMessage(payload) {
       "We received your rescheduling request",
       "We will check availability and contact you. Your current appointment has not been cancelled or moved.",
     ],
+    cancellation_requested: [
+      "We received your cancellation request",
+      "The team will review your request and email you when the cancellation is confirmed. Payment is paused while we check. Any refund is handled separately under the agreed terms.",
+    ],
     cancelled: [
       "Your booking is cancelled",
       "Your appointment has been cancelled. Any money already paid remains recorded. We will contact you separately about any refund due under the agreed terms; this email does not confirm a refund.",
     ],
     expired: [
       "Your appointment hold has expired",
-      "The previous provisional hold has ended. Please contact us to agree availability, scope and the final price so we can confirm your appointment directly. No deposit is required.",
+      "The payment deadline for these arrangements has passed. Please contact us to check availability before making any payment.",
     ],
     reminder: [
-      "Please contact us about your appointment",
-      "We will agree the scope, final price and time with you, then confirm your appointment directly. No deposit is required.",
+      "A reminder to secure your cleaning slot",
+      "If the details still work for you, please pay the £30 deposit by the deadline below to secure your slot. If you have already made a bank transfer, reply to this email so we can check it before you pay again.",
     ],
     appointment_reminder: [
       "Your confirmed clean is tomorrow",
@@ -413,81 +434,29 @@ export function emailForMessage(payload) {
   const initial = ["initial_customer", "initial_business"].includes(
     payload.kind,
   );
-  const [heading, intro] = initial
+  let [heading, intro] = initial
     ? [
         "We received your cleaning request",
-        "Send your request with no payment. We’ll agree the scope, final price and time with you, then confirm your appointment directly.",
+        "No payment is taken with your request. We’ll agree the scope, final price and time with you, then send your booking details and £30 deposit payment options.",
       ]
     : labels[payload.kind] || [
         "Your booking update",
         "Please review the latest details.",
       ];
-  const money = (p) =>
-    new Intl.NumberFormat("en-GB", {
-      style: "currency",
-      currency: "GBP",
-    }).format(p / 100);
-  const rows = [
-    ["Reference", payload.reference],
-    ["Service", s.service],
-    ["Included items", s.items],
-    ["Scope", s.scope],
-    ["Not included", s.exclusions],
-    [
-      initial ? "Requested date / time" : "Appointment",
-      `${s.date} · ${s.time} (London time)`,
-    ],
-    ["Address", `${s.address}, ${s.postcode}`],
-    [initial ? "Estimated total" : "Agreed total", money(s.totalPence)],
-    ...(!initial
-      ? [
-          ["Paid", money(j.paid_pence)],
-          ["Refunded", money(j.refunded_pence)],
-          [
-            j.state === "cancelled"
-              ? "Unpaid portion of original quote (not a cancellation charge)"
-              : "Remaining balance",
-            money(Math.max(0, s.totalPence - j.paid_pence + j.refunded_pence)),
-          ],
-        ]
-      : []),
-    ...(j.customer_request?.kind === "reschedule"
-      ? [
-          [
-            "Requested new time",
-            `${j.customer_request.date} · ${j.customer_request.time}`,
-          ],
-          ["Customer message", j.customer_request.reason],
-        ]
-      : []),
-    ["Preparation", s.preparation],
-  ].filter(([, v]) => v);
-  const esc = (v) =>
-    String(v ?? "").replace(
-      /[&<>"']/g,
-      (c) =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#39;",
-        })[c],
-    );
-  const link = manageLink(j);
-  const text = [
-    `Hi ${payload.name || "there"},`,
-    "",
-    heading,
-    intro,
-    "",
-    ...rows.map(([k, v]) => `${k}: ${v}`),
-    "",
-    `View your booking, request another time or cancel: ${link}`,
-    "",
-    "VVE Clean · 020 8050 2233 · contact@vveclean.co.uk",
-  ].join("\n");
-  const html = `<!doctype html><html lang="en"><body style="margin:0;background:#edf3fa;color:#10203d;font-family:Arial,sans-serif"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 12px"><table role="presentation" width="600" style="width:100%;max-width:600px;background:white;border-radius:16px;overflow:hidden"><tr><td style="background:#071a3e;padding:28px;color:white;font-size:25px;font-weight:bold">VVE <span style="color:#6cb5ff">Clean</span></td></tr><tr><td style="padding:28px"><p>Hi ${esc(payload.name || "there")},</p><h1 style="font-size:26px;line-height:1.2">${esc(heading)}</h1><p style="line-height:1.6">${esc(intro)}</p><table role="presentation" width="100%" style="border-collapse:collapse">${rows.map(([k, v]) => `<tr><td style="padding:12px 0;border-bottom:1px solid #e5eaf2;vertical-align:top;width:36%;font-size:14px;color:#52627c">${esc(k)}</td><td style="padding:12px 8px;border-bottom:1px solid #e5eaf2;font-size:14px;white-space:pre-line">${esc(v)}</td></tr>`).join("")}</table><p style="margin:28px 0"><a href="${esc(link)}" style="background:#1266df;border-radius:8px;color:white;padding:15px 20px;text-decoration:none;display:inline-block;font-weight:bold">View and manage booking</a></p><p style="font-size:13px;line-height:1.6">The button opens your private booking page. No payment or cancellation happens until you choose and confirm an action.</p><p style="font-size:12px;word-break:break-all">${esc(link)}</p><p style="font-size:14px">020 8050 2233 · contact@vveclean.co.uk</p></td></tr></table></td></tr></table></body></html>`;
+  if (!requiresDeposit(s) && ["deposit_request", "reminder", "expired"].includes(payload.kind)) {
+    heading = "Please check your booking with us";
+    intro = "Contact the team to check your latest arrangements. No deposit is required for this booking.";
+  }
+  const business = payload.audience === "business";
+  if (business && !initial) {
+    heading = ownerBookingTitle(payload);
+    intro = `${payload.name || "Customer"} · ${payload.reference}. ${payload.payment ? `Payment recorded by ${payload.payment.method.replaceAll("_", " ")}. ` : ""}Check the agreed appointment and balance below. This is a booking update, not a new enquiry.`;
+  }
+  const link = business ? `https://admin.vveclean.co.uk/bookings/${j.booking_id}` : manageLink(j);
+  const depositDue = !business && canCollectDeposit(j);
+  const paymentInstructions = !initial && !business && ["deposit_request", "reminder", "confirmation", "revised_confirmation", "appointment_reminder", "balance_due", "receipt"].includes(payload.kind)
+    ? visibleBookingPaymentInstructions(j) : null;
+  const { html, text } = renderBookingEmail({ payload, heading, intro, initial, business, link, depositDue, paymentInstructions });
   return {
     subject: `${payload.audience === "business" || payload.kind === "initial_business" ? "Staff update: " : ""}${heading} — ${payload.reference}`,
     text,
@@ -621,7 +590,10 @@ export async function performAdminAction(db, id, body, actor) {
     );
   const action = body.operation;
   if (action === "draft") {
-    const draft = validateAgreement(body.agreement);
+    const draft = {
+      ...validateAgreement(body.agreement),
+      paymentInstructions: bookingPaymentInstructions(booking.booking_ref, j.snapshot),
+    };
     if (["cancelled", "completed", "payment_review"].includes(j.state))
       throw new JourneyError(
         "This booking cannot be edited in its current state.",
@@ -637,18 +609,23 @@ export async function performAdminAction(db, id, body, actor) {
         "This booking cannot be offered in its current state.",
       );
     j = await reconcileCheckout(db, booking, j, { close: true });
-    const snapshot = validateAgreement(j.draft);
+    const snapshot = {
+      ...validateAgreement(j.draft),
+      paymentInstructions: bookingPaymentInstructions(booking.booking_ref, j.snapshot?.paymentInstructions ? j.snapshot : j.draft),
+    };
     if (snapshot.totalPence < j.paid_pence - j.refunded_pence)
       throw new JourneyError(
         "The revised total is below money already paid. Reconcile the refund first.",
       );
     const changingConfirmed = ["confirmed", "change_pending"].includes(j.state);
+    const depositDue = !changingConfirmed && requiresDeposit(snapshot);
+    const holdUntil = depositDue ? holdDeadline(body.holdUntil || new Date(Date.now() + snapshot.paymentWindowHours * 3600000).toISOString(), snapshot) : null;
     const patch = {
       snapshot,
       previous_snapshot: changingConfirmed ? j.previous_snapshot || j.snapshot : null,
       offer_version: j.offer_version + 1,
-      state: changingConfirmed ? "change_pending" : "confirmed",
-      hold_until: null,
+      state: changingConfirmed ? "change_pending" : depositDue ? "offered" : "confirmed",
+      hold_until: holdUntil,
       reminder_sent_at: null,
       appointment_reminder_sent_at: null,
       checkout_id: null,
@@ -661,12 +638,14 @@ export async function performAdminAction(db, id, body, actor) {
       j,
       "agreement_sent",
       patch,
-      changingConfirmed ? {} : bookingPatch(snapshot, "confirmed", { balance_status: "not_due" }),
-      changingConfirmed ? "change_proposal" : "confirmation",
+      changingConfirmed ? {} : bookingPatch(snapshot, depositDue ? "new" : "confirmed", { balance_status: "not_due" }),
+      changingConfirmed ? "change_proposal" : depositDue ? "deposit_request" : "confirmation",
       actor,
     );
   } else if (action === "remind") {
-    throw new JourneyError("Deposits are not being requested. Agree the details and confirm the appointment directly.", 410);
+    j = await reconcileCheckout(db, booking, j);
+    if (!canCollectDeposit(j) || j.reminder_sent_at) throw new JourneyError("No deposit reminder is due.", 409);
+    j = await apply(db, booking, j, "deposit_reminder", { reminder_sent_at: new Date().toISOString() }, {}, "reminder", actor);
   } else if (action === "appointment_reminder") {
     const active =
       j.state === "confirmed"
@@ -750,6 +729,18 @@ export async function performAdminAction(db, id, body, actor) {
       "balance_due",
       actor,
     );
+  } else if (action === "manual_deposit") {
+    if (!["offered", "expired"].includes(j.state) || !requiresDeposit(j.snapshot) || j.paid_pence !== 0 || j.refunded_pence !== 0)
+      throw new JourneyError("Check the current appointment and recorded payments before recording this deposit.", 409);
+    if (body.receivedConfirmed !== true || body.method !== "bank_transfer" || Number(body.amountPence) !== DEPOSIT_PENCE || !clean(body.reference, 200))
+      throw new JourneyError("Confirm the £30 bank transfer has arrived and record its bank transaction reference.");
+    j = await reconcileCheckout(db, booking, j, { close: true });
+    const confirmNow = canCollectDeposit(j);
+    j = await apply(db, booking, j, "bank_deposit_received", {
+      state: confirmNow ? "confirmed" : "payment_review", paid_pence: DEPOSIT_PENCE, checkout_id: null, checkout_kind: null,
+      checkout_creating_at: null, hold_until: null, appointment_reminder_sent_at: null,
+    }, confirmNow ? bookingPatch(j.snapshot, "confirmed", { deposit_amount: 30, payment_status: "paid", balance_status: j.snapshot.totalPence === DEPOSIT_PENCE ? "paid" : "not_due" }) : { deposit_amount: 30, payment_status: "paid", balance_status: "not_due" },
+    confirmNow ? "confirmation" : "payment_review", actor, { external_id: `bank-deposit:${id}:${clean(body.reference, 200)}`, kind: "manual_deposit", method: "bank_transfer", amount_pence: DEPOSIT_PENCE });
   } else if (action === "manual_payment") {
     if (j.state !== "completed")
       throw new JourneyError(
@@ -791,6 +782,7 @@ export async function performAdminAction(db, id, body, actor) {
         external_id: `manual:${id}:${clean(body.reference, 200)}`,
         kind: "manual_balance",
         amount_pence: amount,
+        method: body.method,
       },
     );
   } else if (action === "resolve_payment") {
@@ -825,9 +817,10 @@ export async function performAdminAction(db, id, body, actor) {
           appointment_reminder_sent_at: null,
         },
         bookingPatch(snapshot, "confirmed", {
-          balance_status: "not_due",
+          balance_status: net >= snapshot.totalPence ? "paid" : "not_due",
+          ...(requiresDeposit(snapshot) && net > 0 ? { deposit_amount: Math.min(DEPOSIT_PENCE, net) / 100, payment_status: "paid" } : {}),
         }),
-        "revised_confirmation",
+        requiresDeposit(snapshot) ? "confirmation" : "revised_confirmation",
         actor,
       );
     } else if (body.resolution === "cancel") {
@@ -960,12 +953,14 @@ export async function performCustomerAction(db, token, body) {
       throw new JourneyError(
         "Your rescheduling request is already with the team. Please contact us to change it.",
       );
+    j = await reconcileCheckout(db, booking, j, { close: true });
     j = await apply(
       db,
       booking,
       j,
       "reschedule_requested",
       {
+        checkout_id: null,
         customer_request: {
           kind: "reschedule",
           date,
@@ -983,14 +978,14 @@ export async function performCustomerAction(db, token, body) {
       throw new JourneyError(
         "This booking cannot be cancelled online in its current state. Contact the team.",
       );
+    if (j.customer_request?.kind === "cancel") throw new JourneyError("Your cancellation request is already with the team.", 409);
     j = await reconcileCheckout(db, booking, j, { close: true });
     j = await apply(
       db,
       booking,
       j,
-      "customer_cancelled",
+      "cancellation_requested",
       {
-        state: "cancelled",
         checkout_id: null,
         customer_request: {
           kind: "cancel",
@@ -998,8 +993,8 @@ export async function performCustomerAction(db, token, body) {
           createdAt: new Date().toISOString(),
         },
       },
-      { status: "cancelled" },
-      "cancelled",
+      {},
+      "cancellation_requested",
       "customer",
     );
   } else throw new JourneyError("Unknown booking action.");
@@ -1007,13 +1002,16 @@ export async function performCustomerAction(db, token, body) {
   return { booking: publicJourney(booking, j) };
 }
 export async function createJourneyCheckout(db, booking, j) {
-  // New payments are only for a completed clean. This guard also blocks old
-  // unpaid offer links before a checkout reservation or Stripe request occurs.
-  if (j.state !== "completed")
-    throw new JourneyError("No deposit is required. Contact VVE Clean to agree and confirm your appointment directly.", 410);
+  // An initial website request cannot create checkout. Only a saved, sent
+  // agreement can request a deposit; completed cleans retain balance checkout.
+  const depositDue = canCollectDeposit(j);
+  if (j.state !== "completed" && !depositDue)
+    throw new JourneyError("Payment is not available for these arrangements. Contact VVE Clean to check the booking.", 410);
   j = await recoverCheckoutReservation(db, booking, j);
   const now = Date.now();
-  const amount = j.snapshot.totalPence - j.paid_pence + j.refunded_pence;
+  const amount = depositDue ? DEPOSIT_PENCE : j.snapshot.totalPence - j.paid_pence + j.refunded_pence;
+  if (depositDue && new Date(j.hold_until).getTime() - now < 31 * 60000)
+    throw new JourneyError("The payment deadline is too close to open card checkout. Contact us before paying.", 409);
   if (amount <= 0) throw new JourneyError("This booking is already paid.");
   if (j.checkout_id) {
     const session = await stripeRequest(
@@ -1043,7 +1041,7 @@ export async function createJourneyCheckout(db, booking, j) {
       "Checkout is being prepared. Please retry shortly.",
       409,
     );
-  const kind = "balance";
+  const kind = depositDue ? "deposit" : "balance";
   const reservation = j.checkout_creating_at || new Date().toISOString();
   j = await apply(
     db,
@@ -1060,14 +1058,14 @@ export async function createJourneyCheckout(db, booking, j) {
     "payment_method_types[0]": "card",
     "line_items[0][price_data][currency]": "gbp",
     "line_items[0][price_data][unit_amount]": String(amount),
-    "line_items[0][price_data][product_data][name]": `VVE Clean remaining balance — ${booking.booking_ref}`,
+    "line_items[0][price_data][product_data][name]": `VVE Clean ${depositDue ? "£30 booking deposit" : "remaining balance"} — ${booking.booking_ref}`,
     "line_items[0][quantity]": "1",
     client_reference_id: j.booking_id,
     customer_email: booking.email,
     success_url: manageLink(j),
     cancel_url: manageLink(j),
     expires_at: String(
-      Math.floor((new Date(reservation).getTime() + 23 * 3600000) / 1000),
+      Math.floor(Math.min(new Date(reservation).getTime() + 23 * 3600000, depositDue ? new Date(j.hold_until).getTime() : Infinity) / 1000),
     ),
     "metadata[journey]": "v1",
     "metadata[checkout_attempt]": reservation,
@@ -1112,7 +1110,7 @@ export async function createJourneyCheckout(db, booking, j) {
   }
   return { checkoutUrl: session.url };
 }
-export async function recordJourneyPayment(db, session) {
+export async function recordJourneyPayment(db, session, { occurredAt } = {}) {
   const meta = session.metadata || {};
   if (meta.journey !== "v1") return false;
   if (session.payment_status !== "paid") return true;
@@ -1142,7 +1140,8 @@ export async function recordJourneyPayment(db, session) {
       Number(meta.offer_version) === j.offer_version &&
       ((meta.payment_kind === "deposit" &&
         j.state === "offered" &&
-        j.paid_pence === 0) ||
+        j.paid_pence === 0 && !j.customer_request &&
+        (!requiresDeposit(j.snapshot) || (j.checkout_id === session.id && new Date(j.hold_until) > new Date()))) ||
         (meta.payment_kind === "balance" &&
           j.state === "completed" &&
           session.amount_total ===
@@ -1158,14 +1157,14 @@ export async function recordJourneyPayment(db, session) {
       state,
       checkout_id: null,
       checkout_creating_at: null,
-      ...(state === "confirmed" ? { appointment_reminder_sent_at: null } : {}),
+      ...(state === "confirmed" ? { appointment_reminder_sent_at: null, hold_until: null } : {}),
     };
     const bp = valid
       ? bookingPatch(
           j.snapshot,
           state === "completed" ? "completed" : "confirmed",
           {
-            deposit_amount: Math.min(DEPOSIT_PENCE, paid) / 100,
+            deposit_amount: meta.payment_kind === "deposit" ? DEPOSIT_PENCE / 100 : Number(booking.deposit_amount || 0),
             payment_status: "paid",
             balance_status:
               paid - j.refunded_pence >= j.snapshot.totalPence
@@ -1182,6 +1181,10 @@ export async function recordJourneyPayment(db, session) {
           },
         )
       : {};
+    const parsedOccurredAt = typeof occurredAt === "string" ? new Date(occurredAt) : null;
+    const paymentOccurredAt = parsedOccurredAt && Number.isFinite(parsedOccurredAt.getTime())
+      ? parsedOccurredAt.toISOString()
+      : new Date().toISOString();
     try {
       await apply(
         db,
@@ -1200,6 +1203,7 @@ export async function recordJourneyPayment(db, session) {
           external_id: session.id,
           kind: meta.payment_kind,
           amount_pence: session.amount_total,
+          occurred_at: paymentOccurredAt,
         },
       );
     } catch (error) {
@@ -1265,14 +1269,19 @@ export async function deliverJourneyMessages(db, id, messageId = null) {
     return [{ status: "failed", error: "Could not load pending messages." }];
   const results = [];
   for (const m of messages || []) {
+    if (m.payload.channel === 'calendar' && process.env.BOOKING_CALENDAR_ENABLED === 'false') {
+      results.push({ id: m.id, status: 'deferred', channel: 'calendar' });
+      continue;
+    }
+    if (m.status === "failed" && m.attempts >= 5 && !messageId) continue;
     if (
       m.status === "sending" &&
       Date.now() - new Date(m.claimed_at).getTime() < 600000
     )
       continue;
-    const { journey: current } = await loadJourney(db, id);
-    const obsolete =
-      ["deposit_request", "reminder"].includes(m.kind) ||
+    const { booking: currentBooking, journey: current } = await loadJourney(db, id);
+    const obsolete = m.payload.channel !== "calendar" && (
+      (["deposit_request", "reminder"].includes(m.kind) && (!canCollectDeposit(current) || current.offer_version !== m.payload.journey.offer_version)) ||
       m.payload.journey.token_generation !== current.token_generation ||
       (m.kind === "change_proposal" &&
         (current.state !== "change_pending" ||
@@ -1280,8 +1289,8 @@ export async function deliverJourneyMessages(db, id, messageId = null) {
       (["confirmation", "revised_confirmation"].includes(m.kind) &&
         (["cancelled", "payment_review"].includes(current.state) ||
           current.offer_version !== m.payload.journey.offer_version)) ||
-      (m.kind === "reschedule_received" &&
-        current.customer_request?.kind !== "reschedule") ||
+      (m.kind === "reschedule_received" && current.customer_request?.kind !== "reschedule") ||
+      (m.kind === "cancellation_requested" && current.customer_request?.kind !== "cancel") ||
       (m.kind === "appointment_reminder" &&
         JSON.stringify(
           current.state === "confirmed"
@@ -1289,7 +1298,7 @@ export async function deliverJourneyMessages(db, id, messageId = null) {
             : current.state === "change_pending"
               ? current.previous_snapshot
               : null,
-        ) !== JSON.stringify(m.payload.journey.snapshot));
+        ) !== JSON.stringify(m.payload.journey.snapshot)));
     if (obsolete) {
       await db
         .from("booking_journey_messages")
@@ -1313,9 +1322,15 @@ export async function deliverJourneyMessages(db, id, messageId = null) {
       .select("id")
       .maybeSingle();
     if (ce || !claimed) continue;
+    let delivered = false;
     try {
       const preview = isHostedPreview();
       const test = preview || process.env.BOOKING_JOURNEY_MODE !== "live";
+      if (m.payload.channel === "telegram") {
+        await sendBookingTelegram(m.payload, { test });
+      } else if (m.payload.channel === "calendar") {
+        await syncBookingCalendar(currentBooking, current, { test });
+      } else {
       const recipient = preview ? previewTestInbox() : test
         ? process.env.BOOKING_JOURNEY_TEST_EMAIL
         : m.payload.audience === "business" || m.kind === "initial_business"
@@ -1344,11 +1359,13 @@ export async function deliverJourneyMessages(db, id, messageId = null) {
       await transport.sendMail({
         from: `"VVE Clean" <${process.env.GMAIL_SENDER}>`,
         to: recipient,
-        replyTo: preview ? previewTestInbox() : process.env.BUSINESS_EMAIL || "contact@vveclean.co.uk",
+        replyTo: preview ? previewTestInbox() : "contact@vveclean.co.uk",
         messageId: `<booking-${m.id}@vveclean.co.uk>`,
         ...content,
         subject: `${test ? "[TEST] " : ""}${content.subject}`,
       });
+      }
+      delivered = true;
       const { error: saveError } = await db
         .from("booking_journey_messages")
         .update({
@@ -1359,7 +1376,7 @@ export async function deliverJourneyMessages(db, id, messageId = null) {
         .eq("id", m.id);
       if (saveError)
         throw new Error(
-          "Email delivery completed but its status could not be saved. Check delivery before retrying.",
+          "Delivery completed but its status could not be saved. Check delivery before retrying.",
         );
       if (["initial_customer", "initial_business"].includes(m.kind)) {
         const flag =
@@ -1393,7 +1410,7 @@ export async function deliverJourneyMessages(db, id, messageId = null) {
       const detail = String(error.message || "Email failed").slice(0, 300);
       await db
         .from("booking_journey_messages")
-        .update({ status: "failed", last_error: detail })
+        .update({ status: "failed", last_error: detail, ...(delivered ? { attempts: Math.max(5, m.attempts + 1) } : {}) })
         .eq("id", m.id);
       results.push({ id: m.id, status: "failed", error: detail });
     }
@@ -1416,7 +1433,7 @@ export async function journeyAdminView(db, id) {
   ] = await Promise.all([
     db
       .from("booking_journey_messages")
-      .select("id,kind,status,attempts,last_error,sent_at,created_at")
+      .select("id,kind,status,attempts,last_error,sent_at,created_at,channel:payload->>channel,audience:payload->>audience")
       .eq("booking_id", id)
       .order("created_at", { ascending: false })
       .limit(30),
@@ -1437,8 +1454,12 @@ export async function journeyAdminView(db, id) {
     throw new JourneyError("Booking history could not be loaded.", 503);
   const previewJourney = {
     ...journey,
-    snapshot: journey.draft,
-    hold_until: null,
+    snapshot: {
+      ...journey.draft,
+      paymentInstructions: bookingPaymentInstructions(booking.booking_ref, journey.snapshot?.paymentInstructions ? journey.snapshot : journey.draft),
+    },
+    state: ["draft", "offered", "expired"].includes(journey.state) ? (requiresDeposit(journey.draft) ? "offered" : "confirmed") : journey.state,
+    hold_until: requiresDeposit(journey.draft) ? new Date(Date.now() + Number(journey.draft.paymentWindowHours || 48) * 3600000).toISOString() : null,
   };
   return {
     journey,
@@ -1453,7 +1474,7 @@ export async function journeyAdminView(db, id) {
         previewJourney,
         ["confirmed", "change_pending"].includes(journey.state)
           ? "change_proposal"
-          : "confirmation",
+          : requiresDeposit(journey.draft) ? "deposit_request" : "confirmation",
       ),
     ),
     manageUrl: manageLink(journey),
