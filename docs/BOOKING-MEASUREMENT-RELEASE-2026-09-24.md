@@ -207,6 +207,37 @@ This is database compatibility and idempotency evidence only. The separate Googl
 
 ## Exact changed files
 
+### Additional connected acceptance — 27 September
+
+VVE OS now contains nine new service-role-only booking test tables, prepared by
+`scripts/prepare-os-measurement-e2e.mjs`. Setup refuses to reuse existing booking
+tables. Its existing eight media tables and 65 private OS tables were untouched.
+
+`VVE-MEAS-OS-E2E-20260927` passed 11 checks using the actual request handler over
+local HTTP, actual CRM agreement functions, actual Stripe signature verifier,
+and VVE OS PostgREST/database. Request replay produced one request milestone;
+invalid signatures and unpaid events produced no payment; a signed synthetic
+paid event produced one deposit and one confirmation; replay and repeated
+confirmation produced no duplicates. Consent denial removed matching data.
+All preview events were suppressed from Google. This was a locally signed
+synthetic webhook, **not a Stripe-processed payment**. No email/Telegram was sent.
+Evidence: `docs/BOOKING-MEASUREMENT-OS-E2E-2026-09-27.json`.
+
+`VVE-MEAS-OS-GOOGLE-20260927` passed four connected worker checks: a deliberate
+temporary failure, durable retry, Google validation receipts for all four
+milestones, and no resend on the next worker run. The synthetic ledger fixture
+used 4,700 pence, which was preserved. This separate validation-only fixture
+exercises eligibility; actual preview requests remain test-marked and suppressed.
+An explicit network guard forbids non-validation Google ingestion. Four receipts
+were persisted in VVE OS; **zero conversions were uploaded/counted**.
+Evidence: `docs/BOOKING-MEASUREMENT-OS-GOOGLE-2026-09-27.json`.
+
+These complete connected database/runtime/provider-validation checks. Live
+notification acceptance, deployed browser verification and production
+reconciliation remain post-deployment checks. A real attributed customer event
+is still needed to prove Google's eventual conversion counting; synthetic
+validation must never be reported as a counted customer.
+
 Runtime website/API:
 
 - `api/_lib/bookingJourneyWorker.js`
