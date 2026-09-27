@@ -52,10 +52,11 @@ describe('PrivacyPolicyPage — cookies and Google Consent Mode', () => {
 
     expect(advertising).toMatch(/how you reached our site/i);
     expect(advertising).toMatch(/switched off until you agree to it/i);
-    // Withdrawal has to be described honestly: we delete, and nothing they
-    // care about stops working.
-    expect(advertising).toMatch(/delete anything already stored/i);
-    expect(advertising).toMatch(/discount you were promised carry on working/i);
+    // Withdrawal has to distinguish data that is still in this browser from
+    // measurement already attached to a submitted request.
+    expect(advertising).toMatch(/clear the advertising attribution stored in that browser/i);
+    expect(advertising).toMatch(/contact us and quote the booking reference/i);
+    expect(advertising).toMatch(/discount you were promised continue to work/i);
     // And it must be clear nothing is transmitted while merely browsing.
     expect(advertising).toMatch(/attached to a booking request or contact enquiry when you submit it/i);
     expect(advertising).toMatch(/not sent separately while you are simply browsing/i);

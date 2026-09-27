@@ -1,0 +1,116 @@
+{
+  "test_label": "VVE-MEAS-OS-E2E-20260927",
+  "environment": "VVE OS",
+  "synthetic": true,
+  "production_records_read": 0,
+  "production_records_written": 0,
+  "real_provider_payment": false,
+  "conversions_uploaded": 0,
+  "provider_notifications_sent": 0,
+  "checks": [
+    {
+      "name": "invalid request rejected before database save",
+      "status": "PASS"
+    },
+    {
+      "name": "real HTTP request saved to OS with one submission event and three notification jobs",
+      "status": "PASS"
+    },
+    {
+      "name": "duplicate HTTP request returns same ID without duplicate event/jobs",
+      "status": "PASS"
+    },
+    {
+      "name": "preview record is test-marked and consented first-touch attribution persists",
+      "status": "PASS"
+    },
+    {
+      "name": "CRM agreement creates one qualification milestone and no confirmation before payment",
+      "status": "PASS"
+    },
+    {
+      "name": "invalid webhook signature rejected with no payment/confirmation event",
+      "status": "PASS"
+    },
+    {
+      "name": "signed unpaid checkout does not count as deposit or confirm booking",
+      "status": "PASS"
+    },
+    {
+      "name": "signed synthetic paid webhook atomically records deposit and confirmation",
+      "status": "PASS"
+    },
+    {
+      "name": "webhook replay and repeated confirmation update create no duplicate milestones",
+      "status": "PASS"
+    },
+    {
+      "name": "test conversions suppressed; value and original attribution retained on all milestones",
+      "status": "PASS"
+    },
+    {
+      "name": "denied consent removes identifiers and matching data",
+      "status": "PASS"
+    }
+  ],
+  "events": [
+    {
+      "booking_id": "2268072e-c2fb-4e62-9e54-b0c30c28bde9",
+      "event": "booking_request_submitted",
+      "occurred_at": "2026-09-27T21:16:33.850748+00:00",
+      "event_key": "booking:2268072e-c2fb-4e62-9e54-b0c30c28bde9:booking_request_submitted",
+      "payment_transaction": null,
+      "status": "suppressed",
+      "attempts": 0,
+      "count_in_database": 1,
+      "count_in_google": 0,
+      "consent": true,
+      "synthetic_attribution_present": true,
+      "amount_pence": null
+    },
+    {
+      "booking_id": "2268072e-c2fb-4e62-9e54-b0c30c28bde9",
+      "event": "booking_request_qualified",
+      "occurred_at": "2026-09-27T21:16:34.961573+00:00",
+      "event_key": "booking:2268072e-c2fb-4e62-9e54-b0c30c28bde9:booking_request_qualified",
+      "payment_transaction": null,
+      "status": "suppressed",
+      "attempts": 0,
+      "count_in_database": 1,
+      "count_in_google": 0,
+      "consent": true,
+      "synthetic_attribution_present": true,
+      "amount_pence": null
+    },
+    {
+      "booking_id": "2268072e-c2fb-4e62-9e54-b0c30c28bde9",
+      "event": "deposit_paid",
+      "occurred_at": "2026-09-27T21:16:34+00:00",
+      "event_key": "booking:2268072e-c2fb-4e62-9e54-b0c30c28bde9:deposit_paid",
+      "payment_transaction": "cs_test_VVE_E2E_5bbb23c529b140f4993f98dc2af29413",
+      "status": "suppressed",
+      "attempts": 0,
+      "count_in_database": 1,
+      "count_in_google": 0,
+      "consent": true,
+      "synthetic_attribution_present": true,
+      "amount_pence": 3000
+    },
+    {
+      "booking_id": "2268072e-c2fb-4e62-9e54-b0c30c28bde9",
+      "event": "booking_confirmed",
+      "occurred_at": "2026-09-27T21:16:35.768508+00:00",
+      "event_key": "booking:2268072e-c2fb-4e62-9e54-b0c30c28bde9:booking_confirmed",
+      "payment_transaction": null,
+      "status": "suppressed",
+      "attempts": 0,
+      "count_in_database": 1,
+      "count_in_google": 0,
+      "consent": true,
+      "synthetic_attribution_present": true,
+      "amount_pence": null
+    }
+  ],
+  "status": "PASS",
+  "finished_at": "2026-09-27T21:16:39.026Z"
+}

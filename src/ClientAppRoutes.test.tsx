@@ -50,6 +50,10 @@ describe('split client routes', () => {
     }));
     const scroll = vi.spyOn(window, 'scrollTo');
     const user = userEvent.setup();
+    // The browser entry point preloads the initial route before mounting the
+    // app. Match that production path here so this test covers query-only
+    // focus behaviour rather than the dynamic-import scheduler.
+    await preloadClientRoute('/gallery');
     render(<MemoryRouter initialEntries={['/gallery']}><CookieConsentProvider><ScrollToTop /><ClientAppRoutes /></CookieConsentProvider></MemoryRouter>);
     const heading = await screen.findByRole('heading', { level: 1, name: 'VVE Clean Gallery' });
     await waitFor(() => expect(heading).toHaveFocus());

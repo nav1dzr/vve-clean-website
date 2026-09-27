@@ -1110,7 +1110,7 @@ export async function createJourneyCheckout(db, booking, j) {
   }
   return { checkoutUrl: session.url };
 }
-export async function recordJourneyPayment(db, session) {
+export async function recordJourneyPayment(db, session, { occurredAt } = {}) {
   const meta = session.metadata || {};
   if (meta.journey !== "v1") return false;
   if (session.payment_status !== "paid") return true;
@@ -1181,6 +1181,10 @@ export async function recordJourneyPayment(db, session) {
           },
         )
       : {};
+    const parsedOccurredAt = typeof occurredAt === "string" ? new Date(occurredAt) : null;
+    const paymentOccurredAt = parsedOccurredAt && Number.isFinite(parsedOccurredAt.getTime())
+      ? parsedOccurredAt.toISOString()
+      : new Date().toISOString();
     try {
       await apply(
         db,
@@ -1199,6 +1203,7 @@ export async function recordJourneyPayment(db, session) {
           external_id: session.id,
           kind: meta.payment_kind,
           amount_pence: session.amount_total,
+          occurred_at: paymentOccurredAt,
         },
       );
     } catch (error) {

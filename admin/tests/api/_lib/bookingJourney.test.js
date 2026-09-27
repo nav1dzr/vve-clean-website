@@ -347,6 +347,15 @@ describe("booking lifecycle and payment races", () => {
     expect(publicJourney(db.tables.bookings[0], j).balancePence).toBe(24900);
     expect(db.tables.bookings[0].deposit_amount).toBe(30);
   });
+  it("records the verified provider event time as the payment occurrence time", async () => {
+    const db = memoryDb({ state: "offered", snapshot, offer_version: 1 });
+    const session = { id: "cs_timestamped", payment_status: "paid", currency: "gbp", amount_total: 3000,
+      metadata: { journey: "v1", booking_id: ID, offer_version: "1", payment_kind: "deposit", amount_pence: "3000" } };
+
+    await recordJourneyPayment(db, session, { occurredAt: "2026-09-24T10:15:30.000Z" });
+
+    expect(db.tables.booking_journey_payments[0].occurred_at).toBe("2026-09-24T10:15:30.000Z");
+  });
   it.each([0, 3000])("keeps completed-clean balance checkout working with %i pence already paid", async (paidPence) => {
     const db = memoryDb({ state: "completed", snapshot, paid_pence: paidPence });
     const j = db.tables.booking_journeys[0];

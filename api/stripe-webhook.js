@@ -13,6 +13,22 @@ import { recordJourneyPayment, recordJourneyRefund } from '../admin/api/_lib/boo
 // retries are allowed to re-claim it.
 const STALE_PROCESSING_MS = 10 * 60 * 1000; // 10 minutes
 
+function operationalErrorCode(error, fallback = 'operation_failed') {
+  const candidate = error && typeof error === 'object'
+    ? error.code ?? error.type ?? error.status ?? error.responseCode
+    : null;
+  const code = String(candidate ?? '')
+    .replace(/[^A-Za-z0-9_.:-]/g, '')
+    .slice(0, 40);
+  return code || fallback;
+}
+
+export function stripeEventOccurredAt(created) {
+  if (!Number.isSafeInteger(created) || created < 0) return null;
+  const date = new Date(created * 1000);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 // Atomically claim a Stripe event for processing.
 // Returns { claimed: true } when we own the event and should proceed.
 // Returns { claimed: false, duplicate: true } when another handler already
@@ -121,7 +137,7 @@ export async function upsertBookingWithRefRetry(supabase, bookingRow, maxRetries
       break;
     }
     if (error.code !== '23505') break;
-    console.warn('[webhook] booking_ref collision on', candidateRef, '— retrying with a new suffix (attempt', attempt + 1, ')');
+    console.warn('[webhook] booking_ref collision — retrying with a new suffix (attempt', attempt + 1, ')');
   }
   return { error: dbErr, bookingRef };
 }
@@ -133,7 +149,7 @@ async function markEventCompleted(supabase, eventId) {
       .update({ status: 'completed', completed_at: new Date().toISOString() })
       .eq('event_id', eventId);
   } catch (e) {
-    console.warn('[webhook] markEventCompleted failed (non-fatal):', e.message);
+    console.warn('[webhook] markEventCompleted failed (non-fatal) — code:', operationalErrorCode(e));
   }
 }
 
@@ -141,10 +157,10 @@ async function markEventFailed(supabase, eventId, detail) {
   try {
     await supabase
       .from('processed_stripe_events')
-      .update({ status: 'failed', error_detail: String(detail).slice(0, 500) })
+      .update({ status: 'failed', error_detail: operationalErrorCode(detail) })
       .eq('event_id', eventId);
   } catch (e) {
-    console.warn('[webhook] markEventFailed failed (non-fatal):', e.message);
+    console.warn('[webhook] markEventFailed failed (non-fatal) — code:', operationalErrorCode(e));
   }
 }
 
@@ -172,12 +188,11 @@ function getSupabase() {
       !url ? 'VITE_SUPABASE_URL' : '', !key ? 'SUPABASE_SERVICE_ROLE_KEY' : '');
     return null;
   }
-  const role    = supabaseKeyRole(key);
-  const projRef = (url.match(/https:\/\/([^.]+)\.supabase\.co/) || [])[1] || 'unknown';
-  console.log('[supabase] project ref:', projRef, '| SUPABASE_SERVICE_ROLE_KEY role claim:', role);
+  const role = supabaseKeyRole(key);
+  console.log('[supabase] service-role configuration checked:', role === 'service_role' ? 'ok' : 'invalid_role');
   if (role !== 'service_role') {
     console.error(
-      '[supabase] ⚠ SUPABASE_SERVICE_ROLE_KEY encodes role "' + role + '" — expected "service_role".',
+      '[supabase] ⚠ SUPABASE_SERVICE_ROLE_KEY has an invalid role — expected "service_role".',
       'This will cause 42501 (permission denied) on every Supabase write.',
       'Go to Vercel → Settings → Environment Variables and replace the value with',
       'the service_role key from Supabase → Project Settings → API → service_role (secret).',
@@ -281,9 +296,8 @@ function telegramText(meta, bookingRef) {
 //   2. GET  /echo  → returns the ContentService JSON output
 function httpsGet(urlStr, hops = 0) {
   return new Promise((resolve, reject) => {
-    if (hops > 5) return reject(new Error('Too many redirects'));
+    if (hops > 5) return reject(Object.assign(new Error('Sheets request failed'), { code: 'redirect_limit' }));
     const u   = new URL(urlStr);
-    console.log(`[sheets] GET hop ${hops} host:`, u.hostname);
     const req = https.request(
       { hostname: u.hostname, path: u.pathname + u.search, method: 'GET' },
       (res) => {
@@ -295,7 +309,6 @@ function httpsGet(urlStr, hops = 0) {
         let data = '';
         res.on('data', (c) => (data += c));
         res.on('end', () => {
-          console.log(`[sheets] GET hop ${hops} body preview:`, data.slice(0, 120));
           resolve({ status: res.statusCode, body: data });
         });
       },
@@ -309,7 +322,6 @@ function postToAppsScript(urlStr, payload) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify(payload);
     const u    = new URL(urlStr);
-    console.log('[sheets] POST target host:', u.hostname);
     const req  = https.request(
       {
         hostname: u.hostname,
@@ -320,15 +332,12 @@ function postToAppsScript(urlStr, payload) {
       (res) => {
         console.log('[sheets] POST /exec status:', res.statusCode);
         if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
-          const loc = new URL(res.headers.location);
-          console.log('[sheets] Redirect to host:', loc.hostname);
           res.resume();
           return httpsGet(res.headers.location).then(resolve).catch(reject);
         }
         let data = '';
         res.on('data', (c) => (data += c));
         res.on('end', () => {
-          console.log('[sheets] No redirect — body preview:', data.slice(0, 120));
           resolve({ status: res.statusCode, body: data });
         });
       },
@@ -371,18 +380,18 @@ async function sendToGoogleSheets(meta, bookingRef, session) {
   });
 
   if (status < 200 || status >= 300) {
-    throw new Error(`HTTP ${status}: ${body.slice(0, 300)}`);
+    throw Object.assign(new Error('Sheets request failed'), { code: `http_${status}` });
   }
 
   let parsed;
   try {
     parsed = JSON.parse(body);
   } catch (_) {
-    throw new Error(`Non-JSON response — redirect not resolved? Body: ${body.slice(0, 300)}`);
+    throw Object.assign(new Error('Sheets response invalid'), { code: 'invalid_json' });
   }
 
   if (!parsed.success) {
-    throw new Error(`Apps Script rejected request: ${parsed.message}`);
+    throw Object.assign(new Error('Sheets request rejected'), { code: 'provider_rejected' });
   }
 
   console.log('[sheets] Google Sheets save success');
@@ -401,8 +410,8 @@ async function sendTelegram(text) {
     body:    JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
   });
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Telegram API ${res.status}: ${body}`);
+    await res.text();
+    throw Object.assign(new Error('Telegram request failed'), { code: `http_${res.status}` });
   }
   console.log('[webhook] Telegram notification sent');
 }
@@ -528,7 +537,7 @@ export default async function handler(req, res) {
   try {
     stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   } catch (err) {
-    console.error('[webhook] Stripe init failed:', err.message);
+    console.error('[webhook] Stripe init failed — code:', operationalErrorCode(err));
     res.writeHead(500);
     return res.end('Stripe init failed');
   }
@@ -547,11 +556,11 @@ export default async function handler(req, res) {
   let event;
   try {
     event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
-    console.log('[webhook] signature verified — event type:', event.type, '| event id:', event.id);
+    console.log('[webhook] signature verified — event type:', event.type);
   } catch (err) {
-    console.error('[webhook] Signature verification FAILED:', err.message);
+    console.error('[webhook] Signature verification FAILED — code:', operationalErrorCode(err, 'invalid_signature'));
     res.writeHead(400);
-    return res.end(`Webhook Error: ${err.message}`);
+    return res.end('Webhook signature verification failed');
   }
 
   // ── Ignore non-payment events ───────────────────────────────────────────────
@@ -567,7 +576,8 @@ export default async function handler(req, res) {
     if (!journeyDb) { res.writeHead(503); return res.end('Booking database unavailable'); }
     try {
       if (['checkout.session.completed', 'checkout.session.async_payment_succeeded'].includes(event.type)) {
-        await recordJourneyPayment(journeyDb, journeyObject);
+        const occurredAt = stripeEventOccurredAt(event.created);
+        await recordJourneyPayment(journeyDb, journeyObject, occurredAt ? { occurredAt } : undefined);
         if (journeyObject.payment_status === 'paid') {
           // Reuse the established customer-directory sync after the new ledger
           // has durably recorded payment. A directory outage must not lose it.
@@ -584,7 +594,7 @@ export default async function handler(req, res) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ received: true }));
     } catch (error) {
-      console.error('[webhook] booking journey reconciliation failed:', error.status || 503);
+      console.error('[webhook] booking journey reconciliation failed — code:', operationalErrorCode(error, '503'));
       res.writeHead(503); return res.end('Booking reconciliation pending; retry required');
     }
   }
@@ -598,8 +608,7 @@ export default async function handler(req, res) {
   const meta    = session.metadata || {};
   let bookingRef = meta.booking_ref || session.id;
 
-  console.log('[webhook] payment completed — ref:', bookingRef,
-    '| session:', session.id, '| payment_status:', session.payment_status);
+  console.log('[webhook] payment completed — payment_status:', session.payment_status);
 
   // ── Idempotency — claim event before any side effects ───────────────────────
   // State machine: processing → completed (success) or failed (DB error).
@@ -615,7 +624,7 @@ export default async function handler(req, res) {
 
       if (claim.duplicate) {
         // status was 'completed' — safe to deduplicate.
-        console.log('[webhook] duplicate event', event.id, '— already completed; returning 200');
+        console.log('[webhook] duplicate event already completed; returning 200');
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ received: true }));
       }
@@ -625,22 +634,21 @@ export default async function handler(req, res) {
         // Returning 503 tells Stripe to retry. If that Lambda succeeds it will mark
         // the event 'completed' and the next retry deduplicates cleanly.
         // If it crashes, the stale-recovery path re-claims after STALE_PROCESSING_MS.
-        console.log('[webhook] event', event.id,
-          '— actively processing by another invocation; returning 503 for Stripe retry');
+        console.log('[webhook] event actively processing by another invocation; returning 503 for Stripe retry');
         res.writeHead(503, { 'Retry-After': '30' });
         return res.end('Event processing in progress — Stripe will retry');
       }
 
       if (claim.claimed) {
         eventClaimed = true;
-        console.log('[webhook] event', event.id, 'claimed — status: processing');
+        console.log('[webhook] event claimed — status: processing');
       } else {
         // tableError — idempotency table unavailable; proceed without guard.
-        console.warn('[webhook] idempotency guard unavailable:',
-          claim.error?.code, claim.error?.message, '— proceeding without guard');
+        console.warn('[webhook] idempotency guard unavailable — code:',
+          operationalErrorCode(claim.error), '— proceeding without guard');
       }
     } catch (claimEx) {
-      console.warn('[webhook] claimStripeEvent threw:', claimEx.message, '— proceeding');
+      console.warn('[webhook] claimStripeEvent threw — code:', operationalErrorCode(claimEx), '— proceeding');
     }
   }
 
@@ -703,15 +711,14 @@ export default async function handler(req, res) {
 
       if (dbErr) {
         // Mark the event as failed so Stripe retry can re-claim and reprocess it.
-        if (eventClaimed) await markEventFailed(supabase, event.id, dbErr.message);
-        console.error('[webhook] Supabase upsert FAILED — code:', dbErr.code,
-          '| message:', dbErr.message,
+        if (eventClaimed) await markEventFailed(supabase, event.id, dbErr);
+        console.error('[webhook] Supabase upsert FAILED — code:', operationalErrorCode(dbErr),
           '| returning 500 for Stripe retry');
         res.writeHead(500);
         return res.end('DB persistence failed — Stripe will retry');
       }
 
-      console.log('[webhook] Booking upserted to Supabase — ref:', bookingRef, '| session:', session.id);
+      console.log('[webhook] Booking upserted to Supabase');
       dbPersisted = true;
 
       // Mark the event completed here — immediately after durable persistence.
@@ -720,7 +727,7 @@ export default async function handler(req, res) {
       // are recoverable by querying bookings WHERE telegram_sent=false etc.
       if (eventClaimed) {
         await markEventCompleted(supabase, event.id);
-        console.log('[webhook] event', event.id, 'marked completed (booking durable)');
+        console.log('[webhook] event marked completed (booking durable)');
       }
 
       // Attribution — in its own try/catch so column absence never breaks the webhook.
@@ -742,12 +749,12 @@ export default async function handler(req, res) {
             gclid:                      meta.gclid                      || null,
           }).eq('stripe_session_id', session.id);
           if (attrErr) {
-            console.warn('[webhook] Attribution update skipped:', attrErr.code, attrErr.message);
+            console.warn('[webhook] Attribution update skipped — code:', operationalErrorCode(attrErr));
           } else {
             console.log('[webhook] Attribution saved');
           }
         } catch (attrEx) {
-          console.warn('[webhook] Attribution update error:', attrEx.message);
+          console.warn('[webhook] Attribution update error — code:', operationalErrorCode(attrEx));
         }
       }
 
@@ -759,7 +766,7 @@ export default async function handler(req, res) {
       // reassigned `bookingRef` (the persisted one) — only Stripe's own
       // stored view of this session is at risk of still showing the stale
       // value. Best-effort only: never retried, never blocks the webhook
-      // response, never logged with PII (session id and error code only).
+      // response; logs retain only a safe operational error code.
       //
       // The PaymentIntent's own metadata is deliberately not touched —
       // api/create-checkout-session.js never sets `payment_intent_data.
@@ -771,10 +778,10 @@ export default async function handler(req, res) {
           await stripe.checkout.sessions.update(session.id, {
             metadata: { ...meta, booking_ref: bookingRef },
           });
-          console.log('[webhook] Stripe session metadata booking_ref synced to persisted value — session:', session.id);
+          console.log('[webhook] Stripe session metadata booking_ref synced to persisted value');
         } catch (metaSyncErr) {
           console.warn('[webhook] Stripe session metadata sync failed (non-fatal) — code:',
-            metaSyncErr.code || metaSyncErr.type, '| session:', session.id);
+            operationalErrorCode(metaSyncErr));
         }
       }
 
@@ -800,19 +807,18 @@ export default async function handler(req, res) {
           booking_ref: bookingRef,
         });
         if (syncResult.ok) {
-          console.log('[webhook] customer sync —', syncResult.created ? 'created' : 'linked existing',
-            '| customerId:', syncResult.customerId);
+          console.log('[webhook] customer sync —', syncResult.created ? 'created' : 'linked existing');
         } else if (syncResult.skipped) {
-          console.log('[webhook] customer sync skipped —', syncResult.reason);
+          console.log('[webhook] customer sync skipped');
         } else {
-          console.warn('[webhook] customer sync failed (non-fatal):', syncResult.error);
+          console.warn('[webhook] customer sync failed (non-fatal) — code:', operationalErrorCode(syncResult.error));
         }
       } catch (custSyncEx) {
-        console.warn('[webhook] customer sync threw (non-fatal):', custSyncEx.message);
+        console.warn('[webhook] customer sync threw (non-fatal) — code:', operationalErrorCode(custSyncEx));
       }
     } catch (dbEx) {
-      if (eventClaimed) await markEventFailed(supabase, event.id, dbEx.message);
-      console.error('[webhook] Supabase unexpected error:', dbEx.message,
+      if (eventClaimed) await markEventFailed(supabase, event.id, dbEx);
+      console.error('[webhook] Supabase unexpected error — code:', operationalErrorCode(dbEx),
         '| returning 500 for Stripe retry');
       res.writeHead(500);
       return res.end('DB unexpected error — Stripe will retry');
@@ -848,7 +854,7 @@ export default async function handler(req, res) {
       await transport.verify();
       console.log('[webhook] SMTP connection verified OK');
     } catch (verifyErr) {
-      console.error('[webhook] SMTP verify FAILED — code:', verifyErr.code, '| message:', verifyErr.message);
+      console.error('[webhook] SMTP verify FAILED — code:', operationalErrorCode(verifyErr));
     }
 
     // Business alert
@@ -865,8 +871,7 @@ export default async function handler(req, res) {
       console.log('[webhook] Business alert sent');
       notifStatus.email_business_sent = true;
     } catch (err) {
-      console.error('[webhook] Business alert FAILED — code:', err.code, '| message:', err.message,
-        '| responseCode:', err.responseCode);
+      console.error('[webhook] Business alert FAILED — code:', operationalErrorCode(err));
     }
 
     // Customer confirmation
@@ -883,8 +888,7 @@ export default async function handler(req, res) {
         console.log('[webhook] Customer confirmation sent');
         notifStatus.email_customer_sent = true;
       } catch (err) {
-        console.error('[webhook] Customer confirmation FAILED — code:', err.code, '| message:', err.message,
-          '| responseCode:', err.responseCode);
+        console.error('[webhook] Customer confirmation FAILED — code:', operationalErrorCode(err));
       }
     } else {
       console.log('[webhook] No customer email on file — skipping customer confirmation');
@@ -896,7 +900,7 @@ export default async function handler(req, res) {
     await sendTelegram(telegramText(meta, bookingRef));
     notifStatus.telegram_sent = true;
   } catch (err) {
-    console.error('[webhook] Telegram FAILED:', err.message);
+    console.error('[webhook] Telegram FAILED — code:', operationalErrorCode(err));
   }
 
   // ── Google Sheets ──────────────────────────────────────────────────────────
@@ -904,7 +908,7 @@ export default async function handler(req, res) {
     await sendToGoogleSheets(meta, bookingRef, session);
     notifStatus.sheets_sent = true;
   } catch (err) {
-    console.error('[webhook] Google Sheets FAILED:', err.message);
+    console.error('[webhook] Google Sheets FAILED — code:', operationalErrorCode(err));
   }
 
   // ── Update notification status in Supabase ─────────────────────────────────
@@ -921,7 +925,7 @@ export default async function handler(req, res) {
           .update(successFields)
           .eq('stripe_session_id', session.id);
       } catch (nsErr) {
-        console.warn('[webhook] Notification status update failed (non-critical):', nsErr.message);
+        console.warn('[webhook] Notification status update failed (non-critical) — code:', operationalErrorCode(nsErr));
       }
     }
   }

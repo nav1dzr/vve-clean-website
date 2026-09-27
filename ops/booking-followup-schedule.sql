@@ -1,4 +1,6 @@
 -- Activation only, after the deposit release and provider tests are approved.
+-- This protected worker also runs measurement delivery and the idempotent
+-- 90-day measurement-retention purge on each invocation.
 -- Requires existing pg_cron, pg_net and Vault. The Vault secret below must
 -- match BOOKING_JOURNEY_WORKER_SECRET in the website deployment. Never place
 -- its value in this file. No extensions or other jobs are changed here.
