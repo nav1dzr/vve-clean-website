@@ -1,6 +1,6 @@
 # Booking measurement release record
 
-Prepared 24 September 2026; external setup verified 27 September 2026 on `codex/booking-measurement-final-20260924`. This document records the implementation and the release gates. It does not claim a production release.
+Prepared 24 September 2026; production release and connected validation recorded 27 September 2026 on `codex/booking-measurement-final-20260924`. Website and CRM code are deployed. External measurement delivery remains disabled pending the remaining reconciliation gates below.
 
 ## Architecture decision
 
@@ -314,16 +314,20 @@ Four tracked paths appear modified only because of line-ending/stat noise and ha
 
 ## Current release status
 
-- Production database changed: **no**
+- Production database changed: **yes, the three approved measurement/notification migrations applied together in a transaction; no historical backfill or customer record edits**
 - Stripe behaviour or £30 deposit changed: **no**
 - Google Ads/GA4 settings changed by this website task: **0** (four actions were previously created by the separate Ads task)
 - Google Cloud changes: **Data Manager API enabled; User Data Policy accepted with explicit approval; dedicated OAuth app/client created with Data Manager scope. App published with explicit approval and owner consent renewed; Google validation-only passed 4/4 with the renewed connection.**
-- Website Production configuration: **six non-secret measurement settings and three renewed Google Secret variables saved; reporting disabled; no production deployment triggered**
-- Production database: **all three measurement/notification migrations still absent; no writes made**
-- Website deployments: **automatic preview deployments exist; production deployments made by this release: 0**
-- Current preview: **`vve-clean-website-nxkrea72w-nav1dzrs-projects.vercel.app`, deployment `dpl_C6PQzQJb8Dwvv1Fzax61czoTvrXU`, commit `5f0768632cdbf8d7728f25e54ed8e1a95a3b5afd`, READY**
-- Current production: **deployment `dpl_FunbkRwAmHGjHohH4giAdAsaMtbp`, commit `db960ecffbf075377f1039f7b97da2cadc130ee5`, READY**
-- PR **#39**: **draft, open, required checks successful when inspected 27 September; not merged**
+- Website Production configuration: **six non-secret measurement settings and three renewed Google Secret variables saved and deployed; `BOOKING_MEASUREMENT_MODE=disabled`**
+- Production database: **20260917120000, 20260924120000 and 20260924140000 applied; both outboxes have RLS enabled, no anon/authenticated SELECT and service-role access**
+- Website production: **deployment `dpl_EiuR4Zbpc7Xddo7mXhayN7WsVqQS`, commit `541536317e6014aca4bef8b7402bf711a9801ff2`, READY; live homepage and booking form opened successfully**
+- CRM production: **GitHub/Vercel deployment status SUCCESS at `https://vercel.com/nav1dzrs-projects/vve-clean-crm/67ja8g3doxJUweL1F9FGpaV5LSCF`; authenticated live dashboard opened successfully. Connector cannot inspect CRM deployment metadata (404 scope limitation).**
+- PR **#39** merged into completion branch; PR **#40** merged normally into main after required Root/Admin checks and both Vercel preview statuses passed. No bypass used.
+- Required CI run **36351947872**: Root and Admin validation SUCCESS; root **133 files, 2,068 passed, 283 skipped**. Conditional CI skips differ from the earlier local test counts.
+- Existing `vve-booking-followups` schedule remains active every 10 minutes; SQL dispatch runs at 21:20, 21:30 and 21:40 UTC succeeded. This confirms scheduling/dispatch, not downstream provider delivery.
 - Current VVE OS measurement artifact: **passed and rolled back; isolated schema absent**
 - Current VVE OS initial-notification artifact: **passed and rolled back; isolated schema absent**
-- Production gate: **Google connection setup and provider payload validation complete. Still closed pending isolated end-to-end reconciliation; rollout then requires database updates, website/CRM deployment and production reconciliation.**
+- Connected VVE OS tests: **11 request/payment checks and 4 Google-worker checks passed**; see the two `BOOKING-MEASUREMENT-OS-*-2026-09-27.json` artifacts. Synthetic Stripe-signed events only; Google validate-only requests; no real charge, customer notification or counted conversion. Synthetic test rows remain in OS.
+- Read-only Ads verification: **auto-tagging true, customer-data terms accepted true, four expected actions enabled and Secondary; deposit uses supplied value rather than a forced default.** The selected `enhanced_conversions_for_leads_enabled` boolean was absent from the REST response (default false/not reported enabled). Resolve/reverify this prerequisite before enabling hashed customer matching. No Ads settings changed.
+- Live test **VVE-LIVE-MEAS-20260927-01**: **prepared, not submitted**. Automatic approval review blocked creating live test data and sending real notifications. Specific approval was requested for submission, owner/business email and Telegram notification, and marking only this test booking cancelled/test and excluded from Ads. Fresh live notification delivery and production one-row reconciliation remain unverified.
+- Production reporting gate: **closed** pending the approved live request check, Ads enhanced-conversion eligibility verification and explicit activation of the website delivery mode. Validation-only success does not establish counted Ads conversions. Reconcile the first genuine consented, attributed outcome after activation; never upload fake test outcomes.
