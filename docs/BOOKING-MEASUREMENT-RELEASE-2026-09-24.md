@@ -146,10 +146,10 @@ Preview delivery keeps Telegram disabled and routes both emails only to the appr
 ## Google-account work still required
 
 1. Four `UPLOAD_CLICKS` actions already exist; IDs and Secondary status are verified above.
-2. Google Data Manager API was enabled in existing Cloud project `VVE Clean Bookings` (`booming-tooling-508817-n7`) on 27 September after Navid explicitly accepted Google's API terms. Following his separate approval of the Google API Services User Data Policy, Google confirmed creation of the `VVE Clean Booking Measurement` OAuth configuration. A dedicated Desktop client was created and its downloaded configuration was checked against the project without printing credential values. Owner authorisation is still pending. The Google Ads agent uses a different service-account connection; it has not been copied or expanded for this website.
-3. The explicitly approved External audience remains in Testing with only the owner's account listed. Exactly the Data Manager scope (`https://www.googleapis.com/auth/datamanager`) was saved; no Gmail, Calendar, Cloud Platform or Ads-management scope was added. This is not a public customer sign-in feature. A loopback-only authorisation helper uses state validation and PKCE and returns the Google response to the owner's computer. Google displayed its unverified test-app warning, so the owner must complete that step; no refresh token has yet been obtained or installed in Vercel. Verify customer-data terms and enhanced conversions for leads before enabling user-data matching. A testing-mode OAuth token is not sufficient evidence of durable unattended production access; check the token lifecycle before live enablement.
+2. Google Data Manager API was enabled in existing Cloud project `VVE Clean Bookings` (`booming-tooling-508817-n7`) on 27 September after Navid explicitly accepted Google's API terms. Following his separate approval of the Google API Services User Data Policy, Google confirmed creation of the `VVE Clean Booking Measurement` OAuth configuration. A dedicated Desktop client was created and its downloaded configuration checked against the project. Owner authorisation completed on 27 September at 18:58 UTC. The Google Ads agent uses a different service-account connection; it has not been copied or expanded for this website.
+3. The explicitly approved External audience remains in Testing with only the owner's account listed. Exactly the Data Manager scope (`https://www.googleapis.com/auth/datamanager`) was saved; no Gmail, Calendar, Cloud Platform or Ads-management scope was added. This is not a public customer sign-in feature. A loopback-only authorisation helper used state validation and PKCE and returned the Google response to the owner's computer. A refresh token is saved locally, not in Vercel. VVE's home page, privacy policy, terms and existing domain were saved in Google Branding. Moving the app to In production and renewing/storing the connection is pending explicit approval: Testing tokens expire after seven days, while publishing removes the test-user restriction. Verify customer-data terms and enhanced conversions for leads before enabling user-data matching.
 4. Keep all new actions Secondary. Verify auto-tagging and campaign/custom goals read-only; any necessary Ads changes belong to the Ads task. No bidding, budget, targeting or legacy conversion changes are made here.
-5. Website Production now has the account ID, four action IDs and `BOOKING_MEASUREMENT_MODE=disabled` saved. No credentials have been saved, and Vercel states a new deployment is required for these settings to take effect. Configure the isolated test deployment and complete Data Manager validation/receipt checks before production rollout.
+5. Website Production now has the account ID, four action IDs and `BOOKING_MEASUREMENT_MODE=disabled` saved. No Google credentials have been saved in Vercel, and Vercel states a new deployment is required for these settings to take effect. Google validation-only checks passed for all four events (evidence below). Configure the isolated test deployment and complete end-to-end reconciliation before production rollout.
 6. After a clearly labelled test reconciles exactly once, complete the approved release and production reconciliation. Only then consider making `Deposit Paid` Primary and retiring the legacy action in a separate Ads change.
 
 ## Test-project boundary
@@ -166,7 +166,24 @@ Read-only inspection on 24 September found the VVE OS project contains 65 tables
 - Disposable PostgreSQL measurement validator: **11/11 semantic assertions passed**, covering canonical request, qualification, verified deposit and paid-confirmation idempotency, actual-value preservation, no-deposit exclusion, consent/test suppression, withdrawal and retention.
 - Disposable PostgreSQL initial-notification validator: **10/10 assertions passed**. Its focused migration/artifact repository suite also passed **10/10**.
 - Diff validation: **passed**; Git reported line-ending notices only.
-- Provider-connected evidence: **not performed**. No Google, SMTP, Telegram, Stripe, production Supabase or live deployment action is represented by the local results above.
+- Provider-connected evidence: **Google validation-only passed 4/4 on 27 September**, separately from the local tests above. No SMTP, Telegram, Stripe, production Supabase or live deployment action is represented by those local results.
+
+## Google validation-only evidence — 27 September
+
+Test label: `VVE-DM-VALIDATE-20260927-01`. The existing runtime `createGoogleDataManagerAdapter` authenticated with the dedicated Google connection and sent four entirely synthetic fixtures with `validateOnly: true`. The deposit fixture used **£47 GBP**, not a fixed £30. No customer records were read, no database rows were created, and **zero conversions were uploaded**.
+
+| Event | Google validation request ID | Result | Field warnings |
+|---|---|---|---:|
+| `booking_request_submitted` | `v-16f83a35-70a2-4ebc-9bbe-eff4b70bef82` | VALIDATED | 0 |
+| `booking_request_qualified` | `v-97b58be2-e11a-4295-ad5e-7cd0867ea838` | VALIDATED | 0 |
+| `deposit_paid` | `v-0a9b7413-fa09-480c-8ec8-a43d00a3e548` | VALIDATED | 0 |
+| `booking_confirmed` | `v-84de1cab-5337-427b-a908-f8a3523ea1c0` | VALIDATED | 0 |
+
+Sanitised machine-readable evidence: `docs/BOOKING-MEASUREMENT-GOOGLE-VALIDATION-2026-09-27.json`.
+
+These are Google validation receipts, **not conversion-import receipts**. They establish authentication, destination and payload validation only; they do not establish real click matching, durable deployed outbox delivery, Google counting/deduplication, notification delivery or production reconciliation. The fixtures were supplied directly to the adapter under forced validation-only mode and never entered the production test-exclusion pipeline. Customer-data matching hashes were not used in this test.
+
+Google's [OAuth token documentation](https://developers.google.com/identity/protocols/oauth2#expiration) describes the seven-day Testing refresh-token limit. The production connection must be renewed after the approved publishing-status change; a one-off successful validation must not be mistaken for an ongoing-use connection.
 
 ## Isolated VVE OS database acceptance
 
@@ -186,7 +203,7 @@ The canonical migration changed after the earlier VVE OS evidence was collected,
 
 Both scripts are transaction-wrapped, created objects only in new isolated schemas and forbade the live Website project. The final query after each rollback verified that its named isolated schema no longer existed. No Website-project table, production booking, provider or customer record was used.
 
-This is database compatibility and idempotency evidence only. It is not a Google provider receipt. The four Google Ads actions now exist, but provider-connected validation remains blocked by the dedicated Data Manager OAuth connection and approved isolated deployment configuration.
+This is database compatibility and idempotency evidence only. The separate Google validation-only receipts above are now available. Full deployment-connected reconciliation still requires the ongoing-use Google connection and isolated deployment configuration.
 
 ## Exact changed files
 
@@ -269,7 +286,7 @@ Four tracked paths appear modified only because of line-ending/stat noise and ha
 - Production database changed: **no**
 - Stripe behaviour or £30 deposit changed: **no**
 - Google Ads/GA4 settings changed by this website task: **0** (four actions were previously created by the separate Ads task)
-- Google Cloud changes: **Data Manager API enabled; User Data Policy accepted with explicit approval; dedicated OAuth app/client created with Data Manager scope and owner-only test access. Owner consent and token validation remain unfinished.**
+- Google Cloud changes: **Data Manager API enabled; User Data Policy accepted with explicit approval; dedicated OAuth app/client created with Data Manager scope and owner-only test access. Owner consent complete; Google validation-only passed 4/4. App remains in Testing.**
 - Website Production configuration: **six non-secret measurement settings saved; reporting disabled; no deployment triggered**
 - Production database: **all three measurement/notification migrations still absent; no writes made**
 - Website deployments: **automatic preview deployments exist; production deployments made by this release: 0**
@@ -278,4 +295,4 @@ Four tracked paths appear modified only because of line-ending/stat noise and ha
 - PR **#39**: **draft, open, required checks successful when inspected 27 September; not merged**
 - Current VVE OS measurement artifact: **passed and rolled back; isolated schema absent**
 - Current VVE OS initial-notification artifact: **passed and rolled back; isolated schema absent**
-- Production gate: **closed until dedicated connection and isolated provider validation pass; rollout then requires the database updates, website/CRM deployment and production reconciliation**
+- Production gate: **closed pending an ongoing-use Google connection and isolated end-to-end reconciliation; rollout then requires database updates, website/CRM deployment and production reconciliation**
