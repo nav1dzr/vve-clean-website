@@ -1,6 +1,6 @@
 # Booking measurement release record
 
-Prepared 24 September 2026 on `codex/booking-measurement-final-20260924`. This document records the implementation and the release gates. It does not claim a production release.
+Prepared 24 September 2026; external setup verified 27 September 2026 on `codex/booking-measurement-final-20260924`. This document records the implementation and the release gates. It does not claim a production release.
 
 ## Architecture decision
 
@@ -53,7 +53,18 @@ The browser no longer emits a second `booking_request_submitted` conversion. It 
 
 ## Google Ads action specification
 
-Create or select these actions in Google Ads later. The goal settings below are recommendations until verified in the Google Ads dashboard. This repository does not make Ads-account changes.
+The separate Ads task created the four import actions on 24 September. Their existence and Secondary status were verified in the Google Ads dashboard on 27 September. Do not create duplicates. This website task has made zero Google Ads-account changes.
+
+Account `556-909-9303` has these existing action IDs:
+
+| Event | Action ID |
+|---|---|
+| `booking_request_submitted` | `7793322917` |
+| `booking_request_qualified` | `7793447502` |
+| `deposit_paid` | `7793447505` |
+| `booking_confirmed` | `7793447508` |
+
+The four import actions are enabled, Secondary and awaiting conversions. Their click-through window is 90 days; the independent Ads-task readback records data-driven attribution. The deposit action uses uploaded values with a zero fallback; the other three have no value. The source record is the separate Ads project's `generated/vve_20260924_offline_conversion_actions_applied.md` and independent readback, not a change made by this repository.
 
 | Exact action name | Source/type | Category | Count | Value | Initial goal setting |
 |---|---|---|---|---|---|
@@ -61,11 +72,11 @@ Create or select these actions in Google Ads later. The goal settings below are 
 | Qualified Booking Request | Website — Import from clicks (`UPLOAD_CLICKS`) | Qualified lead | One | no value | Secondary |
 | Deposit Paid | Website — Import from clicks (`UPLOAD_CLICKS`) | Purchase | Every | use uploaded actual value and GBP | Secondary until reconciled, then sole Primary funnel goal |
 | Booking Confirmed | Website — Import from clicks (`UPLOAD_CLICKS`) | Converted lead | One | no value | Secondary |
-| WhatsApp Contact | Website / Google tag | Contact | One | no value | Recommended Secondary; verify current dashboard setting |
+| WhatsApp Contact (Secondary) | Website / Google tag | Contact | One | no value | Verified Secondary, Active, 30-day click window |
 
 Use Google Ads data-driven attribution. Do not configure the server events as normal Website/`WEBPAGE` actions, do not import the same events again through GA4, and do not make the request, qualification, confirmation or WhatsApp stages additional primary bidding goals.
 
-The legacy `Booking Deposit Paid` action is unchanged in Google Ads. Its historic confirmation page remains deliberately analytics-free and its retired conversion block remains unreachable. The current emailed-payment journey does not return to that page. This branch does not reactivate or fire the old fixed-£30 event.
+The legacy `Booking Deposit Paid` action is unchanged in Google Ads. On 27 September its dashboard state was Primary / Misconfigured. Its historic confirmation page remains deliberately analytics-free and its retired conversion block remains unreachable. The current emailed-payment journey does not return to that page. This branch does not reactivate or fire the old fixed-£30 event. `Booking Started (Secondary)` was Active / Secondary; `Contact Form Submitted (Secondary)` was Misconfigured / Secondary. These observations do not establish end-to-end receipt of the new server events or campaign-level goal selection.
 
 ### Existing source-side Google identifiers
 
@@ -122,9 +133,9 @@ Preview use of the existing VVE OS project requires all normal isolation control
 - `20260924120000_booking_measurement_canonical_events.sql` is the additive upgrade for canonical request, qualification, verified deposit and confirmation events, attribution snapshots, consent withdrawal and retention.
 - `20260924140000_booking_request_notification_outbox.sql` is the additive per-channel email/Telegram delivery outbox. It creates no historic jobs and performs no provider sends during migration.
 
-Both additive migrations must be applied through the normal release process after approval. Neither has been applied to the live Website project.
+Read-only inspection of the live Website project on 27 September returned NULL for both measurement and notification outbox tables; `booking_journeys` exists. The already-committed baseline is therefore not already deployed. **All three migrations above are required**, in timestamp order. None has been applied to the live Website project by this release.
 
-Safe release order is database first, with `BOOKING_MEASUREMENT_MODE` unset or `disabled`: apply and verify both additive migrations, then deploy the website and CRM code together, and only then run isolated provider validation. Do not deploy the application first. The canonical request insert uses the new measurement columns, notification delivery uses the new claim/checkpoint RPCs, and the protected worker calls the new retention RPC. Applying the notification migration first is safe because it creates no jobs for historic bookings and sends no provider messages by itself.
+First complete isolated provider validation against the existing actions. Once that release gate passes, the production release order is database first, with `BOOKING_MEASUREMENT_MODE=disabled`: apply and verify all three migrations, then deploy the website and CRM code together, then perform the labelled production reconciliation before enabling live reporting. Do not deploy the application before its database dependencies. The canonical request insert uses the new measurement columns, notification delivery uses the new claim/checkpoint RPCs, and the protected worker calls the new retention RPC. The migrations must not backfill historic jobs or send provider messages.
 
 ## Initial request notifications
 
@@ -134,11 +145,12 @@ Preview delivery keeps Telegram disabled and routes both emails only to the appr
 
 ## Google-account work still required
 
-1. Create/select the four `UPLOAD_CLICKS` actions with the table settings and record their numeric action IDs.
-2. Enable the Google Data Manager API in the approved Cloud project and authorise the operating/login Ads account. Accept the Google customer-data terms and enable enhanced conversions for leads before user-data matching is enabled.
-3. Keep all new actions secondary for validation. Enable auto-tagging. Confirm campaign-specific/custom goals do not bid on diagnostic lead/contact stages.
-4. Add the server-only configuration names above in the test deployment first. Run validation mode and inspect Data Manager request diagnostics.
-5. After a clearly labelled test reconciles exactly once, repeat through a separately approved production release. Only then consider making `Deposit Paid` Primary and retiring the legacy action in a later change.
+1. Four `UPLOAD_CLICKS` actions already exist; IDs and Secondary status are verified above.
+2. Google Data Manager API was enabled in existing Cloud project `VVE Clean Bookings` (`booming-tooling-508817-n7`) on 27 September after Navid explicitly accepted Google's API terms. Dedicated OAuth credentials and owner authorisation are not yet complete. The Google Ads agent uses a different service-account connection; it has not been copied or expanded for this website.
+3. Google Auth setup offers only External audience because the owner's account has no Workspace organisation. Creation is pending explicit approval of that access boundary, with the owner as the initial sole test user. This is not a public customer sign-in feature. Verify customer-data terms and enhanced conversions for leads before enabling user-data matching. A testing-mode OAuth token is not sufficient evidence of durable unattended production access; check the token lifecycle before live enablement.
+4. Keep all new actions Secondary. Verify auto-tagging and campaign/custom goals read-only; any necessary Ads changes belong to the Ads task. No bidding, budget, targeting or legacy conversion changes are made here.
+5. Website Production now has the account ID, four action IDs and `BOOKING_MEASUREMENT_MODE=disabled` saved. No credentials have been saved, and Vercel states a new deployment is required for these settings to take effect. Configure the isolated test deployment and complete Data Manager validation/receipt checks before production rollout.
+6. After a clearly labelled test reconciles exactly once, complete the approved release and production reconciliation. Only then consider making `Deposit Paid` Primary and retiring the legacy action in a separate Ads change.
 
 ## Test-project boundary
 
@@ -174,7 +186,7 @@ The canonical migration changed after the earlier VVE OS evidence was collected,
 
 Both scripts are transaction-wrapped, created objects only in new isolated schemas and forbade the live Website project. The final query after each rollback verified that its named isolated schema no longer existed. No Website-project table, production booking, provider or customer record was used.
 
-This is database compatibility and idempotency evidence only. It is not a Google provider receipt. Provider-connected validation remains blocked until the four Google Ads actions and Data Manager OAuth configuration exist in an approved test deployment.
+This is database compatibility and idempotency evidence only. It is not a Google provider receipt. The four Google Ads actions now exist, but provider-connected validation remains blocked by the dedicated Data Manager OAuth connection and approved isolated deployment configuration.
 
 ## Exact changed files
 
@@ -256,8 +268,14 @@ Four tracked paths appear modified only because of line-ending/stat noise and ha
 
 - Production database changed: **no**
 - Stripe behaviour or £30 deposit changed: **no**
-- Google Ads/GA4 settings changed: **0**
-- Website deployments made: **0**
+- Google Ads/GA4 settings changed by this website task: **0** (four actions were previously created by the separate Ads task)
+- Google Cloud changes: **Data Manager API enabled with explicit API-terms approval; OAuth connection unfinished**
+- Website Production configuration: **six non-secret measurement settings saved; reporting disabled; no deployment triggered**
+- Production database: **all three measurement/notification migrations still absent; no writes made**
+- Website deployments: **automatic preview deployments exist; production deployments made by this release: 0**
+- Current preview: **`vve-clean-website-nxkrea72w-nav1dzrs-projects.vercel.app`, deployment `dpl_C6PQzQJb8Dwvv1Fzax61czoTvrXU`, commit `5f0768632cdbf8d7728f25e54ed8e1a95a3b5afd`, READY**
+- Current production: **deployment `dpl_FunbkRwAmHGjHohH4giAdAsaMtbp`, commit `db960ecffbf075377f1039f7b97da2cadc130ee5`, READY**
+- PR **#39**: **draft, open, required checks successful when inspected 27 September; not merged**
 - Current VVE OS measurement artifact: **passed and rolled back; isolated schema absent**
 - Current VVE OS initial-notification artifact: **passed and rolled back; isolated schema absent**
-- Production gate: **closed until provider validation, dashboard action setup, approved deployment and production reconciliation all pass**
+- Production gate: **closed until dedicated connection and isolated provider validation pass; rollout then requires the database updates, website/CRM deployment and production reconciliation**
