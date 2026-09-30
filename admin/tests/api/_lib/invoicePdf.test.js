@@ -302,6 +302,33 @@ describe('generateInvoicePdfBuffer', () => {
 });
 
 describe('generateReceiptPdfBuffer', () => {
+  it('includes invoice work notes, service date and property without leaking internal notes', async () => {
+    const buffer = await generateReceiptPdfBuffer(receipt({
+      service_date: '2026-09-30', service_address: '12 Sample Road', service_postcode: 'E8 1AA',
+      service_items: [{ description: 'Bedroom carpet\nParking: £15', quantity: 1 }],
+      customer_notes: 'CLEANING COMPLETION RECORD\nWork carried out: carpet extraction.\nExceptions: permanent ink remains.',
+      internal_notes: 'PRIVATE INTERNAL NOTE',
+    }), settings);
+    const text = extractPdfText(buffer);
+    expect(pageCount(buffer)).toBe(2);
+    for (const phrase of ['Cleaning service record', '30 Sept 2026', '12 Sample Road', 'Bedroom carpet', 'permanent ink remains', 'Access & additional charges', 'Parking: £15']) expect(text).toContain(phrase);
+    expect(text).not.toContain('PRIVATE INTERNAL NOTE');
+  });
+
+  it('paginates a long completed-work list without dropping its final entries', async () => {
+    const notes = Array.from({ length: 140 }, (_, n) => `Completed task ${n + 1}: cleaned the recorded accessible surface.`).join('\n');
+    const buffer = await generateReceiptPdfBuffer(receipt({ customer_notes: notes }), settings);
+    expect(pageCount(buffer)).toBeGreaterThan(3);
+    expect(extractPdfText(buffer)).toContain('Completed task 140');
+    expect(extractPdfText(buffer)).toContain('Work record & customer notes (continued)');
+  });
+
+  it('does not assert cleaning completion merely because payment was received', async () => {
+    const buffer = await generateReceiptPdfBuffer(receipt({ service_items: [{ description: 'Carpet cleaning', quantity: 1 }] }), settings);
+    expect(extractPdfText(buffer)).toContain('Not recorded on invoice');
+    expect(extractPdfText(buffer)).not.toContain('Service completed on');
+  });
+
   function receipt(overrides = {}) {
     return {
       id: 'rec-1',
