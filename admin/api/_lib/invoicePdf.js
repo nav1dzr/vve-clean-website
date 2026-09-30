@@ -128,10 +128,11 @@ function ensureSpace(doc, fonts, y, needed) {
 // Flow long work lists line by line, reserving the footer on every page.
 function drawFlowSection(doc, fonts, y, heading, text) {
   const width = doc.page.width - PAGE_MARGIN * 2;
-  y = ensureSpace(doc, fonts, y, 48);
+  y = ensureSpace(doc, fonts, y, 55);
   const title = (continued = false) => {
-    doc.font(fonts.bold).fontSize(10).fillColor(NAVY).text(`${heading}${continued ? ' (continued)' : ''}`, PAGE_MARGIN, y);
-    y += 19;
+    doc.roundedRect(PAGE_MARGIN, y, width, 22, 3).fill('#eef5fd');
+    doc.font(fonts.bold).fontSize(10).fillColor(NAVY).text(`${heading}${continued ? ' (continued)' : ''}`, PAGE_MARGIN + 9, y + 6);
+    y += 30;
     doc.font(fonts.regular).fontSize(9.5).fillColor(TEXT);
   };
   title();
@@ -205,7 +206,16 @@ function drawWordmark(doc, fonts, x, y) {
 function drawHeaderAccent(doc, y) {
   const width = doc.page.width - PAGE_MARGIN * 2;
   doc.moveTo(PAGE_MARGIN, y).lineTo(PAGE_MARGIN + width, y).lineWidth(1.2).strokeColor(NAVY).stroke();
-  doc.moveTo(PAGE_MARGIN, y).lineTo(PAGE_MARGIN + 72, y).lineWidth(3).strokeColor(GOLD).stroke();
+  doc.moveTo(PAGE_MARGIN, y).lineTo(PAGE_MARGIN + 72, y).lineWidth(3).strokeColor(BRAND_BLUE).stroke();
+}
+
+function drawDocumentBrand(doc, fonts) {
+  const width = drawWordmark(doc, fonts, PAGE_MARGIN, PAGE_MARGIN);
+  const dividerX = PAGE_MARGIN + width + 17;
+  doc.moveTo(dividerX, PAGE_MARGIN + 15).lineTo(dividerX, PAGE_MARGIN + 73)
+    .lineWidth(1.5).strokeColor('#ccd8e7').stroke();
+  doc.font(fonts.bold).fontSize(10).fillColor('#143c70')
+    .text('CLEANING &\nPROPERTY\nSERVICES', dividerX + 12, PAGE_MARGIN + 25, { width: 100, lineGap: 4 });
 }
 
 // Returns the block's rendered height so callers can position content
@@ -521,8 +531,8 @@ export async function generateInvoicePdfBuffer(invoice, items, settings, { isDra
 
   if (isDraft) drawDraftWatermark(doc);
 
-  drawWordmark(doc, fonts, PAGE_MARGIN, PAGE_MARGIN);
-  const businessBlockHeight = drawBusinessBlock(doc, fonts, settings, doc.page.width - PAGE_MARGIN - 220, PAGE_MARGIN, 220);
+  drawDocumentBrand(doc, fonts);
+  const businessBlockHeight = drawBusinessBlock(doc, fonts, settings, doc.page.width - PAGE_MARGIN - 185, PAGE_MARGIN, 185);
   const headerRuleY = Math.max(PAGE_MARGIN + 96, PAGE_MARGIN + businessBlockHeight + 12);
   drawHeaderAccent(doc, headerRuleY);
 
@@ -612,8 +622,8 @@ export async function generateReceiptPdfBuffer(receipt, settings) {
   const bufferPromise = streamToBuffer(doc);
   const fonts = loadFonts(doc);
 
-  drawWordmark(doc, fonts, PAGE_MARGIN, PAGE_MARGIN);
-  const businessBlockHeight = drawBusinessBlock(doc, fonts, settings, doc.page.width - PAGE_MARGIN - 220, PAGE_MARGIN, 220);
+  drawDocumentBrand(doc, fonts);
+  const businessBlockHeight = drawBusinessBlock(doc, fonts, settings, doc.page.width - PAGE_MARGIN - 185, PAGE_MARGIN, 185);
   const headerRuleY = Math.max(PAGE_MARGIN + 96, PAGE_MARGIN + businessBlockHeight + 12);
   drawHeaderAccent(doc, headerRuleY);
 
@@ -693,8 +703,10 @@ export async function generateReceiptPdfBuffer(receipt, settings) {
   // internal notes, default checklists or infer completion from payment alone.
   if (!isStandalone && (receipt.service_items?.length || receipt.customer_notes)) {
     doc.addPage();
-    drawWordmark(doc, fonts, PAGE_MARGIN, PAGE_MARGIN);
-    doc.font(fonts.bold).fontSize(11).fillColor(NAVY).text('CLEANING & PROPERTY SERVICES', PAGE_MARGIN + 155, PAGE_MARGIN + 15, { width: 330, align: 'right' });
+    drawDocumentBrand(doc, fonts);
+    const referenceX = doc.page.width - PAGE_MARGIN - 180;
+    doc.font(fonts.bold).fontSize(8).fillColor(GREY).text('BOOKING REFERENCE', referenceX, PAGE_MARGIN + 25, { width: 180, align: 'right' });
+    doc.font(fonts.bold).fontSize(11).fillColor(NAVY).text(receipt.booking_ref_snapshot || receipt.invoice_number_snapshot || receipt.receipt_number, referenceX, PAGE_MARGIN + 41, { width: 180, align: 'right' });
     drawHeaderAccent(doc, PAGE_MARGIN + 96);
     y = PAGE_MARGIN + 115;
     doc.font(fonts.bold).fontSize(22).fillColor(NAVY).text('Cleaning service record', PAGE_MARGIN, y);
