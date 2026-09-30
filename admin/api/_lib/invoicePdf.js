@@ -23,6 +23,7 @@ import { join } from 'node:path';
 import { buildPaymentInstructionsSnapshot } from './paymentOptions.js';
 import { hasBankDetails } from './businessSettings.js';
 import { smartTitleCase, formatPostcodeDisplay, formatEmailDisplay } from './textFormat.js';
+import { bookingContent } from '../../shared/bookingPresentation.js';
 
 const PAGE_MARGIN = 50;
 const NAVY = '#020b24';
@@ -122,6 +123,37 @@ function ensureSpace(doc, fonts, y, needed) {
   if (y + needed <= SAFE_BOTTOM) return y;
   doc.addPage();
   return PAGE_MARGIN;
+}
+
+// Flow long work lists line by line, reserving the footer on every page.
+function drawFlowSection(doc, fonts, y, heading, text) {
+  const width = doc.page.width - PAGE_MARGIN * 2;
+  y = ensureSpace(doc, fonts, y, 48);
+  const title = (continued = false) => {
+    doc.font(fonts.bold).fontSize(10).fillColor(NAVY).text(`${heading}${continued ? ' (continued)' : ''}`, PAGE_MARGIN, y);
+    y += 19;
+    doc.font(fonts.regular).fontSize(9.5).fillColor(TEXT);
+  };
+  title();
+  for (const paragraph of String(text || '').split(/\r?\n/)) {
+    let line = '';
+    const renderLine = () => {
+      if (y + 14 > SAFE_BOTTOM) { doc.addPage(); y = PAGE_MARGIN; title(true); }
+      doc.text(line, PAGE_MARGIN, y, { width, lineBreak: false });
+      y += 14;
+      line = '';
+    };
+    // Character fallback also handles long URLs/reference strings without clipping.
+    for (const word of paragraph.split(/(\s+)/)) {
+      if (line && doc.widthOfString(line + word) > width) renderLine();
+      for (const char of word) {
+        if (doc.widthOfString(line + char) > width) renderLine();
+        line += char;
+      }
+    }
+    renderLine();
+  }
+  return y + 12;
 }
 
 function drawWordmark(doc, fonts, x, y) {
@@ -491,7 +523,7 @@ export async function generateInvoicePdfBuffer(invoice, items, settings, { isDra
 
   drawWordmark(doc, fonts, PAGE_MARGIN, PAGE_MARGIN);
   const businessBlockHeight = drawBusinessBlock(doc, fonts, settings, doc.page.width - PAGE_MARGIN - 220, PAGE_MARGIN, 220);
-  const headerRuleY = Math.max(PAGE_MARGIN + 82, PAGE_MARGIN + businessBlockHeight + 12);
+  const headerRuleY = Math.max(PAGE_MARGIN + 96, PAGE_MARGIN + businessBlockHeight + 12);
   drawHeaderAccent(doc, headerRuleY);
 
   const isRevision = !!(invoice.revised_from_invoice_id || invoice.revised_from_invoice_number);
@@ -559,12 +591,7 @@ export async function generateInvoicePdfBuffer(invoice, items, settings, { isDra
 
   if (invoice.payment_terms || invoice.customer_notes) {
     const notesText = [invoice.payment_terms, invoice.customer_notes].filter(Boolean).join('\n');
-    const notesHeight = 14 + doc.font(fonts.regular).fontSize(9).heightOfString(notesText, { width: doc.page.width - PAGE_MARGIN * 2 });
-    y = ensureSpace(doc, fonts, y, notesHeight + 10);
-    doc.font(fonts.bold).fontSize(9).fillColor(NAVY).text('Payment terms & notes', PAGE_MARGIN, y);
-    y += 14;
-    doc.font(fonts.regular).fontSize(9).fillColor(TEXT).text(notesText, PAGE_MARGIN, y, { width: doc.page.width - PAGE_MARGIN * 2, lineGap: 1.5 });
-    y += doc.heightOfString(notesText, { width: doc.page.width - PAGE_MARGIN * 2, lineGap: 1.5 }) + 14;
+    y = drawFlowSection(doc, fonts, y, 'Payment terms & notes', notesText);
   }
 
   drawPaymentDetailsBox(doc, fonts, invoice, settings, y);
@@ -587,7 +614,7 @@ export async function generateReceiptPdfBuffer(receipt, settings) {
 
   drawWordmark(doc, fonts, PAGE_MARGIN, PAGE_MARGIN);
   const businessBlockHeight = drawBusinessBlock(doc, fonts, settings, doc.page.width - PAGE_MARGIN - 220, PAGE_MARGIN, 220);
-  const headerRuleY = Math.max(PAGE_MARGIN + 82, PAGE_MARGIN + businessBlockHeight + 12);
+  const headerRuleY = Math.max(PAGE_MARGIN + 96, PAGE_MARGIN + businessBlockHeight + 12);
   drawHeaderAccent(doc, headerRuleY);
 
   let y = headerRuleY + 16;
@@ -661,6 +688,37 @@ export async function generateReceiptPdfBuffer(receipt, settings) {
     isStandalone ? 'PAYMENT RECEIVED — receipt issued' : 'PAID IN FULL — zero balance remaining',
     PAGE_MARGIN, y + 13, { width: doc.page.width - PAGE_MARGIN * 2, align: 'center' },
   );
+
+  // Use only the issued invoice snapshot. Never read mutable booking details,
+  // internal notes, default checklists or infer completion from payment alone.
+  if (!isStandalone && (receipt.service_items?.length || receipt.customer_notes)) {
+    doc.addPage();
+    drawWordmark(doc, fonts, PAGE_MARGIN, PAGE_MARGIN);
+    doc.font(fonts.bold).fontSize(11).fillColor(NAVY).text('CLEANING & PROPERTY SERVICES', PAGE_MARGIN + 155, PAGE_MARGIN + 15, { width: 330, align: 'right' });
+    drawHeaderAccent(doc, PAGE_MARGIN + 96);
+    y = PAGE_MARGIN + 115;
+    doc.font(fonts.bold).fontSize(22).fillColor(NAVY).text('Cleaning service record', PAGE_MARGIN, y);
+    y += 32;
+    doc.font(fonts.regular).fontSize(10).fillColor(GREY).text(`Accompanies paid receipt ${receipt.receipt_number}`, PAGE_MARGIN, y);
+    y += 30;
+    y = drawFlowSection(doc, fonts, y, 'Property & visit', [
+      `Customer: ${smartTitleCase(receipt.customer_name)}`,
+      `Service date: ${receipt.service_date ? formatDate(receipt.service_date) : 'Not recorded on invoice'}`,
+      `Property: ${[smartTitleCase(receipt.service_address), formatPostcodeDisplay(receipt.service_postcode)].filter(Boolean).join(', ') || 'Not recorded on invoice'}`,
+      receipt.booking_ref_snapshot ? `Booking reference: ${receipt.booking_ref_snapshot}` : '',
+      `Invoice: ${receipt.invoice_number_snapshot || 'Not recorded'}`,
+    ].filter(Boolean).join('\n'));
+    const cleaning = [], charges = [];
+    for (const item of receipt.service_items || []) {
+      const content = bookingContent({ items: item.description });
+      if (content.cleaning.length) cleaning.push(`${item.quantity} x ${content.cleaning.join('\n')}`);
+      charges.push(...content.access);
+    }
+    if (cleaning.length) y = drawFlowSection(doc, fonts, y, 'Services listed on the invoice', cleaning.join('\n'));
+    if (receipt.customer_notes) y = drawFlowSection(doc, fonts, y, 'Work record & customer notes', receipt.customer_notes);
+    if (charges.length) y = drawFlowSection(doc, fonts, y, 'Access & additional charges', charges.join('\n'));
+    drawFlowSection(doc, fonts, y, 'About this record', 'Issued by VVE Clean with your paid receipt. This records the service details and any completed-work statement supplied by VVE Clean. It is not an independent inventory inspection or a guarantee of tenancy deposit release.');
+  }
 
   addFooter(doc, fonts, settings);
   doc.end();

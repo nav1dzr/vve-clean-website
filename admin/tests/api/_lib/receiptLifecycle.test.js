@@ -165,12 +165,22 @@ describe('markReceiptSent', () => {
 // receipts (no new columns — see the function's own header comment and
 // admin/INVOICES_TESTING.md's visual-polish requirement 12).
 describe('loadReceiptPdfExtras', () => {
+  it('uses the issued invoice service address, date, public notes and ordered item list', async () => {
+    const supabase = createFakeSupabase({
+      invoices: [{ id: 'invoice-1', service_date: '2026-09-30', service_address: 'Service property', customer_address: 'Agency billing office', customer_notes: 'Oven cleaned', internal_notes: 'Private note' }],
+      invoice_items: [{ invoice_id: 'invoice-1', description: 'Kitchen', quantity: 1, sort_order: 1 }, { invoice_id: 'other', description: 'Do not include', quantity: 1, sort_order: 0 }],
+    });
+    const extras = await loadReceiptPdfExtras(supabase, 'invoice-1');
+    expect(extras).toMatchObject({ service_address: 'Service property', service_date: '2026-09-30', customer_notes: 'Oven cleaned' });
+    expect(extras.service_items).toHaveLength(1);
+    expect(extras).not.toHaveProperty('internal_notes');
+  });
   it('returns booking_ref_snapshot and deposit_applied from the linked invoice', async () => {
     const supabase = createFakeSupabase({
       invoices: [{ id: 'invoice-1', booking_ref_snapshot: 'N152NG160726', deposit_applied: 30 }],
     });
     const extras = await loadReceiptPdfExtras(supabase, 'invoice-1');
-    expect(extras).toEqual({ booking_ref_snapshot: 'N152NG160726', deposit_applied: 30 });
+    expect(extras).toMatchObject({ booking_ref_snapshot: 'N152NG160726', deposit_applied: 30, service_items: [] });
   });
 
   it('returns an empty object when invoiceId is falsy, without querying', async () => {
