@@ -8,6 +8,10 @@ import { CONSENT_STORAGE_KEY } from '../lib/consent';
 import { CONSENT_VERSION } from '../lib/consentVersion';
 import { clearSubmissionIdentity } from '../lib/submissionIdentity';
 
+// This suite controls request/payment measurement responses, not the optional
+// public rating refresh. Keep its lost-response fixture scoped to booking POSTs.
+vi.mock('../hooks/useGoogleRating', () => ({ useGoogleRating: () => null }));
+
 const selection = {
   serviceName: 'Carpet cleaning', price: 100,
   quoteConfig: { service: 'deep', deepService: 'carpet_upholstery', deepSize: 'bed2', deepBaths: 1, addOnCounts: {}, carpetCounts: { bedroom: 2 }, windowSize: 'small', gutterType: 'terraced', officeHours: 2 },

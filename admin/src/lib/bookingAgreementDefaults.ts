@@ -21,14 +21,14 @@ function tenancyChecklist(config: Record<string, unknown>): string[] {
     "Kitchen and bathroom detailing, including accessible tiles, grouting and fittings",
     "Bedrooms and living areas: accessible internal windows, skirting boards, doors, frames and switches",
     "Standard vacuuming and suitable hard-floor mopping",
-    "Photographic cleaning receipt",
+    "Cleaning completion record available on request",
   ];
   if (config.eotPackage === "tailored") return [
     "One standard oven, hob, grill and extractor clean",
     "Kitchen and bathroom surfaces",
     "Bedrooms and reception rooms: accessible internal windows, skirting boards, doors, frames and switches",
     "Standard vacuuming and suitable hard-floor mopping",
-    "Photographic cleaning receipt",
+    "Cleaning completion record available on request",
   ];
   return [];
 }

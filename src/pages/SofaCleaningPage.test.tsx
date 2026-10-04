@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import SofaCleaningPage from './SofaCleaningPage';
 import { CookieConsentProvider } from '../context/CookieConsentContext';
@@ -52,7 +52,8 @@ describe('SofaCleaningPage — quote placement and premium service guidance', ()
     expect(screen.getAllByText('2-seater sofa').length).toBeGreaterThan(0);
     expect(screen.queryByText('Bedroom')).not.toBeInTheDocument();
 
-    const heroCta = screen.getAllByRole('link', { name: 'Get a sofa quote' })[0];
+    const hero = screen.getByRole('heading', { level: 1 }).closest('section')!;
+    const heroCta = within(hero).getByRole('link', { name: 'Choose my furniture' });
     expect(heroCta).toHaveAttribute('href', '/sofa-cleaning-london#quote');
   });
 
@@ -63,7 +64,7 @@ describe('SofaCleaningPage — quote placement and premium service guidance', ()
     expect(screen.getByText('Inspect and test')).toBeInTheDocument();
     expect(screen.getByText(/Delicate fabrics need assessment first/)).toBeInTheDocument();
     const hero = screen.getByRole('heading', { level: 1 }).closest('section')!;
-    expect(hero).toHaveTextContent('£85 minimum booking');
+    expect(hero).toHaveTextContent('Sofa and upholstery visits from £85');
     expect(hero).toHaveTextContent('No VAT is added.');
     expect(hero).not.toHaveTextContent('£5m public liability insurance');
     expect(screen.getAllByText('£5m public liability insurance').length).toBeGreaterThan(0);

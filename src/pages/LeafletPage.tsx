@@ -1,4 +1,5 @@
-import { computeCarpetPrice, formatPrice } from '../data/pricing';
+import { computeCarpetPrice, formatPrice, calculateDepositAndBalance } from '../data/pricing';
+import BrandLogo from '../components/BrandLogo';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Shield, Star } from 'lucide-react';
@@ -17,16 +18,7 @@ function LeafletHeader() {
       style={{ background: 'rgba(249,249,245,0.96)', backdropFilter: 'blur(10px)' }}>
       <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
         {/* Logo → homepage */}
-        <a href="/" className="flex flex-col leading-none gap-0.5 flex-shrink-0">
-          <span className="font-display font-bold text-2xl tracking-widest" style={{ color: '#1c1917' }}>
-            V<span style={{ color: '#b8960c' }}>V</span>E
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="block h-px w-3" style={{ background: '#b8960c' }} />
-            <span className="text-[8px] tracking-[0.25em] font-semibold uppercase" style={{ color: '#1c1917' }}>CLEAN</span>
-            <span className="block h-px w-3" style={{ background: '#b8960c' }} />
-          </span>
-        </a>
+        <a href="/" aria-label="VVE Clean home" className="shrink-0"><BrandLogo compact /></a>
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-6 flex-1 justify-center">
@@ -56,6 +48,7 @@ function LeafletHeader() {
 
 export default function LeafletPage() {
   const example = computeCarpetPrice({ sofa_2: 1, sofa_3: 1 }, 'normal', 1, 'LEAFLET20');
+  const examplePayment = calculateDepositAndBalance(Math.round(example.finalTotal * 100));
   const navigate = useNavigate();
 
   // Writes the discount this leaflet promised straight away — that is what the
@@ -190,7 +183,8 @@ export default function LeafletPage() {
                 { label: 'Leaflet discount 20%',   value: '−' + formatPrice((example.bundle.preDiscount - example.finalTotal) * 100),  green: true },
                 { label: 'Total after discount',   value: formatPrice(example.finalTotal * 100),  bold: true },
                 { label: 'To request a time',      value: '£0' },
-                { label: 'Due after cleaning', value: formatPrice(example.finalTotal * 100) },
+                { label: 'Deposit after we agree the details', value: formatPrice(examplePayment.depositP) },
+                { label: 'Balance on cleaning day after deposit', value: formatPrice(examplePayment.balanceP) },
               ].map(({ label, value, muted, green, bold }) => (
                 <div key={label} className={`flex justify-between items-center ${bold ? 'border-t border-[#E3E7EE] pt-1.5 mt-1' : ''}`}>
                   <span className={muted ? 'text-silver-500' : green ? 'text-green-700 font-semibold' : bold ? 'text-navy-900 font-bold' : 'text-navy-800'}>

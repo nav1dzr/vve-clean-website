@@ -9,7 +9,7 @@ const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%2
 const FAQS = [
   {
     q: 'Can I share the cleaning details with my letting agent?',
-    a: 'Yes. Your quote lists the cleaning work, and a photographic cleaning receipt records the finished result. If your agent has a particular checklist, send it before booking so we can compare it with the work included.',
+    a: 'Your quote lists the agreed cleaning work. After the clean, we can prepare a cleaning completion record to share with your letting agent or landlord. If your agent has a particular checklist, send it before booking so we can compare it with the work included.',
   },
   {
     q: `What is the ${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee?`,

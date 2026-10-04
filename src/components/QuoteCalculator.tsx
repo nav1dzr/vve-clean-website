@@ -1,5 +1,6 @@
 import PriceTaxNote from './PriceTaxNote';
 import GoogleBadge from './GoogleBadge';
+import ServiceDecisionTrust from './ServiceDecisionTrust';
 import { readQuoteBasket, saveQuoteBasket, clearQuoteBasket, restoreShape } from '../lib/quoteBasket';
 import { useState, useCallback, useRef, useEffect, useId, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -800,9 +801,9 @@ export default function QuoteCalculator({
               <div className="p-6 sm:p-9 lg:p-11">
                 <div className="mb-6 flex items-center justify-between gap-4">
                   <div>
-                    <p className="mb-3 inline-flex rounded-full bg-royal-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-royal-800">Instant quote</p>
-                    <h2 className="font-display text-3xl font-bold text-navy-900 sm:text-4xl">Get an instant quote</h2>
-                    <p className="mt-2 text-sm text-muted">Choose a service, select the work and review your price.</p>
+                    <p className="mb-3 inline-flex rounded-full bg-royal-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-royal-800">Your cleaning price</p>
+                    <h2 className="font-display text-3xl font-bold text-navy-900 sm:text-4xl">Get your cleaning price</h2>
+                    <p className="mt-2 text-sm text-muted">Choose your service. We’ll show an estimate or explain what we need to quote.</p>
                   </div>
                   <span className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-royal-600 to-sky-500 text-white shadow-lg shadow-sky-200 sm:flex">
                     <Calculator size={24} />
@@ -928,8 +929,8 @@ export default function QuoteCalculator({
           <div className={`text-center mb-8 transition-all duration-700 ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             {homepageMode ? (
               <>
-                <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-royal-700">Instant quote</p>
-                <h2 className="mb-3 font-display text-4xl font-bold text-navy-900 md:text-5xl">Get an instant quote</h2>
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-royal-700">Your cleaning price</p>
+                <h2 className="mb-3 font-display text-4xl font-bold text-navy-900 md:text-5xl">Get your cleaning price</h2>
               </>
             ) : (
               <>
@@ -980,8 +981,8 @@ export default function QuoteCalculator({
         <div className={`text-center mb-10 transition-all duration-700 ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           {homepageMode ? (
             <>
-              <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-royal-700">Instant quote</p>
-              <h2 className="mb-3 font-display text-4xl font-bold text-navy-900 md:text-5xl">Get an instant quote</h2>
+              <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-royal-700">Your cleaning price</p>
+              <h2 className="mb-3 font-display text-4xl font-bold text-navy-900 md:text-5xl">Get your cleaning price</h2>
               <p className="text-lg text-muted">Start by choosing the service you need.</p>
             </>
           ) : (
@@ -1684,6 +1685,10 @@ export default function QuoteCalculator({
                   <AlertCircle size={14} className="flex-shrink-0 mt-0.5 text-amber-600" aria-hidden="true" />
                   <span>{bookError}</span>
                 </div>
+              )}
+
+              {isCarpet && isReadyToBook && !isManualQuote && (
+                <ServiceDecisionTrust service="carpet-upholstery" carpetCounts={carpetCounts} />
               )}
 
               {/* Primary CTA */}

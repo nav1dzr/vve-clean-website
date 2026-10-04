@@ -82,9 +82,9 @@ describe('HomePage — fresh visit', () => {
     renderHome();
     const q = within(quoteSection());
 
-    expect(q.getByText('Instant quote')).toBeInTheDocument();
-    expect(q.getByRole('heading', { name: 'Get an instant quote' })).toBeInTheDocument();
-    expect(q.getByText('Choose a service, select the work and review your price.')).toBeInTheDocument();
+    expect(q.getByText('Your cleaning price')).toBeInTheDocument();
+    expect(q.getByRole('heading', { name: 'Get your cleaning price' })).toBeInTheDocument();
+    expect(q.getByText('Choose your service. We’ll show an estimate or explain what we need to quote.')).toBeInTheDocument();
 
     // Three-step indicator.
     for (const [num, label] of [['1', 'Service'], ['2', 'Details'], ['3', 'Quote']]) {

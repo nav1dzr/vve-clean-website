@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import ScrollToTop from './components/ScrollToTop';
@@ -43,11 +43,8 @@ describe('hash navigation to #quote', () => {
     const user = userEvent.setup();
     renderAt('/end-of-tenancy-cleaning-london');
 
-    const heroCta = (await screen.findAllByRole(
-      'link',
-      { name: 'Build my quote' },
-      { timeout: 5000 },
-    ))[0];
+    const hero = (await screen.findByRole('heading', { level: 1 }, { timeout: 5000 })).closest('section')!;
+    const heroCta = within(hero).getByRole('link', { name: 'Get my moving-out quote' });
     await user.click(heroCta);
 
     await waitFor(() => {
@@ -57,12 +54,12 @@ describe('hash navigation to #quote', () => {
 
   it('lands on and focuses the quote section after a cross-page navigation carrying a hash', async () => {
     const user = userEvent.setup();
-    renderAt('/carpet-cleaning-london');
+    renderAt('/how-we-clean-carpets');
 
-    // Navbar's "Get my price" always targets the homepage's general quote.
+    // The process page's header keeps visitors in the carpet quote journey.
     const navCta = (await screen.findAllByRole(
       'link',
-      { name: 'Get my price' },
+      { name: 'Get a carpet quote' },
       { timeout: 5000 },
     ))[0];
     await user.click(navCta);
@@ -70,9 +67,8 @@ describe('hash navigation to #quote', () => {
     await waitFor(() => {
       expect(document.activeElement?.id).toBe('quote');
     });
-    // The homepage quote is present before any service is chosen — it opens on
-    // the introductory panel — so the link lands on something real.
-    expect(screen.getByRole('heading', { name: 'Get an instant quote' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Carpet cleaning in London');
+    expect(screen.getByRole('button', { name: 'Increase Bedroom quantity' })).toBeInTheDocument();
   });
 });
 

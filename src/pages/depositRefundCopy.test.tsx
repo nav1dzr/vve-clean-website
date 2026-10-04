@@ -69,7 +69,7 @@ describe('Booking page — no-payment request', () => {
     expect(screen.queryByRole('checkbox', { name: /terms of service/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send request — no payment' })).toBeInTheDocument();
     expect(text).not.toMatch(/Stripe checkout|pay now/i);
-    expect(text).toMatch(/email your deposit payment instructions/i);
+    expect(text).toMatch(/agree the details before emailing your £30 deposit options/i);
     expect(text).not.toMatch(/Pay £30 deposit by card|checkout.stripe.com/i);
     expect(text).toMatch(/Booking and cancellation terms apply once an appointment is confirmed/i);
   });
@@ -77,8 +77,8 @@ describe('Booking page — no-payment request', () => {
   it('shows the manager review and customer-agreement steps', () => {
     const { container } = renderBooking();
     const text = container.textContent ?? '';
-    expect(text).toMatch(/Our team will review your request/i);
-    expect(text).toMatch(/We check the date, access details and final price, then contact you/i);
-    expect(text).toMatch(/We email your deposit payment instructions\. Your booking is confirmed once the deposit is paid/i);
+    expect(text).toMatch(/We review your request and agree the details before emailing/i);
+    expect(text).toMatch(/We’ll contact you to agree the work, final price and arrival time before any payment/i);
+    expect(text).toMatch(/Your booking is confirmed once the deposit is paid/i);
   });
 });

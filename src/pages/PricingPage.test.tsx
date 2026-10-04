@@ -44,13 +44,35 @@ describe('PricingPage — current service prices and meaningful comparisons', ()
   it('shows the upholstery visit minimum beside item prices and keeps the next action on that service', async () => {
     const user = userEvent.setup();
     renderPricing();
-    await user.click(screen.getByRole('button', { name: 'Sofas & upholstery' }));
+    await user.click(screen.getByRole('button', { name: /^Sofas & upholstery/ }));
     const panel = screen.getByRole('heading', { name: 'Sofas & upholstery' }).parentElement!;
     expect(panel).toHaveTextContent('£85 minimum per visit');
     expect(within(panel).getByText('2-seater sofa').parentElement).toHaveTextContent('£70');
     expect(screen.getByRole('link', { name: 'Get my price' })).toHaveAttribute('href', '/sofa-cleaning-london#quote');
-    await user.click(screen.getByRole('button', { name: 'Carpets' }));
+    await user.click(screen.getByRole('button', { name: /^Carpets/ }));
     expect(screen.getByRole('link', { name: 'Get my price' })).toHaveAttribute('href', '/carpet-cleaning-london#quote');
     expect(screen.getByRole('heading', { name: 'Carpet cleaning' }).parentElement).toHaveTextContent('£85 minimum per visit');
+  });
+
+  it('keeps included tenancy appliances out of priced extras and shows extras only for relevant services', async () => {
+    const user = userEvent.setup();
+    renderPricing();
+    await user.click(screen.getByText('Optional services and access costs'));
+    const extras = screen.getByText('Optional services and access costs').closest('details')!;
+    expect(extras).toHaveTextContent('Oven, hob and extractor cleaning are included in both end of tenancy packages');
+    expect(within(extras).getAllByRole('term').map(term => term.textContent)).toEqual(['Exterior windows', 'Wall marks & scuffs', 'Key collection/return', 'Rubbish removal (small load)']);
+    expect(within(extras).queryByText('Oven, hob & extractor add-on')).not.toBeInTheDocument();
+    expect(within(extras).queryByText('Inside fridge / freezer add-on')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^Other cleans/ }));
+    expect(within(extras).getByText('Oven, hob & extractor add-on').parentElement).toHaveTextContent('£35');
+    expect(within(extras).getByText('Inside fridge / freezer add-on').parentElement).toHaveTextContent('£25');
+
+    for (const category of [/^Carpets/, /^Sofas & upholstery/]) {
+      await user.click(screen.getByRole('button', { name: category }));
+      expect(extras).toHaveTextContent('Access costs and special requirements');
+      expect(extras.querySelector('dl')).toBeNull();
+      expect(extras).toHaveTextContent('Parking and any applicable Congestion Charge are shown separately and agreed with you');
+    }
   });
 });
