@@ -1,4 +1,5 @@
 import PriceTaxNote from '../components/PriceTaxNote';
+import ServiceDecisionTrust from '../components/ServiceDecisionTrust';
 import { clearQuoteBasket } from '../lib/quoteBasket';
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -928,9 +929,8 @@ export default function BookingPage() {
             Request a preferred cleaning time
           </h1>
           <p className="text-silver-600 text-sm">
-            No payment is required to submit a booking request. After we review
-            and confirm the job details, we’ll email your deposit payment instructions.
-            Your booking is confirmed once the deposit is paid.
+            Add your details and preferred time. We’ll contact you to agree the
+            work, final price and arrival time before any payment.
           </p>
         </div>
 
@@ -1471,25 +1471,14 @@ export default function BookingPage() {
             )}
           </div>
 
-          {/* ── Manager handoff ─────────────────────────────────────────────── */}
-          <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5">
-            <h2 className="font-display text-lg font-bold text-navy-900">
-              What happens next
-            </h2>
-            <ol className="mt-3 space-y-2 text-sm leading-relaxed text-navy-800">
-              <li>
-                <strong>1.</strong> Our team will review your request.
-              </li>
-              <li>
-                <strong>2.</strong> We check the date, access details and final
-                price, then contact you.
-              </li>
-              <li>
-                <strong>3.</strong> We email your deposit payment instructions.
-                Your booking is confirmed once the deposit is paid, and the deposit comes off your total.
-              </li>
-            </ol>
-          </div>
+          {/* Contextual proof and the payment handoff, once beside submit. */}
+          <ServiceDecisionTrust
+            service={selection.quoteConfig?.service !== 'deep' ? 'other'
+              : selection.quoteConfig.deepService === 'end_of_tenancy' ? 'eot'
+                : selection.quoteConfig.deepService === 'carpet_upholstery' ? 'carpet-upholstery' : 'other'}
+            carpetCounts={selection.quoteConfig?.carpetCounts}
+            eotPackage={selection.quoteConfig?.eotPackage}
+          />
 
           {/* ── Submit error ────────────────────────────────────────────────── */}
           {(submitError || quoteNeedsReview) && (

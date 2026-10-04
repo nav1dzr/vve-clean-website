@@ -43,6 +43,8 @@ describe("booking wording suggestions", () => {
     expect(result.items).toContain("Kitchen and bathroom surfaces");
     expect(result.items).toContain("Hob, grill and extractor");
     expect(result.items).toContain("Standard vacuuming and suitable hard-floor mopping");
+    expect(result.items).toContain("Cleaning completion record available on request");
+    expect(result.items).not.toMatch(/photographic|paid receipt|automatically/i);
     expect(result.items).not.toMatch(/microwave|fridge|dishwasher|cupboards|67-point|guarantee/i);
     expect(result.items.match(/oven/gi)).toHaveLength(1);
     expect(result.accessNotes).toBe("Parking: free parking available — £0");
@@ -56,6 +58,8 @@ describe("booking wording suggestions", () => {
     expect(result.items).toContain("emptied fridge/freezer");
     expect(result.items).toContain("Empty cupboards, drawers and wardrobes");
     expect(result.items).toContain("accessible internal windows");
+    expect(result.items).toContain("Cleaning completion record available on request");
+    expect(result.items).not.toMatch(/photographic|paid receipt|automatically/i);
     expect(result.items).not.toMatch(/carpet steam|exterior windows|rubbish|guarantee/i);
   });
   it("does not infer a package from a service title or replace an existing cleaning list", () => {

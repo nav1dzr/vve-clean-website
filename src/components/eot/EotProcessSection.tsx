@@ -1,4 +1,4 @@
-import { ClipboardCheck, ListChecks, Flame, Camera, RefreshCw } from 'lucide-react';
+import { ClipboardCheck, ListChecks, Flame, FileText, RefreshCw } from 'lucide-react';
 import { EOT_GUARANTEE_HOURS } from '../../data/pricing';
 
 // Process and inclusions drawn from the existing end of tenancy service scope.
@@ -19,9 +19,9 @@ const STEPS = [
     body: 'The oven, hob, grill and extractor are included in both packages. Complete also includes the listed appliance and storage interiors; Tailored includes those you select.',
   },
   {
-    icon: Camera,
-    title: 'Photographic receipt',
-    body: 'We photograph the finished clean so you have dated evidence to share with your letting agent or landlord.',
+    icon: FileText,
+    title: 'Cleaning completion record',
+    body: 'We can prepare a record of the completed cleaning and any exceptions for your letting agent or landlord. Your paid receipt is available once payment is recorded.',
   },
   {
     icon: RefreshCw,

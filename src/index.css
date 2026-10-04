@@ -325,3 +325,19 @@ details[open] > .faq-summary .faq-icon {
   min-width: 0;
   flex-wrap: wrap;
 }
+
+/* Keep job photos before supplementary reassurance on narrow screens. */
+.conversion-hero-grid { display: grid; gap: 1.5rem; }
+@media (min-width: 1024px) {
+  .conversion-hero-grid--with-media {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+    column-gap: 3rem;
+    align-items: start;
+  }
+  .conversion-hero-copy, .conversion-hero-reassurance { grid-column: 1; }
+  .conversion-hero-grid--with-media .conversion-hero-media {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+}

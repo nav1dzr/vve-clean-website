@@ -93,10 +93,35 @@ describe('below-the-fold reveal animations are preserved', () => {
   });
 });
 
+describe('service hero decision order', () => {
+  it.each(pages.slice(0, 3))('%s keeps the job photo before supplementary reassurance', (_name, path, page) => {
+    const doc = new DOMParser().parseFromString(ssr(path, page), 'text/html');
+    const hero = doc.querySelector('.service-hero');
+    const photo = hero?.querySelector('.conversion-hero-media');
+    const reassurance = hero?.querySelector('.conversion-hero-reassurance');
+    expect(photo?.querySelector('img')).not.toBeNull();
+    // Sofa's deliberately compact hero has no supplementary reassurance block.
+    if (path === '/sofa-cleaning-london') expect(reassurance).toBeNull();
+    else {
+      expect(reassurance).not.toBeNull();
+      expect(photo!.compareDocumentPosition(reassurance!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+    // The proof remains beside the decision, rather than moving below the photo.
+    expect(hero?.querySelector('.conversion-hero-copy a[aria-label*="Google"]')).not.toBeNull();
+  });
+
+  it('keeps the scoped EOT guarantee and its terms beside the hero action', () => {
+    const doc = new DOMParser().parseFromString(ssr('/end-of-tenancy-cleaning-london', <EndOfTenancyPage />), 'text/html');
+    const copy = doc.querySelector('.conversion-hero-copy');
+    expect(copy?.textContent).toContain('7-day');
+    expect(copy?.querySelector('a[href$="#guarantee"]')).not.toBeNull();
+  });
+});
+
 describe('standalone booking selector is visible in prerendered HTML', () => {
   it('does not hide the quote heading or selector behind opacity-0', () => {
     const html = ssr('/booking', <BookingPage />);
-    const quoteStart = html.indexOf('Get an instant quote');
+    const quoteStart = html.indexOf('Get your cleaning price');
     expect(quoteStart).toBeGreaterThan(-1);
 
     const quoteMarkup = html.slice(quoteStart, html.indexOf('</section>', quoteStart));

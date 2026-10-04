@@ -1,5 +1,7 @@
 import { useBookingCtx } from '../context/BookingContext';
+import { resolvePath, useLocation } from 'react-router-dom';
 import MobileActionBar, { MOBILE_PRIMARY_CLASS, WhatsAppActionIcon } from './MobileActionBar';
+import PagePrimaryActionLink, { type PagePrimaryAction } from './PagePrimaryActionLink';
 
 const WA_HELP = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20to%20get%20a%20quote.';
 
@@ -12,8 +14,13 @@ const CAL_ICON = (
   </svg>
 );
 
-export default function MobileStickyFooter() {
+interface MobileStickyFooterProps {
+  fallbackAction?: PagePrimaryAction;
+}
+
+export default function MobileStickyFooter({ fallbackAction }: MobileStickyFooterProps) {
   const { state, waLink, onBook } = useBookingCtx();
+  const location = useLocation();
 
   // A page that owns its own fixed bottom bar suppresses this one entirely.
   if (state === 'hidden') return null;
@@ -36,6 +43,18 @@ export default function MobileStickyFooter() {
   };
 
   const helpLink = state === 'manual' ? waLink : WA_HELP;
+  // A service page uses its canonical /service#quote URL, while a process
+  // page links to another service's calculator. Only the current page's
+  // quote target belongs on the scroll-and-validation button.
+  const target = fallbackAction && /^(#|\/(?!\/))/.test(fallbackAction.href)
+    ? resolvePath(fallbackAction.href, location.pathname)
+    : null;
+  const isCurrentQuote = target?.hash === '#quote'
+    && target.pathname.replace(/\/$/, '') === location.pathname.replace(/\/$/, '')
+    && (!target.search || target.search === location.search);
+  const pageAction = state === 'none' && !isCurrentQuote
+    ? fallbackAction
+    : undefined;
 
   return (
     <MobileActionBar
@@ -44,6 +63,11 @@ export default function MobileStickyFooter() {
         <a href={waLink} target="_blank" rel="noopener noreferrer" className={MOBILE_PRIMARY_CLASS} aria-label="Request a quote via WhatsApp">
           <WhatsAppActionIcon /><span>Request a quote</span>
         </a>
+      ) : pageAction ? (
+        <PagePrimaryActionLink action={pageAction} className={MOBILE_PRIMARY_CLASS}>
+          {pageAction.isWa ? <WhatsAppActionIcon /> : CAL_ICON}
+          <span>{pageAction.label}</span>
+        </PagePrimaryActionLink>
       ) : (
         <button type="button" onClick={handlePrimaryClick} className={MOBILE_PRIMARY_CLASS}>
           {CAL_ICON}

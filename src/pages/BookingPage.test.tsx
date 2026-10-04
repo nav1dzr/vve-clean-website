@@ -187,13 +187,15 @@ describe("BookingPage — booking request wording", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows the required introduction wording", () => {
+  it("explains agreement before payment and keeps deposit confirmation beside submit", () => {
     renderBookingPage();
     expect(
       screen.getByText(
-        /No payment is required to submit a booking request\. After we review and confirm the job details, we’ll email your deposit payment instructions\. Your booking is confirmed once the deposit is paid\./,
+        /We’ll contact you to agree the work, final price and arrival time before any payment\./,
       ),
     ).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: 'Before you send your request' }))
+      .toHaveTextContent('Your booking is confirmed once the deposit is paid.');
   });
 
   it("shows the required supporting text near the date fields", () => {

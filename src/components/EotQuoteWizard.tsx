@@ -1,4 +1,5 @@
 import PriceTaxNote from './PriceTaxNote';
+import ServiceDecisionTrust from './ServiceDecisionTrust';
 import { readQuoteBasket, saveQuoteBasket, restoreShape } from '../lib/quoteBasket';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -441,7 +442,7 @@ const COMPLETE_KEY_BENEFITS = [
 ];
 const COMPLETE_MORE_INCLUDED = [
   'Internal windows', 'Bathrooms fully descaled, tiles, grouting and fixtures',
-  'Skirting boards, doors, frames and switches', 'Photographic cleaning receipt',
+  'Skirting boards, doors, frames and switches', 'Cleaning completion record for your agent',
 ];
 const COMPLETE_NOT_INCLUDED = [
   'Professional carpet steam cleaning', 'Upholstery cleaning', 'Exterior windows', 'Rubbish removal', 'Parking and Congestion Charge',
@@ -452,7 +453,7 @@ const TAILORED_CORE_INCLUDED = [
   'Standard vacuuming and hard-floor mopping',
 ];
 const TAILORED_MORE_INCLUDED = [
-  'Bedrooms and reception rooms', 'Internal windows', 'Skirting boards, doors, frames and switches', 'Photographic receipt',
+  'Bedrooms and reception rooms', 'Internal windows', 'Skirting boards, doors, frames and switches', 'Cleaning completion record for your agent',
 ];
 const TAILORED_ADD_LATER = [
   'Inside microwave', 'Inside fridge/freezer', 'Inside dishwasher', 'Inside washing machine', 'Cupboards, drawers and wardrobes',
@@ -1432,14 +1433,11 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                     <span data-testid="final-total" className="text-navy-900 font-display font-bold text-3xl">{penceToDisplay(totalP)}</span>
                   </div>
                   <PriceTaxNote className="mt-2" />
-                  <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-sm text-navy-800">
-                    <strong>No payment is required to submit a booking request.</strong> After we review and confirm the job details, we’ll email your deposit payment instructions. Your booking is confirmed once the deposit is paid.
-                  </div>
-                  <div className="mt-4 inline-flex items-center gap-1.5 text-green-800 bg-green-50 border border-green-200 rounded-full px-3 py-1.5 text-xs font-semibold">
-                    <ShieldCheck size={13} /> {state.pkg === 'complete' ? `${EOT_GUARANTEE_HOURS / 24}-day reporting window on the agreed checklist` : `${EOT_GUARANTEE_HOURS / 24}-day reporting window on selected tasks`}
+                  <div className="mt-3">
+                    <ServiceDecisionTrust service="eot" eotPackage={state.pkg} />
                   </div>
                   <p className="text-navy-600 text-[11px] mt-3 leading-relaxed">
-                    Your preferred time remains a request until the job details are agreed and the deposit is paid. The remaining balance is due on the day of the clean.
+                    The remaining balance is due on the day of the clean.
                   </p>
                 </div>
               )}
@@ -1455,11 +1453,9 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         )}
       </div>
 
-      {/* Sticky quote summary. It sits above the site's mobile booking bar and
-          cookie banner, then returns to bottom: 0 when that bar is hidden on
-          desktop. The content area remains in normal document flow, so no
-          selections are obscured behind it. */}
-      <div className="sticky bottom-[calc(var(--vve-cookie-banner-h,0px)+env(safe-area-inset-bottom,0px))] z-30 border-t border-line bg-white/95 backdrop-blur-xl rounded-b-[28px] shadow-[0_-14px_34px_rgba(2,11,36,0.10)]">
+      {/* Keep step navigation visible while selecting. On the review step the
+          back-only footer stays in flow so it cannot cover the request button. */}
+      <div className={`${step < TOTAL_STEPS ? 'sticky bottom-[calc(var(--vve-cookie-banner-h,0px)+env(safe-area-inset-bottom,0px))]' : ''} z-30 border-t border-line bg-white/95 backdrop-blur-xl rounded-b-[28px] shadow-[0_-14px_34px_rgba(2,11,36,0.10)]`}>
         <div
           className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-y-3 gap-x-4 px-5 sm:px-8 lg:px-10 py-4 max-w-3xl mx-auto"
           data-testid="footer-nav"

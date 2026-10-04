@@ -140,7 +140,7 @@ export default function CommercialPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: SCHEMA }} />
       <FaqSchema items={FAQS} />
       <div className="min-h-screen bg-[#fafbfd] mobile-page-bottom lg:pb-0">
-        <Navbar />
+        <Navbar primaryAction={{ href: WA_COMMERCIAL, label: 'Request a site visit', isWa: true }} />
         <main id="main-content">
           <section className="relative overflow-hidden bg-navy-950 px-4 pb-20 pt-28">
             <div aria-hidden="true" className="absolute -right-40 -top-40 h-[520px] w-[520px] rounded-full bg-sky-500/10 blur-3xl" />
@@ -312,7 +312,7 @@ export default function CommercialPage() {
         </main>
         <Footer />
       </div>
-      <MobileStickyFooter />
+      <MobileStickyFooter fallbackAction={{ href: WA_COMMERCIAL, label: 'Request a site visit', isWa: true }} />
     </>
   );
 }
