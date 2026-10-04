@@ -160,6 +160,9 @@ const SIZE_OPTIONS: { key: SizeKey; label: string }[] = [
 
 const STEP_LABELS = ['Property', 'Package', 'Floor care', 'Review'];
 const TOTAL_STEPS = 4;
+const PROPERTY_SELECTION_ERROR = 'Choose your property size to continue.';
+const CARPET_SELECTION_ERROR = 'Choose at least one carpet area, or select Standard floor care.';
+const PHOTO_REVIEW_ERROR = 'This property needs a quick photo review before we can confirm a price — please use WhatsApp below.';
 
 const MANUAL_CARPET_FIELDS: { key: keyof Omit<ManualCarpetCounts, 'stairFlights'>; addonKey: string; label: string; idPrefix: string; priceP: number }[] = [
   { key: 'bedroom', addonKey: 'bedroom', label: 'Bedrooms', idPrefix: 'bed', priceP: CARPET_ITEM_PRICES_P.bedroom },
@@ -238,32 +241,78 @@ function manualCarpetRooms(counts: ManualCarpetCounts): RoomState[] {
   return rooms;
 }
 
+type StoredCarpetRoom = Pick<RoomState, 'id' | 'addonKey' | 'floor' | 'stairFlights'>;
+const RESTORABLE_CARPET_KEYS = new Set(['bedroom', 'living_room', 'dining_room', 'large_lounge', 'hallway', 'landing', 'stairs']);
+
+function isStoredRoomId(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length < 100;
+}
+
+function isStoredCarpetRoom(value: unknown): value is StoredCarpetRoom {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const room = value as Record<string, unknown>;
+  return isStoredRoomId(room.id)
+    && typeof room.addonKey === 'string' && RESTORABLE_CARPET_KEYS.has(room.addonKey)
+    && typeof room.floor === 'string' && ['unset', 'carpet', 'hard', 'na'].includes(room.floor)
+    && (room.stairFlights === undefined || (typeof room.stairFlights === 'number'
+      && Number.isInteger(room.stairFlights) && room.stairFlights >= 1 && room.stairFlights <= 100));
+}
+
+function restoredAdditionalRoomLabel(room: StoredCarpetRoom): string | null {
+  if (/^reception-\d+$/.test(room.id) && room.addonKey === 'living_room') return 'Additional reception room';
+  if (/^hallway-\d+$/.test(room.id) && room.addonKey === 'hallway') return 'Additional hallway';
+  if (/^landing-\d+$/.test(room.id) && room.addonKey === 'landing') return 'Additional landing';
+  return null;
+}
+
+// The booking hand-off stores selected areas, including rooms added beyond the
+// suggested layout. Rebuild their labels from known area types, not saved HTML.
+function restoreWholeCarpetRooms(defaults: RoomState[], stored: StoredCarpetRoom[], selectedIds: string[]): RoomState[] {
+  const selected = new Set(selectedIds);
+  const storedById = new Map(stored.map(room => [room.id, room]));
+  const defaultIds = new Set(defaults.map(room => room.id));
+  const rooms = defaults.map((room): RoomState => {
+    const match = storedById.get(room.id);
+    if (!match || match.addonKey !== room.addonKey) return room;
+    return {
+      ...room,
+      floor: match.floor,
+      steamClean: match.floor === 'carpet' && selected.has(room.id),
+      ...(room.addonKey === 'stairs' ? { stairFlights: match.stairFlights ?? 1 } : {}),
+    };
+  });
+  for (const room of stored) {
+    if (defaultIds.has(room.id) || !selected.has(room.id) || room.floor !== 'carpet') continue;
+    const label = restoredAdditionalRoomLabel(room);
+    if (label) rooms.push({ ...room, label, steamClean: true, removable: true });
+  }
+  return rooms;
+}
+
 function makeInitialState(restore?: EotBookingResult['quoteConfig'] | null): EotWizardState {
   const restoredPropertyType: PropertyType = restore?.isHouse ? 'house' : 'flat';
   const restoredSize: SizeKey = (restore?.deepSize as SizeKey) ?? 'studio';
   const size: SizeKey = eotPropertySizeValid(restoredPropertyType, restoredSize) ? restoredSize : 'bed1';
   const propertyType = restoredPropertyType;
-  const restoredCarpetIds = restore?.carpetRoomIds ?? [];
+  const restoredCarpetIds = Array.isArray(restore?.carpetRoomIds) && restore.carpetRoomIds.length <= 80
+    && restore.carpetRoomIds.every(isStoredRoomId)
+    && new Set(restore.carpetRoomIds).size === restore.carpetRoomIds.length ? restore.carpetRoomIds : [];
+  const restoredRooms = Array.isArray(restore?.rooms) && restore.rooms.length <= 80
+    && restore.rooms.every(isStoredCarpetRoom)
+    && new Set(restore.rooms.map(room => room.id)).size === restore.rooms.length ? restore.rooms : [];
   const hasCarpet = restoredCarpetIds.length > 0;
   const isManualRestore = hasCarpet && restoredCarpetIds.some((id) => id.startsWith('manual-'));
 
-  const rooms = defaultRooms(size, propertyType);
+  let rooms = defaultRooms(size, propertyType);
   const manualCarpetCounts = defaultManualCarpetCounts();
 
-  if (hasCarpet && !isManualRestore && restore?.rooms) {
-    for (const r of rooms) {
-      const match = restore.rooms.find((rr) => rr.id === r.id);
-      if (match) {
-        r.floor = match.floor as FloorState;
-        if (r.addonKey === 'stairs') r.stairFlights = Number(match.stairFlights) || 1;
-      }
-      r.steamClean = restoredCarpetIds.includes(r.id);
-    }
-  } else if (isManualRestore && restore?.rooms) {
-    for (const r of restore.rooms) {
-      if (!restoredCarpetIds.includes(r.id)) continue;
+  if (hasCarpet && !isManualRestore) {
+    rooms = restoreWholeCarpetRooms(rooms, restoredRooms, restoredCarpetIds);
+  } else if (isManualRestore) {
+    for (const r of restoredRooms) {
+      if (!restoredCarpetIds.includes(r.id) || r.floor !== 'carpet') continue;
       if (r.addonKey === 'stairs') { manualCarpetCounts.stairFlights = Number(r.stairFlights) || 1; continue; }
-      const field = MANUAL_CARPET_FIELDS.find((f) => r.id.startsWith(`manual-${f.idPrefix}-`));
+      const field = MANUAL_CARPET_FIELDS.find((f) => r.addonKey === f.addonKey && r.id.startsWith(`manual-${f.idPrefix}-`));
       if (field) manualCarpetCounts[field.key] += 1;
     }
   }
@@ -447,6 +496,8 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
     saveQuoteBasket({ kind: 'eot', label: `End of tenancy · ${state.is5Plus ? '5+ bedrooms' : state.size === 'studio' ? 'Studio' : state.size.replace('bed', '') + ' bedrooms'} · ${state.pkg === 'complete' ? 'Complete' : 'Tailored'}`, href: '', config: { ...state }, step });
   }, [state, step]);
   const [bookError, setBookError] = useState('');
+  const bookErrorRef = useRef<HTMLDivElement>(null);
+  const [validationAttempt, setValidationAttempt] = useState(0);
   const [upholsteryOpen, setUpholsteryOpen] = useState(false);
   const wizardRootRef = useRef<HTMLDivElement>(null);
   const hasMountedRef = useRef(false);
@@ -541,6 +592,27 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   const completeSavingP = totalP - completeTotalP;
   const hasExtraFridgeFreezers = state.tailoredAddOns.extraFridgeFreezers > 0;
   const canOfferComplete = quote.shouldOfferComplete && !hasExtraFridgeFreezers;
+  const needsCarpetSelection = state.floorCareChoice === 'professional' && activeCarpetRooms.length === 0;
+
+  function showBookingError(message: string, targetStep = step) {
+    setBookError(message);
+    setStep(targetStep);
+    setValidationAttempt(attempt => attempt + 1);
+  }
+
+  useEffect(() => {
+    if (!bookError) return;
+    // Follow step-heading focus when a saved review needs correction, and focus
+    // the same error again after repeated attempts. Cancel stale focus callbacks.
+    const frame = window.requestAnimationFrame(() => bookErrorRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [bookError, validationAttempt, step]);
+
+  useEffect(() => {
+    if ((bookError === CARPET_SELECTION_ERROR && !needsCarpetSelection)
+      || (bookError === PROPERTY_SELECTION_ERROR && state.propertySizeChosen && !state.is5Plus)
+      || (bookError === PHOTO_REVIEW_ERROR && !isQuoteReviewCondition)) setBookError('');
+  }, [bookError, needsCarpetSelection, state.propertySizeChosen, state.is5Plus, isQuoteReviewCondition]);
 
   function selectPackage(pkg: EotPackage) {
     // Extra units are outside the comparable standard package. The current
@@ -605,6 +677,14 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   }
 
   function goNext() {
+    if (step === 1 && (!state.propertySizeChosen || state.is5Plus)) {
+      showBookingError(PROPERTY_SELECTION_ERROR, 1);
+      return;
+    }
+    if (step === 3 && needsCarpetSelection) {
+      showBookingError(CARPET_SELECTION_ERROR, 3);
+      return;
+    }
     setBookError('');
     setStep((s) => Math.min(TOTAL_STEPS, s + 1));
   }
@@ -614,10 +694,19 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   }
 
   function handleBook() {
-    if (isQuoteReviewCondition) {
-      setBookError('This property needs a quick photo review before we can confirm a price — please use WhatsApp below.');
+    if (!state.propertySizeChosen || state.is5Plus) {
+      showBookingError(PROPERTY_SELECTION_ERROR, 1);
       return;
     }
+    if (needsCarpetSelection) {
+      showBookingError(CARPET_SELECTION_ERROR, 3);
+      return;
+    }
+    if (isQuoteReviewCondition) {
+      showBookingError(PHOTO_REVIEW_ERROR);
+      return;
+    }
+    setBookError('');
     const sel: EotBookingResult = {
       serviceName: `End of tenancy — ${state.pkg === 'complete' ? 'Complete Agency-Ready Clean' : 'Tailored Checklist Clean'} · ${SIZE_OPTIONS.find((s) => s.key === state.size)?.label}`,
       // Exact pence, converted to pounds without rounding — a £127.50 total
@@ -670,7 +759,8 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
       : penceToDisplay(totalP);
   const propertySummary = `${sizeLabel} ${state.propertyType === 'flat' ? 'flat' : 'house / maisonette'} · ${state.fullBathrooms} bathroom${state.fullBathrooms !== 1 ? 's' : ''}${state.extraWcs > 0 ? ` · ${state.extraWcs} WC${state.extraWcs !== 1 ? 's' : ''}` : ''}`;
   const packageSummary = state.pkg === 'complete' ? 'Complete' : 'Tailored';
-  const floorSummary = state.floorCareChoice === 'professional'
+  const floorSummary = needsCarpetSelection ? 'Choose carpet areas'
+    : state.floorCareChoice === 'professional'
     ? 'Professional carpet cleaning'
     : state.floorCareChoice === 'none' ? 'Hard floors only' : state.floorCareChoice === 'standard' ? 'Standard floor care' : 'Floor care not selected';
   const footerSubtext = step === 1
@@ -706,6 +796,12 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
       )}
 
       <div className="px-5 sm:px-8 lg:px-10 py-7 sm:py-9 max-w-3xl mx-auto w-full">
+        {bookError && (
+          <div ref={bookErrorRef} role="alert" tabIndex={-1}
+            className="mb-4 scroll-mt-28 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-amber-600">
+            {bookError}
+          </div>
+        )}
         {hasExtraFridgeFreezers && (step === 2 || step === 4) && <p id="extra-fridge-scope" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Your selection includes an additional fridge/freezer. Keep Tailored for this estimate and ask us to confirm the Complete scope before switching. Your additional units remain selected.</p>}
         {/* ══ Step 1: Property ══ */}
         {step === 1 && (
@@ -1260,7 +1356,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                 <div className="px-4 py-3 flex justify-between text-sm">
                   <span className="text-navy-600">Floor care</span>
                   <span className="text-navy-900 font-semibold">
-                    {state.floorCareChoice === 'professional' ? 'Professional carpet steam cleaning' : state.floorCareChoice === 'none' ? 'No carpeted areas' : 'Standard (included)'}
+                    {needsCarpetSelection ? 'Choose carpet areas before continuing' : state.floorCareChoice === 'professional' ? 'Professional carpet steam cleaning' : state.floorCareChoice === 'none' ? 'No carpeted areas' : 'Standard (included)'}
                   </span>
                 </div>
                 {state.pkg === 'tailored' && Object.entries(state.tailoredAddOns).some(([k, v]) => (k === 'extraFridgeFreezers' ? Number(v) > 0 : v)) && (
@@ -1346,10 +1442,6 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                     Your preferred time remains a request until the job details are agreed and the deposit is paid. The remaining balance is due on the day of the clean.
                   </p>
                 </div>
-              )}
-
-              {bookError && (
-                <div role="alert" className="rounded-xl px-4 py-3 bg-amber-50 border border-amber-200 text-amber-900 text-sm mt-3">{bookError}</div>
               )}
 
               {!isQuoteReviewCondition && (

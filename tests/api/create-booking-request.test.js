@@ -9,6 +9,7 @@ const insertSingleMock = vi.fn();
 const claimNotificationsMock = vi.fn();
 const recordNotificationMock = vi.fn();
 const sendMailMock = vi.fn();
+const updateGa4ContextMock = vi.fn();
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(() => ({
@@ -19,13 +20,16 @@ vi.mock("@supabase/supabase-js", () => ({
         return recordNotificationMock(args);
       throw new Error(`Unexpected RPC: ${name}`);
     },
-    from: () => ({
+    from: (table) => ({
       select: () => ({
         like: (...args) => selectLikeMock(...args),
         eq: (...args) => ({ maybeSingle: () => selectRequestMock(...args) }),
       }),
       insert: (row) => ({
         select: () => ({ single: () => insertSingleMock(row) }),
+      }),
+      update: (row) => ({
+        eq: (column, value) => updateGa4ContextMock(table, row, column, value),
       }),
     }),
   })),
@@ -151,6 +155,8 @@ describe("POST /api/create-booking-request", () => {
     delete process.env.TELEGRAM_BOT_TOKEN;
     delete process.env.TELEGRAM_CHAT_ID;
     delete process.env.WEBSITE_PRICEBOOK_ENABLED;
+    vi.stubEnv("GA4_BOOKING_MEASUREMENT_MODE", "disabled");
+    updateGa4ContextMock.mockResolvedValue({ error: null });
     loadPricebookMock.mockResolvedValue({
       version: "pricebook-v1",
       catalogue: createPricingCatalogue(),
@@ -177,6 +183,93 @@ describe("POST /api/create-booking-request", () => {
     process.env.BUSINESS_EMAIL = "manager@example.com";
     sendMailMock.mockResolvedValue({ accepted: ["ok"] });
   }
+
+  function ga4Context(overrides = {}) {
+    return {
+      analytics: true, advertising: false, consent_version: "2026-07-14",
+      measurement_id: "G-TEST1234", client_id: "123456789.1791000000", session_id: "1791000000",
+      captured_at: new Date().toISOString(), consent_recorded_at: new Date().toISOString(),
+      ...overrides,
+    };
+  }
+
+  function configureGa4AndNotifications() {
+    vi.stubEnv("GA4_BOOKING_MEASUREMENT_MODE", "validate");
+    vi.stubEnv("GA4_MEASUREMENT_ID", "G-TEST1234");
+    configureEmails();
+    process.env.TELEGRAM_BOT_TOKEN = "test-bot-token";
+    process.env.TELEGRAM_CHAT_ID = "test-chat-id";
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  function expectAcceptedWithNotifications(response, fetchMock) {
+    expect(response.statusCode).toBe(201);
+    expect(JSON.parse(response.body)).toMatchObject({ ok: true, requestId: "booking-1", total: 85 });
+    expect(insertSingleMock).toHaveBeenCalledOnce();
+    expect(sendMailMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0][0]).toContain("/bottest-bot-token/sendMessage");
+    expect(recordNotificationMock.mock.calls.filter(([result]) => result.p_status === "sent")).toHaveLength(3);
+  }
+
+  it("saves valid optional GA4 context only after accepting the request and preserves all notification channels", async () => {
+    const fetchMock = configureGa4AndNotifications();
+    const context = ga4Context();
+    const response = res();
+    await handler(req(payload({ ga4_context: { ...context, customer_email: "must-not-be-saved@example.invalid", mode: "live" } })), response);
+    expectAcceptedWithNotifications(response, fetchMock);
+    expect(insertSingleMock.mock.calls[0][0]).not.toHaveProperty("ga4_context");
+    expect(updateGa4ContextMock).toHaveBeenCalledExactlyOnceWith("bookings", { ga4_context: { ...context, mode: "validate" } }, "id", "booking-1");
+    expect(insertSingleMock.mock.invocationCallOrder[0]).toBeLessThan(updateGa4ContextMock.mock.invocationCallOrder[0]);
+    expect(updateGa4ContextMock.mock.invocationCallOrder[0]).toBeLessThan(claimNotificationsMock.mock.invocationCallOrder[0]);
+  });
+
+  it.each(["database error", "rejected write"])("accepts the request and sends notifications after an optional GA4 %s", async failure => {
+    const fetchMock = configureGa4AndNotifications();
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    if (failure === "database error") updateGa4ContextMock.mockResolvedValue({ error: { message: "private database detail" } });
+    else updateGa4ContextMock.mockRejectedValue(new Error("private database detail"));
+    const response = res();
+    await handler(req(payload({ ga4_context: ga4Context() })), response);
+    expectAcceptedWithNotifications(response, fetchMock);
+    expect(updateGa4ContextMock).toHaveBeenCalledOnce();
+    expect(warning).toHaveBeenCalledWith("[booking-request] optional GA4 context was not saved");
+    expect(JSON.stringify(warning.mock.calls)).not.toContain("private database detail");
+  });
+
+  it.each(["disabled", "missing", "analytics denied", "wrong property", "invalid identity"])("makes no metadata update for %s GA4 context", async scenario => {
+    const fetchMock = configureGa4AndNotifications();
+    let context = ga4Context();
+    if (scenario === "disabled") vi.stubEnv("GA4_BOOKING_MEASUREMENT_MODE", "disabled");
+    if (scenario === "missing") context = undefined;
+    if (scenario === "analytics denied") context.analytics = false;
+    if (scenario === "wrong property") context.measurement_id = "G-OTHER123";
+    if (scenario === "invalid identity") context.client_id = "customer@example.invalid";
+    const response = res();
+    await handler(req(payload({ ga4_context: context })), response);
+    expectAcceptedWithNotifications(response, fetchMock);
+    expect(updateGa4ContextMock).not.toHaveBeenCalled();
+  });
+
+  it("ignores changed analytics metadata in retry identity without overwriting first saved context or resending notifications", async () => {
+    const fetchMock = configureGa4AndNotifications();
+    const context = ga4Context();
+    const original = payload({ ga4_context: context });
+    const first = res();
+    await handler(req(original), first);
+    expectAcceptedWithNotifications(first, fetchMock);
+    selectRequestMock.mockResolvedValue({ data: { ...insertSingleMock.mock.calls[0][0], id: "booking-1" }, error: null });
+    const retry = res();
+    await handler(req({ ...original, ga4_context: ga4Context({ client_id: "987654321.1791000001", advertising: true }) }), retry);
+    expect(retry.statusCode).toBe(200);
+    expect(JSON.parse(retry.body)).toEqual({ ...JSON.parse(first.body), replayed: true });
+    expect(insertSingleMock).toHaveBeenCalledOnce();
+    expect(updateGa4ContextMock).toHaveBeenCalledExactlyOnceWith("bookings", { ga4_context: { ...context, mode: "validate" } }, "id", "booking-1");
+    expect(sendMailMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
 
   it('sends approved preview acknowledgements only to the test inbox, with no inherited Telegram message', async () => {
     configureEmails();

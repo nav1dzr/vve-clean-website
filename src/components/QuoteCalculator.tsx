@@ -2,11 +2,12 @@ import PriceTaxNote from './PriceTaxNote';
 import GoogleBadge from './GoogleBadge';
 import { readQuoteBasket, saveQuoteBasket, clearQuoteBasket, restoreShape } from '../lib/quoteBasket';
 import { useState, useCallback, useRef, useEffect, useId, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { trackBookingInitiated, trackFunnelStep } from '../lib/analytics';
 import { Calculator, CheckCircle2, Plus, Minus, Info, AlertCircle, ChevronDown, ShieldCheck } from 'lucide-react';
 import { useBookingCtx } from '../context/BookingContext';
 import { rememberQuoteOrigin } from '../lib/quoteOrigin';
+import { bookingRouteState, readBookingHandoff, readStoredQuoteConfig, storeBookingSelection, hasQuoteRestoreFlag, clearQuoteRestoreFlag } from '../lib/bookingHandoff';
 import { useReveal } from '../hooks/useReveal';
 import type { HomepageQuoteService } from './HomeServiceSelector';
 import EotQuoteWizard, { type EotBookingResult } from './EotQuoteWizard';
@@ -318,26 +319,22 @@ const TRUST_ITEMS = [
   'Direct contact with VVE Clean',
 ];
 
-// ─── Session-restore helper ───────────────────────────────────────────────────
-// Reads vve_booking.quoteConfig from sessionStorage only when the temporary
-// vve_restore_quote flag is present (set by "Back to quote" in BookingPage).
+// Back links carry their quote in router state. Session storage and the basket
+// remain optional recovery paths, never requirements for navigation.
 
-function getRestoreConfig(): BookingSelection['quoteConfig'] | null {
-  const draft = readQuoteBasket();
-  try {
-    if (!sessionStorage.getItem('vve_restore_quote')) {
-      if (draft?.kind === 'eot') return { deepService: 'end_of_tenancy' } as BookingSelection['quoteConfig'];
-      if (draft?.kind !== 'standard') return null;
-      const config = draft.config;
-      if (!['carpet_upholstery', 'move_in', 'after_builders'].includes(String(config.deepService))) return null;
-      return restoreShape({ service: 'deep', deepService: 'carpet_upholstery', deepSize: 'bed2', deepBaths: 1, addOnCounts: Object.fromEntries(addOnDefs.map(a => [a.key, 0])), carpetCounts: Object.fromEntries(CARPET_GROUPS.flatMap(g => g.items).map(i => [i.key, 0])), carpetCondition: 'normal', windowSize: 'small', gutterType: 'terraced', officeHours: 2, propertyType: 'flat' }, config) as BookingSelection['quoteConfig'];
-    }
-    const raw = sessionStorage.getItem('vve_booking');
-    if (!raw) return null;
-    return (JSON.parse(raw) as BookingSelection).quoteConfig ?? null;
-  } catch {
-    return null;
+function getRestoreConfig(routeState: unknown): BookingSelection['quoteConfig'] | null {
+  const handoff = readBookingHandoff(routeState);
+  if (handoff?.restoreQuote) return handoff.selection.quoteConfig ?? null;
+  if (hasQuoteRestoreFlag()) {
+    const stored = readStoredQuoteConfig();
+    if (stored) return stored;
   }
+  const draft = readQuoteBasket();
+  if (draft?.kind === 'eot') return { deepService: 'end_of_tenancy' } as BookingSelection['quoteConfig'];
+  if (draft?.kind !== 'standard') return null;
+  const config = draft.config;
+  if (!['carpet_upholstery', 'move_in', 'after_builders'].includes(String(config.deepService))) return null;
+  return restoreShape({ service: 'deep', deepService: 'carpet_upholstery', deepSize: 'bed2', deepBaths: 1, addOnCounts: Object.fromEntries(addOnDefs.map(a => [a.key, 0])), carpetCounts: Object.fromEntries(CARPET_GROUPS.flatMap(g => g.items).map(i => [i.key, 0])), carpetCondition: 'normal', windowSize: 'small', gutterType: 'terraced', officeHours: 2, propertyType: 'flat' }, config) as BookingSelection['quoteConfig'];
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -356,6 +353,7 @@ export default function QuoteCalculator({
   const { ref, visible } = useReveal();
   const contentVisible = aboveFold || visible;
   const navigate = useNavigate();
+  const location = useLocation();
   const { setCtx }      = useBookingCtx();
   const [bookError, setBookError]   = useState('');
   const serviceAreaRef  = useRef<HTMLDivElement>(null);
@@ -368,7 +366,7 @@ export default function QuoteCalculator({
     // An explicit service choice starts that selection; ordinary navigation and
     // the basket's resume link still restore the saved quote.
     if (homepageService !== null) return null;
-    const saved = getRestoreConfig();
+    const saved = getRestoreConfig(location.state);
     if (mode === 'eot' && saved?.deepService !== 'end_of_tenancy') return null;
     if ((mode === 'carpet' || mode === 'upholstery') && saved?.deepService !== 'carpet_upholstery') return null;
     return saved;
@@ -377,8 +375,15 @@ export default function QuoteCalculator({
   // Clear the restore flag immediately after we've read it so a future
   // direct homepage visit doesn't unexpectedly hydrate an old quote.
   useEffect(() => {
-    try { sessionStorage.removeItem('vve_restore_quote'); } catch { /* Optional browser storage. */ }
+    clearQuoteRestoreFlag();
   }, []);
+  useEffect(() => {
+    if (readBookingHandoff(location.state)?.restoreQuote) {
+      // The selection has already been captured. Do not let a later refresh
+      // replay this old handoff over edits saved to the quote basket.
+      navigate(`${location.pathname}${location.search}${location.hash}`, { replace: true, state: null });
+    }
+  }, [location.pathname, location.search, location.hash, location.state, navigate]);
 
   const isEotFocused        = mode === 'eot';
   const isCarpetFocused     = mode === 'carpet';
@@ -707,8 +712,8 @@ export default function QuoteCalculator({
     if (onBook) {
       onBook(sel);
     } else {
-      sessionStorage.setItem('vve_booking', JSON.stringify(sel));
-      navigate('/booking');
+      storeBookingSelection(sel);
+      navigate('/booking', { state: bookingRouteState(sel, location.pathname) });
     }
   };
 
@@ -911,8 +916,9 @@ export default function QuoteCalculator({
       if (onBook) {
         onBook({ serviceName: result.serviceName, price: result.price, quoteConfig: result.quoteConfig });
       } else {
-        sessionStorage.setItem('vve_booking', JSON.stringify({ serviceName: result.serviceName, price: result.price, quoteConfig: result.quoteConfig }));
-        navigate('/booking');
+        const selection = { serviceName: result.serviceName, price: result.price, quoteConfig: result.quoteConfig };
+        storeBookingSelection(selection);
+        navigate('/booking', { state: bookingRouteState(selection, location.pathname) });
       }
     };
 

@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { loadWebsitePricebook } from "./_lib/websitePricebook.js";
 import { priceBookingRequest } from "../shared/requestPricing.js";
 import { formatServiceDetail } from "./_lib/formatBookingItems.js";
+import { saveGa4Context } from './_lib/ga4Context.js';
 import {
   deliverBookingRequestNotifications,
   safeOperationalCode,
@@ -578,6 +579,7 @@ export default async function handler(req, res) {
   }
   bookingRef = persistedBookingRef;
 
+  await saveGa4Context(supabase, saved.id, payload.ga4_context);
   await attemptNotificationDelivery(supabase, saved.id);
 
   res.writeHead(201, { ...headers, "Content-Type": "application/json" });

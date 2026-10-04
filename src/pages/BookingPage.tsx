@@ -1,7 +1,7 @@
 import PriceTaxNote from '../components/PriceTaxNote';
 import { clearQuoteBasket } from '../lib/quoteBasket';
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 import QuoteCalculator, {
   type BookingSelection,
@@ -9,7 +9,9 @@ import QuoteCalculator, {
 import BrandLogo from "../components/BrandLogo";
 import type { HomepageQuoteService } from "../components/HomeServiceSelector";
 import { getAttribution } from "../lib/attribution";
+import { getGa4BookingContext } from '../lib/ga4Context';
 import { getQuoteOriginHref } from "../lib/quoteOrigin";
+import { bookingRouteState, readBookingHandoff, readStoredBookingSelection, storeBookingSelection, markQuoteRestore } from "../lib/bookingHandoff";
 import { PRICEBOOK_VERSION } from "../data/pricing";
 import {
   submissionIdentity,
@@ -31,10 +33,6 @@ const CONGESTION_CHARGE = CONGESTION_CHARGE_P / 100;
 
 type ParkingAnswer = "" | "yes" | "no" | "not_sure";
 type CongestionAnswer = "" | "no" | "yes" | "not_sure";
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const STORAGE_KEY = "vve_booking";
 
 // ─── Booking-form draft ───────────────────────────────────────────────────────
 // Persists contact/scheduling fields across page refreshes. Cleared only after
@@ -103,11 +101,12 @@ function validPostcode(v: string) {
 const BOOKING_WA =
   "https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20help%20with%20my%20booking.";
 
-function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
+function BookingHeader({ isLeaflet = false, selection = null }: { isLeaflet?: boolean; selection?: BookingSelection | null }) {
   // Where the quote was actually built — the Carpet page, the Sofa page, the
   // homepage, /leaflet, or a service page. Falls back to the previous
   // hard-coded destination when nothing was recorded.
-  const backHref = getQuoteOriginHref(isLeaflet);
+  const location = useLocation();
+  const backHref = getQuoteOriginHref(isLeaflet, readBookingHandoff(location.state)?.quoteOrigin);
   return (
     <header
       className="sticky top-0 z-50 border-b border-black/[0.08]"
@@ -144,7 +143,8 @@ function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
               label shortened below sm so the header row still fits. */}
           <Link
             to={backHref}
-            onClick={() => sessionStorage.setItem("vve_restore_quote", "1")}
+            state={selection ? bookingRouteState(selection, backHref.split('#')[0], true) : undefined}
+            onClick={markQuoteRestore}
             aria-label="Back to quote"
             className="flex min-h-[44px] items-center gap-1 rounded-full border border-[#E3E7EE] px-2.5 py-2 text-xs font-semibold text-navy-800 transition-colors hover:border-navy-300 sm:px-3 sm:text-sm whitespace-nowrap"
           >
@@ -494,8 +494,11 @@ const SUMMARY_FIELDS: ReadonlyArray<{
 ];
 
 export default function BookingPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const requestStarted = useRef(false);
-  const [selection, setSelection] = useState<BookingSelection | null>(null);
+  const [selection, setSelection] = useState<BookingSelection | null>(() =>
+    readBookingHandoff(location.state)?.selection ?? readStoredBookingSelection());
   const [showSelector, setShowSelector] = useState(false);
   const [requestedService, setRequestedService] = useState<HomepageQuoteService | null>(null);
   const [form, setForm] = useState<FormData>({
@@ -541,24 +544,8 @@ export default function BookingPage() {
     }
   }, []);
 
-  // ── Load selection from sessionStorage or fall back to URL params ──────────
+  // Route state is the primary handoff. Storage is optional refresh recovery.
   useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed: BookingSelection = JSON.parse(stored);
-        // Discard selections that have no quoteConfig — the server rejects them.
-        // This catches stale sessionStorage entries written by legacy booking.html.
-        if (parsed.quoteConfig) {
-          setSelection(parsed);
-          return;
-        }
-        sessionStorage.removeItem(STORAGE_KEY);
-      }
-    } catch {
-      /* ignore */
-    }
-
     // Legacy URL params (?service=X&price=Y) are no longer accepted because they
     // carry no quoteConfig and the server now requires one for price authority.
     // Silently discard the params so the user sees the calculator and generates
@@ -566,14 +553,15 @@ export default function BookingPage() {
     // No query values are price-authoritative. Remove all of them after the
     // legacy hand-off has been handled so stale prices, tracking parameters and
     // unsupported service names are not left in the address bar.
-    if (window.location.search) window.history.replaceState({}, "", "/booking");
+    if (window.location.search) window.history.replaceState(window.history.state, "", "/booking");
   }, []);
 
   // ── Callbacks ──────────────────────────────────────────────────────────────
   const handleBook = (sel: BookingSelection) => {
     setSelection(sel);
     setShowSelector(false);
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(sel));
+    storeBookingSelection(sel);
+    navigate('/booking', { replace: true, state: bookingRouteState(sel, '/booking') });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -743,10 +731,13 @@ export default function BookingPage() {
 
     try {
       const requestKey = await submissionIdentity("booking", payload);
+      // Optional IDs are not part of the retry identity: a refreshed analytics
+      // session must not create a second booking for the same submitted form.
+      const ga4Context = await getGa4BookingContext().catch(() => null);
       const res = await fetch(BACKEND_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ ...payload, requestKey }),
+        body: JSON.stringify({ ...payload, requestKey, ...(ga4Context ? { ga4_context: ga4Context } : {}) }),
         signal: AbortSignal.timeout(45000),
       });
       const data = await res.json();
@@ -775,6 +766,8 @@ export default function BookingPage() {
       }
       clearQuoteBasket();
       clearSubmissionIdentity("booking");
+      // A successful request must not re-open its old quote on refresh.
+      try { navigate('/booking', { replace: true, state: null }); } catch { /* The saved request is authoritative. */ }
       try {
         trackBookingRequestSubmitted(selection.serviceName, data.requestId);
       } catch {
@@ -827,7 +820,7 @@ export default function BookingPage() {
   if (!selection || showSelector) {
     return (
       <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
-        <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} />
+        <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} selection={selection} />
         <main id="main-content">
           <StepIndicator current={1} />
           <h1 className="sr-only">
@@ -919,7 +912,7 @@ export default function BookingPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
-      <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} />
+      <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} selection={selection} />
       <nav aria-label="Booking progress">
         <StepIndicator current={2} />
       </nav>
@@ -1528,14 +1521,11 @@ export default function BookingPage() {
                   <a
                     href={getQuoteOriginHref(
                       selection.offerCode === "LEAFLET20",
+                      readBookingHandoff(location.state)?.quoteOrigin,
                     )}
                     onClick={() => {
                       saveDraft(form);
-                      try {
-                        sessionStorage.setItem("vve_restore_quote", "1");
-                      } catch {
-                        /* Refresh still works without storage. */
-                      }
+                      markQuoteRestore();
                     }}
                     className="mt-3 inline-flex min-h-[44px] items-center font-bold underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                   >

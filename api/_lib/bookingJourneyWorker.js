@@ -5,6 +5,7 @@ import {
   londonToday,
 } from "../../admin/api/_lib/bookingJourney.js";
 import { deliverBookingMeasurements } from "./depositMeasurement.js";
+import { deliverGa4Measurements, purgeExpiredGa4Measurements } from './ga4Measurement.js';
 import {
   deliverBookingRequestNotifications,
   safeOperationalCode,
@@ -26,6 +27,8 @@ export async function processDueBookingJourneys(
     deliverRequestNotifications = deliverBookingRequestNotifications,
     deliverMeasurements = deliverBookingMeasurements,
     purgeMeasurements = purgeExpiredBookingMeasurements,
+    deliverGa4 = deliverGa4Measurements,
+    purgeGa4 = purgeExpiredGa4Measurements,
   } = {},
 ) {
   const results = [];
@@ -112,11 +115,22 @@ export async function processDueBookingJourneys(
   // minutes. The purge RPC is idempotent, so this gives retention a durable
   // schedule without introducing another public endpoint or cron secret.
   const measurementMaintenance = await purgeMeasurements(db);
+  let ga4Measurement;
+  try {
+    await purgeGa4(db);
+    ga4Measurement = await deliverGa4(db);
+  } catch {
+    // No raw database/provider errors (or secrets) in logs; optional GA4 must
+    // not interrupt the existing Ads worker or business notifications.
+    console.warn('[booking-worker] GA4 measurement deferred');
+    ga4Measurement = { status: 'needs_review', code: 'ga4_worker_failed' };
+  }
   const measurement = await deliverMeasurements(db);
   return {
     results,
     requestNotifications,
     measurement,
     measurementMaintenance,
+    ga4Measurement,
   };
 }

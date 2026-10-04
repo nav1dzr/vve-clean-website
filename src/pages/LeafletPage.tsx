@@ -5,6 +5,7 @@ import { CheckCircle2, Shield, Star } from 'lucide-react';
 import QuoteCalculator, { type BookingSelection } from '../components/QuoteCalculator';
 import { markLeafletVisit } from '../lib/attribution';
 import { DISCOUNT_MIN_NOTE } from '../data/carpetPricing';
+import { bookingRouteState, storeBookingSelection } from '../lib/bookingHandoff';
 
 const WA_NUMBER = '447845451111';
 
@@ -66,8 +67,8 @@ export default function LeafletPage() {
   }, []);
 
   const handleBook = (sel: BookingSelection) => {
-    sessionStorage.setItem('vve_booking', JSON.stringify(sel));
-    navigate('/booking');
+    storeBookingSelection(sel);
+    navigate('/booking', { state: bookingRouteState(sel, '/leaflet') });
   };
 
   const waLink = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(

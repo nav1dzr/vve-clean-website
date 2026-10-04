@@ -21,6 +21,7 @@ import {
   emailForMessage,
   requireJourneyEnabled,
   deliverJourneyMessages,
+  manageLink,
 } from "../../../api/_lib/bookingJourney.js";
 
 const ID = "22222222-2222-4222-8222-222222222222";
@@ -171,9 +172,12 @@ function memoryDb(initial = {}) {
         return { data: structuredClone(j), error: null };
       if (j.revision !== p.p_revision)
         return { data: null, error: { code: "40001" } };
-      Object.assign(j, p.p_patch, { revision: j.revision + 1 });
+      // Production jsonb_populate_record ignores audit-only keys that are not
+      // columns on booking_journeys; retain the full patch in the event below.
+      const journeyPatch = Object.fromEntries(Object.entries(p.p_patch).filter(([key]) => key !== "ga4_checkout_amount_pence"));
+      Object.assign(j, journeyPatch, { revision: j.revision + 1 });
       Object.assign(tables.bookings[0], p.p_booking_patch);
-      tables.booking_journey_events.push({ event_type: p.p_event });
+      tables.booking_journey_events.push({ event_type: p.p_event, details: { changes: structuredClone(p.p_patch), booking_changes: structuredClone(p.p_booking_patch) } });
       if (p.p_payment) tables.booking_journey_payments.push(p.p_payment);
       if (p.p_message)
         tables.booking_journey_messages.push({
@@ -365,6 +369,10 @@ describe("booking lifecycle and payment races", () => {
     expect(sent.get("line_items[0][price_data][unit_amount]")).toBe(String(snapshot.totalPence - paidPence));
     expect(sent.get("metadata[payment_kind]")).toBe("balance");
     expect(sent.get("payment_method_types[0]")).toBe("card");
+    const ready = db.tables.booking_journey_events.filter(event => event.event_type === "checkout_ready");
+    expect(ready).toHaveLength(1);
+    expect(ready[0].details.changes.ga4_checkout_amount_pence).toBe(snapshot.totalPence - paidPence);
+    expect(j).not.toHaveProperty("ga4_checkout_amount_pence");
   });
   it("does not confirm an unpaid Stripe checkout return", async () => {
     const db = memoryDb();
@@ -841,6 +849,64 @@ describe("bank instructions in directly confirmed bookings", () => {
 
 describe("deposit after owner agreement", () => {
   const offered = (extra = {}) => memoryDb({ state: "offered", snapshot: depositSnapshot, draft: depositSnapshot, offer_version: 1, hold_until: "2026-09-10T12:00:00Z", ...extra });
+  it("records the exact prepared deposit amount once while preserving Stripe parameters and reusing an open checkout", async () => {
+    const db = offered();
+    const j = db.tables.booking_journeys[0];
+    const link = manageLink(j);
+    const session = { id: "cs_deposit", url: "https://checkout.stripe.com/test", status: "open", payment_status: "unpaid" };
+    fetch.mockResolvedValue({ ok: true, json: async () => session });
+    const first = await performCustomerAction(db, signToken(j), { operation: "checkout", revision: j.revision });
+    const [url, request] = fetch.mock.calls[0];
+    expect(url).toBe("https://api.stripe.com/v1/checkout/sessions");
+    expect(request.method).toBe("POST");
+    expect(request.headers["Idempotency-Key"]).toBe(`booking:${ID}:1:deposit:2026-09-08T12:00:00.000Z`);
+    expect(Object.fromEntries(request.body)).toEqual({
+      mode: "payment",
+      "payment_method_types[0]": "card",
+      "line_items[0][price_data][currency]": "gbp",
+      "line_items[0][price_data][unit_amount]": "3000",
+      "line_items[0][price_data][product_data][name]": "VVE Clean £30 booking deposit — TEST-001",
+      "line_items[0][quantity]": "1",
+      client_reference_id: ID,
+      customer_email: "customer@example.invalid",
+      success_url: link,
+      cancel_url: link,
+      expires_at: String(Math.floor((Date.now() + 23 * 3600000) / 1000)),
+      "metadata[journey]": "v1",
+      "metadata[checkout_attempt]": "2026-09-08T12:00:00.000Z",
+      "metadata[booking_id]": ID,
+      "metadata[offer_version]": "1",
+      "metadata[payment_kind]": "deposit",
+      "metadata[amount_pence]": "3000",
+      "payment_intent_data[metadata][journey]": "v1",
+      "payment_intent_data[metadata][booking_id]": ID,
+    });
+    expect(db.tables.booking_journey_events.filter(event => event.event_type === "checkout_ready")).toEqual([
+      expect.objectContaining({ details: { changes: { checkout_id: "cs_deposit", checkout_creating_at: null, ga4_checkout_amount_pence: 3000 }, booking_changes: {} } }),
+    ]);
+    expect(j).not.toHaveProperty("ga4_checkout_amount_pence");
+    const second = await performCustomerAction(db, signToken(j), { operation: "checkout", revision: j.revision });
+    expect(second).toEqual(first);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][0]).toBe("https://api.stripe.com/v1/checkout/sessions/cs_deposit");
+    expect(fetch.mock.calls[1][1].method).toBe("GET");
+    expect(fetch.mock.calls[1][1].body).toBeUndefined();
+    expect(db.tables.booking_journey_events.map(event => event.event_type)).toEqual(["checkout_reserved", "checkout_ready"]);
+    expect(j.state).toBe("offered");
+    expect(j.paid_pence).toBe(0);
+    expect(db.tables.booking_journey_payments).toHaveLength(0);
+  });
+
+  it("does not record checkout readiness or its GA4 amount when Stripe creation fails", async () => {
+    const db = offered();
+    const j = db.tables.booking_journeys[0];
+    fetch.mockResolvedValue({ ok: false, json: async () => ({ error: { message: "Synthetic checkout error" } }) });
+    await expect(performCustomerAction(db, signToken(j), { operation: "checkout", revision: j.revision })).rejects.toThrow();
+    expect(db.tables.booking_journey_events.map(event => event.event_type)).toEqual(["checkout_reserved"]);
+    expect(j.checkout_id).toBeNull();
+    expect(j.paid_pence).toBe(0);
+    expect(db.tables.booking_journey_payments).toHaveLength(0);
+  });
   it("preserves separate access notes from the editable draft through the sent agreement and customer view", async () => {
     const db = memoryDb();
     const agreement = { ...depositSnapshot, accessNotes: "Parking permit supplied. Congestion charge £18 included in the total." };
