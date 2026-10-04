@@ -281,3 +281,17 @@ describe('splitServiceDetail', () => {
     expect(splitServiceDetail(undefined)).toEqual([]);
   });
 });
+
+describe('formatBookingItemLines — property carpet-bundle scope', () => {
+  it.each([
+    ['studio', 'Main sleeping area carpet + hallway'],
+    ['bed1', '1 bedroom carpet + hallway'],
+    ['bed2', '2 bedroom carpets + hallway'],
+    ['bed3', '3 bedroom carpets + hallway + landing'],
+    ['bed4', '4 bedroom carpets + hallway + landing'],
+  ])('keeps the existing %s bundle scope in booking notifications', (deepSize, scope) => {
+    const lines = formatBookingItemLines({ service: 'deep', deepService: 'move_in', deepSize, deepBaths: 1, addOnCounts: { carpet_bundle: 1 } });
+    expect(lines).toContain('1 × ' + scope);
+    expect(lines.join(' ')).not.toContain('whole home');
+  });
+});

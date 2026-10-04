@@ -29,6 +29,7 @@ import {
   COMMERCIAL_COMMUNAL_FROM_P,
   COMMERCIAL_EOL_FROM_P,
   COMMERCIAL_AFTER_BUILDERS_FROM_P,
+  DEPOSIT_P,
 } from '../data/pricing';
 
 const WA_COMMERCIAL =
@@ -169,6 +170,7 @@ export default function CommercialPage() {
                     <Mail size={19} /> Email your requirements
                   </a>
                 </div>
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-sky-100">No payment to request a site visit. If a {price(DEPOSIT_P)} booking deposit is required, we’ll include the payment instructions in your agreed quote. It comes off your total.</p>
               </div>
 
               <div className="rounded-[1.75rem] border border-white/15 bg-white/[0.07] p-5 shadow-2xl shadow-black/20 backdrop-blur-sm sm:p-7">

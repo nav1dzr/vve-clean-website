@@ -1,4 +1,5 @@
 import PriceTaxNote from './PriceTaxNote';
+import { DEPOSIT_P, penceToDisplay } from '../data/pricing';
 import { Fragment, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useReveal } from '../hooks/useReveal';
@@ -509,6 +510,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
                 <CtaButton href={data.primaryHref} label={data.primaryLabel} isWa={data.primaryIsWa} variant="primary" />
                 <CtaButton href={data.secondaryHref} label={data.secondaryLabel} isWa={data.secondaryIsWa} variant="secondary" />
               </div>
+              <p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-700"><strong>No payment now.</strong> Once we agree the details, a {penceToDisplay(DEPOSIT_P)} deposit secures your booking and comes off the total.</p>
               {data.heroGoogleBadge && <div className="mt-4"><GoogleBadge /></div>}
               {data.heroDecisionNote && <div className="mt-3 max-w-xl text-sm leading-relaxed text-slate-700">{data.heroDecisionNote}</div>}
             </div>

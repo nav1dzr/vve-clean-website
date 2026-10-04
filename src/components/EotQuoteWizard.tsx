@@ -2,6 +2,8 @@ import PriceTaxNote from './PriceTaxNote';
 import ServiceDecisionTrust from './ServiceDecisionTrust';
 import { readQuoteBasket, saveQuoteBasket, restoreShape } from '../lib/quoteBasket';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { trackQuoteStepCompleted } from '../lib/analytics';
+import { useQuoteCalculated } from '../hooks/useQuoteCalculated';
 import {
   BadgeCheck, Bath, Building2, CheckCircle2, ChevronLeft, ChevronRight, CircleOff, Home, Info,
   Layers3, ListChecks, Mail, MessageCircle, Minus, Plus, ShieldCheck, Sparkles, Waves, XCircle,
@@ -491,6 +493,13 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
     return restored;
   });
   const [step, setStep] = useState(() => state.propertySizeChosen && savedBasket?.kind === 'eot' ? Math.min(4, Math.max(1, savedBasket.step || 1)) : 1);
+  const completedQuoteSteps = useRef(new Set<number>());
+  function recordStepCompleted(completedStep: number) {
+    recordQuoteStart();
+    if (completedQuoteSteps.current.has(completedStep)) return;
+    completedQuoteSteps.current.add(completedStep);
+    trackQuoteStepCompleted('end_of_tenancy', completedStep);
+  }
   const basketChanged = useRef(false);
   useEffect(() => {
     if (!basketChanged.current) return;
@@ -594,6 +603,16 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   const hasExtraFridgeFreezers = state.tailoredAddOns.extraFridgeFreezers > 0;
   const canOfferComplete = quote.shouldOfferComplete && !hasExtraFridgeFreezers;
   const needsCarpetSelection = state.floorCareChoice === 'professional' && activeCarpetRooms.length === 0;
+  const recordQuoteStart = useQuoteCalculated('end_of_tenancy', totalP,
+    step === TOTAL_STEPS && state.propertySizeChosen && !state.is5Plus &&
+      !needsCarpetSelection && !isQuoteReviewCondition,
+    JSON.stringify({ propertyType: state.propertyType, size: state.size,
+      propertySizeChosen: state.propertySizeChosen, is5Plus: state.is5Plus,
+      pkg: state.pkg, fullBathrooms: state.fullBathrooms, extraWcs: state.extraWcs,
+      floorCareChoice: state.floorCareChoice, carpetMode: state.carpetMode,
+      tailoredAddOns: state.tailoredAddOns, extras: state.extras,
+      upholsteryCounts: state.upholsteryCounts, condition: state.condition,
+      areas: activeCarpetRooms.map(({ addonKey, stairFlights }) => ({ addonKey, stairFlights })) }));
 
   function showBookingError(message: string, targetStep = step) {
     setBookError(message);
@@ -687,6 +706,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
       return;
     }
     setBookError('');
+    recordStepCompleted(step);
     setStep((s) => Math.min(TOTAL_STEPS, s + 1));
   }
   function goBack() {
@@ -732,6 +752,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         condition: state.condition,
       },
     };
+    recordStepCompleted(TOTAL_STEPS);
     onBook(sel);
   }
 

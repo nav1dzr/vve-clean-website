@@ -11,12 +11,13 @@
 // still has its own labels since those are UI-only strings, not prices.
 
 import { CARPET_ITEM_LABELS, CARPET_ITEM_ORDER, EOT_TAILORED_ADDON_LABELS } from '../../shared/pricingCatalogue.js';
+import { PROPERTY_CARPET_BUNDLE_SCOPE } from '../../shared/carpetBundleScope.js';
 
 // Mirrors addOnDefs in QuoteCalculator.tsx.
 const ADDON_LABELS = {
   oven:          'Inside oven',
   fridge:        'Fridge / freezer',
-  carpet_bundle: 'Carpets — whole home',
+  carpet_bundle: 'Carpet bundle — agreed bedroom/hall scope',
   ext_windows:   'Exterior windows',
   wall_marks:    'Wall marks & scuffs',
   key_collect:   'Key collection/return',
@@ -110,7 +111,8 @@ function deepCleanLines(deepService, deepSize, deepBaths, addOnCounts, extra = {
     if (excluded.includes(key)) continue;
     const n = Number(qty) || 0;
     if (n <= 0) continue;
-    const label = ADDON_LABELS[key] || humanizeKey(key);
+    const label = (key === 'carpet_bundle' ? PROPERTY_CARPET_BUNDLE_SCOPE[deepSize] : null)
+      || ADDON_LABELS[key] || humanizeKey(key);
     lines.push(`${n} × ${label}`);
   }
 

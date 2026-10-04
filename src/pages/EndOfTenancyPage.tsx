@@ -98,10 +98,10 @@ const DATA: ServiceLandingData = {
   schema: SCHEMA,
   breadcrumb: 'End of Tenancy Cleaning London',
 
-  eyebrow: 'End of Tenancy Cleaning',
+  eyebrow: 'End of Tenancy Cleaning · East & North London',
   h1: 'End of tenancy cleaning in London',
   h1Highlight: '',
-  heroSubtitle: 'Moving out? Complete includes the oven, listed appliance interiors and empty cupboards. Choose your property to see the price.',
+  heroSubtitle: 'Complete includes your oven, listed appliance interiors and empty cupboards. Choose your property to see the price.',
   heroAside: <ManagedServiceHeroPhoto service="end-of-tenancy" fallback={{ src: '/end_of_tenancy/before-after/kitchen1_after.jpg', alt: 'Kitchen hob after cleaning', caption: 'A real end of tenancy result' }} detail="See the full before-and-after pair below. Cleaning does not repair existing scratches or wear." managedDetail="Cleaning does not repair existing scratches or wear." />,
   heroAsideOnMobile: true,
   heroPriceChip: `Studio flat Complete clean from ${pDisplay(EOT_BASE_PRICES_P.studio)}`,

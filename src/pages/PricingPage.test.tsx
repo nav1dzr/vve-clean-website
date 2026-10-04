@@ -76,3 +76,17 @@ describe('PricingPage — current service prices and meaningful comparisons', ()
     }
   });
 });
+
+describe('PricingPage — visible carpet and upholstery discount terms', () => {
+  it('shows the existing item bands and minimum for both eligible services', async () => {
+    const user = userEvent.setup();
+    renderPricing();
+    for (const [button, heading] of [[/^Carpets/, 'Carpet cleaning'], [/^Sofas & upholstery/, 'Sofas & upholstery']] as const) {
+      await user.click(screen.getByRole('button', { name: button }));
+      const panel = screen.getByRole('heading', { name: heading }).parentElement!;
+      expect(panel).toHaveTextContent('£10 off 3+ eligible items, £20 off 5+ eligible items, £35 off 7+ eligible items');
+      expect(panel).toHaveTextContent('Carpet and upholstery items can be combined');
+      expect(panel).toHaveTextContent('£85 minimum per visit applies; offers are not combined');
+    }
+  });
+});

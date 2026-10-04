@@ -99,3 +99,28 @@ export function initialiseOptionalAnalytics(): void {
   if (typeof gtag !== 'function') return;
   try { gtag('config', id, { send_page_view: true }); ga4Started = true; } catch { /* Analytics is optional. */ }
 }
+
+// Quote diagnostics stay separate from Ads conversions and paid revenue.
+const QUOTE_SERVICES = ['carpet_upholstery', 'move_in', 'end_of_tenancy', 'after_builders', 'window', 'gutter', 'office'] as const;
+export type QuoteAnalyticsService = typeof QUOTE_SERVICES[number];
+
+export function trackQuoteCalculated(service: QuoteAnalyticsService, amountPence: number): void {
+  if (!QUOTE_SERVICES.includes(service) || !Number.isSafeInteger(amountPence) || amountPence <= 0) return;
+  safeGtag('quote_calculated', {
+    event_category: 'funnel', service_type: service,
+    quoted_total: amountPence / 100, currency: 'GBP',
+  });
+}
+
+export function trackQuoteStarted(service: QuoteAnalyticsService): void {
+  if (!QUOTE_SERVICES.includes(service)) return;
+  safeGtag('quote_started', { event_category: 'funnel', service_type: service });
+}
+
+export function trackQuoteStepCompleted(service: QuoteAnalyticsService, step: number): void {
+  if (!QUOTE_SERVICES.includes(service) || !Number.isInteger(step) ||
+      step < 1 || step > (service === 'end_of_tenancy' ? 4 : 1)) return;
+  safeGtag('step_completed', {
+    event_category: 'funnel', service_type: service, quote_step: step,
+  });
+}

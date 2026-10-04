@@ -11,7 +11,7 @@ import GoogleBadge from '../components/GoogleBadge';
 import {
  EOT_BASE_PRICES_P, EOT_TAILORED_START_PRICES_P, EOT_EXTRA_BATH_P, EOT_EXTRA_WC_P,
  MOVEIN_BASE_PRICES_P, MOVEIN_EXTRA_BATH_P, MOVEIN_EXTRA_WC_P,
- CARPET_ITEM_PRICES_P, CARPET_MIN_BOOKING_P, STAIRS_FIRST_P, STAIRS_EXTRA_P,
+ CARPET_ITEM_PRICES_P, CARPET_MIN_BOOKING_P, CARPET_BUNDLE_BANDS, STAIRS_FIRST_P, STAIRS_EXTRA_P,
  ADDON_PRICES_P, AFTER_BUILDERS_START_FROM_P, WINDOW_CLEANING_FROM_P, WINDOW_CLEANING_MIN_P,
  WINDOW_CLEANING_SCOPE, GARDEN_SERVICES_FROM_P, GARDEN_SERVICES_MIN_P, PRESSURE_WASHING_FROM_P,
  EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS, EOT_GUARANTEE_HOURS, calculateEotCarpetPackage, computeCarpetPrice,
@@ -33,6 +33,11 @@ const PRICING_FAQS = [
   { q: 'Do you clean occupied homes?', a: 'Tell us whether the property is occupied when you enquire. VVE Clean will confirm whether the requested service and access arrangements are suitable before booking.' },
 ];
 
+
+function CarpetBundleNote() {
+ const bands = [...CARPET_BUNDLE_BANDS].filter(band => band.amountP > 0).sort((a, b) => a.minItems - b.minItems);
+ return <p className="mt-4 text-sm leading-relaxed text-slate-600">Same-visit bundle discounts: {bands.map(band => money(band.amountP) + ' off ' + band.minItems + '+ eligible items').join(', ')}. Carpet and upholstery items can be combined. The {money(CARPET_MIN_BOOKING_P)} minimum per visit applies; offers are not combined.</p>;
+}
 
 function PriceRows({ rows }: { rows: [string, number | string][] }) {
  return <dl className="mt-4 overflow-hidden rounded-xl border border-slate-200">{rows.map(([label, price]) => <div key={label} className="flex items-start justify-between gap-5 px-4 py-3.5 odd:bg-sky-50/70 even:bg-white"><dt className="text-sm text-slate-700">{label}</dt><dd className="shrink-0 text-base font-bold tabular-nums text-navy-950">{typeof price === 'number' ? money(price) : price}</dd></div>)}</dl>;
@@ -111,11 +116,13 @@ export default function PricingPage() {
       <h3 className="font-display text-2xl font-bold text-navy-950">Carpet cleaning</h3><p className="mt-2 text-sm text-slate-600">Choose your rooms and areas. {money(CARPET_MIN_BOOKING_P)} minimum per visit.</p>
       <PriceRows rows={[[ 'Bedroom',CARPET_ITEM_PRICES_P.bedroom],['Living / dining room',CARPET_ITEM_PRICES_P.living_room],['Large or through lounge',CARPET_ITEM_PRICES_P.large_lounge],['Hallway',CARPET_ITEM_PRICES_P.hallway],['Landing',CARPET_ITEM_PRICES_P.landing],['Stairs — first flight',STAIRS_FIRST_P],['Stairs — each extra flight',STAIRS_EXTRA_P],['Rugs','Photo assessment']]} />
       <p className="mt-4 rounded-xl bg-sky-50 p-4 text-sm leading-relaxed text-slate-700">Your total includes any applicable same-visit saving, subject to the minimum visit charge. Rugs need a photo assessment and are available alongside carpet, upholstery or relevant end of tenancy cleaning.</p>
+      <CarpetBundleNote />
       <QuoteLink to="/carpet-cleaning-london#quote">Choose my rooms</QuoteLink>
      </div>
      <div hidden={category !== 'Sofas & upholstery'}>
       <h3 className="font-display text-2xl font-bold text-navy-950">Sofas &amp; upholstery</h3><p className="mt-2 text-sm text-slate-600">Prices per item. {money(CARPET_MIN_BOOKING_P)} minimum per visit, including mixed carpet and upholstery selections.</p>
       <PriceRows rows={[[ 'Armchair',CARPET_ITEM_PRICES_P.armchair],['2-seater sofa',CARPET_ITEM_PRICES_P.sofa_2],['3-seater sofa',CARPET_ITEM_PRICES_P.sofa_3],['Corner / L-shaped sofa',CARPET_ITEM_PRICES_P.sofa_corner],['Mattress (single)',CARPET_ITEM_PRICES_P.mattress_single],['Mattress (double)',CARPET_ITEM_PRICES_P.mattress_double],['Mattress (king)',CARPET_ITEM_PRICES_P.mattress_king]]} />
+      <CarpetBundleNote />
       <p className="mt-4 text-sm leading-relaxed text-slate-600">Suitable fabrics are assessed before treatment. For delicate materials or uncertain fabric types, send a photograph first.</p><QuoteLink to="/sofa-cleaning-london#quote">Choose my furniture</QuoteLink>
      </div>
      <div hidden={category !== 'Other cleans'}>

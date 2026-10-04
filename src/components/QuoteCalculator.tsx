@@ -1,10 +1,12 @@
 import PriceTaxNote from './PriceTaxNote';
+import { PROPERTY_CARPET_BUNDLE_SCOPE } from '../../shared/carpetBundleScope.js';
 import GoogleBadge from './GoogleBadge';
 import ServiceDecisionTrust from './ServiceDecisionTrust';
 import { readQuoteBasket, saveQuoteBasket, clearQuoteBasket, restoreShape } from '../lib/quoteBasket';
 import { useState, useCallback, useRef, useEffect, useId, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { trackBookingInitiated, trackFunnelStep } from '../lib/analytics';
+import { trackBookingInitiated, trackFunnelStep, trackQuoteStepCompleted, type QuoteAnalyticsService } from '../lib/analytics';
+import { useQuoteCalculated } from '../hooks/useQuoteCalculated';
 import { Calculator, CheckCircle2, Plus, Minus, Info, AlertCircle, ChevronDown, ShieldCheck } from 'lucide-react';
 import { useBookingCtx } from '../context/BookingContext';
 import { rememberQuoteOrigin } from '../lib/quoteOrigin';
@@ -100,7 +102,7 @@ const BATH_SURCHARGE: Record<DeepServiceType, number> = {
   after_builders:    0, // not quoted interactively
 };
 
-// EOT carpet add-on bundle prices (whole home — at reduced EOT rates).
+// Property-clean carpet add-on prices for the bedroom/hall scope below.
 const CARPET_BUNDLE_PRICE: Record<SizeKey, number> = {
   studio: EOT_CARPET_BUNDLE_P.studio / 100,  // 60
   bed1:   EOT_CARPET_BUNDLE_P.bed1   / 100,  // 60
@@ -121,7 +123,7 @@ const MIN_OFFICE_HOURS = COMMERCIAL_REGULAR_MIN_HOURS;       // 2
 const addOnDefs = [
   { key: 'oven',          label: 'Inside oven',           price: ADDON_PRICES_P.oven        / 100 },  // 35
   { key: 'fridge',        label: 'Fridge / freezer',      price: ADDON_PRICES_P.fridge      / 100 },  // 20
-  { key: 'carpet_bundle', label: 'Carpets — whole home',  price: 0  },
+  { key: 'carpet_bundle', label: 'Carpet bundle — bedrooms and hall', price: 0 },
   { key: 'eot_living_carpet', label: 'Living / dining room carpet', price: EOT_CARPET_ADDON_PRICES_P.living_room / 100 },
   { key: 'extra_wc',      label: 'Additional WC',         price: EOT_EXTRA_WC_P / 100 },
   { key: 'reception',     label: 'Additional reception room', price: EOT_EXTRA_AREAS_P.reception / 100 },
@@ -153,14 +155,6 @@ const EOT_INCLUDED_ITEMS = [
   'Skirting, doors, handles, switches and sockets',
   'Vacuuming, mopping, products and equipment',
 ] as const;
-
-const EOT_CARPET_BUNDLE_SCOPE: Record<SizeKey, string> = {
-  studio: 'Main sleeping area carpet + hallway',
-  bed1:   '1 bedroom carpet + hallway',
-  bed2:   '2 bedroom carpets + hallway',
-  bed3:   '3 bedroom carpets + hallway + landing',
-  bed4:   '4 bedroom carpets + hallway + landing',
-};
 
 type ServiceKey = 'deep' | 'window' | 'gutter' | 'office';
 
@@ -350,6 +344,7 @@ export default function QuoteCalculator({
   onHomepageServiceChange,
 }: Props = {}) {
   const quoteStarted = useRef(false);
+  const completedQuoteServices = useRef(new Set<QuoteAnalyticsService>());
   const recordQuoteStart = () => { if (!quoteStarted.current) { quoteStarted.current = true; trackFunnelStep('quote_start', mode); } };
   const { ref, visible } = useReveal();
   const contentVisible = aboveFold || visible;
@@ -614,13 +609,13 @@ export default function QuoteCalculator({
       if (deepService === 'end_of_tenancy') {
         const extras = addOnDefs
           .filter((a) => !['oven', 'fridge', 'sofa', 'mattress'].includes(a.key) && addOnCounts[a.key] > 0)
-          .map((a) => `${a.label}${addOnCounts[a.key] > 1 ? ` ×${addOnCounts[a.key]}` : ''}`)
+          .map((a) => `${a.key === 'carpet_bundle' ? PROPERTY_CARPET_BUNDLE_SCOPE[deepSize] : a.label}${addOnCounts[a.key] > 1 ? ` ×${addOnCounts[a.key]}` : ''}`)
           .join(', ');
         extrasLine = `Complete package includes appliances, cupboards and internal windows${extras ? `; upgrades: ${extras}` : ''}.`;
       } else {
         const extras = addOnDefs
           .filter((a) => addOnCounts[a.key] > 0)
-          .map((a) => `${a.label}${addOnCounts[a.key] > 1 ? ` ×${addOnCounts[a.key]}` : ''}`)
+          .map((a) => `${a.key === 'carpet_bundle' ? PROPERTY_CARPET_BUNDLE_SCOPE[deepSize] : a.label}${addOnCounts[a.key] > 1 ? ` ×${addOnCounts[a.key]}` : ''}`)
           .join(', ');
         extrasLine = extras || 'None';
       }
@@ -702,6 +697,11 @@ export default function QuoteCalculator({
         ...(isCarpet ? { carpetCounts, carpetCondition } : {}),
       },
     };
+    recordCalculatedQuoteStart();
+    if (quoteAnalyticsService && !completedQuoteServices.current.has(quoteAnalyticsService)) {
+      completedQuoteServices.current.add(quoteAnalyticsService);
+      trackQuoteStepCompleted(quoteAnalyticsService, 1);
+    }
     trackFunnelStep('quote_complete', bookingServiceName);
     trackBookingInitiated(bookingServiceName);
     // Navigation state only, never part of the payload: lets "Back to quote"
@@ -725,6 +725,11 @@ export default function QuoteCalculator({
   const isManualQuote = isAfterBuilders || (isEot && eotTailoredQuote)
     || (isCarpet && (isRugOnlySelection || (carpetResult?.isPhotoQuote ?? false)));
   const isReadyToBook = canBookOnline && price > 0;
+  const quoteAnalyticsService: QuoteAnalyticsService | null = isEot ? null : service !== 'deep'
+    ? service : isCarpet ? 'carpet_upholstery' : deepService === 'move_in' ? 'move_in' : isAfterBuilders ? 'after_builders' : null;
+  const recordCalculatedQuoteStart = useQuoteCalculated(quoteAnalyticsService, Math.round(price * 100), !isEot && isReadyToBook,
+    JSON.stringify({ service, deepService, deepSize, deepBaths, addOnCounts,
+      windowSize, gutterType, officeHours, propertyType, carpetCounts, carpetCondition }));
 
   // Stable ref wrapper — lets context consumers call handleBookNow without stale closures
   const _bookRef = useRef(handleBookNow);
@@ -1367,7 +1372,7 @@ export default function QuoteCalculator({
                                     ? CARPET_BUNDLE_PRICE[deepSize]
                                     : item.price;
                                   const label = key === 'carpet_bundle'
-                                    ? EOT_CARPET_BUNDLE_SCOPE[deepSize]
+                                    ? PROPERTY_CARPET_BUNDLE_SCOPE[deepSize]
                                     : item.label;
                                   return (
                                     <div
@@ -1420,19 +1425,17 @@ export default function QuoteCalculator({
                               })
                               .map((a) => {
                                 const dynamicPrice = a.key === 'carpet_bundle' ? CARPET_BUNDLE_PRICE[deepSize] : a.price;
-                                const saving = a.key === 'carpet_bundle'
-                                  ? BASE_PRICES.carpet_upholstery[deepSize] - CARPET_BUNDLE_PRICE[deepSize]
-                                  : 0;
+                                const label = a.key === 'carpet_bundle' ? PROPERTY_CARPET_BUNDLE_SCOPE[deepSize] : a.label;
                                 return (
                                   <div key={a.key} className="flex items-center justify-between rounded-xl px-3 py-2 border transition-all duration-200 bg-silver-50 border-silver-200">
                                     <div>
-                                      <span className="text-navy-800 text-xs font-medium">{a.label}</span>
+                                      <span className="text-navy-800 text-xs font-medium">{label}</span>
                                       <div className="text-royal-700 text-xs font-semibold mt-0.5">
                                         +£{dynamicPrice}
-                                        {saving > 0 && <span className="text-green-600 ml-1">· saves £{saving}</span>}
                                       </div>
                                     </div>
                                     <Counter
+                                      itemLabel={label}
                                       value={addOnCounts[a.key]}
                                       onChange={(value) => setAddOnCounts((previous) => ({ ...previous, [a.key]: value }))}
                                     />
@@ -1573,7 +1576,7 @@ export default function QuoteCalculator({
                       </div>
 
                       {/* Bundle discount: original price with strikethrough */}
-                      {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
+                      {isCarpet && carpetResult?.showSaving && (
                         <div className="text-center mb-1">
                           <span className="line-through text-silver-600 text-lg">£{carpetResult!.bundle.preDiscount}</span>
                         </div>
@@ -1627,7 +1630,7 @@ export default function QuoteCalculator({
                       {/* Next-band nudge — hidden when a promo already beats all bands */}
                       {isCarpet && (carpetResult?.bundle.toNextBand ?? 0) > 0 && carpetResult!.bundle.source !== 'promo' && (
                         <div className="text-center text-xs font-medium mt-1.5" style={{ color: '#1e6b42' }}>
-                          Add {carpetResult!.bundle.toNextBand} more item{carpetResult!.bundle.toNextBand !== 1 ? 's' : ''} to save £{carpetResult!.bundle.nextBandSaving}
+                          Add {carpetResult!.bundle.toNextBand} more item{carpetResult!.bundle.toNextBand !== 1 ? 's' : ''} to reach the £{carpetResult!.bundle.nextBandSaving} bundle discount band. £{CARPET_MIN_BOOKING} minimum applies.
                         </div>
                       )}
 
@@ -1752,7 +1755,7 @@ export default function QuoteCalculator({
               <h3 className="text-silver-400 text-xs font-medium tracking-widest uppercase mb-2">
                 {isAfterBuilders ? 'Starting From' : (isEot && eotTailoredQuote) ? 'Tailored Quote' : isRugOnlySelection ? 'Add-on only' : isCarpet && carpetResult?.isPhotoQuote ? 'Photo Quote' : 'Your price'}
               </h3>
-              {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
+              {isCarpet && carpetResult?.showSaving && (
                 <div className="text-silver-400 text-base line-through mb-0.5">
                   £{carpetResult!.bundle.preDiscount}
                 </div>
@@ -1938,7 +1941,7 @@ export default function QuoteCalculator({
                               .map((item) => (
                                 <div key={item.key} className="flex justify-between gap-3 text-[11px]">
                                   <span className="text-silver-300">
-                                    {item.key === 'carpet_bundle' ? EOT_CARPET_BUNDLE_SCOPE[deepSize] : item.label}
+                                    {item.key === 'carpet_bundle' ? PROPERTY_CARPET_BUNDLE_SCOPE[deepSize] : item.label}
                                     {addOnCounts[item.key] > 1 ? ` ×${addOnCounts[item.key]}` : ''}
                                   </span>
                                   <span className="text-white font-semibold">
