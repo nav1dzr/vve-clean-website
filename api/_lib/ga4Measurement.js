@@ -36,21 +36,25 @@ function validContext(context, now) {
     recorded <= captured + 300000 && captured >= now - 90 * DAY;
 }
 
-/** Allowlisted server payload only. A saved payment, never a return URL, owns purchase. */
+/** Allowlisted server payload only. Durable requests and saved payments own their events. */
 export function ga4MeasurementPayload(row, { now = new Date() } = {}) {
   const time = new Date(typeof now === 'function' ? now() : now).getTime();
-  if (!UUID.test(row.booking_id || '') || !['begin_checkout', 'purchase'].includes(row.event_name) ||
+  if (!UUID.test(row.booking_id || '') || !['booking_request_submitted', 'begin_checkout', 'purchase'].includes(row.event_name) ||
       row.event_key !== `booking:${row.booking_id}:${row.event_name}` || row.is_test ||
       !['validate', 'live'].includes(row.mode)) throw new Ga4Error('ga4_event_ineligible');
   const occurred = instant(row.occurred_at);
   if (!Number.isFinite(occurred) || occurred > time + 300000) throw new Ga4Error('ga4_timestamp_invalid');
   if (occurred < time - 3 * DAY) throw new Ga4Error('ga4_event_expired');
   if (!validContext(row.analytics_context, time)) throw new Ga4Error('ga4_consent_or_identity_invalid');
-  if (!Number.isSafeInteger(row.amount_pence) || row.amount_pence <= 0 ||
-      row.currency !== 'gbp') throw new Ga4Error('ga4_value_invalid');
+  const isRequest = row.event_name === 'booking_request_submitted';
+  if (isRequest ? row.amount_pence !== null || row.currency !== null :
+    !Number.isSafeInteger(row.amount_pence) || row.amount_pence <= 0 || row.currency !== 'gbp')
+    throw new Ga4Error('ga4_value_invalid');
   const context = row.analytics_context;
   const value = row.amount_pence / 100;
-  const params = {
+  // A request is not revenue or a transaction. event_id aids reconciliation;
+  // it is not a GA4 deduplication guarantee for custom events.
+  const params = isRequest ? { event_id: row.event_key } : {
     currency: 'GBP', value,
     items: [{ item_id: 'cleaning_deposit', item_name: 'Cleaning booking deposit', price: value, quantity: 1 }],
   };
@@ -153,7 +157,7 @@ export async function deliverGa4Measurements(db, { fetchImpl = fetch, now = () =
     } catch (error) {
       const code = error instanceof Ga4Error ? error.message : 'ga4_delivery_error';
       // If the acknowledgement could not be saved, keep the sending claim. The
-      // DB only retries purchase (stable transaction_id); checkout becomes uncertain.
+      // DB only retries purchase (stable transaction_id); other events become uncertain.
       if (code === 'ga4_state_save_failed') throw error;
       const terminal = ['ga4_event_ineligible', 'ga4_event_expired', 'ga4_timestamp_invalid',
         'ga4_consent_or_identity_invalid', 'ga4_value_invalid', 'ga4_mode_mismatch',
@@ -163,7 +167,7 @@ export async function deliverGa4Measurements(db, { fetchImpl = fetch, now = () =
       // timeout is different: only purchase has a stable transaction dedupe key.
       const status = terminal ? 'suppressed' :
         code === 'ga4_provider_http_error' ||
-        (dispatched && row.event_name === 'begin_checkout' && configured.mode === 'live') ? 'uncertain' : 'failed';
+        (dispatched && row.event_name !== 'purchase' && configured.mode === 'live') ? 'uncertain' : 'failed';
       const time = new Date(typeof now === 'function' ? now() : now);
       await mark(db, row, {
         status, claimed_at: null, last_error: code,

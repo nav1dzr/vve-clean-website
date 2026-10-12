@@ -25,6 +25,11 @@ const addBooking = async (n, ctx = context(), extraTest = false) => {
   await db.query('insert into bookings(id,ga4_context,measurement_is_test) values($1,$2,$3)', [id(n), ctx, extraTest]);
   await db.query("insert into booking_journeys(booking_id,checkout_kind) values($1,'deposit')", [id(n)]);
 };
+const addRequest = async (n, ctx = null, isTest = false) => db.query(`
+  insert into bookings(id,request_key,status,ga4_context,measurement_is_test)
+  values($1,$1,'new',$2,$3) on conflict (request_key) where request_key is not null do nothing`,
+  [id(n), ctx, isTest]);
+const saveContext = async (n, ctx = context()) => db.query('update bookings set ga4_context=$2 where id=$1', [id(n), ctx]);
 const outbox = async (n) => (await db.query('select * from booking_ga4_measurement_outbox where booking_id=$1 order by created_at', [id(n)])).rows;
 const pay = async (n, external = `cs_live_synthetic_${n}`, kind = 'deposit', amount = 4275) => {
   await db.query('insert into booking_journey_payments(external_id,booking_id,kind,amount_pence,currency) values($1,$2,$3,$4,$5)',
@@ -64,12 +69,21 @@ try {
   const migration = await readFile(resolve('supabase/migrations/20261004120000_booking_ga4_measurement.sql'), 'utf8');
   await db.exec(migration);
   await db.exec(migration);
+  // This request predates the new request-event trigger. Installing it must
+  // neither backfill the request nor alter its already-saved consent metadata.
+  await addRequest(98, context());
+  const priorContext = (await db.query('select ga4_context from bookings where id=$1', [id(98)])).rows[0].ga4_context;
+  const requestMigration = await readFile(resolve('supabase/migrations/20261012120000_booking_ga4_request_measurement.sql'), 'utf8');
+  await db.exec(requestMigration);
+  await db.exec(requestMigration);
 
   await check('additive migration is repeatable, preserves historical data and performs no backfill', async () => {
     const after = (await db.query('select * from bookings where id=$1', [id(99)])).rows[0];
     for (const key of Object.keys(historical)) assert.deepEqual(after[key], historical[key]);
     assert.equal(after.ga4_context, null);
     assert.equal((await outbox(99)).length, 0);
+    assert.equal((await outbox(98)).length, 0);
+    assert.deepEqual((await db.query('select ga4_context from bookings where id=$1', [id(98)])).rows[0].ga4_context, priorContext);
   });
 
   await check('committed deposit checkout emits one event across repeated checkout attempts, at its real amount', async () => {
@@ -179,6 +193,99 @@ try {
     assert.equal((await outbox(11)).length, 0);
     const ledger = (await db.query('select amount_pence from booking_journey_payments where booking_id=$1', [id(11)])).rows;
     assert.equal(ledger[0].amount_pence, 9999);
+  });
+
+  await check('a saved request plus first consented context emits one canonical request with no revenue', async () => {
+    await addRequest(20);
+    assert.equal((await outbox(20)).length, 0);
+    await saveContext(20, context({ email: 'synthetic@example.invalid', address: '1 Synthetic Road',
+      postcode: 'ZZ99 9ZZ', private_link: '/manage#private' }));
+    const rows = await outbox(20);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].event_name, 'booking_request_submitted');
+    assert.equal(rows[0].event_key, `booking:${id(20)}:booking_request_submitted`);
+    assert.equal(rows[0].amount_pence, null); assert.equal(rows[0].currency, null);
+    assert.equal(rows[0].status, 'pending');
+    const booking = (await db.query('select created_at from bookings where id=$1', [id(20)])).rows[0];
+    assert.deepEqual(rows[0].occurred_at, booking.created_at);
+    for (const forbidden of ['synthetic@example', 'Synthetic Road', 'ZZ99', 'private_link'])
+      assert.ok(!JSON.stringify(rows).includes(forbidden));
+  });
+
+  await check('request insert retries, context updates and enqueue retries cannot create a second event', async () => {
+    await addRequest(20, context()); await saveContext(20);
+    await db.query("select queue_booking_ga4_measurement($1,'booking_request_submitted',null,null,now(),false)", [id(20)]);
+    assert.equal((await outbox(20)).length, 1);
+    await assert.rejects(db.query(`insert into booking_ga4_measurement_outbox
+      select gen_random_uuid(),booking_id,event_name,event_key,amount_pence,currency,occurred_at,
+        analytics_context,mode,is_test,status,attempts,claimed_at,next_attempt_at,submitted_at,last_error,created_at
+      from booking_ga4_measurement_outbox where booking_id=$1`, [id(20)]), /duplicate key/);
+  });
+
+  await check('request rollback also rolls back its canonical event; a committed retry produces one', async () => {
+    await db.exec('begin'); await addRequest(21, context());
+    assert.equal((await outbox(21)).length, 1);
+    await db.exec('rollback');
+    assert.equal((await outbox(21)).length, 0);
+    assert.equal((await db.query('select id from bookings where id=$1', [id(21)])).rows.length, 0);
+    await addRequest(21, context()); assert.equal((await outbox(21)).length, 1);
+  });
+
+  await check('rolled-back optional metadata does not enqueue a request until a successful retry', async () => {
+    await addRequest(22); await db.exec('begin'); await saveContext(22); await db.exec('rollback');
+    assert.equal((await outbox(22)).length, 0);
+    assert.equal((await db.query('select ga4_context from bookings where id=$1', [id(22)])).rows[0].ga4_context, null);
+    await saveContext(22); assert.equal((await outbox(22)).length, 1);
+  });
+
+  await check('canonical requests respect absent configuration, consent and test flags', async () => {
+    await addRequest(23, context({ analytics: false }));
+    await addRequest(24, context(), true);
+    await addRequest(25, context({ mode: 'off' }));
+    await addRequest(26);
+    for (const n of [23, 24]) {
+      const rows = await outbox(n); assert.equal(rows.length, 1);
+      assert.equal(rows[0].status, 'suppressed'); assert.deepEqual(rows[0].analytics_context, {});
+    }
+    for (const n of [25, 26]) assert.equal((await outbox(n)).length, 0);
+    await db.query('select withdraw_booking_measurement_consent($1)', [id(21)]);
+    const withdrawn = await outbox(21); assert.equal(withdrawn[0].status, 'suppressed');
+    assert.deepEqual(withdrawn[0].analytics_context, {});
+    await db.query('update bookings set measurement_is_test=true where id=$1', [id(22)]);
+    assert.equal((await outbox(22))[0].status, 'suppressed');
+    await db.query('update bookings set measurement_is_test=false where id=$1', [id(22)]);
+    await saveContext(22); assert.equal((await outbox(22)).length, 1);
+    assert.equal((await outbox(22))[0].status, 'suppressed');
+  });
+
+  await check('historical imports, paid rows and non-request states do not create request conversions', async () => {
+    await addBooking(27);
+    await db.query("insert into bookings(id,request_key,status,deposit_amount,ga4_context) values($1,$1,'new',30,$2)", [id(28), context()]);
+    await db.query("insert into bookings(id,request_key,status,ga4_context) values($1,$1,'complete',$2)", [id(29), context()]);
+    for (const n of [27, 28, 29]) assert.equal((await outbox(n)).length, 0);
+    await saveContext(98); assert.equal((await outbox(98)).length, 0);
+  });
+
+  await check('request constraints prohibit revenue and payments still require positive GBP values', async () => {
+    await assert.rejects(db.query("update booking_ga4_measurement_outbox set amount_pence=3000,currency='gbp' where booking_id=$1", [id(20)]), /check constraint/);
+    await assert.rejects(db.query("update booking_ga4_measurement_outbox set amount_pence=null,currency=null where booking_id=$1", [id(2)]), /check constraint/);
+  });
+
+  await check('stale request sends become uncertain rather than risking duplicate GA4 conversions', async () => {
+    await db.query("select * from claim_booking_ga4_measurements('live',25)");
+    assert.equal((await outbox(20))[0].status, 'sending');
+    await db.query("update booking_ga4_measurement_outbox set claimed_at=now()-interval '11 minutes' where booking_id=$1", [id(20)]);
+    const claims = (await db.query("select * from claim_booking_ga4_measurements('live',25)")).rows;
+    assert.ok(!claims.some((r) => r.booking_id === id(20)));
+    assert.equal((await outbox(20))[0].status, 'uncertain');
+  });
+
+  await check('a GA4 request queue failure never rejects the saved customer request', async () => {
+    await db.exec(`alter table booking_ga4_measurement_outbox add constraint simulated_request_outage
+      check (booking_id <> '${id(30)}')`);
+    await addRequest(30, context());
+    assert.equal((await outbox(30)).length, 0);
+    assert.equal((await db.query('select id from bookings where id=$1', [id(30)])).rows.length, 1);
   });
 
   await check('anonymous and authenticated users cannot read or claim the GA4 outbox', async () => {

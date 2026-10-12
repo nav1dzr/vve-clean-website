@@ -18,6 +18,8 @@ const row = (extra = {}) => ({
   claimed_at: null, attempts: 0, ...extra,
 });
 const checkout = (extra = {}) => row({ event_name: 'begin_checkout', event_key: `booking:${ID}:begin_checkout`, ...extra });
+const request = (extra = {}) => row({ event_name: 'booking_request_submitted',
+  event_key: `booking:${ID}:booking_request_submitted`, amount_pence: null, currency: null, ...extra });
 
 function fakeDb(initialRow = row(), bookingPatch = {}) {
   let outbox = { ...initialRow };
@@ -63,7 +65,24 @@ function configure(mode = 'live') {
 const accepted = () => ({ ok: true, status: 204 });
 afterEach(() => vi.unstubAllEnvs());
 
-describe('GA4 authoritative payment payload', () => {
+describe('GA4 authoritative request and payment payload', () => {
+  it('reports a committed request without revenue, items, private data or a purchase transaction', () => {
+    const payload = ga4MeasurementPayload(request({ full_name: 'Synthetic Person',
+      analytics_context: context({ email: 'person@example.invalid', postcode: 'ZZ99 9ZZ',
+        landing_page: '/manage-booking#private-token' }),
+    }), { now: NOW });
+    expect(payload.events).toEqual([{ name: 'booking_request_submitted', params: {
+      event_id: `booking:${ID}:booking_request_submitted`, session_id: context().session_id,
+    } }]);
+    for (const forbidden of ['Synthetic', 'person@', 'ZZ99', 'private-token', 'value', 'currency', 'items', 'transaction_id'])
+      expect(JSON.stringify(payload)).not.toContain(forbidden);
+  });
+
+  it.each([{ amount_pence: 3000 }, { amount_pence: 0 }, { currency: 'gbp' },
+    { amount_pence: undefined }, { currency: undefined }])('rejects request revenue fields %#', (patch) => {
+    expect(() => ga4MeasurementPayload(request(patch), { now: NOW })).toThrow('ga4_value_invalid');
+  });
+
   it('uses actual ledger value and an opaque stable transaction, with no PII or private URL', () => {
     const payload = ga4MeasurementPayload(row({
       bank_reference: 'E1 1AA Customer', email: 'customer@example.invalid',
@@ -146,6 +165,45 @@ describe('GA4 separate delivery worker', () => {
     expect(await deliverGa4Measurements(db, options)).toMatchObject({ status: 'idle' });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(fetchImpl.mock.calls[0][0]).toContain('/mp/collect?measurement_id=G-TEST1234');
+  });
+
+  it('submits the canonical request once and keeps the browser acknowledgement a separate diagnostic', async () => {
+    configure(); const db = fakeDb(request()); const fetchImpl = vi.fn(async () => accepted());
+    expect(await deliverGa4Measurements(db, { fetchImpl, now: NOW })).toMatchObject({ submitted: 1 });
+    expect(await deliverGa4Measurements(db, { fetchImpl, now: NOW })).toMatchObject({ status: 'idle' });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).events[0].name).toBe('booking_request_submitted');
+  });
+
+  it.each([{ measurement_is_test: true }, { measurement_consent_withdrawn_at: NOW.toISOString() },
+    { ga4_context: context({ analytics: false }) }])('suppresses a canonical request after consent/test recheck %#', async (booking) => {
+    configure(); const db = fakeDb(request(), booking); const fetchImpl = vi.fn();
+    expect(await deliverGa4Measurements(db, { fetchImpl, now: NOW })).toMatchObject({ suppressed: 1 });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('never retries a request whose live send outcome is unknown', async () => {
+    configure(); const db = fakeDb(request());
+    const fetchImpl = vi.fn(async () => { throw new Error('response lost'); });
+    expect(await deliverGa4Measurements(db, { fetchImpl, now: NOW })).toMatchObject({ uncertain: 1 });
+    expect(await deliverGa4Measurements(db, { fetchImpl, now: NOW })).toMatchObject({ status: 'idle' });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains a request sending claim if its provider acknowledgement cannot be saved', async () => {
+    configure(); const db = fakeDb(request());
+    const fetchImpl = vi.fn(async () => { db.setRow({ claimed_at: 'different-worker' }); return accepted(); });
+    await expect(deliverGa4Measurements(db, { fetchImpl, now: NOW })).rejects.toThrow('ga4_state_save_failed');
+    expect(db.row.status).toBe('sending');
+  });
+
+  it('may retry request validation because the debug endpoint does not ingest conversions', async () => {
+    configure('validate'); const db = fakeDb(request({ mode: 'validate' }));
+    const fetchImpl = vi.fn().mockRejectedValueOnce(new Error('response lost'))
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ validationMessages: [] }) });
+    expect(await deliverGa4Measurements(db, { fetchImpl, now: NOW })).toMatchObject({ failed: 1 });
+    expect(await deliverGa4Measurements(db, { fetchImpl, now: NOW })).toMatchObject({ validated: 1 });
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual(JSON.parse(fetchImpl.mock.calls[1][1].body));
   });
 
   it('validates only against debug endpoint; validation rows never become live uploads', async () => {
