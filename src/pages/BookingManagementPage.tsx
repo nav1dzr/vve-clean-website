@@ -114,17 +114,28 @@ function privateToken() {
 export default function BookingManagementPage() {
   const [payFromEmail] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.hash.slice(1)).get("pay") === "deposit");
   const automaticCheckoutAttempted = useRef(false);
+  const statusCheckInFlight = useRef(false);
+  const automaticStatusChecks = useRef(0);
+  const responseGeneration = useRef(0);
+  const mounted = useRef(true);
   const [token] = useState(privateToken),
     [booking, setBooking] = useState<Booking | null>(null),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
+    [paymentStatusNotice, setPaymentStatusNotice] = useState(""),
     [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false),
+    [checkingStatus, setCheckingStatus] = useState(false),
+    [checkedAt, setCheckedAt] = useState(() => Date.now()),
     [panel, setPanel] = useState<"reschedule" | "cancel" | null>(null),
     [date, setDate] = useState(""),
     [time, setTime] = useState(""),
     [reason, setReason] = useState(""),
     [confirmed, setConfirmed] = useState(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; responseGeneration.current += 1; };
+  }, []);
   async function request(
     operation?: string,
     extra: Record<string, unknown> = {},
@@ -163,18 +174,73 @@ export default function BookingManagementPage() {
     }
   }
   async function refresh() {
+    const generation = ++responseGeneration.current;
     setLoading(true);
     setError("");
+    setPaymentStatusNotice("");
     try {
       const data = await request();
       if (!data.booking) throw new Error("We could not load your booking details. Please refresh or contact the team.");
-      setBooking(data.booking);
+      if (mounted.current && generation === responseGeneration.current) {
+        setBooking(data.booking);
+        setCheckedAt(Date.now());
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Booking unavailable.");
+      if (mounted.current && generation === responseGeneration.current)
+        setError(e instanceof Error ? e.message : "Booking unavailable.");
     } finally {
-      setLoading(false);
+      if (mounted.current && generation === responseGeneration.current) setLoading(false);
     }
   }
+  async function checkLatestStatus(manual = false) {
+    if (statusCheckInFlight.current || busy || loading || panel) return;
+    statusCheckInFlight.current = true;
+    const generation = responseGeneration.current;
+    setCheckingStatus(true);
+    try {
+      const data = await request();
+      if (!data.booking) throw new Error('Booking response unavailable');
+      if (!mounted.current || generation !== responseGeneration.current) return;
+      if (data.booking.state !== 'offered' || data.booking.paidPence > 0 || data.booking.customerRequest) {
+        automaticStatusChecks.current = 6;
+        setPaymentStatusNotice('');
+      }
+      setBooking(data.booking);
+      setCheckedAt(Date.now());
+      if (manual) setPaymentStatusNotice(data.booking.state === 'offered' && data.booking.paidPence === 0
+        ? "We haven't recorded your deposit yet. If you've already paid, please don't pay again while we check receipt."
+        : 'Your booking details are up to date.');
+    } catch {
+      if (manual && mounted.current && generation === responseGeneration.current)
+        setPaymentStatusNotice("We couldn't check the latest status. Please try again or contact us before paying again.");
+    } finally {
+      statusCheckInFlight.current = false;
+      if (mounted.current) setCheckingStatus(false);
+    }
+  }
+  // A delayed webhook or bank-transfer check may arrive after this page opens.
+  // Six read-only checks at most; no payment action, analytics or unbounded poll.
+  const awaitingDeposit = booking?.agreement.paymentPlan === 'deposit_after_agreement' &&
+    booking.state === 'offered' && booking.paidPence === 0 && !booking.customerRequest;
+  useEffect(() => {
+    if (!awaitingDeposit) return;
+    const clock = window.setInterval(() => setCheckedAt(Date.now()), 30000);
+    return () => window.clearInterval(clock);
+  }, [awaitingDeposit]);
+  useEffect(() => {
+    if (!token || !awaitingDeposit || busy || loading || panel) return;
+    const check = () => {
+      if (document.visibilityState !== 'visible' || statusCheckInFlight.current || automaticStatusChecks.current >= 6) return;
+      automaticStatusChecks.current += 1;
+      void checkLatestStatus();
+    };
+    const timer = window.setInterval(check, 10000);
+    const onVisible = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+    // Capture this render's read-only request; restart only when its eligibility changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, awaitingDeposit, busy, loading, panel]);
   useEffect(() => {
     applyRouteMetadata("/manage-booking");
     if (token) void refresh();
@@ -189,9 +255,11 @@ export default function BookingManagementPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
   async function act(operation: string, extra: Record<string, unknown> = {}) {
+    responseGeneration.current += 1;
     setBusy(true);
     setError("");
     setNotice("");
+    setPaymentStatusNotice("");
     try {
       const result = await request(operation, extra);
       if (result.checkoutUrl) {
@@ -224,7 +292,11 @@ export default function BookingManagementPage() {
   useEffect(() => {
     if (!payFromEmail || loading || !booking || automaticCheckoutAttempted.current) return;
     automaticCheckoutAttempted.current = true;
-    if (depositAvailable(booking)) void act("checkout");
+    if (depositAvailable(booking)) {
+      if (booking.holdUntil && new Date(booking.holdUntil).getTime() - Date.now() >= 31 * 60000)
+        void act("checkout");
+      else setNotice('The deadline is too close to open a new card checkout. Please contact us to check the slot before paying.');
+    }
     // Only an explicit Pay link in the email initiates checkout, once. A normal
     // booking link remains read-only. The server rechecks the saved agreement.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -242,6 +314,8 @@ export default function BookingManagementPage() {
     booking.holdUntil &&
     new Date(booking.holdUntil) <= new Date();
   const depositPayable = depositAvailable(booking);
+  const cardDeadlineClose = depositPayable && !!booking?.holdUntil &&
+    new Date(booking.holdUntil).getTime() - checkedAt < 31 * 60000;
   const content = booking ? bookingContent(booking.agreement) : null;
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 sm:py-10">
@@ -286,6 +360,7 @@ export default function BookingManagementPage() {
             {notice}
           </p>
         )}
+        {paymentStatusNotice && <p role="status" className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5 text-blue-950">{paymentStatusNotice}</p>}
         {booking && content && !loading && (
           <>
             <section className="mt-7 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -444,7 +519,8 @@ export default function BookingManagementPage() {
                       Please pay by {new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/London" }).format(new Date(booking.holdUntil))} (London time).
                     </p>
                   )}
-                  {(depositPayable || booking.canPayBalance) && (
+                  {cardDeadlineClose && <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">The deadline is too close to open a new card checkout. Please contact us to check the slot before paying.</p>}
+                  {((depositPayable && !cardDeadlineClose) || booking.canPayBalance) && (
                     <button
                       disabled={busy}
                       onClick={() => act("checkout")}
@@ -455,6 +531,12 @@ export default function BookingManagementPage() {
                         : depositPayable ? "Pay £30 deposit by card" : `Pay ${money(booking.balancePence)} remaining balance`}
                     </button>
                   )}
+                  {awaitingDeposit && <div className="mt-4 border-t border-sky-200 pt-4">
+                    <p className="text-sm leading-relaxed text-slate-600">Already paid? Check for your confirmation here. Bank transfers are confirmed after our team checks receipt.</p>
+                    <button type="button" disabled={checkingStatus || busy || !!panel} onClick={() => void checkLatestStatus(true)} className={`${buttonClass} mt-2 w-full border border-slate-300 bg-white text-royal-700 hover:bg-slate-50`}>
+                      {checkingStatus ? 'Checking status…' : 'Check payment status'}
+                    </button>
+                  </div>}
                 </section>
                 {booking.paymentInstructions && (depositPayable || ["confirmed", "completed"].includes(booking.state)) && booking.balancePence > 0 && (
                   <section className="mt-4 rounded-2xl border border-slate-200 p-5" aria-labelledby="bank-payment-heading">

@@ -14,6 +14,8 @@ import { getGa4BookingContext } from '../lib/ga4Context';
 import { getQuoteOriginHref } from "../lib/quoteOrigin";
 import { bookingRouteState, readBookingHandoff, readStoredBookingSelection, storeBookingSelection, markQuoteRestore } from "../lib/bookingHandoff";
 import { PRICEBOOK_VERSION } from "../data/pricing";
+import { isValidBookingName, isValidBookingEmail, isValidBookingDate, todayLondonIsoDate } from '../../shared/bookingRequestValidation.js';
+import { clearBookingAcknowledgement, hasBookingAcknowledgement, rememberBookingAcknowledgement } from '../lib/bookingRequestAcknowledgement';
 import {
   submissionIdentity,
   clearSubmissionIdentity,
@@ -57,12 +59,25 @@ function loadDraft(): FormData | null {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
-    const parsed: { expires?: number; form?: FormData } = JSON.parse(raw);
-    if (!parsed?.expires || Date.now() > parsed.expires) {
+    const parsed: { expires?: unknown; form?: unknown } = JSON.parse(raw);
+    if (typeof parsed?.expires !== 'number' || !Number.isFinite(parsed.expires) || Date.now() > parsed.expires) {
       localStorage.removeItem(DRAFT_KEY);
       return null;
     }
-    return parsed.form ?? null;
+    if (!parsed.form || typeof parsed.form !== 'object' || Array.isArray(parsed.form)) return null;
+    const saved = parsed.form as Record<string, unknown>;
+    const restored = { ...EMPTY_FORM };
+    // Restore only known strings; malformed/old stored values must never reach
+    // trim(), controlled inputs, or access-charge calculations.
+    for (const key of ['fullName', 'address', 'postcode', 'phone', 'email', 'date', 'time', 'message'] as const) {
+      if (key in saved && typeof saved[key] !== 'string') return null;
+      restored[key] = typeof saved[key] === 'string' ? saved[key] : '';
+    }
+    if (saved.parkingAvailable !== undefined && (typeof saved.parkingAvailable !== 'string' || !['', 'yes', 'no', 'not_sure'].includes(saved.parkingAvailable))) return null;
+    if (saved.congestionZone !== undefined && (typeof saved.congestionZone !== 'string' || !['', 'yes', 'no', 'not_sure'].includes(saved.congestionZone))) return null;
+    restored.parkingAvailable = (saved.parkingAvailable ?? '') as ParkingAnswer;
+    restored.congestionZone = (saved.congestionZone ?? '') as CongestionAnswer;
+    return restored;
   } catch {
     return null;
   }
@@ -87,9 +102,6 @@ function money(n: number) {
   );
 }
 
-function validEmail(v: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-}
 function validPhone(v: string) {
   return v.replace(/\D/g, "").length >= 10;
 }
@@ -436,6 +448,16 @@ interface FormData {
   congestionZone: CongestionAnswer;
 }
 
+const EMPTY_FORM: FormData = {
+  fullName: '', address: '', postcode: '', phone: '', email: '', date: '',
+  time: '', message: '', parkingAvailable: '', congestionZone: '',
+};
+
+type RequestAcknowledgement = { kind: 'restored' } | {
+  kind: 'submitted'; reference: string; total: number;
+  service: string; date: string; time: string;
+};
+
 const REQUIRED_DATE_ERROR = "Please choose your preferred date.";
 const PAST_DATE_ERROR = "Please choose a date that has not already passed.";
 const REQUIRED_TIME_ERROR = "Please choose your preferred arrival window.";
@@ -452,15 +474,6 @@ function parkingSurcharge(answer: ParkingAnswer): number {
 }
 function congestionSurcharge(answer: CongestionAnswer): number {
   return answer === "yes" || answer === "not_sure" ? CONGESTION_CHARGE : 0;
-}
-
-// YYYY-MM-DD for today in the visitor's local time zone — matches the
-// plain-string format <input type="date"> both stores and displays, so a
-// lexicographic string comparison against it is a correct "is this in the
-// past" check with no Date-object time zone handling needed.
-function todayIsoDate(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
@@ -502,27 +515,15 @@ export default function BookingPage() {
     readBookingHandoff(location.state)?.selection ?? readStoredBookingSelection());
   const [showSelector, setShowSelector] = useState(false);
   const [requestedService, setRequestedService] = useState<HomepageQuoteService | null>(null);
-  const [form, setForm] = useState<FormData>({
-    fullName: "",
-    address: "",
-    postcode: "",
-    phone: "",
-    email: "",
-    date: "",
-    time: "",
-    message: "",
-    parkingAvailable: "",
-    congestionZone: "",
-  });
+  const [form, setForm] = useState<FormData>({ ...EMPTY_FORM });
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [quoteNeedsReview, setQuoteNeedsReview] = useState(false);
   const [currentEstimate, setCurrentEstimate] = useState<number | null>(null);
-  const [requestComplete, setRequestComplete] = useState<{
-    reference: string;
-    total: number;
-  } | null>(null);
+  const [requestComplete, setRequestComplete] = useState<RequestAcknowledgement | null>(() =>
+    !readBookingHandoff(location.state)?.selection && hasBookingAcknowledgement()
+      ? { kind: 'restored' } : null);
   const [honeypot, setHoneypot] = useState("");
   const formTopRef = useRef<HTMLDivElement>(null);
   const requestSuccessRef = useRef<HTMLElement>(null);
@@ -534,6 +535,10 @@ export default function BookingPage() {
 
   // ── Restore booking-form draft on mount (before any user input) ───────────
   useEffect(() => {
+    if (requestComplete) return;
+    // A fresh calculator handoff is an explicit new request, unlike a refresh
+    // of the old success screen. It must not inherit the previous marker.
+    if (readBookingHandoff(location.state)?.selection) clearBookingAcknowledgement();
     const draft = loadDraft();
     if (draft) {
       setForm((current) => ({
@@ -543,6 +548,8 @@ export default function BookingPage() {
         congestionZone: draft.congestionZone ?? "",
       }));
     }
+    // Restore only on mount; later edits are owned by this form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Route state is the primary handoff. Storage is optional refresh recovery.
@@ -569,6 +576,25 @@ export default function BookingPage() {
   const handleChangeService = () => {
     setShowSelector(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleNewRequest = () => {
+    clearBookingAcknowledgement();
+    clearQuoteBasket();
+    clearSubmissionIdentity('booking');
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* Storage is optional. */ }
+    setRequestComplete(null);
+    setSelection(null);
+    setShowSelector(false);
+    setRequestedService(null);
+    setForm({ ...EMPTY_FORM });
+    setErrors({});
+    setShowErrorSummary(false);
+    setSubmitError('');
+    setQuoteNeedsReview(false);
+    setCurrentEstimate(null);
+    requestStarted.current = false;
+    navigate('/booking', { replace: true, state: null });
   };
 
   const setField =
@@ -600,7 +626,7 @@ export default function BookingPage() {
 
   const validate = (): boolean => {
     const e: FormErrors = {};
-    if (!form.fullName.trim()) e.fullName = "Please enter your full name.";
+    if (!isValidBookingName(form.fullName)) e.fullName = "Please enter your full name.";
     if (!form.address.trim()) e.address = "Please enter your address.";
     if (!validPostcode(form.postcode))
       e.postcode = "Please enter a valid UK postcode.";
@@ -610,10 +636,11 @@ export default function BookingPage() {
       e.phone = "Please enter a valid phone number.";
     if (!form.email.trim())
       e.email = "Please enter an email address for your booking confirmation.";
-    else if (!validEmail(form.email))
+    else if (!isValidBookingEmail(form.email))
       e.email = "Please enter a valid email address.";
     if (!form.date) e.date = REQUIRED_DATE_ERROR;
-    else if (form.date < todayIsoDate()) e.date = PAST_DATE_ERROR;
+    else if (!isValidBookingDate(form.date)) e.date = "Please choose a valid date.";
+    else if (form.date < todayLondonIsoDate()) e.date = PAST_DATE_ERROR;
     if (!form.time) e.time = REQUIRED_TIME_ERROR;
     if (!form.parkingAvailable) e.parkingAvailable = REQUIRED_PARKING_ERROR;
     if (!form.congestionZone) e.congestionZone = REQUIRED_CONGESTION_ERROR;
@@ -742,7 +769,7 @@ export default function BookingPage() {
         signal: AbortSignal.timeout(45000),
       });
       const data = await res.json();
-      if (res.status === 409) {
+      if (res.status === 409 && data.code === 'price_changed') {
         setQuoteNeedsReview(true);
         setCurrentEstimate(
           Number.isFinite(data.currentTotal) ? data.currentTotal : null,
@@ -752,11 +779,16 @@ export default function BookingPage() {
         throw new Error(data.error || "Request could not be saved.");
 
       setRequestComplete({
+        kind: 'submitted',
         reference: data.bookingRef,
         total: Number.isFinite(data.total)
           ? data.total
-          : totalWithAccessCharges,
+          : payload.price,
+        service: payload.service,
+        date: payload.date,
+        time: payload.time,
       });
+      rememberBookingAcknowledgement();
       setSubmitting(false);
       // Once the server saved the request, optional local cleanup or analytics
       // must never turn that success into an invitation to submit it again.
@@ -817,30 +849,7 @@ export default function BookingPage() {
         : "border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0369a1]"
     }`;
 
-  // ─── Show quote selector (no selection yet, or user clicked Change service) ─
-  if (!selection || showSelector) {
-    return (
-      <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
-        <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} selection={selection} />
-        <main id="main-content">
-          <StepIndicator current={1} />
-          <h1 className="sr-only">
-            Choose a cleaning service and see your price
-          </h1>
-          {showSelector && selection && (
-            <div className="max-w-5xl mx-auto px-4 pt-5 pb-1 text-center">
-              <p className="text-sm text-silver-600">
-                Selecting a new service will update your booking below.
-              </p>
-            </div>
-          )}
-          <QuoteCalculator key={requestedService ?? "choose-service"} onBook={handleBook} aboveFold homepageMode homepageService={requestedService} onHomepageServiceChange={setRequestedService} />
-        </main>
-      </div>
-    );
-  }
-
-  // ─── Show booking form ─────────────────────────────────────────────────────
+  // A saved request takes precedence over the now-cleared quote selection.
   if (requestComplete) {
     return (
       <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
@@ -861,6 +870,7 @@ export default function BookingPage() {
               and confirm the job details, we’ll email your deposit payment instructions.
               Your booking is confirmed once the deposit is paid.
             </p>
+            {requestComplete.kind === 'submitted' ? <>
             <div className="mt-5 rounded-2xl bg-silver-100 px-4 py-3">
               <p className="text-xs font-bold uppercase tracking-widest text-silver-600">
                 Request reference
@@ -872,12 +882,12 @@ export default function BookingPage() {
             <dl className="mt-5 space-y-2 text-left text-sm">
               <div>
                 <dt className="font-semibold">Service requested</dt>
-                <dd>{selection.serviceName}</dd>
+                <dd>{requestComplete.service}</dd>
               </div>
               <div>
                 <dt className="font-semibold">Preferred visit</dt>
                 <dd>
-                  {form.date} · {form.time}
+                  {requestComplete.date} · {requestComplete.time}
                 </dd>
               </div>
               <div>
@@ -885,13 +895,18 @@ export default function BookingPage() {
                 <dd>{money(requestComplete.total)}</dd>
               </div>
             </dl>
+            </> : <p className="mt-5 rounded-2xl bg-silver-100 px-4 py-4 text-sm text-silver-700">
+              Your request was saved recently in this browser tab. You do not need
+              to send it again. Check your email for the request details, or contact
+              us if you need help.
+            </p>}
             <p className="mt-5 text-sm leading-relaxed text-silver-600">
               We’ll agree the service, final price and time with you before sending
               the secure payment instructions. Nothing is charged with this request.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <a
-                href={waLink}
+                href={BOOKING_WA}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn-whatsapp inline-flex min-h-[48px] items-center justify-center rounded-xl px-6 font-bold"
@@ -905,7 +920,33 @@ export default function BookingPage() {
                 Return home
               </Link>
             </div>
+            <button type="button" onClick={handleNewRequest} className="mt-5 min-h-[44px] px-3 text-sm font-semibold text-royal-700 underline underline-offset-4">
+              Start another request
+            </button>
           </div>
+        </main>
+      </div>
+    );
+  }
+
+  // ─── Show quote selector (no selection yet, or user clicked Change service) ─
+  if (!selection || showSelector) {
+    return (
+      <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
+        <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} selection={selection} />
+        <main id="main-content">
+          <StepIndicator current={1} />
+          <h1 className="sr-only">
+            Choose a cleaning service and see your price
+          </h1>
+          {showSelector && selection && (
+            <div className="max-w-5xl mx-auto px-4 pt-5 pb-1 text-center">
+              <p className="text-sm text-silver-600">
+                Selecting a new service will update your booking below.
+              </p>
+            </div>
+          )}
+          <QuoteCalculator key={requestedService ?? "choose-service"} onBook={handleBook} aboveFold homepageMode homepageService={requestedService} onHomepageServiceChange={setRequestedService} />
         </main>
       </div>
     );
@@ -1224,7 +1265,7 @@ export default function BookingPage() {
                   type="date"
                   value={form.date}
                   onChange={setField("date")}
-                  min={todayIsoDate()}
+                  min={todayLondonIsoDate()}
                   required
                   aria-required="true"
                   aria-invalid={!!errors.date}

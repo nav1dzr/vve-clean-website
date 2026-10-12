@@ -165,7 +165,7 @@ const STEP_LABELS = ['Property', 'Package', 'Floor care', 'Review'];
 const TOTAL_STEPS = 4;
 const PROPERTY_SELECTION_ERROR = 'Choose your property size to continue.';
 const CARPET_SELECTION_ERROR = 'Choose at least one carpet area, or select Standard floor care.';
-const PHOTO_REVIEW_ERROR = 'This property needs a quick photo review before we can confirm a price — please use WhatsApp below.';
+const PHOTO_REVIEW_ERROR = 'This property needs a quick photo review before we can confirm a price — please use WhatsApp or email below.';
 
 const MANUAL_CARPET_FIELDS: { key: keyof Omit<ManualCarpetCounts, 'stairFlights'>; addonKey: string; label: string; idPrefix: string; priceP: number }[] = [
   { key: 'bedroom', addonKey: 'bedroom', label: 'Bedrooms', idPrefix: 'bed', priceP: CARPET_ITEM_PRICES_P.bedroom },
@@ -756,14 +756,6 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
     onBook(sel);
   }
 
-  const WA_LINK = `https://wa.me/447845451111?text=${encodeURIComponent(
-    "Hi VVE Clean, I'd like a photo review for an end of tenancy clean (heavy condition / rubbish / mould / biohazard).",
-  )}`;
-  const WA_5PLUS_LINK = `https://wa.me/447845451111?text=${encodeURIComponent(
-    "Hi VVE Clean, I'd like a tailored quote for a 5+ bedroom end of tenancy clean.",
-  )}`;
-  const EMAIL_5PLUS_LINK = 'mailto:contact@vveclean.co.uk?subject=' + encodeURIComponent('5+ bedroom end of tenancy quote request');
-
   const sizeLabel = SIZE_OPTIONS.find((s) => s.key === state.size)?.label ?? '';
 
   // Step 4 already shows a full "Your quote" card once the property doesn't
@@ -785,6 +777,55 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
     : state.floorCareChoice === 'professional'
     ? 'Professional carpet cleaning'
     : state.floorCareChoice === 'none' ? 'Hard floors only' : state.floorCareChoice === 'standard' ? 'Standard floor care' : 'Floor care not selected';
+  // Carry calculator choices into both contact options. These are preferences
+  // for a manual assessment, not a fixed-price quote or an agreed checklist.
+  const contactProperty = state.is5Plus
+    ? `5+ bedroom ${state.propertyType === 'flat' ? 'flat' : 'house / maisonette'} · ${state.fullBathrooms} bathroom${state.fullBathrooms !== 1 ? 's' : ''}${state.extraWcs > 0 ? ` · ${state.extraWcs} separate WC${state.extraWcs !== 1 ? 's' : ''}` : ''}`
+    : propertySummary;
+  const contactCarpetAreas = activeCarpetRooms.filter(room => room.floor === 'carpet' && room.steamClean)
+    .map(room => room.addonKey === 'stairs' ? `${room.label} (${room.stairFlights ?? 1} flights)` : room.label);
+  const contactExtras = [
+    ...UPHOLSTERY_FIELDS.filter(field => state.upholsteryCounts[field.key] > 0)
+      .map(field => `${state.upholsteryCounts[field.key]} × ${field.label}`),
+    ...([
+      ['ext_windows', 'Exterior windows'], ['balcony', 'Balcony'], ['wall_marks', 'Wall-mark treatment'],
+      ['key_collect', 'Key collection/return'], ['rubbish', 'Rubbish removal'],
+    ] as const).filter(([key]) => state.extras[key] > 0).map(([key, label]) => `${state.extras[key]} × ${label}`),
+    ...(state.pkg === 'tailored' ? ([
+      ['microwaveInside', 'Inside microwave'], ['fridgeFreezerInside', 'Inside fridge/freezer'],
+      ['dishwasherInside', 'Inside dishwasher'], ['washingMachineInside', 'Inside washing machine'],
+      ['cupboards', 'Cupboards, drawers and wardrobes'],
+    ] as const).filter(([key]) => state.tailoredAddOns[key]).map(([, label]) => label) : []),
+    ...(state.pkg === 'tailored' && state.tailoredAddOns.extraFridgeFreezers > 0
+      ? [`${state.tailoredAddOns.extraFridgeFreezers} × Additional fridge/freezer`] : []),
+  ];
+  const selectedCondition = {
+    normal: 'Normal used condition', heavy: 'Heavy grease, scale or build-up',
+    clutter: 'Excessive rubbish or clutter', biohazard: 'Mould, biohazard or specialist contamination',
+  }[state.condition];
+  function manualContact(reason: 'rug' | 'condition' | 'large') {
+    const subject = reason === 'rug' ? 'Rug cleaning photo assessment'
+      : reason === 'large' ? '5+ bedroom end of tenancy quote request' : 'End of tenancy photo review';
+    const introduction = reason === 'rug'
+      ? "Hi VVE Clean, I'd like a rug cleaning assessment alongside my end of tenancy clean. Please let me know which rug photos or measurements you need."
+      : reason === 'large'
+        ? "Hi VVE Clean, I'd like a quote for a 5+ bedroom end of tenancy clean. Please let me know which details or photos you need."
+        : `Hi VVE Clean, I'd like a photo review for an end of tenancy clean. The condition I selected is: ${selectedCondition}.`;
+    const body = [introduction, '', 'My calculator choices:', `Property: ${contactProperty}`,
+      `Package preference: ${packageSummary}`, `Floor care: ${floorSummary}`,
+      ...(contactCarpetAreas.length ? [`Carpet areas: ${contactCarpetAreas.join(', ')}`] : []),
+      ...(contactExtras.length ? [`Additional items: ${contactExtras.join(', ')}`] : []),
+      reason === 'condition' ? '' : `Property condition: ${selectedCondition}`,
+      '', 'Please confirm the cleaning list, availability and price with me.',
+    ].filter((line, index, lines) => line !== '' || lines[index - 1] !== '').join('\n');
+    return {
+      whatsapp: `https://wa.me/447845451111?text=${encodeURIComponent(body)}`,
+      email: `mailto:contact@vveclean.co.uk?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+    };
+  }
+  const rugContact = manualContact('rug');
+  const conditionContact = manualContact('condition');
+  const largeContact = manualContact('large');
   const footerSubtext = step === 1
     ? !state.propertySizeChosen ? 'Complete clean · choose your property size to see its price' : state.is5Plus ? `5+ bedroom ${state.propertyType === 'flat' ? 'flat' : 'house / maisonette'} · tailored quote` : propertySummary
     : step === 2 ? `${propertySummary} · ${packageSummary}`
@@ -891,11 +932,12 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:min-w-[180px]">
-                  <a href={WA_5PLUS_LINK} target="_blank" rel="noopener noreferrer"
+                  <a href={largeContact.whatsapp} target="_blank" rel="noopener noreferrer"
                     className="btn-whatsapp inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[44px] rounded-xl font-bold text-sm">
                     <MessageCircle size={16} /> WhatsApp us
                   </a>
-                  <a href={EMAIL_5PLUS_LINK}
+                  <a href={largeContact.email}
+                    aria-label="Request a quote by email"
                     className="inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[44px] rounded-xl font-bold text-sm border border-amber-400 text-amber-900 hover:bg-amber-100">
                     <Mail size={16} /> Request a quote
                   </a>
@@ -1314,12 +1356,15 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   )}
                 </div>
 
-                <div className="flex items-center justify-between gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
                   <div>
                     <div className="text-navy-800 text-sm font-medium">Rug cleaning</div>
                     <div className="text-amber-800 text-[11px] font-semibold">Photo assessment required — not automatically priced</div>
                   </div>
-                  <a href={WA_LINK} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-amber-800 underline underline-offset-2 whitespace-nowrap">WhatsApp a photo</a>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    <a href={rugContact.whatsapp} target="_blank" rel="noopener noreferrer" className="inline-flex items-center min-h-[44px] text-xs font-semibold text-amber-800 underline underline-offset-2">WhatsApp a photo</a>
+                    <a href={rugContact.email} className="inline-flex items-center min-h-[44px] text-xs font-semibold text-amber-800 underline underline-offset-2">Email about a rug</a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1438,12 +1483,13 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                 <div className="rounded-2xl bg-purple-50 border-2 border-purple-200 p-5 text-center space-y-2 mt-4">
                   <p className="text-purple-900 font-bold text-sm">Photo review required</p>
                   <p className="text-purple-800 text-xs leading-relaxed">
-                    The condition you selected needs a photo review before we can confirm a fixed price — no automatic surcharge is applied. Send us photos on WhatsApp so we can review the scope.
+                    The condition you selected needs a photo review before we can confirm a fixed price — no automatic surcharge is applied. Send photos by WhatsApp or email. Your selected details are included in the message; attach your photos before sending.
                   </p>
-                  <a href={WA_LINK} target="_blank" rel="noopener noreferrer"
+                  <a href={conditionContact.whatsapp} target="_blank" rel="noopener noreferrer"
                     className="btn-whatsapp inline-flex items-center justify-center gap-2 px-6 py-3 min-h-[44px] rounded-full font-bold text-sm mt-2">
                     Send photos on WhatsApp
                   </a>
+                  <div><a href={conditionContact.email} className="inline-flex items-center gap-2 min-h-[44px] px-4 text-sm font-semibold text-purple-900 underline underline-offset-2"><Mail size={16} aria-hidden="true" /> Send photos by email</a></div>
                 </div>
               ) : (
                 // ── Final quote card ── one clear total, guarantee and next step.

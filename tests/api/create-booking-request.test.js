@@ -184,6 +184,65 @@ describe("POST /api/create-booking-request", () => {
     sendMailMock.mockResolvedValue({ accepted: ["ok"] });
   }
 
+  it('acknowledges a saved request while the platform keeps notification delivery alive', async () => {
+    vi.stubEnv('VERCEL', '1');
+    vi.stubEnv('VERCEL_ENV', 'production');
+    const contextKey = Symbol.for('@vercel/request-context');
+    const continuations = [];
+    globalThis[contextKey] = { get: () => ({ waitUntil: promise => continuations.push(promise) }) };
+    configureEmails();
+    claimNotificationsMock.mockResolvedValue({ data: notificationClaims(['business_email', 'customer_email']), error: null });
+    let releaseMail;
+    const mailDelivery = new Promise(resolve => { releaseMail = resolve; });
+    sendMailMock.mockReturnValue(mailDelivery);
+    try {
+      const response = res();
+      await handler(req(payload()), response);
+      expect(response.statusCode).toBe(201);
+      expect(insertSingleMock).toHaveBeenCalledOnce();
+      expect(sendMailMock).toHaveBeenCalledTimes(2);
+      expect(recordNotificationMock).not.toHaveBeenCalled();
+      expect(continuations).toHaveLength(1);
+      releaseMail({ accepted: ['synthetic@example.test'] });
+      await Promise.all(continuations);
+      expect(recordNotificationMock.mock.calls.filter(([row]) => row.p_status === 'sent')).toHaveLength(2);
+    } finally {
+      releaseMail({ accepted: [] });
+      await Promise.all(continuations);
+      delete globalThis[contextKey];
+    }
+  });
+
+  it('accepts an initial and surname and trims email just like browser validation', async () => {
+    const response = res();
+    await handler(req(payload({ fullName: ' P Munt ', email: ' test@example.test ' })), response);
+    expect(response.statusCode).toBe(201);
+    expect(insertSingleMock).toHaveBeenCalledWith(expect.objectContaining({ full_name: 'P Munt', email: 'test@example.test' }));
+  });
+
+  it.each(['P', ' ', 12, { name: 'Test' }])('rejects an invalid name before persistence: %j', fullName => {
+    const response = res();
+    return handler(req(payload({ fullName })), response).then(() => {
+      expect(response.statusCode).toBe(400);
+      expect(insertSingleMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it('uses London midnight for preferred dates during British Summer Time', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-15T23:30:00Z'));
+    try {
+      const past = res();
+      await handler(req(payload({ date: '2026-06-15' })), past);
+      expect(past.statusCode).toBe(400);
+      expect(JSON.parse(past.body).error).toContain('already passed');
+      expect(insertSingleMock).not.toHaveBeenCalled();
+      const today = res();
+      await handler(req(payload({ date: '2026-06-16' })), today);
+      expect(today.statusCode).toBe(201);
+    } finally { vi.useRealTimers(); }
+  });
+
   function ga4Context(overrides = {}) {
     return {
       analytics: true, advertising: false, consent_version: "2026-07-14",

@@ -4,6 +4,7 @@ import { Link, MemoryRouter } from 'react-router-dom';
 import { readFileSync } from 'node:fs';
 import ScrollToTop from './ScrollToTop';
 import { applyRouteMetadata, metadataForPath, NOT_FOUND_METADATA, ROUTE_METADATA } from '../lib/routeMetadata';
+import { isPrivatePage } from '../lib/privatePage';
 
 const initialHead = document.head.innerHTML;
 const template = readFileSync('index.html', 'utf8');
@@ -66,6 +67,21 @@ describe('route metadata on direct loads and client navigation', () => {
     expect(local).toHaveLength(15);
     expect(local.filter((route) => route.robots === 'index, follow').map((route) => route.path).sort()).toEqual(['/cleaning-islington', '/cleaning-stratford']);
     expect(local.filter((route) => route.robots === 'noindex, follow')).toHaveLength(13);
+  });
+
+  it('keeps the transactional request form out of search without treating it as a private payment page', () => {
+    const route = metadataForPath('/booking');
+    const direct = new DOMParser().parseFromString(buildHtml(route, route.canonical), 'text/html');
+    applyRouteMetadata('/carpet-cleaning-london');
+    applyRouteMetadata('/booking');
+    expect(content(direct, 'meta[name="robots"]')).toBe('noindex, follow');
+    expect(content(document, 'meta[name="robots"]')).toBe('noindex, follow');
+    expect(route.canonical).toBe('https://www.vveclean.co.uk/booking');
+    expect(ROUTE_METADATA.filter(item => item.robots.startsWith('index')).map(item => item.path)).not.toContain('/booking');
+    // /booking must still record request diagnostics under the existing consent
+    // rules; only the token-bearing management journey is a private page.
+    expect(isPrivatePage('/booking')).toBe(false);
+    expect(isPrivatePage('/manage-booking')).toBe(true);
   });
 
   it('uses only neutral, shared policy and qualified catalogue price claims', () => {
