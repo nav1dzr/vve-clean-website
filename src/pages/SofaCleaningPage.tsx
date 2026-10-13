@@ -91,8 +91,8 @@ const DATA: ServiceLandingData = {
   h1: 'Sofa cleaning in London',
   h1Highlight: '',
   heroHighlightClassName: 'text-gradient-sofa',
-  heroSubtitle: 'For fabric sofas, armchairs and mattresses across East & North London.',
-  heroPriceChip: `2-seater sofa ${pd(CARPET_ITEM_PRICES_P.sofa_2)} · ${pd(CARPET_MIN_BOOKING_P)} minimum booking`,
+  heroSubtitle: 'Fabric sofas, armchairs and mattresses across East & North London. We check the fabric before treatment.',
+  heroPriceChip: `Sofa and upholstery visits from ${pd(CARPET_MIN_BOOKING_P)}`,
   heroTaxNoteCompact: true,
   heroAside: <SofaHeroPanel />,
   heroAsideOnMobile: true,
@@ -100,7 +100,7 @@ const DATA: ServiceLandingData = {
   heroGoogleBadge: true,
   heroCompactMobile: true,
   primaryHref: '/sofa-cleaning-london#quote',
-  primaryLabel: 'Get a sofa quote',
+  primaryLabel: 'Choose my furniture',
   secondaryHref: WA,
   secondaryLabel: 'Send a photo on WhatsApp',
   secondaryIsWa: true,
@@ -145,9 +145,9 @@ const DATA: ServiceLandingData = {
     'Post-clean inspection of the upholstery and cushions',
   ],
 
-  pricingH2: 'Fixed sofa cleaning prices',
+  pricingH2: 'Sofa and upholstery item prices',
   pricingIntro:
-    `Standard item prices are shown below. We agree suitability, scope and the final total before confirming your booking. £${CARPET_MIN_BOOKING_P / 100} minimum booking applies.`,
+    `Use these rates to build your quote. The minimum cleaning charge is ${pd(CARPET_MIN_BOOKING_P)} per visit, shared across your carpet and upholstery items. We check fabric suitability and agree any access costs with you.`,
   pricingRows: [
     { label: 'Armchair', price: pd(CARPET_ITEM_PRICES_P.armchair) },
     { label: '2-seater sofa', price: pd(CARPET_ITEM_PRICES_P.sofa_2) },

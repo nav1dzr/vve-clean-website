@@ -3,7 +3,10 @@ import { randomBytes, createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { loadWebsitePricebook } from "./_lib/websitePricebook.js";
 import { priceBookingRequest } from "../shared/requestPricing.js";
+import { isValidBookingName, isValidBookingEmail, isValidBookingDate, todayLondonIsoDate } from '../shared/bookingRequestValidation.js';
 import { formatServiceDetail } from "./_lib/formatBookingItems.js";
+import { saveGa4Context } from './_lib/ga4Context.js';
+import { finishRequestNotifications } from './_lib/requestNotificationBackground.js';
 import {
   deliverBookingRequestNotifications,
   safeOperationalCode,
@@ -12,7 +15,6 @@ import {
 export const config = { api: { bodyParser: false } };
 
 const MAX_BODY_BYTES = 64 * 1024;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VALID_PARKING = ["yes", "no", "not_sure"];
 const VALID_CONGESTION = ["yes", "no", "not_sure"];
 const MAX_REF_COLLISION_RETRIES = 5;
@@ -61,7 +63,7 @@ function measurementEmailHash(value) {
     ? local.split("+")[0].replace(/\./g, "")
     : local;
   const normalized = `${normalizedLocal}@${domain}`;
-  return EMAIL_RE.test(normalized) ? sha256(normalized) : null;
+  return isValidBookingEmail(normalized) ? sha256(normalized) : null;
 }
 
 function measurementPhoneHash(value) {
@@ -300,11 +302,11 @@ export default async function handler(req, res) {
 
   if (!quoteConfig)
     return errorResponse(res, headers, 400, "quoteConfig is required");
-  if (!fullName || String(fullName).trim().length < 2)
+  if (!isValidBookingName(fullName))
     return errorResponse(res, headers, 400, "A full name is required");
   if (!phone || String(phone).replace(/\D/g, "").length < 10)
     return errorResponse(res, headers, 400, "A valid phone number is required");
-  if (!email || !EMAIL_RE.test(String(email).trim()))
+  if (!isValidBookingEmail(email))
     return errorResponse(
       res,
       headers,
@@ -325,10 +327,7 @@ export default async function handler(req, res) {
     );
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date))
     return errorResponse(res, headers, 400, "A preferred date is required");
-  if (
-    Number.isNaN(Date.parse(date)) ||
-    new Date(date).toISOString().slice(0, 10) !== date
-  )
+  if (!isValidBookingDate(date))
     return errorResponse(res, headers, 400, "Choose a valid date.");
   if (!time)
     return errorResponse(
@@ -394,7 +393,7 @@ export default async function handler(req, res) {
         409,
         "This request changed. Please refresh the form before sending again.",
       );
-    await attemptNotificationDelivery(supabase, existing.id);
+    await finishRequestNotifications(attemptNotificationDelivery(supabase, existing.id));
     res.writeHead(200, { ...headers, "Content-Type": "application/json" });
     return res.end(
       JSON.stringify({
@@ -420,12 +419,7 @@ export default async function handler(req, res) {
 
   // A saved request remains replayable even after its preferred date or the
   // current pricebook changes. New requests still pass both checks below.
-  if (
-    date <
-    new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(
-      new Date(),
-    )
-  )
+  if (date < todayLondonIsoDate())
     return errorResponse(
       res,
       headers,
@@ -578,7 +572,8 @@ export default async function handler(req, res) {
   }
   bookingRef = persistedBookingRef;
 
-  await attemptNotificationDelivery(supabase, saved.id);
+  await saveGa4Context(supabase, saved.id, payload.ga4_context);
+  await finishRequestNotifications(attemptNotificationDelivery(supabase, saved.id));
 
   res.writeHead(201, { ...headers, "Content-Type": "application/json" });
   return res.end(

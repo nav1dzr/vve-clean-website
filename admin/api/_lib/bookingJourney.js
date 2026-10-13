@@ -1095,7 +1095,14 @@ export async function createJourneyCheckout(db, booking, j) {
       booking,
       j,
       "checkout_ready",
-      { checkout_id: session.id, checkout_creating_at: null },
+      {
+        checkout_id: session.id,
+        checkout_creating_at: null,
+        // Audit-event metadata only: jsonb_populate_record ignores this key.
+        // The additive GA4 trigger consumes the exact amount sent to Stripe;
+        // it does not alter checkout, prices or the operational journey row.
+        ga4_checkout_amount_pence: amount,
+      },
       {},
       null,
       "system",

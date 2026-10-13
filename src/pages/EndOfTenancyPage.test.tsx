@@ -57,7 +57,7 @@ describe('EndOfTenancyPage — mounts the Complete/Tailored wizard directly, not
   it('renders the page heading and the wizard\'s first step, with no legacy service-type switcher', () => {
     renderPage();
     expect(
-      screen.getByRole('heading', { name: /End of Tenancy Cleaning London/i }),
+      screen.getByRole('heading', { name: /End of tenancy cleaning in London/i }),
     ).toBeInTheDocument();
     expect(quote().getByRole('list', { name: /Step 1 of 4/ })).toBeInTheDocument();
     expect(screen.queryByText('Service Type')).not.toBeInTheDocument();

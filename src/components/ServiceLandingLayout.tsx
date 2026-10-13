@@ -1,4 +1,5 @@
 import PriceTaxNote from './PriceTaxNote';
+import { DEPOSIT_P, penceToDisplay } from '../data/pricing';
 import { Fragment, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useReveal } from '../hooks/useReveal';
@@ -72,6 +73,8 @@ export interface ServiceLandingData {
   // Renders the compact Google rating badge directly below the hero CTAs
   // (replaces the faint ★ text trust line as the primary trust signal).
   heroGoogleBadge?: boolean;
+  // A concise, service-specific assurance kept beside the primary action.
+  heroDecisionNote?: ReactNode;
   // Optional visual panel used by service pages that need a richer,
   // homepage-style split hero without relying on stock photography.
   heroAside?: ReactNode;
@@ -476,7 +479,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
           home indicator the bar is ~90px tall and a flat 56px reserve left the
           end of the page underneath it. */}
       <div className="min-h-screen bg-[#fafbfd] mobile-page-bottom lg:pb-0">
-        <Navbar />
+        <Navbar primaryAction={{ href: data.primaryHref, label: data.primaryLabel, isWa: data.primaryIsWa }} />
         <main id="main-content">
 
         {/* ── Breadcrumb ── */}
@@ -494,28 +497,36 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
         </nav>
 
         <section className={`service-hero px-4 py-8 sm:py-12 ${data.heroCompactMobile ? 'service-hero-compact' : ''}`}>
-          <div className={`mx-auto max-w-7xl ${data.heroAside || data.heroBgImage ? 'grid items-center gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14' : 'max-w-4xl'}`}>
-            <div>
+          <div className={`conversion-hero-grid mx-auto ${data.heroAside || data.heroBgImage ? 'max-w-7xl conversion-hero-grid--with-media' : 'max-w-4xl'}`}>
+            <div className="conversion-hero-copy">
               {data.eyebrow && <Eyebrow align="start">{data.eyebrow}</Eyebrow>}
-              <h1 className="font-display text-[2.1rem] font-bold leading-[1.1] tracking-tight text-navy-950 sm:text-5xl lg:text-[3.5rem]">
+              <h1 className="font-display text-[2rem] font-bold leading-[1.12] tracking-tight text-navy-950 sm:text-5xl">
                 {data.h1}
                 {data.h1Highlight && <span className="mt-2 block text-royal-700">{data.h1Highlight}</span>}
               </h1>
-              {data.heroSubtitle && <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-700 sm:text-lg">{data.heroSubtitle}</p>}
-              {data.heroPriceChip && <><p className="mt-5 text-base font-bold text-navy-950">{data.heroPriceChip}</p><PriceTaxNote className="mt-1" compact={data.heroTaxNoteCompact} /></>}
-              <div className="service-hero-actions mt-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+              {data.heroSubtitle && <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-700 sm:text-lg">{data.heroSubtitle}</p>}
+              {data.heroPriceChip && <div className="mt-4"><p className="text-base font-bold text-navy-950">{data.heroPriceChip}</p><PriceTaxNote className="mt-1" compact={data.heroTaxNoteCompact} /></div>}
+              <div className="service-hero-actions mt-5 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
                 <CtaButton href={data.primaryHref} label={data.primaryLabel} isWa={data.primaryIsWa} variant="primary" />
                 <CtaButton href={data.secondaryHref} label={data.secondaryLabel} isWa={data.secondaryIsWa} variant="secondary" />
               </div>
-              {data.heroBadges.length > 0 && <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-700">
-                {data.heroBadges.map((badge) => <li key={badge} className="flex items-start gap-2"><span className="font-bold text-royal-700" aria-hidden="true">✓</span>{badge}</li>)}
-              </ul>}
-              {data.heroGoogleBadge && <div className="mt-5"><GoogleBadge /></div>}
-              {data.heroTrustLine && <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-600">{data.heroTrustLine}</p>}
+              <p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-700"><strong>No payment now.</strong> Once we agree the details, a {penceToDisplay(DEPOSIT_P)} deposit secures your booking and comes off the total.</p>
+              {data.heroGoogleBadge && <div className="mt-4"><GoogleBadge /></div>}
+              {data.heroDecisionNote && <div className="mt-3 max-w-xl text-sm leading-relaxed text-slate-700">{data.heroDecisionNote}</div>}
             </div>
-            {data.heroAside ? <div className={data.heroAsideOnMobile ? 'min-w-0' : 'hidden min-w-0 lg:block'}>{data.heroAside}</div> : data.heroBgImage ? (
-              <ServiceHeroPhoto src={data.heroBgImage} alt={data.heroImageAlt ?? ''} caption={data.heroImageCaption ?? data.breadcrumb} />
+            {data.heroAside || data.heroBgImage ? (
+              <div className={`conversion-hero-media min-w-0 ${data.heroAside && !data.heroAsideOnMobile ? 'hidden lg:block' : ''}`}>
+                {data.heroAside ?? <ServiceHeroPhoto src={data.heroBgImage!} alt={data.heroImageAlt ?? ''} caption={data.heroImageCaption ?? data.breadcrumb} />}
+              </div>
             ) : null}
+            {(data.heroBadges.length > 0 || data.heroTrustLine) && (
+              <div className="conversion-hero-reassurance">
+                {data.heroBadges.length > 0 && <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-700">
+                  {data.heroBadges.map((badge) => <li key={badge} className="flex items-start gap-2"><span className="font-bold text-royal-700" aria-hidden="true">✓</span>{badge}</li>)}
+                </ul>}
+                {data.heroTrustLine && <p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-600">{data.heroTrustLine}</p>}
+              </div>
+            )}
           </div>
         </section>
 
@@ -581,7 +592,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
         <Footer />
       </div>
 
-      <MobileStickyFooter />
+      <MobileStickyFooter fallbackAction={{ href: data.primaryHref, label: data.primaryLabel, isWa: data.primaryIsWa }} />
     </BookingProvider>
   );
 }

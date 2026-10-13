@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import QuoteCalculator from './QuoteCalculator';
@@ -97,5 +98,22 @@ describe('QuoteCalculator mobile-dock lifecycle', () => {
     );
 
     await waitFor(() => expect(screen.getByTestId('sticky-state')).toHaveTextContent('none'));
+  });
+});
+
+describe('Move-in carpet add-on scope', () => {
+  it('names the included areas and carries that scope into the WhatsApp enquiry', async () => {
+    const user = userEvent.setup();
+    const { container } = renderCalc('all-services');
+    await user.click(screen.getByRole('button', { name: 'Move-in deep clean' }));
+    await user.click(screen.getByRole('button', { name: '2 Bed' }));
+    const scope = screen.getByText('2 bedroom carpets + hallway');
+    expect(scope.parentElement).toHaveTextContent('+£100');
+    expect(container).not.toHaveTextContent('whole home');
+    expect(container).not.toHaveTextContent('saves £110');
+    await user.click(screen.getByRole('button', { name: 'Increase 2 bedroom carpets + hallway quantity' }));
+    const messages = Array.from(container.querySelectorAll<HTMLAnchorElement>('a[href*="wa.me"]')).map(link => decodeURIComponent(link.href));
+    expect(messages.some(message => message.includes('2 bedroom carpets + hallway'))).toBe(true);
+    expect(messages.some(message => message.includes('whole home'))).toBe(false);
   });
 });

@@ -48,8 +48,12 @@ export function rememberQuoteOrigin(pathname: string = window.location.pathname)
  * `isLeaflet` keeps the existing leaflet special case working for a booking
  * restored from storage in a fresh tab, where no origin was recorded.
  */
-export function getQuoteOriginHref(isLeaflet = false): string {
+export function getQuoteOriginHref(isLeaflet = false, routeOrigin?: string): string {
   const fallback = isLeaflet ? '/leaflet#quote' : '/#quote';
+  const routePath = routeOrigin && routeOrigin.length > 1 ? routeOrigin.replace(/\/$/, '') : routeOrigin;
+  if (routePath && ALLOWED_PATHS.has(routePath)) {
+    return routePath === '/booking' ? fallback : `${routePath}#quote`;
+  }
   try {
     const stored = sessionStorage.getItem(ORIGIN_KEY);
     if (!stored || !ALLOWED_PATHS.has(stored)) return fallback;

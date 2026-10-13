@@ -92,11 +92,12 @@ const DATA: ServiceLandingData = {
   breadcrumb: 'Carpet Cleaning London',
 
   eyebrow: 'Professional Carpet Cleaning',
-  h1: 'Carpet Cleaning London',
+  h1: 'Carpet cleaning in London',
   h1Highlight: '',
   heroHighlightClassName: 'text-gradient-carpet',
-  heroSubtitle: 'Professional extraction for bedrooms, living rooms, stairs and hallways. Choose your rooms and see your estimate.',
-  heroPriceChip: `Bedroom ${pd(CARPET_ITEM_PRICES_P.bedroom)} · ${pd(CARPET_MIN_BOOKING_P)} minimum booking`,
+  heroSubtitle: 'Carpet cleaning across East & North London, with fibre checks and stain assessment before treatment.',
+  heroPriceChip: `Carpet cleaning visits from ${pd(CARPET_MIN_BOOKING_P)}`,
+  heroTaxNoteCompact: true,
   heroAside: <CarpetHeroPanel />,
   heroAsideOnMobile: true,
   // This slot now carries a different, existing benefit (see the "Fixed prices,
@@ -110,7 +111,7 @@ const DATA: ServiceLandingData = {
   heroCompactMobile: true,
   heroTrustLine: '£5m public liability insurance · fibre checked before treatment',
   primaryHref: '/carpet-cleaning-london#quote',
-  primaryLabel: 'Build my carpet quote',
+  primaryLabel: 'Choose my rooms',
   secondaryHref: WA,
   secondaryLabel: 'Ask us on WhatsApp',
   secondaryIsWa: true,
@@ -155,9 +156,9 @@ const DATA: ServiceLandingData = {
     'All equipment and cleaning products supplied',
   ],
 
-  pricingH2: 'Fixed carpet cleaning prices',
+  pricingH2: 'Carpet cleaning item prices',
   pricingIntro:
-    `Standard room prices are shown below. We agree the scope and final total before confirming your booking. £${CARPET_MIN_BOOKING_P / 100} minimum booking applies.`,
+    `Use these rates to build your quote. The minimum cleaning charge is ${pd(CARPET_MIN_BOOKING_P)} per visit, shared across your carpet and upholstery items. Any agreed access costs are separate.`,
   pricingRows: [
     { label: 'Bedroom', price: pd(CARPET_ITEM_PRICES_P.bedroom) },
     { label: 'Living / dining room', price: pd(CARPET_ITEM_PRICES_P.living_room) },

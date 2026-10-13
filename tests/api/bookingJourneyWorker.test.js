@@ -1,5 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { processDueBookingJourneys } from "../../api/_lib/bookingJourneyWorker.js";
+
+beforeEach(() => vi.stubEnv("GA4_BOOKING_MEASUREMENT_MODE", "disabled"));
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 
 function workerDb(journeys, messages = []) {
   const db = {
@@ -68,6 +71,56 @@ function workerDb(journeys, messages = []) {
   return db;
 }
 describe("bounded booking worker", () => {
+  it("needs no extra database table or RPC when GA4 is disabled by default", async () => {
+    vi.stubEnv("GA4_BOOKING_MEASUREMENT_MODE", "");
+    vi.stubEnv("GA4_MEASUREMENT_ID", "");
+    vi.stubEnv("GA4_API_SECRET", "");
+    const db = workerDb([]);
+    const from = vi.spyOn(db, "from");
+    const deliverMeasurements = vi.fn(async () => ({ status: "completed", processed: 1 }));
+    const deliverRequestNotifications = vi.fn(async () => ({ claimed: 1, results: [{ status: "sent" }] }));
+    const result = await processDueBookingJourneys(db, {
+      perform: vi.fn(), deliver: vi.fn(), deliverRequestNotifications, deliverMeasurements,
+      purgeMeasurements: vi.fn(async () => ({ status: "completed" })),
+      now: new Date("2026-09-08T12:00:00Z"),
+    });
+    expect(result.ga4Measurement).toMatchObject({ status: "disabled", processed: 0 });
+    expect(from.mock.calls.map(([table]) => table)).toEqual([
+      "booking_journeys", "booking_journeys", "booking_journeys", "booking_journey_messages",
+    ]);
+    expect(db.rpc).not.toHaveBeenCalled();
+    expect(deliverMeasurements).toHaveBeenCalledOnce();
+    expect(deliverRequestNotifications).toHaveBeenCalledOnce();
+  });
+
+  it.each(["purge_expired_booking_ga4_measurement", "claim_booking_ga4_measurements"])("keeps Ads and notification delivery working when optional GA4 RPC %s fails", async failedRpc => {
+    vi.stubEnv("GA4_BOOKING_MEASUREMENT_MODE", "validate");
+    vi.stubEnv("GA4_MEASUREMENT_ID", "G-TEST1234");
+    vi.stubEnv("GA4_API_SECRET", "test-only-placeholder");
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const db = workerDb([], [{ id: "pending-message", booking_id: "booking-1", status: "pending", attempts: 0, created_at: "2026-09-08T10:00:00Z" }]);
+    db.rpc.mockImplementation(async name => name === failedRpc
+      ? { data: null, error: { message: "private database details", code: "PGRST202" } }
+      : { data: [], error: null });
+    const deliver = vi.fn(async () => {});
+    const deliverRequestNotifications = vi.fn(async () => ({ claimed: 3, results: [{ channel: "customer_email", status: "sent" }, { channel: "business_email", status: "sent" }, { channel: "telegram", status: "sent" }] }));
+    const deliverMeasurements = vi.fn(async () => ({ status: "completed", processed: 1 }));
+    const result = await processDueBookingJourneys(db, {
+      perform: vi.fn(), deliver, deliverRequestNotifications, deliverMeasurements,
+      purgeMeasurements: vi.fn(async () => ({ status: "completed" })),
+      now: new Date("2026-09-08T12:00:00Z"),
+    });
+    expect(deliver).toHaveBeenCalledExactlyOnceWith(db, "booking-1", "pending-message");
+    expect(deliverRequestNotifications).toHaveBeenCalledExactlyOnceWith(db, { limit: 12 });
+    expect(deliverMeasurements).toHaveBeenCalledExactlyOnceWith(db);
+    expect(result.requestNotifications.claimed).toBe(3);
+    expect(result.measurement).toEqual({ status: "completed", processed: 1 });
+    expect(result.ga4Measurement).toEqual({ status: "needs_review", code: "ga4_worker_failed" });
+    expect(db.rpc.mock.calls.some(([name]) => name === failedRpc)).toBe(true);
+    expect(warning).toHaveBeenCalledWith("[booking-worker] GA4 measurement deferred");
+    expect(JSON.stringify(warning.mock.calls)).not.toContain("private database details");
+  });
+
   it("runs retention maintenance before measurement delivery through the scheduled worker", async () => {
     const order = [];
     const deliverRequestNotifications = vi.fn(async () => { order.push("request-notifications"); return { claimed: 0, results: [] }; });

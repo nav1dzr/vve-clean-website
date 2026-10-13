@@ -6,6 +6,9 @@ import {
   trackContactFormSubmitted,
   trackPhoneClick,
   trackWhatsAppClick,
+  trackQuoteStarted,
+  trackQuoteCalculated,
+  trackQuoteStepCompleted,
 } from './analytics';
 
 type GtagWindow = Window & { gtag?: (...args: unknown[]) => void };
@@ -116,11 +119,27 @@ describe('Google Ads analytics events', () => {
     'does not measure private or preview URLs: %s', url => {
       vi.stubGlobal('window', { location: new URL(url), gtag: vi.fn() });
       trackPhoneClick('header'); trackBookingRequestSubmitted('Carpet cleaning'); trackContactFormSubmitted();
+      trackQuoteStarted('carpet_upholstery'); trackQuoteCalculated('carpet_upholstery', 8500); trackQuoteStepCompleted('end_of_tenancy', 1);
       expect((window as GtagWindow).gtag).not.toHaveBeenCalled();
     },
   );
   it('does not throw if an analytics provider fails after the enquiry was saved', () => {
     (window as GtagWindow).gtag = () => { throw new Error('provider unavailable'); };
     expect(() => trackContactFormSubmitted()).not.toThrow();
+  });
+  it('allowlists quote service/step values and sends no arbitrary fields or Ads labels', () => {
+    const gtag = vi.fn(); (window as GtagWindow).gtag = gtag;
+    // @ts-expect-error runtime boundary must reject arbitrary customer data too.
+    trackQuoteStarted('customer@example.com');
+    // @ts-expect-error invalid runtime service identifier.
+    trackQuoteCalculated('N1TEST', 8500);
+    trackQuoteStepCompleted('carpet_upholstery', 2);
+    trackQuoteStepCompleted('end_of_tenancy', 5);
+    expect(gtag).not.toHaveBeenCalled();
+    trackQuoteStarted('end_of_tenancy');
+    trackQuoteCalculated('end_of_tenancy', 27900);
+    trackQuoteStepCompleted('end_of_tenancy', 4);
+    expect(gtag.mock.calls.map((c) => c[1])).toEqual(['quote_started', 'quote_calculated', 'step_completed']);
+    expect(gtag.mock.calls[1][2]).toEqual({ event_category: 'funnel', service_type: 'end_of_tenancy', quoted_total: 279, currency: 'GBP' });
   });
 });

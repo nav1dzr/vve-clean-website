@@ -169,3 +169,16 @@ describe('Carpet page quote — summary and booking hand-off', () => {
     expect(CARPET_ITEM_PRICES_P.mattress_double).toBe(5500);
   });
 });
+
+describe('Carpet discount presentation at the minimum', () => {
+  it('does not cross out a lower item subtotal as a previous payable price', async () => {
+    const user = userEvent.setup();
+    const { container } = renderCarpet();
+    await add(user, 'Landing', 2);
+    expect(screen.getByText('Add 1 more item to reach the £10 bundle discount band. £85 minimum applies.')).toBeInTheDocument();
+    await add(user, 'Landing');
+    expect(screen.getAllByText('£85').length).toBeGreaterThan(0);
+    expect(container.querySelectorAll('.line-through')).toHaveLength(0);
+    expect(screen.queryByText(/you save £10/)).not.toBeInTheDocument();
+  });
+});

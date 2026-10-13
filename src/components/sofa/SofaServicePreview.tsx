@@ -26,7 +26,7 @@ const PROCESS = [
     icon: Droplets,
     step: '03',
     title: 'Extract and rinse',
-    body: 'Professional hot-water extraction lifts embedded soil without soaking the fabric.',
+    body: 'For suitable fabrics, hot-water extraction removes loosened soil and extracts moisture.',
   },
   {
     icon: Wind,
