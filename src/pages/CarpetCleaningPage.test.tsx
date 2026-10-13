@@ -59,7 +59,8 @@ describe('CarpetCleaningPage — quote placement and proof placeholders', () => 
     expect(screen.getByText('Would you also like upholstery cleaning?')).toBeInTheDocument();
     expect(screen.queryByText('2-seater sofa')).not.toBeInTheDocument();
 
-    const heroCta = screen.getAllByRole('link', { name: 'Build my carpet quote' })[0];
+    const hero = screen.getByRole('heading', { level: 1 }).closest('section')!;
+    const heroCta = within(hero).getByRole('link', { name: 'Choose my rooms' });
     expect(heroCta).toHaveAttribute('href', '/carpet-cleaning-london#quote');
   });
 

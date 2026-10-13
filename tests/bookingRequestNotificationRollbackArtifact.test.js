@@ -9,18 +9,20 @@ const migration = readFileSync(
     "supabase/migrations/20260924140000_booking_request_notification_outbox.sql",
   ),
   "utf8",
-);
+).replace(/\r\n/g, "\n");
 const artifact = readFileSync(
   resolve(
     process.cwd(),
     "docs/VVE-OS-BOOKING-REQUEST-NOTIFICATION-ROLLBACK-TEST-2026-09-24.sql",
   ),
   "utf8",
-);
+).replace(/\r\n/g, "\n");
 const schema = "vve_notification_test_20260924";
 
 describe("VVE OS booking-request notification rollback artifact", () => {
   it("is generated from the exact repository migration", () => {
+    // Git stores this artifact as LF. Windows may check both files out as
+    // CRLF; compare canonical content without changing the pinned SQL/hash.
     const hash = createHash("sha256").update(migration).digest("hex");
     expect(artifact).toContain(`SHA-256: ${hash}`);
     const isolated = migration

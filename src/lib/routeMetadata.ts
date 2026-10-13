@@ -72,8 +72,9 @@ const routes: RouteDefinition[] = [
     ogTitle: 'Request a Cleaning Time | VVE Clean',
     ogDescription:
       'Submit a cleaning request online with no payment. VVE Clean checks availability, scope and final price before confirming the appointment.',
-    changefreq: 'monthly',
-    priority: '0.6',
+    // A transactional step reached from a service quote, not a search landing
+    // page. Keep normal navigation and consent-gated funnel measurement active.
+    robots: 'noindex, follow',
     sources: ['src/pages/BookingPage.tsx'],
   },
   {

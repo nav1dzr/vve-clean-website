@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import EndOfTenancyPage from './EndOfTenancyPage';
 import { CookieConsentProvider } from '../context/CookieConsentContext';
+import { EOT_GUARANTEE_HOURS } from '../data/pricing';
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -41,15 +42,27 @@ describe('EndOfTenancyPage — approved section order and real media', () => {
 
     expect(screen.getByRole('heading', { name: /Get Your Instant Quote/i })).toBeInTheDocument();
 
-    const heroCta = screen.getAllByRole('link', { name: 'Build my quote' })[0];
+    const heroSection = screen.getByRole('heading', { level: 1 }).closest('section')!;
+    const heroCta = within(heroSection).getByRole('link', { name: 'Get my moving-out quote' });
     expect(heroCta).toHaveAttribute('href', '/end-of-tenancy-cleaning-london#quote');
 
     const positions = Array.from(document.querySelectorAll('h1, h2')).map((el) => el.textContent);
-    const h1Index = positions.findIndex((t) => t?.includes('End of Tenancy Cleaning London'));
+    const h1Index = positions.findIndex((t) => t?.includes('End of tenancy cleaning in London'));
     const quoteHeadingIndex = positions.findIndex((t) => t?.includes('Get Your'));
     expect(h1Index).toBeGreaterThanOrEqual(0);
     expect(quoteHeadingIndex).toBeGreaterThan(h1Index);
     expect(quoteHeadingIndex - h1Index).toBeLessThanOrEqual(1);
+  });
+
+  it('keeps the current guarantee and its real terms reachable beside the hero action before the photograph', () => {
+    renderPage();
+    const hero = screen.getByRole('heading', { level: 1 }).closest('section')!;
+    const termsLink = within(hero).getByRole('link', { name: `${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee — see what is covered` });
+    expect(termsLink).toHaveAttribute('href', '#guarantee');
+    expect(document.getElementById('guarantee')).toHaveTextContent(`${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee`);
+    const heroImage = within(hero).getByRole('img', { name: 'Kitchen hob after cleaning' });
+    expect(termsLink.compareDocumentPosition(heroImage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(hero).getAllByText(/re-clean guarantee/)).toHaveLength(1);
   });
 
   it('renders the section headings in the approved conversion-flow order', () => {
@@ -58,7 +71,7 @@ describe('EndOfTenancyPage — approved section order and real media', () => {
     const positions = Array.from(document.querySelectorAll('h1, h2')).map((el) => el.textContent ?? '');
     const indexOf = (needle: string) => positions.findIndex((t) => t.includes(needle));
 
-    const hero      = indexOf('End of Tenancy Cleaning London');
+    const hero      = indexOf('End of tenancy cleaning in London');
     const quote     = indexOf('Get Your');
     const media     = indexOf('See the difference');
     const reviews   = indexOf('Rated by London customers on Google');
