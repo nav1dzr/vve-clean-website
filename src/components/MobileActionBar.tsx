@@ -9,7 +9,7 @@ export function WhatsAppActionIcon() { return (
 ); }
 
 // Shared presentation for the booking bar and pricing's service-aware links.
-export default function MobileActionBar({ primary, whatsappHref }: { primary: ReactNode; whatsappHref: string }) {
+export default function MobileActionBar({ primary, whatsappHref, secondary }: { primary: ReactNode; whatsappHref: string; secondary?: ReactNode }) {
   return (
     <nav
       aria-label="Quick booking and help"
@@ -20,7 +20,7 @@ export default function MobileActionBar({ primary, whatsappHref }: { primary: Re
     >
       <div className="mx-auto flex max-w-2xl items-stretch gap-2 px-3 py-2 shadow-[0_-4px_20px_rgba(16,36,62,0.06)]">
         {primary}
-        <a
+        {secondary ?? <a
           href={whatsappHref}
           target="_blank"
           rel="noopener noreferrer"
@@ -30,7 +30,7 @@ export default function MobileActionBar({ primary, whatsappHref }: { primary: Re
         >
           <WhatsAppActionIcon />
           <span>WhatsApp</span>
-        </a>
+        </a>}
       </div>
     </nav>
   );

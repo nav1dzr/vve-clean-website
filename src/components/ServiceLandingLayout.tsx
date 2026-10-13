@@ -94,6 +94,8 @@ export interface ServiceLandingData {
   secondaryHref: string;
   secondaryLabel: string;
   secondaryIsWa?: boolean;
+  // Photo-quote pages can offer Call alongside WhatsApp instead of two WhatsApp links.
+  mobileSecondaryAction?: ReactNode;
 
   // Optional section rendered directly after the hero (before Intro) — used
   // for the compact, service-specific quote calculator so it sits as close
@@ -592,7 +594,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
         <Footer />
       </div>
 
-      <MobileStickyFooter fallbackAction={{ href: data.primaryHref, label: data.primaryLabel, isWa: data.primaryIsWa }} />
+      <MobileStickyFooter fallbackAction={{ href: data.primaryHref, label: data.primaryLabel, isWa: data.primaryIsWa }} secondaryAction={data.mobileSecondaryAction} />
     </BookingProvider>
   );
 }

@@ -1,38 +1,11 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
-import { Wind, Paintbrush, Droplets, CheckCircle2 } from 'lucide-react';
-import { AFTER_BUILDERS_FROM_PRICES_P, AFTER_BUILDERS_START_FROM_P } from '../data/pricing';
+import AfterBuildersContent, { AfterBuildersQuoteCard } from '../components/AfterBuildersContent';
+import { BUILDERS_FAQS, BUILDERS_PRICES, BUILDERS_WHATSAPP } from '../data/afterBuildersContent';
+import { AFTER_BUILDERS_START_FROM_P, penceToDisplay } from '../data/pricing';
+import './after-builders.css';
+import { Phone } from 'lucide-react';
 
-const WA_PHOTO = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20an%20after-builders%20clean%20quote.%20Sending%20photos%20now.';
-
-// Single source for the visible accordion and the FAQPage schema — see the
-// same note in EndOfTenancyPage.tsx.
-const FAQS = [
-  {
-    q: 'Why do you need a photo for the quote?',
-    a: 'Photos help us assess the dust, residue, surfaces and work left by the builders. Send an overview of each room and close-ups of problem areas. We may ask for more information before confirming the tasks, price and likely time needed.',
-  },
-  {
-    q: 'What does after-builders cleaning include?',
-    a: 'The quote can cover construction dust on accessible surfaces, cupboard interiors, sills and fittings, kitchen and bathroom cleaning, and suitable treatment of paint or adhesive residue. The surface and condition determine what can be removed. Your quote lists the agreed work; equipment and products for that work are supplied.',
-  },
-  {
-    q: 'How long does an after-builders clean take?',
-    a: 'A 1–2 bedroom flat typically takes a full day (6–8 hours). Larger properties or those with extensive debris may require two visits. We give you an accurate time estimate with your quote.',
-  },
-  {
-    q: 'Can you clean while builders are still on site?',
-    a: 'Book the final clean after the builders have finished their main work and the trades have left. Tell us if any work will still be happening, since fresh dust can settle on areas already cleaned.',
-  },
-  {
-    q: 'Do you supply materials and equipment?',
-    a: 'Yes. We bring the equipment, cleaning products and protective materials for the agreed tasks. Confirm access and parking in advance and tell us about any site restrictions when requesting the quote.',
-  },
-  {
-    q: 'Are walls, ceilings and waste removal included?',
-    a: 'Show us these areas and any remaining debris in your photos. We need to agree the surfaces, access and any waste-removal work in the quote. Do not assume that cleaning includes repairs, repainting or clearance of building waste.',
-  },
-];
-
+const PAGE_URL = 'https://www.vveclean.co.uk/after-builders-cleaning-london';
 const SCHEMA = JSON.stringify({
   '@context': 'https://schema.org',
   '@graph': [
@@ -40,31 +13,28 @@ const SCHEMA = JSON.stringify({
       '@type': 'BreadcrumbList',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.vveclean.co.uk' },
-        { '@type': 'ListItem', position: 2, name: 'After Builders Cleaning London', item: 'https://www.vveclean.co.uk/after-builders-cleaning-london' },
+        { '@type': 'ListItem', position: 2, name: 'After Builders Cleaning London', item: PAGE_URL },
       ],
     },
     {
       '@type': 'Service',
       name: 'After Builders Cleaning London',
-      description:
-        `After-builders cleaning in London from £${AFTER_BUILDERS_START_FROM_P / 100}. Photo assessment of dust, paint and adhesive residue, with cleaning tasks and the final quote confirmed before work starts.`,
+      description: `After-builders cleaning from ${penceToDisplay(AFTER_BUILDERS_START_FROM_P)}. Fixed written quotations after assessment of the rooms, dust, residue, finishes and access.`,
       provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
-      areaServed: 'London',
-      url: 'https://www.vveclean.co.uk/after-builders-cleaning-london',
-      offers: [
-        { '@type': 'Offer', name: 'After Builders Clean', price: String(AFTER_BUILDERS_START_FROM_P / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_START_FROM_P / 100} — estimated price confirmed by photo before work starts.` },
-        { '@type': 'Offer', name: 'After Builders — Studio', price: String(AFTER_BUILDERS_FROM_PRICES_P.studio / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_FROM_PRICES_P.studio / 100} — studio flat.` },
-        { '@type': 'Offer', name: 'After Builders — 1 Bedroom', price: String(AFTER_BUILDERS_FROM_PRICES_P.bed1 / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_FROM_PRICES_P.bed1 / 100} — 1 bedroom.` },
-        { '@type': 'Offer', name: 'After Builders — 2 Bedrooms', price: String(AFTER_BUILDERS_FROM_PRICES_P.bed2 / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_FROM_PRICES_P.bed2 / 100} — 2 bedrooms.` },
-        { '@type': 'Offer', name: 'After Builders — 3 Bedrooms', price: String(AFTER_BUILDERS_FROM_PRICES_P.bed3 / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_FROM_PRICES_P.bed3 / 100} — 3 bedrooms.` },
-        { '@type': 'Offer', name: 'After Builders — 4 Bedrooms', price: String(AFTER_BUILDERS_FROM_PRICES_P.bed4 / 100), priceCurrency: 'GBP', description: `From £${AFTER_BUILDERS_FROM_PRICES_P.bed4 / 100} — 4 bedrooms.` },
-      ],
+      areaServed: ['East London', 'North London'],
+      url: PAGE_URL,
+      offers: BUILDERS_PRICES.map((price) => ({
+        '@type': 'Offer',
+        name: `After Builders — ${price.label}`,
+        priceSpecification: { '@type': 'PriceSpecification', minPrice: price.pence / 100, priceCurrency: 'GBP' },
+        description: `From ${penceToDisplay(price.pence)}. Starting guide only; the final cleaning list and fixed price require assessment. ${price.note}`,
+        url: `${PAGE_URL}#builders-prices`,
+      })),
     },
     {
       '@type': 'FAQPage',
-      mainEntity: FAQS.map((faq) => ({
-        '@type': 'Question',
-        name: faq.q,
+      mainEntity: BUILDERS_FAQS.map((faq) => ({
+        '@type': 'Question', name: faq.q,
         acceptedAnswer: { '@type': 'Answer', text: faq.a },
       })),
     },
@@ -74,105 +44,43 @@ const SCHEMA = JSON.stringify({
 const DATA: ServiceLandingData = {
   schema: SCHEMA,
   breadcrumb: 'After Builders Cleaning London',
-
-  eyebrow: 'Post-Construction Cleaning',
+  eyebrow: 'After renovation · East & North London',
   h1: 'After Builders Cleaning London',
   h1Highlight: '',
-  heroSubtitle: 'Post-renovation cleaning, quoted from your photos and the scope of the work.',
-  heroPriceChip: `From £${AFTER_BUILDERS_START_FROM_P / 100} · final quote after photo review`,
-  heroBadges: [
-    'Construction dust cleaning',
-    'Residue assessed before treatment',
-    'Photo quote before booking',
-  ],
-  primaryHref: WA_PHOTO,
+  heroSubtitle: 'The building work is done. Let us take care of the clean. Send photos of the dust, rooms and residue for a fixed quote before you book.',
+  heroPriceChip: `From ${penceToDisplay(AFTER_BUILDERS_START_FROM_P)} · small renovation / one main area`,
+  heroTaxNoteCompact: true,
+  heroBadges: ['Fixed written quote', '£5m public liability insurance', 'Equipment and products supplied'],
+  heroGoogleBadge: true,
+  heroAside: <AfterBuildersQuoteCard />,
+  heroAsideOnMobile: true,
+  heroCompactMobile: true,
+  primaryHref: BUILDERS_WHATSAPP,
   primaryLabel: 'WhatsApp a photo for a quote',
   primaryIsWa: true,
   secondaryHref: 'tel:02080502233',
   secondaryLabel: 'Call 020 8050 2233',
-
-  introH2: 'Tell us what the builders have left',
-  introText:
-    'Fine dust can remain in cupboards, on sills and around fittings after renovation. Paint splashes and protective stickers need a different assessment from ordinary dirt. Send the postcode, property size, photographs and intended handover date so we can quote for the work your property needs.',
-
-  benefitsH2: 'What makes after-builders cleaning a specialist job',
-  benefits: [
-    {
-      icon: <Wind size={28} />,
-      title: 'Fine dust removal',
-      body: 'We vacuum and wipe the accessible surfaces listed in the quote, including relevant sills, cupboard interiors and fittings. Tell us about hard-to-reach areas before booking.',
-    },
-    {
-      icon: <Paintbrush size={28} />,
-      title: 'Paint & adhesive removal',
-      body: 'Paint splashes on glass, tiles and chrome — and adhesive from protective stickers on windows and fittings — need specialist scrapers and solvents. We assess the surface and residue before choosing a suitable tool or treatment. Existing damage and permanent marks cannot be cleaned away.',
-    },
-    {
-      icon: <Droplets size={28} />,
-      title: 'Kitchen & bathroom deep-clean',
-      body: 'The quote identifies the kitchen, bathroom and appliance work needed after the building work. We assess scale, dust and residue before choosing suitable cleaning products.',
-    },
-    {
-      icon: <CheckCircle2 size={28} />,
-      title: 'Move-in or hand-over ready',
-      body: 'We finish the agreed scope and photograph the result, so the condition at handover is documented. Suitable for handover to clients, tenants, or simply moving in after a long renovation.',
-    },
-  ],
-
-  whyH2: 'Tasks to confirm in your quote',
-  whyPoints: [
-    'Dust removal from accessible surfaces, sills and fittings',
-    'Wall, ceiling and high-level work assessed before inclusion',
-    'Paint and adhesive treatment where suitable for the surface',
-    'Kitchen cleaning and selected appliance interiors',
-    'Bathroom cleaning and descaling',
-    'Empty cupboard and wardrobe interiors',
-    'All equipment and specialist cleaning products supplied',
-    'Tasks and final price agreed before work starts',
-  ],
-
-  pricingH2: 'After-builders cleaning pricing',
-  pricingIntro: `Prices start from £${AFTER_BUILDERS_START_FROM_P / 100} and are estimated by photo before any work starts — scope varies too much for a fixed price list.`,
-  pricingRows: [
-    { label: 'Small renovation / one main area', price: `from £${AFTER_BUILDERS_FROM_PRICES_P.small / 100}` },
-    { label: 'Studio flat',                      price: `from £${AFTER_BUILDERS_FROM_PRICES_P.studio / 100}` },
-    { label: '1 bedroom',                         price: `from £${AFTER_BUILDERS_FROM_PRICES_P.bed1 / 100}` },
-    { label: '2 bedrooms',                        price: `from £${AFTER_BUILDERS_FROM_PRICES_P.bed2 / 100}` },
-    { label: '3 bedrooms',                        price: `from £${AFTER_BUILDERS_FROM_PRICES_P.bed3 / 100}` },
-    { label: '4 bedrooms',                        price: `from £${AFTER_BUILDERS_FROM_PRICES_P.bed4 / 100}` },
-    { label: '5+ bedrooms / large commercial',    price: 'Site survey — manual quote' },
-  ],
-  pricingNote:
-    'Send us photos of the space via WhatsApp. The extent of dust, paint and debris varies enormously from job to job, so photos help us review the scope and confirm a useful price before work starts.',
-  pricingCta: {
-    href: WA_PHOTO,
-    label: 'WhatsApp photos for a quote',
-    isWa: true,
-  },
-
-  faqs: FAQS,
-  sectionOrder: ['intro', 'benefits', 'why', 'pricing', 'faq', 'related'],
-
+  mobileSecondaryAction: <a href="tel:02080502233" aria-label="Call VVE Clean on 020 8050 2233" data-track-location="after_builders_sticky_phone" className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-royal-700"><Phone size={18} aria-hidden="true" />Call us</a>,
+  afterHeroSection: <AfterBuildersContent />,
+  // This page uses the shared conversion shell with its own detailed sections.
+  // Empty middle slots avoid a second price list or duplicated FAQ.
+  introH2: '', introText: '', benefitsH2: '', benefits: [], whyH2: '', whyPoints: [],
+  faqs: BUILDERS_FAQS,
+  sectionOrder: ['related'],
   relatedLinks: [
     { href: '/end-of-tenancy-cleaning-london', label: 'End of Tenancy Cleaning' },
     { href: '/carpet-cleaning-london', label: 'Carpet Cleaning' },
     { href: '/sofa-cleaning-london', label: 'Sofa Cleaning' },
-    { href: '/commercial-carpet-cleaning-london', label: 'Commercial Cleaning' },
+    { href: '/commercial', label: 'Commercial Cleaning' },
     { href: '/pricing', label: 'All Prices' },
-    { href: '/contact', label: 'Send an enquiry' },
+    { href: '/contact?service=after_builders', label: 'Send an enquiry' },
   ],
-
-  ctaH2: 'Send photos for an after-builders quote',
-  ctaBody:
-    'WhatsApp us a few photos and the property details so we can review the scope and confirm a price before work starts.',
-  ctaPrimary: {
-    href: WA_PHOTO,
-    label: 'WhatsApp photos now',
-    isWa: true,
-  },
+  ctaH2: 'Tell us what the builders have left.',
+  ctaBody: 'We’ll review your photos and agree the cleaning list, fixed price and time with you. No payment is needed to ask for a quote.',
+  ctaPrimary: { href: BUILDERS_WHATSAPP, label: 'WhatsApp photos for a quote', isWa: true },
   ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
 };
 
 export default function AfterBuildersPage() {
-  return <ServiceLandingLayout data={DATA} />;
+  return <div className="builders-page"><ServiceLandingLayout data={DATA} /></div>;
 }

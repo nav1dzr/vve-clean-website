@@ -28,12 +28,12 @@ function WhatsAppIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-export default function Contact({ standalone = false }: { standalone?: boolean }) {
+export default function Contact({ standalone = false, initialService }: { standalone?: boolean; initialService?: typeof SERVICE_OPTIONS[number] }) {
   const { ref, visible } = useReveal();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [service, setService] = useState('');
+  const [service, setService] = useState<string>(initialService ?? '');
   const [message, setMessage] = useState('');
   const [subscribe, setSubscribe] = useState(false);
   const [honeypot, setHoneypot] = useState('');

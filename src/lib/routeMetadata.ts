@@ -184,15 +184,15 @@ const routes: RouteDefinition[] = [
   },
   {
     path: '/after-builders-cleaning-london',
-    title: 'After Builders Cleaning London | VVE Clean',
+    title: 'After Builders Cleaning London | Prices & Quotes | VVE Clean',
     description:
-      `After builders cleaning in London from ${AFTER_BUILDERS_FROM}. Send photos of the dust and residue so we can review the work and confirm a quote.`,
-    ogTitle: 'After Builders Cleaning London | VVE Clean',
+      `After builders cleaning in East & North London from ${AFTER_BUILDERS_FROM}. Compare starting prices, check the cleaning list and send photos for a fixed quote.`,
+    ogTitle: 'After Builders Cleaning London | Prices & Fixed Quotes',
     ogDescription:
-      `After builders cleaning from ${AFTER_BUILDERS_FROM}. Send photos so VVE Clean can review the dust, residue and access, then agree the scope and price.`,
+      `After builders cleaning from ${AFTER_BUILDERS_FROM}. Room-by-room guidance, clear extras and a fixed written quote after photo assessment.`,
     changefreq: 'monthly',
     priority: '0.8',
-    sources: ['src/pages/AfterBuildersPage.tsx'],
+    sources: ['src/pages/AfterBuildersPage.tsx', 'src/components/AfterBuildersContent.tsx', 'src/data/afterBuildersContent.ts', 'src/pages/after-builders.css'],
   },
   // ── Process pages ───────────────────────────────────────────────────────────
   {

@@ -1,4 +1,5 @@
 import { useBookingCtx } from '../context/BookingContext';
+import type { ReactNode } from 'react';
 import { resolvePath, useLocation } from 'react-router-dom';
 import MobileActionBar, { MOBILE_PRIMARY_CLASS, WhatsAppActionIcon } from './MobileActionBar';
 import PagePrimaryActionLink, { type PagePrimaryAction } from './PagePrimaryActionLink';
@@ -16,9 +17,10 @@ const CAL_ICON = (
 
 interface MobileStickyFooterProps {
   fallbackAction?: PagePrimaryAction;
+  secondaryAction?: ReactNode;
 }
 
-export default function MobileStickyFooter({ fallbackAction }: MobileStickyFooterProps) {
+export default function MobileStickyFooter({ fallbackAction, secondaryAction }: MobileStickyFooterProps) {
   const { state, waLink, onBook } = useBookingCtx();
   const location = useLocation();
 
@@ -59,6 +61,7 @@ export default function MobileStickyFooter({ fallbackAction }: MobileStickyFoote
   return (
     <MobileActionBar
       whatsappHref={helpLink}
+      secondary={secondaryAction}
       primary={state === 'manual' ? (
         <a href={waLink} target="_blank" rel="noopener noreferrer" className={MOBILE_PRIMARY_CLASS} aria-label="Request a quote via WhatsApp">
           <WhatsAppActionIcon /><span>Request a quote</span>
