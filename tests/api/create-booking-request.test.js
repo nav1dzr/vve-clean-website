@@ -184,6 +184,36 @@ describe("POST /api/create-booking-request", () => {
     sendMailMock.mockResolvedValue({ accepted: ["ok"] });
   }
 
+  it.each([249, 399, 1, 9999])('rejects an unassessed after-builders request even with a client price of %s', async price => {
+    const response = res();
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    configureEmails();
+    await handler(req(payload({
+      service: 'Window cleaning', // A misleading display label cannot bypass the service config.
+      price,
+      quoteMode: 'fixed_quote',
+      assessed: true,
+      quoteConfig: {
+        service: 'deep', deepService: 'after_builders', deepSize: 'bed2', deepBaths: 6,
+        addOnCounts: { oven: 1, carpet_bundle: 1 }, parkingAvailable: 'yes', congestionZone: 'no',
+        assessed: true, quoteMode: 'fixed_quote',
+      },
+    })), response);
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body)).toEqual({
+      error: expect.stringMatching(/after-builders.*assessment.*fixed price/i),
+      code: 'manual_quote_required',
+      quoteUrl: '/after-builders-cleaning-london#builders-quote',
+    });
+    expect(loadPricebookMock).not.toHaveBeenCalled();
+    expect(selectRequestMock).not.toHaveBeenCalled();
+    expect(insertSingleMock).not.toHaveBeenCalled();
+    expect(claimNotificationsMock).not.toHaveBeenCalled();
+    expect(sendMailMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('acknowledges a saved request while the platform keeps notification delivery alive', async () => {
     vi.stubEnv('VERCEL', '1');
     vi.stubEnv('VERCEL_ENV', 'production');

@@ -2,7 +2,7 @@ import { rejectUnsafePreview, isHostedPreview } from './_lib/previewIsolation.js
 import { randomBytes, createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { loadWebsitePricebook } from "./_lib/websitePricebook.js";
-import { priceBookingRequest } from "../shared/requestPricing.js";
+import { priceBookingRequest, requiresAfterBuildersAssessment, AFTER_BUILDERS_ASSESSMENT_REQUIRED } from "../shared/requestPricing.js";
 import { isValidBookingName, isValidBookingEmail, isValidBookingDate, todayLondonIsoDate } from '../shared/bookingRequestValidation.js';
 import { formatServiceDetail } from "./_lib/formatBookingItems.js";
 import { saveGa4Context } from './_lib/ga4Context.js';
@@ -302,6 +302,10 @@ export default async function handler(req, res) {
 
   if (!quoteConfig)
     return errorResponse(res, headers, 400, "quoteConfig is required");
+  if (requiresAfterBuildersAssessment(quoteConfig)) {
+    res.writeHead(400, { ...headers, "Content-Type": "application/json" });
+    return res.end(JSON.stringify(AFTER_BUILDERS_ASSESSMENT_REQUIRED));
+  }
   if (!isValidBookingName(fullName))
     return errorResponse(res, headers, 400, "A full name is required");
   if (!phone || String(phone).replace(/\D/g, "").length < 10)

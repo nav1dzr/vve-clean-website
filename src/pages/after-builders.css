@@ -88,3 +88,79 @@
   .builders-media { min-height: 140px; }
 }
 @media (prefers-reduced-motion: reduce) { .builders-accordion summary svg { transition: none; } }
+/* Price comparison: full table on desktop, one selected level on a phone. */
+.builders-budget-panel { margin-top: 2rem; border: 1px solid #cbdbe6; border-radius: 1.25rem; overflow: hidden; background: #fff; }
+.builders-price-table { table-layout: fixed; }
+.builders-price-table thead th { background: #f3f7fa; padding: 1.25rem; text-align: left; white-space: normal; }
+.builders-price-table thead th:first-child { width: 34%; }
+.builders-price-table tbody th { padding: 1.35rem 1.25rem; border-top: 1px solid #dce5ec; vertical-align: top; font-size: 1rem; text-transform: none; letter-spacing: 0; font-weight: 650; color: #10243e; background: #fff; }
+.builders-price-table td { padding: 1.35rem 1.25rem; vertical-align: middle; font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; color: #183c54; }
+.builders-price-table td:last-child, .builders-price-table th:last-child { text-align: left; }
+.builders-price-table th:last-child { white-space: normal; }
+.builders-price-table [data-level-column="standard"] { background: #eaf5f7; color: #0b515a; }
+.builders-table-hint { display: block; font-size: .7rem; font-weight: 500; letter-spacing: 0; text-transform: none; margin-top: .2rem; }
+.builders-budget-definitions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #dce5ec; }
+.builders-budget-definitions > div { padding: 1.3rem; }
+.builders-budget-definitions p { margin-top: .45rem; font-size: .86rem; color: #475569; }
+.builders-budget-definitions [data-level-column="standard"] { background: #eaf5f7; }
+.builders-table-foot { padding: 1.2rem 1.3rem; background: #f7f9fb; border-top: 1px solid #dce5ec; }
+.builders-table-foot > p { margin-top: .5rem; color: #526579; font-size: .85rem; }
+.builders-level-picker { display: none; }
+.builders-quote-strip, .builders-extra-options { display: flex; align-items: center; justify-content: space-between; gap: 2rem; padding-block: 1.75rem; }
+.builders-quote-strip p { max-width: 680px; font-size: .93rem; color: #475569; }
+.builders-quote-strip strong { color: #10243e; }
+.builders-quote-strip .builders-button, .builders-extra-options .builders-button { flex-shrink: 0; }
+.builders-button-primary { background: #075985; color: #fff; }
+.builders-button-primary:hover { background: #06466b; }
+.builders-button:active { transform: translateY(1px); }
+.builders-price-detail { margin-top: .75rem; border-top: 1px solid #dce5ec; font-size: .9rem; }
+.builders-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; color: #bae6fd; }
+.builders-card-heading .builders-kicker { margin: 0; }
+.builders-card-label { margin-top: 1.5rem; font-size: .9rem; color: #d7e7f2; }
+.builders-card-range { margin-top: .35rem; font-family: Inter, sans-serif; font-size: clamp(2.15rem, 4vw, 3.5rem); line-height: 1.12; font-weight: 700; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+.builders-card-caption { margin-top: 1rem; color: #d7e7f2; font-size: .9rem; line-height: 1.65; }
+.builders-card-points { display: grid; gap: .8rem; margin-top: 1.5rem; padding-top: 1.3rem; border-top: 1px solid #ffffff30; font-size: .87rem; }
+.builders-card-points li { display: flex; align-items: flex-start; gap: .65rem; }
+.builders-card-points svg { flex: none; margin-top: .15rem; color: #9ee0d1; }
+.builders-quote-card-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .35rem 1rem; font-size: .83rem; }
+.builders-extras-box { margin-top: 2rem; border: 1px solid #ccdedb; border-radius: 1.25rem; overflow: hidden; background: #f4f9f7; }
+.builders-extra-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1.25rem; padding: 1.65rem 1.75rem; }
+.builders-extra-row + .builders-extra-row { border-top: 1px solid #d4e4df; }
+.builders-extra-type { display: block; margin-bottom: .4rem; color: #326558; font-size: .74rem; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; }
+.builders-extra-row h3 { font-size: 1.3rem; }
+.builders-extra-row div > p { max-width: 740px; margin-top: .5rem; color: #4b615c; font-size: .9rem; }
+.builders-extra-price { align-self: center; color: #13574b; font-size: 1.65rem; font-weight: 750; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.builders-extra-price span { display: block; font-size: .78rem; font-weight: 500; }
+.builders-extras-foot { padding: 1.15rem 1.75rem; border-top: 1px solid #d4e4df; background: #eaf3ef; color: #426357; font-size: .82rem; line-height: 1.6; }
+.builders-extra-options p { max-width: 710px; margin-top: .65rem; font-size: .94rem; color: #475569; }
+.builders-extra-options p a { color: #075985; text-decoration: underline; text-underline-offset: 3px; }
+.builders-enquiry-layout { display: grid; gap: 2rem; align-items: start; }
+.builders-results-note { display: flex; align-items: flex-start; gap: 1rem; padding-block: 2rem; border-bottom: 1px solid #dce5ec; }
+.builders-results-note svg { flex: none; color: #075985; }
+.builders-results-note p { margin-top: .35rem; font-size: .9rem; color: #526579; }
+/* Keep this brand action independent of generic footer/link colour rules. */
+.builders-page .builders-mobile-whatsapp { display: inline-flex; flex: 1; min-width: 0; min-height: 48px; align-items: center; justify-content: center; gap: .5rem; border-radius: .75rem; padding: .5rem .75rem; background: #25d366; color: #08132b; font-size: .875rem; line-height: 1.3; font-weight: 700; }
+.builders-page .builders-mobile-whatsapp:hover { background: #31df72; }
+.builders-page .builders-mobile-whatsapp:active { background: #1ebe5d; }
+@media (min-width: 1024px) { .builders-enquiry-layout { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 4rem; } }
+@media (max-width: 760px) {
+  .builders-level-picker { display: flex; gap: .25rem; padding: .5rem; background: #edf3f6; border-bottom: 1px solid #dce5ec; }
+  .builders-level-picker button { flex: 1; padding: .65rem .25rem; min-height: 48px; border-radius: .65rem; font-size: .83rem; font-weight: 650; color: #526579; }
+  .builders-level-picker button[aria-pressed="true"] { background: #fff; color: #0b515a; box-shadow: 0 1px 4px #10243e1a; }
+  .builders-budget-panel [data-level-column] { display: none; }
+  .builders-budget-panel[data-level="light"] [data-level-column="light"], .builders-budget-panel[data-level="standard"] [data-level-column="standard"], .builders-budget-panel[data-level="deep"] [data-level-column="deep"] { display: table-cell; }
+  .builders-budget-panel .builders-budget-definitions [data-level-column] { display: none; }
+  .builders-budget-panel[data-level="light"] .builders-budget-definitions [data-level-column="light"], .builders-budget-panel[data-level="standard"] .builders-budget-definitions [data-level-column="standard"], .builders-budget-panel[data-level="deep"] .builders-budget-definitions [data-level-column="deep"] { display: block; }
+  .builders-price-table thead th:first-child { width: 53%; }
+  .builders-price-table thead th, .builders-price-table tbody th, .builders-price-table td { padding: 1rem .85rem; }
+  .builders-price-table td { font-size: 1rem; white-space: normal; }
+  .builders-price-table small { font-size: .76rem; font-weight: 400; }
+  .builders-budget-definitions { display: block; }
+  .builders-quote-strip, .builders-extra-options { align-items: stretch; flex-direction: column; gap: 1.1rem; }
+  .builders-extra-row { padding: 1.4rem 1.1rem; gap: 1rem; }
+  .builders-extra-row h3 { font-size: 1.15rem; }
+  .builders-extra-price { align-self: start; font-size: 1.4rem; }
+  .builders-extras-foot { padding-inline: 1.1rem; }
+  .builders-nav .builders-wrap { gap: .15rem 1rem; }
+}
+@media (prefers-reduced-motion: reduce) { .builders-button:active { transform: none; } }

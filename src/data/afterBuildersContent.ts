@@ -1,54 +1,22 @@
-import { AFTER_BUILDERS_FROM_PRICES_P, DEPOSIT_P, penceToDisplay } from './pricing';
+import { DEPOSIT_P, penceToDisplay } from './pricing';
 import { CANCELLATION_NOTICE, LATE_CHANGE_NOTICE } from './businessPolicy';
+export {
+  BUILDERS_BUDGET_GUIDE,
+  BUILDERS_LEVELS,
+  BUILDERS_GUIDE_NOTICE,
+  BUILDERS_GUIDE_HREF,
+  BUILDERS_QUOTE_HREF,
+  formatBuildersRange,
+} from '../../shared/afterBuildersGuide.js';
 
 export const BUILDERS_WHATSAPP =
   'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20an%20after-builders%20clean%20quote.%20Sending%20photos%20now.';
-
-// These are existing catalogue starts, not a new tariff or a final quotation.
-export const BUILDERS_PRICES = [
-  {
-    key: 'small',
-    label: 'Small renovation / one main area',
-    pence: AFTER_BUILDERS_FROM_PRICES_P.small,
-    note: 'Tell us which area was renovated and whether dust has spread to other rooms.',
-  },
-  {
-    key: 'studio',
-    label: 'Studio flat',
-    pence: AFTER_BUILDERS_FROM_PRICES_P.studio,
-    note: 'The layout, bathroom and kitchen condition help us confirm the work needed.',
-  },
-  {
-    key: 'bed1',
-    label: '1-bedroom property',
-    pence: AFTER_BUILDERS_FROM_PRICES_P.bed1,
-    note: 'Send room photos, the number of bathrooms and any additional living areas.',
-  },
-  {
-    key: 'bed2',
-    label: '2-bedroom property',
-    pence: AFTER_BUILDERS_FROM_PRICES_P.bed2,
-    note: 'Floor area, residue and access matter as well as the bedroom count.',
-  },
-  {
-    key: 'bed3',
-    label: '3-bedroom property',
-    pence: AFTER_BUILDERS_FROM_PRICES_P.bed3,
-    note: 'Include bathrooms, stairs, extra rooms and the extent of the building work.',
-  },
-  {
-    key: 'bed4',
-    label: '4-bedroom property',
-    pence: AFTER_BUILDERS_FROM_PRICES_P.bed4,
-    note: 'Larger layouts or complex finishes may need plans or a site assessment.',
-  },
-];
 
 // One source for the visible FAQ and FAQPage structured data.
 export const BUILDERS_FAQS = [
   {
     q: 'How much does after-builders cleaning cost, and is the quote fixed?',
-    a: `Our current starting prices run from ${penceToDisplay(AFTER_BUILDERS_FROM_PRICES_P.small)} for a small renovation or one main area to ${penceToDisplay(AFTER_BUILDERS_FROM_PRICES_P.bed4)} for a four-bedroom property. These are starting points, not final prices. We review the size, condition, surfaces and access, then agree a fixed written quote for the cleaning list. We do not sell this as an hourly cleaning service. No VAT is added. Larger or more complex projects need an individual assessment.`,
+    a: 'The budget guide helps you plan; it is not a fixed price or checkout total. Two properties with the same bedroom count can need different work. We assess the selected rooms, condition, finishes and access, then agree a fixed written quote for the cleaning list. No VAT is added. Large properties, complex finishes and new-build units need an individual assessment; the guide does not promise unlimited rooms, glazing or visits.',
   },
   {
     q: 'What should I send for an accurate quote?',
@@ -56,7 +24,7 @@ export const BUILDERS_FAQS = [
   },
   {
     q: 'What does the cleaning include?',
-    a: 'Your written quote lists the rooms, surfaces and tasks we agree to clean. This can include construction dust on reachable surfaces, empty cupboards, internal windows, kitchen and bathroom fittings, and floors. The checklist on this page helps you tell us what you need; it is not a promise that every task is included in every price. We agree any extra work or change in price with you before carrying it out.',
+    a: 'Your written quote lists the selected rooms, reachable surfaces, woodwork, kitchen and bathroom fittings, and suitable floor cleaning we agree to carry out. Empty cupboard interiors and safely reachable internal glazing must be expressly selected and included in that list. The room checklist helps you choose the work; it does not promise every task, unlimited glazing or unlimited storage. We agree extra work and any price change before carrying it out.',
   },
   {
     q: 'What is the difference between a builders clean and a sparkle clean?',
@@ -83,12 +51,12 @@ export const BUILDERS_FAQS = [
     a: 'Wall and ceiling cleaning depends on the finish, drying or curing requirements and safe access. High areas must be assessed before inclusion. Please arrange for your builders to remove rubble, off-cuts, tools and excess waste before the clean; building-waste clearance is not included in our standard cleaning quote. Tell us about anything unusual or potentially hazardous before booking.',
   },
   {
-    q: 'Can I add carpet, sofa or exterior window cleaning?',
-    a: 'Ask us to include these in the assessment. Carpet and upholstery extraction are separate from ordinary vacuuming, and exterior windows are separate from internal glazing. We confirm suitable treatments, access and any extra cost before booking. If wet cleaning is agreed, we explain the drying considerations for the material and conditions rather than promising one drying time for every job.',
+    q: 'Can I add carpet, sofa, exterior window or outdoor cleaning?',
+    a: 'Ask us to assess any additions with your project. Carpet and upholstery extraction, used-appliance deep cleaning, exterior glazing, pressure washing and garden work are separate services. Their standalone starting prices are not fixed after-builders add-on fees. We agree the unit or area, suitable treatment, access and additional price before booking. A further visit after more building work is also quoted separately.',
   },
   {
     q: 'How do parking and congestion charges work?',
-    a: 'Tell us about a permit or free parking near the property, and any restrictions on unloading equipment. Where paid parking or a congestion charge applies, we explain it as a separate access cost before you accept the quote. Parking is charged at actual cost; an allowance is an estimate, not an extra cleaning service. Please also mention stairs, no lift or restricted entry times.',
+    a: 'Tell us about a permit or free parking, unloading restrictions, stairs, lifts and entry times. Known parking and congestion costs are shown separately in your quote. Parking is charged at actual cost; an allowance is an estimate. If a charge is still uncertain, we explain its basis or what needs assessment rather than presenting it as free. We agree the final price and any remaining cost basis before you accept the booking.',
   },
   {
     q: 'When do I pay the deposit and balance?',
@@ -108,7 +76,7 @@ export const BUILDERS_FAQS = [
 export const BUILDERS_ROOMS = [
   {
     title: 'Bedrooms & living areas',
-    summary: 'Agree the rooms and reachable surfaces that need attention after the works.',
+    summary: 'Select the rooms, reachable surfaces and any empty storage interiors you want quoted.',
     tasks: [
       'Dust removal from accessible shelves, ledges and other agreed surfaces',
       'Empty built-in wardrobes and cupboard interiors',
@@ -141,7 +109,7 @@ export const BUILDERS_ROOMS = [
   },
   {
     title: 'Internal windows & glass',
-    summary: 'List the reachable internal panes, frames and glass surfaces in the quote.',
+    summary: 'Explicitly select the reachable internal panes, frames and glass surfaces for your quote.',
     tasks: [
       'Reachable internal window glass and mirrors',
       'Window frames, sills and accessible tracks',

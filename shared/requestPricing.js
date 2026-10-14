@@ -1,9 +1,22 @@
 import * as defaultCatalogue from './pricingCatalogue.js';
 
+// Starting guides are not assessed quotations. Keep this check shared by the
+// request endpoint and the archived checkout path, regardless of client prices.
+export function requiresAfterBuildersAssessment(config) {
+  return config?.service === 'deep' && config?.deepService === 'after_builders';
+}
+
+export const AFTER_BUILDERS_ASSESSMENT_REQUIRED = Object.freeze({
+  error: 'After-builders cleaning needs an assessment before we can confirm a fixed price. Send photos and details for a written quote.',
+  code: 'manual_quote_required',
+  quoteUrl: '/after-builders-cleaning-london#builders-quote',
+});
+
 // Client totals are descriptive only. Save, email and agree the same server total.
 export function priceBookingRequest(config, offerCode, catalogue = defaultCatalogue) {
   const { computePrice, computeCarpetPrice, PROMO_CODES, accessSurchargeP } = catalogue;
   if (!config || typeof config !== 'object' || Array.isArray(config)) return null;
+  if (requiresAfterBuildersAssessment(config)) return null;
   const promoCode = typeof offerCode === 'string' && Object.hasOwn(PROMO_CODES, offerCode.toUpperCase())
     ? offerCode.toUpperCase() : undefined;
   const quoteConfig = { ...config, promoCode };

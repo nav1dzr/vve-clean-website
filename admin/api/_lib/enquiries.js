@@ -29,10 +29,17 @@ export function validateEnquiry(body) {
 }
 
 export async function saveEnquiry(supabase, row) {
+  // A retry must not become a second enquiry when measurement consent changes.
+  // Compare only actual enquiry content as a fallback for attribution-only
+  // differences, preserving existing fingerprint values and stored records.
+  const content = value => JSON.stringify([
+    value.full_name, value.email, value.phone, value.service, value.message,
+    value.source_page, value.marketing_opt_in,
+  ]);
   const find = async () => {
     const { data, error } = await supabase.from('contact_enquiries').select('*').eq('request_key', row.request_key).maybeSingle();
     if (error) throw new Error('Enquiries are temporarily unavailable. Please try again or call us.');
-    if (data && data.request_fingerprint !== row.request_fingerprint) throw new Error('This enquiry changed. Please refresh the form before sending again.');
+    if (data && data.request_fingerprint !== row.request_fingerprint && content(data) !== content(row)) throw new Error('This enquiry changed. Please refresh the form before sending again.');
     return data;
   };
   const existing = await find();
