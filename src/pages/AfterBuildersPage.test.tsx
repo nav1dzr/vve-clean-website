@@ -109,21 +109,16 @@ describe('AfterBuildersPage — budget guide and assessed enquiry', () => {
     expect(container.querySelector('#builders-prices')).toHaveTextContent('planning ranges, not fixed packages or a checkout total');
   });
 
-  it('compares cleaning levels through keyboard-operable buttons with one selected level', async () => {
-    const user = userEvent.setup();
+  it('keeps all cleaning levels in each property comparison without a selection step', () => {
     const { container } = renderPage();
-    const picker = within(screen.getByRole('group', { name: 'Choose cleaning level to compare budgets' }));
-    const panel = container.querySelector('.builders-budget-panel');
-    expect(picker.getByRole('button', { name: 'Standard clean' })).toHaveAttribute('aria-pressed', 'true');
-    for (const level of BUILDERS_LEVELS) {
-      const button = picker.getByRole('button', { name: level.label });
-      button.focus();
-      await user.keyboard(' ');
-      expect(button).toHaveFocus();
-      expect(button).toHaveAttribute('aria-pressed', 'true');
-      expect(picker.getAllByRole('button').filter(item => item.getAttribute('aria-pressed') === 'true')).toHaveLength(1);
-      expect(panel).toHaveAttribute('data-level', level.key);
-      expect(panel?.querySelector(`.builders-budget-definitions [data-level-column="${level.key}"]`)).toHaveTextContent(level.description);
+    expect(screen.queryByRole('group', { name: 'Choose cleaning level to compare budgets' })).not.toBeInTheDocument();
+    for (const row of container.querySelectorAll('.builders-price-table tbody tr')) {
+      expect(within(row as HTMLElement).getAllByRole('cell')).toHaveLength(3);
+      for (const level of BUILDERS_LEVELS) {
+        const cell = row.querySelector(`[data-level-column="${level.key}"]`);
+        expect(cell?.querySelector('.builders-mobile-level')).toHaveTextContent(level.label);
+        expect(cell).not.toHaveAttribute('hidden');
+      }
     }
   });
 
@@ -196,7 +191,9 @@ describe('AfterBuildersPage — budget guide and assessed enquiry', () => {
     expect(screen.getByText(/it is not an unlimited package/)).toBeInTheDocument();
     expect(screen.getByText(/cannot guarantee removal of every mark/)).toBeInTheDocument();
     expect(container.querySelector('#builders-faq')?.textContent).not.toMatch(/72.hour|7.day|6–8 hours/);
-    expect(container.querySelector('#builders-results')?.textContent).toContain('No after-builders project results are pictured yet.');
+    expect(container.querySelector('#builders-results')?.textContent).toContain('After-builders project photos will be added here.');
+    expect(container.querySelectorAll('[data-photo-slot]')).toHaveLength(3);
+    expect(screen.getAllByText('Project photo to be added')).toHaveLength(3);
     expect(container.querySelector('#builders-results img')).toBeNull();
   });
 });

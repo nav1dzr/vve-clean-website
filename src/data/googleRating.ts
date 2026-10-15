@@ -3,7 +3,7 @@
 export interface VerifiedGoogleRating {
   /** The star rating shown on the live Google Business Profile. */
   value: number;
-  /** The number of reviews behind that rating. */
+  /** The number of reviews behind that rating, retained for source validation only. */
   count: number;
   /** ISO date the two numbers above were last checked against the profile. */
   verifiedOn: string;
@@ -52,6 +52,5 @@ export const GOOGLE_RATING_LABEL = VERIFIED_GOOGLE_RATING
 
 /** Accessible name for the badge link. Never states a rating we cannot support. */
 export const GOOGLE_RATING_ARIA_LABEL = VERIFIED_GOOGLE_RATING
-  ? `VVE Clean is rated ${VERIFIED_GOOGLE_RATING.value} out of 5 from `
-    + `${VERIFIED_GOOGLE_RATING.count} Google reviews — read our Google reviews (opens in a new tab)`
+  ? `VVE Clean is rated ${VERIFIED_GOOGLE_RATING.value} out of 5 on Google — read our Google reviews (opens in a new tab)`
   : 'Read our reviews on Google (opens in a new tab)';

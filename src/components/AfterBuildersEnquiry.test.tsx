@@ -76,6 +76,16 @@ describe('AfterBuildersEnquiry', () => {
     expect(trackContactFormSubmitted).toHaveBeenCalledExactlyOnceWith(ENQUIRY_ID);
   });
 
+  it('explains the specific read-only preview response without reporting a submission', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 403, json: async () => ({ error: 'This preview is read-only until approved isolated test resources are connected.' }) }));
+    const user = userEvent.setup(); render(<AfterBuildersEnquiry />); await openReview(user); await contactDetails(user);
+    await user.click(screen.getByRole('button', { name: 'Send my enquiry' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Sending enquiries is disabled here, so nothing has been sent or saved to the CRM.');
+    expect(screen.getByLabelText(/your name/i)).toHaveValue('VVE TEST');
+    expect(trackContactFormSubmitted).not.toHaveBeenCalled();
+    expect(screen.queryByRole('heading', { name: 'Your enquiry is saved' })).not.toBeInTheDocument();
+  });
+
   it('does not report a completed enquiry for a network error or an HTTP success without ok:true', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ ok: true, json: async () => ({ ok: false }) }));
     const user = userEvent.setup(); render(<AfterBuildersEnquiry />); await openReview(user); await contactDetails(user);

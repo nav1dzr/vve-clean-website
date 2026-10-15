@@ -87,7 +87,9 @@ export default function AfterBuildersEnquiry() {
         clearSubmissionIdentity(AFTER_BUILDERS_SUBMISSION_SCOPE); clearAfterBuildersDraft();
         if (mounted.current) { setSubmitted(true); setName(''); setEmail(''); setPhone(''); }
         trackContactFormSubmitted(result.enquiryId);
-      } else if (mounted.current) setError('We could not confirm your enquiry was saved. Your answers are still here. Please try again, or contact us on WhatsApp.');
+      } else if (mounted.current) setError(response.status === 403 && result.error === 'This preview is read-only until approved isolated test resources are connected.'
+        ? 'This preview is for checking the page and form. Sending enquiries is disabled here, so nothing has been sent or saved to the CRM. Your answers are still here.'
+        : 'We could not confirm your enquiry was saved. Your answers are still here. Please try again, or contact us on WhatsApp.');
     } catch {
       if (mounted.current) setError('We could not confirm your enquiry was saved. Your answers are still here. Please try again, or contact us on WhatsApp.');
     } finally {

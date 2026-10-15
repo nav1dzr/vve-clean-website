@@ -134,10 +134,20 @@ describe('the Google trust card source', () => {
       const date = within(card).getByText(/^(Checked|Updated) /);
       expect(screen.getAllByText(date.textContent!)).toHaveLength(2);
       expect(date.textContent).toMatch(/^Checked /);
-      expect(card.textContent).toContain(`${VERIFIED_GOOGLE_RATING.value.toFixed(1)} from ${VERIFIED_GOOGLE_RATING.count} Google reviews`);
+      expect(card.textContent).toContain(`${VERIFIED_GOOGLE_RATING.value.toFixed(1)} out of 5 on Google`);
     } else {
       expect(card.textContent).not.toMatch(/\d/);
       expect(within(card).queryByText(/^(Checked|Updated) /)).not.toBeInTheDocument();
+    }
+  });
+
+  it('keeps review counts out of badges, trust cards and review sections, including accessible names', () => {
+    const { container } = render(<><GoogleBadge /><TrustBadges /><Reviews /></>);
+    expect(container.textContent).not.toMatch(/\d+\s+(?:Google\s+)?reviews/i);
+    expect(ariaText(container)).not.toMatch(/\d+\s+(?:Google\s+)?reviews/i);
+    if (VERIFIED_GOOGLE_RATING) {
+      expect(screen.getAllByText(VERIFIED_GOOGLE_RATING.value.toFixed(1))).toHaveLength(2);
+      expect(screen.getAllByText(/^Checked /)).toHaveLength(3);
     }
   });
 });

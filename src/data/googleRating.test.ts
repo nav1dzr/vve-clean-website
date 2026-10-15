@@ -144,7 +144,7 @@ describe('if a verified rating is added, it stays consistent', () => {
     const r = VERIFIED_GOOGLE_RATING!;
     expect(GOOGLE_RATING_LABEL).toContain(String(r.value));
     expect(GOOGLE_RATING_ARIA_LABEL).toContain(String(r.value));
-    expect(GOOGLE_RATING_ARIA_LABEL).toContain(String(r.count));
+    expect(GOOGLE_RATING_ARIA_LABEL).not.toMatch(/\d+\s+(?:Google\s+)?reviews/i);
   });
 
   it.runIf(verified).each(SURFACES)('%s still hardcodes no rating of its own', (file) => {

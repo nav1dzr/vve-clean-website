@@ -1,5 +1,6 @@
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
 import AfterBuildersContent, { AfterBuildersQuoteCard } from '../components/AfterBuildersContent';
+import AfterBuildersPhoto from '../components/AfterBuildersPhoto';
 import { BUILDERS_FAQS, BUILDERS_WHATSAPP } from '../data/afterBuildersContent';
 import './after-builders.css';
 import { WhatsAppActionIcon } from '../components/MobileActionBar';
@@ -44,7 +45,7 @@ const DATA: ServiceLandingData = {
   heroTaxNoteCompact: true,
   heroBadges: ['Fixed written quote', '£5m public liability insurance', 'Equipment and products supplied'],
   heroGoogleBadge: true,
-  heroAside: <AfterBuildersQuoteCard />,
+  heroAside: <div className="builders-hero-visual"><AfterBuildersPhoto slot="hero" /><AfterBuildersQuoteCard /></div>,
   heroAsideOnMobile: true,
   heroCompactMobile: true,
   primaryHref: '#builders-quote',

@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import AfterBuildersEnquiry from './AfterBuildersEnquiry';
+import AfterBuildersPhoto from './AfterBuildersPhoto';
 import { ArrowRight, Camera, Check, ChevronDown, ClipboardCheck, MapPin, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BUILDERS_FAQS, BUILDERS_BUDGET_GUIDE, BUILDERS_LEVELS, formatBuildersRange, BUILDERS_ROOMS, BUILDERS_WHATSAPP } from '../data/afterBuildersContent';
@@ -25,22 +25,22 @@ export function AfterBuildersQuoteCard() {
       <p className="builders-card-label">{flat.label} · standard clean</p>
       <p className="builders-card-range">{formatBuildersRange(flat.standard)}</p>
       <p className="builders-card-caption">Indicative budget. Your rooms, size and condition determine the fixed quote.</p>
-      <ul className="builders-card-points">{['A written cleaning list for your home', 'Extras and access costs made clear', 'Your agreement before work starts'].map(text => <li key={text}><Check size={17} aria-hidden="true" />{text}</li>)}</ul>
     </div>
     <div className="builders-quote-card-bottom"><span>No VAT added</span><a className="builders-link" href="#builders-prices">Compare budgets <ArrowRight size={16} aria-hidden="true" /></a></div>
   </aside>;
 }
 
 function PricingGuide() {
-  const [level, setLevel] = useState<'light' | 'standard' | 'deep'>('standard');
   return <section id="builders-prices" className="builders-section bg-white" aria-labelledby="builders-prices-title"><div className="builders-wrap">
     <span className="builders-kicker">Price guide</span><h2 id="builders-prices-title">A clearer idea of the budget.</h2>
     <p className="builders-lead">Start with standard for a post-renovation clean. These are planning ranges, not fixed packages or a checkout total. We assess the work and send one written quote before you book.</p>
-    <div className="builders-budget-panel" data-level={level}>
-      <div className="builders-level-picker" role="group" aria-label="Choose cleaning level to compare budgets">{BUILDERS_LEVELS.map(item => <button type="button" key={item.key} aria-pressed={level === item.key} onClick={() => setLevel(item.key as typeof level)}>{item.label}</button>)}</div>
-      <table className="builders-price-table"><caption className="sr-only">Indicative after-builders cleaning budgets in pounds. Final scope and price are assessed for each property.</caption>
-        <thead><tr><th scope="col">Your property</th>{BUILDERS_LEVELS.map(item => <th key={item.key} scope="col" data-level-column={item.key}>{item.label}{item.key === 'standard' && <span className="builders-table-hint">Post-renovation guide</span>}</th>)}</tr></thead>
-        <tbody>{BUILDERS_BUDGET_GUIDE.map(row => <tr key={row.key} data-price-key={row.key}><th scope="row">{row.label}<small>{row.note}</small></th>{BUILDERS_LEVELS.map(item => <td key={item.key} data-level-column={item.key}>{formatBuildersRange(row[item.key as typeof level])}</td>)}</tr>)}</tbody>
+    <div className="builders-budget-panel">
+      <table className="builders-price-table" role="table"><caption className="sr-only">Indicative after-builders cleaning budgets in pounds. Final scope and price are assessed for each property.</caption>
+        <thead role="rowgroup"><tr role="row"><th role="columnheader" scope="col">Your property</th>{BUILDERS_LEVELS.map(item => <th role="columnheader" key={item.key} scope="col" data-level-column={item.key}>{item.label}{item.key === 'standard' && <span className="builders-table-hint">Post-renovation guide</span>}</th>)}</tr></thead>
+        <tbody role="rowgroup">{BUILDERS_BUDGET_GUIDE.map(row => <tr role="row" key={row.key} data-price-key={row.key}><th role="rowheader" scope="row">{row.label}<small>{row.note}</small></th>{BUILDERS_LEVELS.map(item => {
+          const [minimum, maximum] = formatBuildersRange(row[item.key]).split('–');
+          return <td role="cell" key={item.key} data-level-column={item.key}><span className="builders-mobile-level" aria-hidden="true">{item.key === 'light' ? 'Light clean' : item.label}</span><span className="builders-price-range"><span>{minimum}–</span><wbr /><span>{maximum}</span></span></td>;
+        })}</tr>)}</tbody>
       </table>
       <div className="builders-budget-definitions">{BUILDERS_LEVELS.map(item => <div key={item.key} data-level-column={item.key}><strong>{item.label}</strong><p>{item.description}</p></div>)}</div>
       <div className="builders-table-foot"><PriceTaxNote /><p>Large or unusual layouts, extensive glazing and difficult residue need an individual assessment. An additional visit is quoted separately.</p></div>
@@ -84,7 +84,7 @@ function Process() {
 }
 
 function ResultsNote() {
-  return <div id="builders-results" className="builders-wrap builders-results-note"><Camera size={24} aria-hidden="true" /><div><strong>See VVE Clean at work</strong><p>No after-builders project results are pictured yet. Our gallery shows genuine work from other cleaning services.</p><Link className="builders-link" to="/gallery">View our cleaning gallery <ArrowRight size={16} aria-hidden="true" /></Link></div></div>;
+  return <section id="builders-results" className="builders-section builders-results" aria-labelledby="builders-results-title"><div className="builders-wrap"><div className="builders-results-heading"><div><span className="builders-kicker">The work, in pictures</span><h2 id="builders-results-title">A closer look at the clean.</h2><p className="builders-lead">After-builders project photos will be added here. Our gallery already shows genuine work from other cleaning services.</p></div><Link className="builders-link" to="/gallery">Visit our cleaning gallery <ArrowRight size={16} aria-hidden="true" /></Link></div><div className="builders-photo-pair"><AfterBuildersPhoto slot="before" /><AfterBuildersPhoto slot="after" /></div></div></section>;
 }
 
 function ClientsAndAreas() {
@@ -108,6 +108,6 @@ function QuestionsAndQuote() {
 export default function AfterBuildersContent() {
   return <>
     <nav className="builders-nav" aria-label="After-builders page sections"><div className="builders-wrap"><span className="mr-2 text-xs font-bold uppercase tracking-widest text-slate-500">On this page</span>{NAV.map(([id, label]) => <a key={id} href={`#${id}`}>{label}</a>)}</div></nav>
-    <PricingGuide /><CleaningChecklist /><Extras /><Process /><ResultsNote /><ClientsAndAreas /><QuestionsAndQuote />
+    <PricingGuide /><ResultsNote /><CleaningChecklist /><Extras /><Process /><ClientsAndAreas /><QuestionsAndQuote />
   </>;
 }
