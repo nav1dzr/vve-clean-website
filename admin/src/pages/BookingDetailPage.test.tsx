@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, Link } from 'react-router-dom';
 import BookingDetailPage from './BookingDetailPage';
 import { ApiError } from '../lib/authFetch';
 import type { BookingDetail, InternalNote } from '../types/booking';
@@ -169,6 +169,28 @@ describe('BookingDetailPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Internal server error');
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+  });
+
+  it('ignores a late detail response after navigating to a different booking', async () => {
+    setupAuthFetchMock();
+    const normalFetch = authFetchMock.getMockImplementation()!;
+    const second = { ...fullBooking, id: '223e4567-e89b-12d3-a456-426614174000', bookingRef: 'AUDIT-SECOND', fullName: 'Second audit customer' };
+    let finishFirst!: (value: BookingDetail) => void;
+    authFetchMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === `/api/bookings/${fullBooking.id}`) return new Promise<BookingDetail>(resolve => { finishFirst = resolve; });
+      if (path === `/api/bookings/${second.id}`) return Promise.resolve(second);
+      return normalFetch(path, init);
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={[`/bookings/${fullBooking.id}`]}>
+      <Link to={`/bookings/${second.id}`}>Open second audit booking</Link>
+      <Routes><Route path="/bookings/:id" element={<BookingDetailPage />} /></Routes>
+    </MemoryRouter>);
+    await user.click(screen.getByRole('link', { name: 'Open second audit booking' }));
+    await screen.findByText('AUDIT-SECOND');
+    await act(async () => finishFirst(fullBooking));
+    expect(screen.getByText('AUDIT-SECOND')).toBeInTheDocument();
+    expect(screen.queryByText(fullBooking.bookingRef!)).not.toBeInTheDocument();
   });
 
   it('renders working call, WhatsApp, and email action links with normalised phone', async () => {

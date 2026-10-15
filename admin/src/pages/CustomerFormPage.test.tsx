@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, Link } from 'react-router-dom';
 import CustomerFormPage from './CustomerFormPage';
+import { ApiError } from '../lib/authFetch';
 
 const { authFetchMock, navigateMock } = vi.hoisted(() => ({ authFetchMock: vi.fn(), navigateMock: vi.fn() }));
 
@@ -96,9 +97,9 @@ describe('CustomerFormPage — create', () => {
     await user.type(screen.getByLabelText('Email'), 'jane@example.com');
     await user.click(screen.getByRole('button', { name: /create customer/i }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/possible duplicate/i);
-    expect(screen.getByText(/existing jane/i)).toBeInTheDocument();
-    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/customers/cust-new'));
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/customers/cust-new', {
+      state: { duplicateWarnings: [expect.objectContaining({ type: 'email', customer: expect.objectContaining({ id: 'cust-existing', name: 'Existing Jane' }) })] },
+    }));
   });
 });
 
@@ -179,5 +180,39 @@ describe('CustomerFormPage — edit', () => {
       expect(authFetchMock).toHaveBeenCalledWith('/api/customers/cust-1', expect.objectContaining({ method: 'PATCH' }));
       expect(navigateMock).toHaveBeenCalledWith('/customers/cust-1');
     });
+  });
+
+  it.each(['customer', 'booking'])('retries a failed %s load with a fresh request', async (mode) => {
+    const user = userEvent.setup();
+    authFetchMock.mockRejectedValueOnce(new ApiError(503, 'Temporary load failure'));
+    if (mode === 'customer') renderEdit(); else renderFromBooking();
+    await screen.findByText('Temporary load failure');
+    authFetchMock.mockResolvedValueOnce({ name: 'Recovered customer', fullName: 'Recovered customer', customerType: 'individual', source: 'other' });
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    expect(await screen.findByDisplayValue('Recovered customer')).toBeInTheDocument();
+    expect(authFetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores a late customer response after navigating to another customer', async () => {
+    const user = userEvent.setup();
+    let resolveFirst!: (value: unknown) => void;
+    authFetchMock.mockImplementation((url: string) => url.endsWith('/cust-1')
+      ? new Promise((resolve) => { resolveFirst = resolve; })
+      : Promise.resolve({ name: 'Current customer', customerType: 'individual', source: 'other' }));
+    render(<MemoryRouter initialEntries={['/customers/cust-1/edit']}><Link to="/customers/cust-2/edit">Next customer</Link><Routes><Route path="/customers/:id/edit" element={<CustomerFormPage />} /></Routes></MemoryRouter>);
+    await user.click(screen.getByRole('link', { name: 'Next customer' }));
+    await screen.findByDisplayValue('Current customer');
+    await act(async () => { resolveFirst({ name: 'Old customer', customerType: 'individual', source: 'other' }); });
+    expect(screen.queryByDisplayValue('Old customer')).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue('Current customer')).toBeInTheDocument();
+  });
+
+  it('does not carry old customer fields into a new blank record', async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockResolvedValue({ name: 'Existing customer', customerType: 'individual', source: 'other' });
+    render(<MemoryRouter initialEntries={['/customers/cust-1/edit']}><Link to="/customers/new">Blank customer</Link><Routes><Route path="/customers/:id/edit" element={<CustomerFormPage />} /><Route path="/customers/new" element={<CustomerFormPage />} /></Routes></MemoryRouter>);
+    await screen.findByDisplayValue('Existing customer');
+    await user.click(screen.getByRole('link', { name: 'Blank customer' }));
+    expect(screen.getByLabelText('Name *')).toHaveValue('');
   });
 });

@@ -80,4 +80,23 @@ describe('ReceiptEditorPage', () => {
     });
     expect(navigateMock).toHaveBeenCalledWith('/receipts/receipt-1');
   });
+
+  it('retries the identical operation and freezes the original details after an uncertain save', async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockRejectedValueOnce(new Error('Connection lost')).mockResolvedValueOnce({ ok: true, receiptId: 'receipt-original' });
+    renderPage();
+    await user.type(screen.getByLabelText('Customer name *'), 'Synthetic retry');
+    await user.type(screen.getByLabelText('Email'), 'retry@example.invalid');
+    await user.type(screen.getByLabelText('What did they pay for? *'), 'Synthetic clean');
+    await user.type(screen.getByLabelText('Amount received (£) *'), '85');
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: 'Create final receipt' }));
+    await screen.findByRole('alert');
+    expect(screen.getByLabelText('Amount received (£) *')).toBeDisabled();
+    expect(screen.getByText(/original details are kept for a safe retry/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry same receipt' }));
+    expect(authFetchMock.mock.calls[1][1].body).toBe(authFetchMock.mock.calls[0][1].body);
+    expect(JSON.parse(authFetchMock.mock.calls[0][1].body).requestId).toMatch(/^[a-f0-9-]{36}$/);
+    expect(navigateMock).toHaveBeenCalledWith('/receipts/receipt-original');
+  });
 });

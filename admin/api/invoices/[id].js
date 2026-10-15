@@ -181,16 +181,21 @@ async function handleRoot(req, res, headers, supabase, invoiceId, auth) {
       return res.end(JSON.stringify({ error: 'Invoice not found' }));
     }
 
-    const { data: items } = await supabase
-      .from('invoice_items').select('*').eq('invoice_id', invoiceId).order('sort_order', { ascending: true });
-    const { data: payments } = await supabase
-      .from('invoice_payments').select('*').eq('invoice_id', invoiceId).order('created_at', { ascending: false });
+    const [itemsResult, paymentsResult] = await Promise.all([
+      supabase.from('invoice_items').select('*').eq('invoice_id', invoiceId).order('sort_order', { ascending: true }),
+      supabase.from('invoice_payments').select('*').eq('invoice_id', invoiceId).order('created_at', { ascending: false }),
+    ]);
+    if (itemsResult.error || paymentsResult.error) {
+      console.error('[admin/api] invoice detail dependency failed:', itemsResult.error?.code, paymentsResult.error?.code);
+      res.writeHead(503, headers);
+      return res.end(JSON.stringify({ error: 'Could not load the complete invoice. Please retry.' }));
+    }
 
     res.writeHead(200, headers);
     return res.end(JSON.stringify({
       ...toInvoiceDetail(invoice),
-      items: (items || []).map(toInvoiceItem),
-      payments: (payments || []).map(toInvoicePayment),
+      items: (itemsResult.data || []).map(toInvoiceItem),
+      payments: (paymentsResult.data || []).map(toInvoicePayment),
     }));
   }
 

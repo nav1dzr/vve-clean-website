@@ -8,7 +8,11 @@ export const config = { api: { bodyParser: false } };
 const PREVIEW_LIMIT = 5;
 
 function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10);
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const part = (type) => parts.find((value) => value.type === type).value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
 // GET /api/dashboard-summary — operational counts for the dashboard home
@@ -18,7 +22,9 @@ function todayIsoDate() {
 // `service_date` column, never by parsing the free-text `preferred_date` —
 // a booking with no `service_date` simply doesn't appear in either list,
 // and is counted separately as `unscheduledCount` instead of being guessed
-// at. `outstandingBalances.dataAvailable` distinguishes "zero outstanding
+// at. Cancelled jobs are excluded from these operational queues only; recent
+// history and financial counts still include them. The service day is London
+// local time, including BST. `outstandingBalances.dataAvailable` distinguishes "zero outstanding
 // balances" from "no balance data has been recorded yet", since
 // `balance_status` is a brand new nullable column with no historical data.
 export default async function handler(req, res) {
@@ -63,12 +69,14 @@ export default async function handler(req, res) {
         .from('bookings')
         .select(CARD_SELECT, { count: 'exact' })
         .eq('service_date', today)
+        .neq('status', 'cancelled')
         .order('preferred_time', { ascending: true })
         .limit(PREVIEW_LIMIT),
       supabase
         .from('bookings')
         .select(CARD_SELECT, { count: 'exact' })
         .gt('service_date', today)
+        .neq('status', 'cancelled')
         .order('service_date', { ascending: true })
         .limit(PREVIEW_LIMIT),
       supabase
@@ -79,7 +87,7 @@ export default async function handler(req, res) {
       supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('payment_status', 'paid'),
       supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('balance_status', 'outstanding'),
       supabase.from('bookings').select('id', { count: 'exact', head: true }).not('balance_status', 'is', null),
-      supabase.from('bookings').select('id', { count: 'exact', head: true }).is('service_date', null),
+      supabase.from('bookings').select('id', { count: 'exact', head: true }).is('service_date', null).neq('status', 'cancelled'),
     ]);
 
     const results = [

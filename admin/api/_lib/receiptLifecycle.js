@@ -6,7 +6,7 @@
 // INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §6.
 
 import { getBusinessSettings } from './businessSettings.js';
-import { isValidDateString, isValidEmail } from './normalise.js';
+import { isValidDateString, isValidEmail, isValidUuid } from './normalise.js';
 
 const PAYMENT_METHODS = new Set(['bank_transfer', 'card', 'stripe', 'cash', 'other']);
 const MAX_RECEIPT_AMOUNT = 500000;
@@ -172,6 +172,42 @@ function validateStandaloneReceiptInput(input) {
 export async function createStandaloneReceipt(supabase, input, adminId, { generateAndStorePdf } = {}) {
   const validation = validateStandaloneReceiptInput(input);
   if (!validation.ok) return validation;
+  if (input.requestId !== undefined && !isValidUuid(input.requestId)) {
+    return { ok: false, error: 'Invalid receipt request identity' };
+  }
+
+  // The existing receipts primary key makes simultaneous retries atomic.
+  // An operation identity is never inferred from a name, amount or date:
+  // two genuinely different payments can have identical details.
+  const requestId = input.requestId?.toLowerCase();
+  const expected = {
+    source: 'standalone',
+    customer_name: input.customer.name.trim(),
+    customer_email: input.customer.email?.trim() || null,
+    customer_phone: input.customer.phone?.trim() || null,
+    customer_address: input.customer.address?.trim() || null,
+    customer_postcode: input.customer.postcode?.trim() || null,
+    service_description: input.serviceDescription.trim(),
+    payment_date: input.paymentDate,
+    payment_method: input.paymentMethod,
+    payment_reference: input.paymentReference?.trim() || null,
+    created_by_admin_id: adminId,
+  };
+  async function findPreviousRequest() {
+    const { data, error } = await supabase.from('receipts')
+      .select('*').eq('id', requestId).maybeSingle();
+    if (error) return { ok: false, status: 503, error: 'Could not check the previous receipt. Please retry without starting a new receipt.' };
+    if (!data) return null;
+    if (data.invoice_id || Math.round(Number(data.total_paid) * 100) !== Math.round(input.amount * 100)
+      || Object.entries(expected).some(([key, value]) => (data[key] ?? null) !== value)) {
+      return { ok: false, status: 409, error: 'This receipt request has already been used with different details. Check the Receipts list before creating another.' };
+    }
+    return { ok: true, receiptId: data.id, receiptNumber: data.receipt_number, alreadyExisted: true };
+  }
+  if (requestId) {
+    const previous = await findPreviousRequest();
+    if (previous) return previous;
+  }
 
   const { data: numberResult, error: numberErr } = await supabase.rpc('next_document_number', { p_doc_type: 'receipt' });
   if (numberErr || !numberResult) {
@@ -193,6 +229,7 @@ export async function createStandaloneReceipt(supabase, input, adminId, { genera
   const { data: receiptRow, error: insertErr } = await supabase
     .from('receipts')
     .insert({
+      ...(requestId ? { id: requestId } : {}),
       receipt_number: numberResult,
       source: 'standalone',
       service_description: serviceDescription,
@@ -216,6 +253,10 @@ export async function createStandaloneReceipt(supabase, input, adminId, { genera
     .single();
 
   if (insertErr) {
+    if (requestId && insertErr.code === '23505') {
+      const previous = await findPreviousRequest();
+      if (previous) return previous;
+    }
     console.error('[admin/api] standalone receipt insert failed:', insertErr.code, insertErr.message);
     return { ok: false, error: 'Failed to create receipt' };
   }

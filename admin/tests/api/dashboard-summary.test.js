@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const verifyAdminRequestMock = vi.fn();
 const getServiceClientMock = vi.fn();
@@ -28,6 +28,7 @@ function makeChainable(result) {
   const builder = {
     select: () => builder,
     eq: () => builder,
+    neq: () => builder,
     gt: () => builder,
     not: () => builder,
     is: () => builder,
@@ -46,6 +47,28 @@ function makeQueuedClient(results) {
   return { from: () => makeChainable(results[i++]) };
 }
 
+// Evaluate the small set of query operations against representative rows so
+// queue assertions cover returned data and counts, not just method calls.
+function makeFilteringClient(rows) {
+  return { from: () => {
+    let selected = rows.slice();
+    let maxRows = Infinity;
+    let head = false;
+    const builder = {
+      select: (_fields, options = {}) => { head = Boolean(options.head); return builder; },
+      eq: (key, value) => { selected = selected.filter(row => row[key] === value); return builder; },
+      neq: (key, value) => { selected = selected.filter(row => row[key] != null && row[key] !== value); return builder; },
+      gt: (key, value) => { selected = selected.filter(row => row[key] != null && row[key] > value); return builder; },
+      not: (key, _operator, value) => { selected = selected.filter(row => row[key] !== value); return builder; },
+      is: (key, value) => { selected = selected.filter(row => row[key] === value); return builder; },
+      order: () => builder,
+      limit: (value) => { maxRows = value; return builder; },
+      then: (resolve, reject) => Promise.resolve({ data: head ? null : selected.slice(0, maxRows), count: selected.length, error: null }).then(resolve, reject),
+    };
+    return builder;
+  } };
+}
+
 const cardRow = {
   id: '1', booking_ref: 'REF1', full_name: 'A', phone: '07', postcode: 'N1', service: 'window',
   preferred_date: null, preferred_time: null, service_date: null, status: 'new', payment_status: 'paid',
@@ -56,6 +79,51 @@ describe('GET /api/dashboard-summary', () => {
   beforeEach(() => {
     verifyAdminRequestMock.mockReset();
     getServiceClientMock.mockReset();
+  });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it.each([
+    ['BST just after local midnight', '2026-07-17T23:30:00.000Z', '2026-07-18', '2026-07-19'],
+    ['GMT before local midnight', '2026-12-17T23:30:00.000Z', '2026-12-17', '2026-12-18'],
+  ])('uses the London service day at %s', async (_description, instant, today, tomorrow) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(instant));
+    verifyAdminRequestMock.mockResolvedValue({ ok: true });
+    getServiceClientMock.mockReturnValue(makeFilteringClient([
+      { ...cardRow, id: 'today', service_date: today },
+      { ...cardRow, id: 'tomorrow', service_date: tomorrow },
+    ]));
+    const res = makeRes();
+    await handler({ method: 'GET', headers: {} }, res);
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.today.count).toBe(1);
+    expect(result.today.bookings.map(row => row.id)).toEqual(['today']);
+    expect(result.upcoming.count).toBe(1);
+    expect(result.upcoming.bookings.map(row => row.id)).toEqual(['tomorrow']);
+  });
+
+  it('excludes cancelled bookings only from operational queues, preserving history and financial counts', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-15T12:00:00.000Z'));
+    verifyAdminRequestMock.mockResolvedValue({ ok: true });
+    const statuses = ['new', 'confirmed', 'scheduled', 'in_progress', 'completed', 'rescheduled', 'no_show', 'cancelled'];
+    const rows = [null, '2026-10-15', '2026-10-16'].flatMap((date, index) => statuses.map(status => ({
+      ...cardRow, id: `${index}-${status}`, service_date: date, status,
+      balance_status: 'outstanding',
+    })));
+    getServiceClientMock.mockReturnValue(makeFilteringClient(rows));
+    const res = makeRes();
+    await handler({ method: 'GET', headers: {} }, res);
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.today.count).toBe(7);
+    expect(result.upcoming.count).toBe(7);
+    expect(result.unscheduledCount).toBe(7);
+    expect([...result.today.bookings, ...result.upcoming.bookings].every(row => row.status !== 'cancelled')).toBe(true);
+    expect(result.recent.count).toBe(24);
+    expect(result.depositsPaid.count).toBe(24);
+    expect(result.outstandingBalances).toEqual({ count: 24, dataAvailable: true });
   });
 
   it('rejects non-GET methods', async () => {

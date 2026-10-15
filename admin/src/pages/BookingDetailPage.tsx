@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
 import type { BookingDetail, BalanceUpdateResponse } from '../types/booking';
@@ -31,17 +31,27 @@ type State =
 
 export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
+  // Keep all forms, confirmations and in-flight callbacks tied to one record.
+  return <BookingDetailContent key={id} id={id} />;
+}
+
+function BookingDetailContent({ id }: { id: string | undefined }) {
   const [state, setState] = useState<State>({ status: 'loading' });
+  const requestVersion = useRef(0);
   const [copied, setCopied] = useState<'address' | 'ref' | null>(null);
   const [withdrawalStep, setWithdrawalStep] = useState<'idle' | 'confirm' | 'saving'>('idle');
   const [withdrawalError, setWithdrawalError] = useState<string | null>(null);
 
-  function load() {
+  const load = useCallback(() => {
     if (!id) return;
+    const version = ++requestVersion.current;
     setState({ status: 'loading' });
     authFetch<BookingDetail>(`/api/bookings/${id}`)
-      .then((data) => setState({ status: 'success', data }))
+      .then((data) => {
+        if (version === requestVersion.current) setState({ status: 'success', data });
+      })
       .catch((err) => {
+        if (version !== requestVersion.current) return;
         if (err instanceof ApiError && err.status === 404) {
           setState({ status: 'not-found' });
         } else {
@@ -51,9 +61,12 @@ export default function BookingDetailPage() {
           });
         }
       });
-  }
+  }, [id]);
 
-  useEffect(load, [id]);
+  useEffect(() => {
+    load();
+    return () => { requestVersion.current += 1; };
+  }, [load]);
 
   function handleStatusUpdated(status: string, updatedAt: string) {
     setState((prev) => (prev.status === 'success' ? { status: 'success', data: { ...prev.data, status, updatedAt } } : prev));

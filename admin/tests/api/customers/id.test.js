@@ -74,6 +74,23 @@ describe('/api/customers/:id[?action=] (detail/update/history/manual booking)', 
     expect(body.outstandingBalance).toBe(20);
   });
 
+  it.each(['customers', 'bookings', 'invoices', 'receipts'])('returns a retryable error rather than empty history when the %s read fails', async (failedTable) => {
+    const base = createFakeSupabase({
+      customers: [{ id: VALID_UUID, name: 'Test Customer', email: 'fixture@example.invalid', customer_type: 'individual', source: 'other' }],
+      invoices: [{ id: 'inv-test', billing_customer_id: VALID_UUID, document_status: 'issued', total: 125, amount_due: 125 }],
+    });
+    const failed = { select() { return this; }, eq() { return this; }, or() { return this; }, in() { return this; }, order() { return this; }, maybeSingle() { return Promise.resolve({ data: null, error: { code: 'XX000' } }); }, then(resolve) { return Promise.resolve({ data: null, error: { code: 'XX000' } }).then(resolve); } };
+    getServiceClientMock.mockReturnValue({ from: (table) => table === failedTable ? failed : base.from(table) });
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/customers/${VALID_UUID}` }), res);
+    expect(res.statusCode).toBe(503);
+    const body = JSON.parse(res.body);
+    expect(body.error).toBeTruthy();
+    expect(body.outstandingBalance).toBeUndefined();
+    expect(body.totalPaid).toBeUndefined();
+    expect(body.bookings).toBeUndefined();
+  });
+
   it('never exposes normalised_email/normalised_phone (internal dedup keys)', async () => {
     const supabase = createFakeSupabase({
       customers: [{ id: VALID_UUID, name: 'Jane Doe', email: 'jane@example.com', phone: '07700900123', postcode: null, customer_type: 'individual', source: 'other', created_at: '2026-01-01T00:00:00Z', normalised_email: 'jane@example.com', normalised_phone: '07700900123' }],

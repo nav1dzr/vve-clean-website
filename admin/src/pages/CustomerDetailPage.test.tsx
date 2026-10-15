@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, Link } from 'react-router-dom';
 import CustomerDetailPage from './CustomerDetailPage';
 import { ApiError } from '../lib/authFetch';
 
@@ -61,6 +61,32 @@ describe('CustomerDetailPage', () => {
     expect(await screen.findByRole('alert')).toBeInTheDocument();
   });
 
+  it('retries a failed history read without showing fabricated zero balances', async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockRejectedValueOnce(new ApiError(503, 'Could not load customer invoices and balances. Please try again.'));
+    renderDetail();
+    await screen.findByRole('alert');
+    expect(screen.queryByText('Outstanding balance')).not.toBeInTheDocument();
+    authFetchMock.mockResolvedValueOnce({ ...baseCustomer, outstandingBalance: 125 });
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    expect(await screen.findByText('£125.00')).toBeInTheDocument();
+    expect(authFetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores a late detail response after navigating to a different customer', async () => {
+    const user = userEvent.setup();
+    let resolveFirst!: (value: unknown) => void;
+    authFetchMock.mockImplementation((url: string) => url.endsWith('/cust-1')
+      ? new Promise((resolve) => { resolveFirst = resolve; })
+      : Promise.resolve({ ...baseCustomer, id: 'cust-2', name: 'Current customer' }));
+    render(<MemoryRouter initialEntries={['/customers/cust-1']}><Link to="/customers/cust-2">Next customer</Link><Routes><Route path="/customers/:id" element={<CustomerDetailPage />} /></Routes></MemoryRouter>);
+    await user.click(screen.getByRole('link', { name: 'Next customer' }));
+    await screen.findByRole('heading', { name: 'Current customer' });
+    await act(async () => { resolveFirst(baseCustomer); });
+    expect(screen.queryByRole('heading', { name: 'Jane Doe' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /create invoice/i })).toHaveAttribute('href', '/invoices/new?customerId=cust-2');
+  });
+
   it('renders contact details, balances, and enabled quick actions', async () => {
     authFetchMock.mockResolvedValue(baseCustomer);
     renderDetail();
@@ -86,6 +112,17 @@ describe('CustomerDetailPage', () => {
     renderDetail();
     await screen.findByRole('heading', { name: 'Jane Doe' });
     expect(screen.getByRole('link', { name: /create invoice/i })).toHaveAttribute('href', '/invoices/new?customerId=cust-1');
+  });
+
+  it('keeps duplicate warnings visible on the saved customer and lets the owner dismiss them', async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockResolvedValue(baseCustomer);
+    render(<MemoryRouter initialEntries={[{ pathname: '/customers/cust-1', state: { duplicateWarnings: [{ type: 'email', customer: { id: 'existing-1', name: 'Existing customer' } }] } }]}><Routes><Route path="/customers/:id" element={<CustomerDetailPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Customer saved — possible duplicate');
+    expect(screen.getByRole('link', { name: 'Existing customer' })).toHaveAttribute('href', '/customers/existing-1');
+    expect(screen.getByText(/Nothing was merged/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Dismiss duplicate warning' }));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('shows empty-state messages for bookings/invoices/receipts when there is no history', async () => {

@@ -99,6 +99,35 @@ describe('createStandaloneReceipt', () => {
     };
   }
 
+  it('returns the original receipt when the same request is retried after a lost response', async () => {
+    const supabase = createFakeSupabase();
+    const input = standaloneInput({ requestId: 'd82c6ccb-e8eb-4410-a649-ab59f395b76b' });
+    const first = await createStandaloneReceipt(supabase, input, ADMIN_ID);
+    const retry = await createStandaloneReceipt(supabase, input, ADMIN_ID);
+    expect(retry).toMatchObject({ ok: true, receiptId: first.receiptId, alreadyExisted: true });
+    expect(supabase._tables.receipts).toHaveLength(1);
+    expect(supabase._tables.invoice_events.filter(e => e.event_type === 'receipt_created')).toHaveLength(1);
+  });
+
+  it('rejects changed details or another owner reusing an existing request identity', async () => {
+    const supabase = createFakeSupabase();
+    const input = standaloneInput({ requestId: 'd82c6ccb-e8eb-4410-a649-ab59f395b76b' });
+    await createStandaloneReceipt(supabase, input, ADMIN_ID);
+    expect(await createStandaloneReceipt(supabase, { ...input, amount: 200 }, ADMIN_ID)).toMatchObject({ ok: false, status: 409 });
+    expect(await createStandaloneReceipt(supabase, input, 'another-admin')).toMatchObject({ ok: false, status: 409 });
+    expect(supabase._tables.receipts).toHaveLength(1);
+    expect(supabase._tables.receipts[0].total_paid).toBe(149);
+  });
+
+  it('allows genuinely separate equal-value receipts and rejects malformed request identities', async () => {
+    const supabase = createFakeSupabase();
+    const first = await createStandaloneReceipt(supabase, standaloneInput({ requestId: 'd82c6ccb-e8eb-4410-a649-ab59f395b76b' }), ADMIN_ID);
+    const second = await createStandaloneReceipt(supabase, standaloneInput({ requestId: 'c9d79e31-acd0-4c95-a6f6-c261df222fe2' }), ADMIN_ID);
+    expect(first.receiptId).not.toBe(second.receiptId);
+    expect(await createStandaloneReceipt(supabase, standaloneInput({ requestId: 'invalid' }), ADMIN_ID)).toMatchObject({ ok: false });
+    expect(supabase._tables.receipts).toHaveLength(2);
+  });
+
   it('creates an immutable numbered receipt without an invoice', async () => {
     const supabase = createFakeSupabase();
     const result = await createStandaloneReceipt(supabase, standaloneInput(), ADMIN_ID);

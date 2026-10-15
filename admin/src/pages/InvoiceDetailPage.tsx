@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { authFetch, authFetchBlob, ApiError } from '../lib/authFetch';
 import { openPdfBlob } from '../lib/pdf';
@@ -38,6 +38,10 @@ type State =
 
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
+  return <InvoiceDetailContent key={id} id={id} />;
+}
+
+function InvoiceDetailContent({ id }: { id: string | undefined }) {
   const navigate = useNavigate();
   const { admin } = useAuth();
   const adminId = admin?.id;
@@ -47,17 +51,42 @@ export default function InvoiceDetailPage() {
   const [state, setState] = useState<State>({ status: 'loading' });
   const [events, setEvents] = useState<InvoiceEvent[] | null>(null);
   const [receiptId, setReceiptId] = useState<string | null>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptError, setReceiptError] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState<null | 'payment' | 'void' | 'send' | 'remind' | 'revise' | 'correctDetails'>(null);
   const [pendingAction, setPendingAction] = useState<null | 'issue' | 'delete'>(null);
+  const requestVersion = useRef(0);
+  const receiptRequestVersion = useRef(0);
 
-  function load() {
+  const loadReceipt = useCallback(async () => {
     if (!id) return;
+    const version = ++receiptRequestVersion.current;
+    setReceiptLoading(true);
+    setReceiptError(false);
+    try {
+      const result = await authFetch<ReceiptListResponse>(`/api/receipts?invoiceId=${id}&pageSize=1`);
+      if (version === receiptRequestVersion.current) setReceiptId(result.results[0]?.id || null);
+    } catch {
+      if (version === receiptRequestVersion.current) setReceiptError(true);
+    } finally {
+      if (version === receiptRequestVersion.current) setReceiptLoading(false);
+    }
+  }, [id]);
+
+  const load = useCallback(() => {
+    if (!id) return;
+    const version = ++requestVersion.current;
+    receiptRequestVersion.current += 1;
     setState({ status: 'loading' });
+    setEvents(null);
     setReceiptId(null);
+    setReceiptError(false);
+    setReceiptLoading(false);
     authFetch<InvoiceDetail>(`/api/invoices/${id}`)
       .then((data) => {
+        if (version !== requestVersion.current) return;
         if (data.documentStatus !== 'draft' && adminId) {
           clearInvoiceDraftRecovery({ userId: adminId, documentKey: 'invoice:' + data.id });
         }
@@ -66,24 +95,29 @@ export default function InvoiceDetailPage() {
         setDraftConflict(false);
         setState({ status: 'success', data });
         authFetch<InvoiceEventsResponse>(`/api/invoices/${id}?action=events`)
-          .then((r) => setEvents(r.results))
-          .catch(() => setEvents([]));
+          .then((r) => { if (version === requestVersion.current) setEvents(r.results); })
+          .catch(() => { if (version === requestVersion.current) setEvents([]); });
         // Fully paid — the "send invoice" flow is retired in favour of the
         // receipt (see handleSend's paid-invoice block on the server); look
         // it up so the UI can link straight to it.
         if (data.paymentStatus === 'paid') {
-          authFetch<ReceiptListResponse>(`/api/receipts?invoiceId=${id}&pageSize=1`)
-            .then((r) => setReceiptId(r.results[0]?.id || null))
-            .catch(() => setReceiptId(null));
+          void loadReceipt();
         }
       })
       .catch((err) => {
+        if (version !== requestVersion.current) return;
         if (err instanceof ApiError && err.status === 404) setState({ status: 'not-found' });
         else setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load this invoice.' });
       });
-  }
+  }, [id, adminId, loadReceipt]);
 
-  useEffect(load, [id, adminId]);
+  useEffect(() => {
+    load();
+    return () => {
+      requestVersion.current += 1;
+      receiptRequestVersion.current += 1;
+    };
+  }, [load]);
 
   async function handleSaveDraft(input: InvoiceDraftInput) {
     if (!id || busy || draftConflict || state.status !== 'success') return false;
@@ -574,13 +608,23 @@ export default function InvoiceDetailPage() {
               <ActionButton label="Download" onClick={() => void handleDownload()} disabled={busy} />
             {!isSuperseded && (
               inv.paymentStatus === 'paid' ? (
-                receiptId && (
+                receiptLoading ? <p role="status" className="text-sm text-navy-600">Looking up receipt…</p> : receiptError ? (
+                  <div className="w-full space-y-2">
+                    <p role="alert" className="text-sm text-red-700">Could not load the receipt. Your recorded payment has not changed.</p>
+                    <ActionButton label="Retry receipt lookup" onClick={() => void loadReceipt()} disabled={busy} />
+                  </div>
+                ) : receiptId ? (
                   <Link
                     to={`/receipts/${receiptId}`}
                     className="flex min-h-11 w-full items-center justify-center rounded-lg border border-silver-300 px-3.5 text-sm font-medium text-navy-900 hover:bg-silver-100 sm:w-auto"
                   >
                     View / send receipt
                   </Link>
+                ) : (
+                  <div className="w-full space-y-2">
+                    <p className="text-sm text-navy-600">No receipt is linked to this invoice yet.</p>
+                    <ActionButton label="Check for receipt" onClick={() => void loadReceipt()} disabled={busy} />
+                  </div>
                 )
               ) : (
                 <ActionButton label={inv.sentAt ? 'Resend' : 'Send'} onClick={() => setModal('send')} disabled={busy} />

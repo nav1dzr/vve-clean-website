@@ -138,6 +138,37 @@ describe('/api/invoices/:id[?action=] dispatcher', () => {
     expect(body.payments).toHaveLength(0);
   });
 
+  it.each(['invoice_items', 'invoice_payments'])('GET detail fails safely when %s cannot be read and succeeds on retry', async (failedTable) => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+    supabase._tables.invoice_payments = [{ id: VALID_UUID, invoice_id: invoiceId, amount: 25, method: 'bank_transfer' }];
+    const before = structuredClone(supabase._tables);
+    const originalFrom = supabase.from;
+    let failOnce = true;
+    supabase.from = (table) => {
+      const builder = originalFrom(table);
+      if (table === failedTable && failOnce) {
+        failOnce = false;
+        builder.order = () => Promise.resolve({ data: null, error: { code: 'XX000', message: 'private diagnostic details' } });
+      }
+      return builder;
+    };
+
+    const failed = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}` }), failed);
+    expect(failed.statusCode).toBe(503);
+    expect(JSON.parse(failed.body)).toEqual({ error: 'Could not load the complete invoice. Please retry.' });
+    expect(failed.body).not.toContain('private diagnostic details');
+    expect(supabase._tables).toEqual(before);
+
+    const recovered = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}` }), recovered);
+    expect(recovered.statusCode).toBe(200);
+    expect(JSON.parse(recovered.body).items).toHaveLength(1);
+    expect(JSON.parse(recovered.body).payments).toHaveLength(1);
+  });
+
   it('PATCH updates a draft', async () => {
     const supabase = createFakeSupabase();
     getServiceClientMock.mockReturnValue(supabase);

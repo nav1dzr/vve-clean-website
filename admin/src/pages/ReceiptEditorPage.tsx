@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import StructuredAddressFields from '../components/StructuredAddressFields';
 import { authFetch, ApiError } from '../lib/authFetch';
@@ -10,7 +10,7 @@ import {
 } from '../types/invoice';
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
 
 export default function ReceiptEditorPage() {
@@ -24,12 +24,15 @@ export default function ReceiptEditorPage() {
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const pendingInput = useRef<StandaloneReceiptInput | null>(null);
+  const submittingRef = useRef(false);
 
   const inputClass = 'min-h-11 w-full rounded-lg border border-silver-300 bg-white px-3 text-base text-navy-950 outline-none transition-colors focus:border-sky-500 focus:ring-2 focus:ring-sky-100';
   const labelClass = 'mb-1 block text-sm font-medium text-navy-900';
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) return;
     const numericAmount = Number(amount);
     if (!customer.name.trim()) return setError('Customer name is required.');
     if (!customer.email.trim() && !customer.phone.trim()) return setError('Add an email address or phone number.');
@@ -37,7 +40,8 @@ export default function ReceiptEditorPage() {
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) return setError('Enter the amount already received.');
     if (!confirmed) return setError('Confirm that the payment has already been received.');
 
-    const input: StandaloneReceiptInput = {
+    const input: StandaloneReceiptInput = pendingInput.current || {
+      requestId: crypto.randomUUID(),
       customer: {
         name: customer.name.trim(),
         email: customer.email.trim() || null,
@@ -52,6 +56,8 @@ export default function ReceiptEditorPage() {
       paymentReference: paymentReference.trim() || null,
     };
 
+    pendingInput.current = input;
+    submittingRef.current = true;
     setSubmitting(true);
     setError(null);
     try {
@@ -62,7 +68,10 @@ export default function ReceiptEditorPage() {
       navigate(`/receipts/${result.receiptId}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not create this receipt.');
+      if (err instanceof ApiError && err.status === 400) pendingInput.current = null;
       setSubmitting(false);
+    } finally {
+      submittingRef.current = false;
     }
   }
 
@@ -80,6 +89,7 @@ export default function ReceiptEditorPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <fieldset disabled={submitting || !!pendingInput.current} className="min-w-0 space-y-4">
         <section className="rounded-2xl border border-silver-300 bg-white p-4 shadow-sm sm:p-5">
           <h2 className="mb-4 text-base font-semibold text-navy-950">1. Customer</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -144,11 +154,13 @@ export default function ReceiptEditorPage() {
           </label>
         </section>
 
+        </fieldset>
+        {error && pendingInput.current && <p className="text-sm text-navy-700">Your original details are kept for a safe retry. Retry to check or finish the same receipt, or check the Receipts list before starting another.</p>}
         {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
         <div className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-10 -mx-4 border-t border-silver-300 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur sm:static sm:mx-0 sm:flex sm:justify-end sm:border-0 sm:bg-transparent sm:px-0 sm:shadow-none">
           <button type="submit" disabled={submitting || !confirmed} className="min-h-12 w-full rounded-xl bg-navy-950 px-5 text-sm font-semibold text-white transition-colors hover:bg-navy-900 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">
-            {submitting ? 'Creating receipt…' : 'Create final receipt'}
+            {submitting ? 'Creating receipt…' : pendingInput.current ? 'Retry same receipt' : 'Create final receipt'}
           </button>
         </div>
       </form>

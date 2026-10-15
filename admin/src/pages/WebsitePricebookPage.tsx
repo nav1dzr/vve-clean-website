@@ -76,7 +76,10 @@ export default function WebsitePricebookPage() {
   useEffect(() => { void load(); }, [load]);
 
   const changes = useMemo(() => (state?.fields || []).filter(field => Math.round(Number(values[field.key]) * 100) !== field.pence), [state, values]);
-  const filtered = useMemo(() => (state?.fields || []).filter(field => fieldLabel(field.key).includes(search.toLowerCase())), [state, search]);
+  const filtered = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase('en-GB');
+    return (state?.fields || []).filter(field => fieldLabel(field.key).toLocaleLowerCase('en-GB').includes(query));
+  }, [state, search]);
   const grouped = useMemo(() => {
     const result = new Map<string, PriceField[]>();
     for (const field of filtered) {

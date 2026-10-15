@@ -238,7 +238,7 @@ export async function updateCustomer(supabase, customerId, input, adminId) {
 export async function getCustomerDetail(supabase, customerId) {
   const { data: customer, error: customerErr } = await supabase
     .from('customers').select('*').eq('id', customerId).maybeSingle();
-  if (customerErr) return { ok: false, error: 'Failed to load customer' };
+  if (customerErr) return { ok: false, error: 'Failed to load customer', status: 503 };
   if (!customer) return { ok: false, error: 'Customer not found', status: 404 };
 
   const normalisedEmail = normaliseEmailForDedup(customer.email);
@@ -251,25 +251,29 @@ export async function getCustomerDetail(supabase, customerId) {
     if (customer.email) filters.push(`email.ilike.${customer.email}`);
     for (const candidate of phoneMatchCandidates(customer.phone)) filters.push(`phone.eq.${candidate}`);
     if (filters.length) query = query.or(filters.join(','));
-    const { data } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query.order('created_at', { ascending: false });
+    if (error) return { ok: false, error: 'Could not load customer booking history. Please try again.', status: 503 };
     bookings = (data || []).map(toBookingCard);
   }
 
-  const { data: invoiceRows } = await supabase
+  const { data: invoiceRows, error: invoicesError } = await supabase
     .from('invoices')
     .select(INVOICE_CARD_SELECT)
     .or(`billing_customer_id.eq.${customerId},service_customer_id.eq.${customerId}`)
     .order('created_at', { ascending: false });
+  // A failed financial read is not an empty history or a zero balance.
+  if (invoicesError) return { ok: false, error: 'Could not load customer invoices and balances. Please try again.', status: 503 };
   const invoices = (invoiceRows || []).map(toInvoiceCard);
 
   const invoiceIds = invoices.map((i) => i.id);
   let receipts = [];
   if (invoiceIds.length) {
-    const { data: receiptRows } = await supabase
+    const { data: receiptRows, error: receiptsError } = await supabase
       .from('receipts')
       .select(RECEIPT_CARD_SELECT)
       .in('invoice_id', invoiceIds)
       .order('created_at', { ascending: false });
+    if (receiptsError) return { ok: false, error: 'Could not load customer receipts. Please try again.', status: 503 };
     receipts = (receiptRows || []).map(toReceiptCard);
   }
 

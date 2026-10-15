@@ -1,7 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
-import type { CustomerHistoryResponse } from '../types/customer';
+import type { CustomerHistoryResponse, CustomerDuplicateWarning } from '../types/customer';
 import type { ManualBookingInput, ManualBookingResponse } from '../types/customer';
 import { customerTypeLabel } from '../lib/format';
 import ManualBookingModal from '../components/ManualBookingModal';
@@ -14,11 +14,11 @@ import {
   bookingStatusBadge, invoiceDocumentStatusBadge, invoicePaymentStatusBadge,
 } from '../lib/format';
 
-type State =
+type State = { customerId?: string } & (
   | { status: 'loading' }
   | { status: 'not-found' }
   | { status: 'error'; message: string }
-  | { status: 'success'; data: CustomerHistoryResponse };
+  | { status: 'success'; data: CustomerHistoryResponse });
 
 // Customer detail + derived history. Bookings are matched by email/phone
 // (not a hard FK — see admin/api/_lib/customerLifecycle.js's header for
@@ -29,22 +29,29 @@ type State =
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const duplicateWarnings = (location.state as { duplicateWarnings?: CustomerDuplicateWarning[] } | null)?.duplicateWarnings || [];
+  const [dismissedWarningKey, setDismissedWarningKey] = useState<string | null>(null);
   const [state, setState] = useState<State>({ status: 'loading' });
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
 
-  function load() {
+  useEffect(() => {
+    let active = true;
     if (!id) return;
-    setState({ status: 'loading' });
+    setState({ customerId: id, status: 'loading' });
+    setShowBookingModal(false);
+    setActionError(null);
     authFetch<CustomerHistoryResponse>(`/api/customers/${id}`)
-      .then((data) => setState({ status: 'success', data }))
+      .then((data) => { if (active) setState({ customerId: id, status: 'success', data }); })
       .catch((err) => {
-        if (err instanceof ApiError && err.status === 404) setState({ status: 'not-found' });
-        else setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load this customer.' });
+        if (!active) return;
+        if (err instanceof ApiError && err.status === 404) setState({ customerId: id, status: 'not-found' });
+        else setState({ customerId: id, status: 'error', message: err instanceof ApiError ? err.message : 'Could not load this customer.' });
       });
-  }
-
-  useEffect(load, [id]);
+    return () => { active = false; };
+  }, [id, retry]);
 
   async function handleCreateBooking(input: ManualBookingInput) {
     if (!id) return;
@@ -56,7 +63,7 @@ export default function CustomerDetailPage() {
     navigate(`/bookings/${result.bookingId}`);
   }
 
-  if (state.status === 'loading') {
+  if (state.customerId !== id || state.status === 'loading') {
     return <div className="px-4 py-6 sm:px-6"><CardListSkeleton count={1} /></div>;
   }
   if (state.status === 'not-found') {
@@ -67,7 +74,7 @@ export default function CustomerDetailPage() {
     );
   }
   if (state.status === 'error') {
-    return <div className="px-4 py-6 sm:px-6"><ErrorState message={state.message} onRetry={load} /></div>;
+    return <div className="px-4 py-6 sm:px-6"><ErrorState message={state.message} onRetry={() => setRetry((attempt) => attempt + 1)} /></div>;
   }
 
   const c = state.data;
@@ -90,6 +97,17 @@ export default function CustomerDetailPage() {
       </div>
 
       {actionError && <p role="alert" className="mb-3 text-sm text-red-600">{actionError}</p>}
+
+      {duplicateWarnings.length > 0 && dismissedWarningKey !== location.key && (
+        <section role="alert" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <p className="font-semibold text-amber-950">Customer saved — possible duplicate</p>
+          <p className="mt-1 text-sm text-amber-900">Nothing was merged. Review these existing records before creating another booking or invoice.</p>
+          <ul className="mt-2 space-y-1 text-sm text-amber-950">
+            {duplicateWarnings.map((warning, index) => <li key={`${warning.customer.id}-${index}`}><Link className="font-semibold underline" to={`/customers/${warning.customer.id}`}>{warning.customer.name}</Link> · matches by {warning.type === 'postcode_name' ? 'postcode and a similar name' : warning.type}</li>)}
+          </ul>
+          <button type="button" onClick={() => setDismissedWarningKey(location.key)} className="mt-3 min-h-11 rounded-lg border border-amber-300 px-3 text-sm font-semibold text-amber-950">Dismiss duplicate warning</button>
+        </section>
+      )}
 
       <Section title="Quick actions">
         <div className="flex flex-wrap gap-2">
