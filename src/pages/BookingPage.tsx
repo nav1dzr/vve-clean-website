@@ -1,7 +1,8 @@
 import PriceTaxNote from '../components/PriceTaxNote';
+import ServiceDecisionTrust from '../components/ServiceDecisionTrust';
 import { clearQuoteBasket } from '../lib/quoteBasket';
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 import QuoteCalculator, {
   type BookingSelection,
@@ -9,8 +10,12 @@ import QuoteCalculator, {
 import BrandLogo from "../components/BrandLogo";
 import type { HomepageQuoteService } from "../components/HomeServiceSelector";
 import { getAttribution } from "../lib/attribution";
+import { getGa4BookingContext } from '../lib/ga4Context';
 import { getQuoteOriginHref } from "../lib/quoteOrigin";
+import { bookingRouteState, readBookingHandoff, readStoredBookingSelection, storeBookingSelection, markQuoteRestore } from "../lib/bookingHandoff";
 import { PRICEBOOK_VERSION } from "../data/pricing";
+import { isValidBookingName, isValidBookingEmail, isValidBookingDate, todayLondonIsoDate } from '../../shared/bookingRequestValidation.js';
+import { clearBookingAcknowledgement, hasBookingAcknowledgement, rememberBookingAcknowledgement } from '../lib/bookingRequestAcknowledgement';
 import {
   submissionIdentity,
   clearSubmissionIdentity,
@@ -35,10 +40,6 @@ const CONGESTION_CHARGE = CONGESTION_CHARGE_P / 100;
 type ParkingAnswer = "" | "yes" | "no" | "not_sure";
 type CongestionAnswer = "" | "no" | "yes" | "not_sure";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const STORAGE_KEY = "vve_booking";
-
 // ─── Booking-form draft ───────────────────────────────────────────────────────
 // Persists contact/scheduling fields across page refreshes. Cleared only after
 // the manager-visible request has been saved successfully.
@@ -61,12 +62,25 @@ function loadDraft(): FormData | null {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
-    const parsed: { expires?: number; form?: FormData } = JSON.parse(raw);
-    if (!parsed?.expires || Date.now() > parsed.expires) {
+    const parsed: { expires?: unknown; form?: unknown } = JSON.parse(raw);
+    if (typeof parsed?.expires !== 'number' || !Number.isFinite(parsed.expires) || Date.now() > parsed.expires) {
       localStorage.removeItem(DRAFT_KEY);
       return null;
     }
-    return parsed.form ?? null;
+    if (!parsed.form || typeof parsed.form !== 'object' || Array.isArray(parsed.form)) return null;
+    const saved = parsed.form as Record<string, unknown>;
+    const restored = { ...EMPTY_FORM };
+    // Restore only known strings; malformed/old stored values must never reach
+    // trim(), controlled inputs, or access-charge calculations.
+    for (const key of ['fullName', 'address', 'postcode', 'phone', 'email', 'date', 'time', 'message'] as const) {
+      if (key in saved && typeof saved[key] !== 'string') return null;
+      restored[key] = typeof saved[key] === 'string' ? saved[key] : '';
+    }
+    if (saved.parkingAvailable !== undefined && (typeof saved.parkingAvailable !== 'string' || !['', 'yes', 'no', 'not_sure'].includes(saved.parkingAvailable))) return null;
+    if (saved.congestionZone !== undefined && (typeof saved.congestionZone !== 'string' || !['', 'yes', 'no', 'not_sure'].includes(saved.congestionZone))) return null;
+    restored.parkingAvailable = (saved.parkingAvailable ?? '') as ParkingAnswer;
+    restored.congestionZone = (saved.congestionZone ?? '') as CongestionAnswer;
+    return restored;
   } catch {
     return null;
   }
@@ -91,9 +105,6 @@ function money(n: number) {
   );
 }
 
-function validEmail(v: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-}
 function validPhone(v: string) {
   return v.replace(/\D/g, "").length >= 10;
 }
@@ -106,11 +117,12 @@ function validPostcode(v: string) {
 const BOOKING_WA =
   "https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20help%20with%20my%20booking.";
 
-function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
+function BookingHeader({ isLeaflet = false, selection = null }: { isLeaflet?: boolean; selection?: BookingSelection | null }) {
   // Where the quote was actually built — the Carpet page, the Sofa page, the
   // homepage, /leaflet, or a service page. Falls back to the previous
   // hard-coded destination when nothing was recorded.
-  const backHref = getQuoteOriginHref(isLeaflet);
+  const location = useLocation();
+  const backHref = getQuoteOriginHref(isLeaflet, readBookingHandoff(location.state)?.quoteOrigin);
   return (
     <header
       className="sticky top-0 z-50 border-b border-black/[0.08]"
@@ -147,7 +159,8 @@ function BookingHeader({ isLeaflet = false }: { isLeaflet?: boolean }) {
               label shortened below sm so the header row still fits. */}
           <Link
             to={backHref}
-            onClick={() => sessionStorage.setItem("vve_restore_quote", "1")}
+            state={selection ? bookingRouteState(selection, backHref.split('#')[0], true) : undefined}
+            onClick={markQuoteRestore}
             aria-label="Back to quote"
             className="flex min-h-[44px] items-center gap-1 rounded-full border border-[#E3E7EE] px-2.5 py-2 text-xs font-semibold text-navy-800 transition-colors hover:border-navy-300 sm:px-3 sm:text-sm whitespace-nowrap"
           >
@@ -438,6 +451,16 @@ interface FormData {
   congestionZone: CongestionAnswer;
 }
 
+const EMPTY_FORM: FormData = {
+  fullName: '', address: '', postcode: '', phone: '', email: '', date: '',
+  time: '', message: '', parkingAvailable: '', congestionZone: '',
+};
+
+type RequestAcknowledgement = { kind: 'restored' } | {
+  kind: 'submitted'; reference: string; total: number;
+  service: string; date: string; time: string;
+};
+
 const REQUIRED_DATE_ERROR = "Please choose your preferred date.";
 const PAST_DATE_ERROR = "Please choose a date that has not already passed.";
 const REQUIRED_TIME_ERROR = "Please choose your preferred arrival window.";
@@ -454,15 +477,6 @@ function parkingSurcharge(answer: ParkingAnswer): number {
 }
 function congestionSurcharge(answer: CongestionAnswer): number {
   return answer === "yes" || answer === "not_sure" ? CONGESTION_CHARGE : 0;
-}
-
-// YYYY-MM-DD for today in the visitor's local time zone — matches the
-// plain-string format <input type="date"> both stores and displays, so a
-// lexicographic string comparison against it is a correct "is this in the
-// past" check with no Date-object time zone handling needed.
-function todayIsoDate(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
@@ -497,31 +511,22 @@ const SUMMARY_FIELDS: ReadonlyArray<{
 ];
 
 export default function BookingPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const requestStarted = useRef(false);
-  const [selection, setSelection] = useState<BookingSelection | null>(null);
+  const [selection, setSelection] = useState<BookingSelection | null>(() =>
+    readBookingHandoff(location.state)?.selection ?? readStoredBookingSelection());
   const [showSelector, setShowSelector] = useState(false);
   const [requestedService, setRequestedService] = useState<HomepageQuoteService | null>(null);
-  const [form, setForm] = useState<FormData>({
-    fullName: "",
-    address: "",
-    postcode: "",
-    phone: "",
-    email: "",
-    date: "",
-    time: "",
-    message: "",
-    parkingAvailable: "",
-    congestionZone: "",
-  });
+  const [form, setForm] = useState<FormData>({ ...EMPTY_FORM });
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [quoteNeedsReview, setQuoteNeedsReview] = useState(false);
   const [currentEstimate, setCurrentEstimate] = useState<number | null>(null);
-  const [requestComplete, setRequestComplete] = useState<{
-    reference: string;
-    total: number;
-  } | null>(null);
+  const [requestComplete, setRequestComplete] = useState<RequestAcknowledgement | null>(() =>
+    !readBookingHandoff(location.state)?.selection && hasBookingAcknowledgement()
+      ? { kind: 'restored' } : null);
   const [honeypot, setHoneypot] = useState("");
   const formTopRef = useRef<HTMLDivElement>(null);
   const requestSuccessRef = useRef<HTMLElement>(null);
@@ -533,6 +538,10 @@ export default function BookingPage() {
 
   // ── Restore booking-form draft on mount (before any user input) ───────────
   useEffect(() => {
+    if (requestComplete) return;
+    // A fresh calculator handoff is an explicit new request, unlike a refresh
+    // of the old success screen. It must not inherit the previous marker.
+    if (readBookingHandoff(location.state)?.selection) clearBookingAcknowledgement();
     const draft = loadDraft();
     if (draft) {
       setForm((current) => ({
@@ -542,26 +551,12 @@ export default function BookingPage() {
         congestionZone: draft.congestionZone ?? "",
       }));
     }
+    // Restore only on mount; later edits are owned by this form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Load selection from sessionStorage or fall back to URL params ──────────
+  // Route state is the primary handoff. Storage is optional refresh recovery.
   useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed: BookingSelection = JSON.parse(stored);
-        // Discard selections that have no quoteConfig — the server rejects them.
-        // This catches stale sessionStorage entries written by legacy booking.html.
-        if (parsed.quoteConfig) {
-          setSelection(parsed);
-          return;
-        }
-        sessionStorage.removeItem(STORAGE_KEY);
-      }
-    } catch {
-      /* ignore */
-    }
-
     // Legacy URL params (?service=X&price=Y) are no longer accepted because they
     // carry no quoteConfig and the server now requires one for price authority.
     // Silently discard the params so the user sees the calculator and generates
@@ -569,20 +564,40 @@ export default function BookingPage() {
     // No query values are price-authoritative. Remove all of them after the
     // legacy hand-off has been handled so stale prices, tracking parameters and
     // unsupported service names are not left in the address bar.
-    if (window.location.search) window.history.replaceState({}, "", "/booking");
+    if (window.location.search) window.history.replaceState(window.history.state, "", "/booking");
   }, []);
 
   // ── Callbacks ──────────────────────────────────────────────────────────────
   const handleBook = (sel: BookingSelection) => {
     setSelection(sel);
     setShowSelector(false);
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(sel));
+    storeBookingSelection(sel);
+    navigate('/booking', { replace: true, state: bookingRouteState(sel, '/booking') });
     window.scrollTo({ top: 0, behavior: requestedScrollBehavior() });
   };
 
   const handleChangeService = () => {
     setShowSelector(true);
     window.scrollTo({ top: 0, behavior: requestedScrollBehavior() });
+  };
+
+  const handleNewRequest = () => {
+    clearBookingAcknowledgement();
+    clearQuoteBasket();
+    clearSubmissionIdentity('booking');
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* Storage is optional. */ }
+    setRequestComplete(null);
+    setSelection(null);
+    setShowSelector(false);
+    setRequestedService(null);
+    setForm({ ...EMPTY_FORM });
+    setErrors({});
+    setShowErrorSummary(false);
+    setSubmitError('');
+    setQuoteNeedsReview(false);
+    setCurrentEstimate(null);
+    requestStarted.current = false;
+    navigate('/booking', { replace: true, state: null });
   };
 
   const setField =
@@ -614,7 +629,7 @@ export default function BookingPage() {
 
   const validate = (): boolean => {
     const e: FormErrors = {};
-    if (!form.fullName.trim()) e.fullName = "Please enter your full name.";
+    if (!isValidBookingName(form.fullName)) e.fullName = "Please enter your full name.";
     if (!form.address.trim()) e.address = "Please enter your address.";
     if (!validPostcode(form.postcode))
       e.postcode = "Please enter a valid UK postcode.";
@@ -624,10 +639,11 @@ export default function BookingPage() {
       e.phone = "Please enter a valid phone number.";
     if (!form.email.trim())
       e.email = "Please enter an email address for your booking confirmation.";
-    else if (!validEmail(form.email))
+    else if (!isValidBookingEmail(form.email))
       e.email = "Please enter a valid email address.";
     if (!form.date) e.date = REQUIRED_DATE_ERROR;
-    else if (form.date < todayIsoDate()) e.date = PAST_DATE_ERROR;
+    else if (!isValidBookingDate(form.date)) e.date = "Please choose a valid date.";
+    else if (form.date < todayLondonIsoDate()) e.date = PAST_DATE_ERROR;
     if (!form.time) e.time = REQUIRED_TIME_ERROR;
     if (!form.parkingAvailable) e.parkingAvailable = REQUIRED_PARKING_ERROR;
     if (!form.congestionZone) e.congestionZone = REQUIRED_CONGESTION_ERROR;
@@ -732,23 +748,31 @@ export default function BookingPage() {
       first_source: attribution.first_source,
       last_source: attribution.last_source,
       landing_page: attribution.landing_page,
+      first_touch_at: attribution.first_touch_at,
       utm_source: attribution.utm_source,
       utm_medium: attribution.utm_medium,
       utm_campaign: attribution.utm_campaign,
       utm_content: attribution.utm_content,
+      utm_term: attribution.utm_term,
       gclid: attribution.gclid,
+      gbraid: attribution.gbraid,
+      wbraid: attribution.wbraid,
+      measurement_consent: attribution.measurement_consent,
     };
 
     try {
       const requestKey = await submissionIdentity("booking", payload);
+      // Optional IDs are not part of the retry identity: a refreshed analytics
+      // session must not create a second booking for the same submitted form.
+      const ga4Context = await getGa4BookingContext().catch(() => null);
       const res = await fetch(BACKEND_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ ...payload, requestKey }),
+        body: JSON.stringify({ ...payload, requestKey, ...(ga4Context ? { ga4_context: ga4Context } : {}) }),
         signal: AbortSignal.timeout(45000),
       });
       const data = await res.json();
-      if (res.status === 409) {
+      if (res.status === 409 && data.code === 'price_changed') {
         setQuoteNeedsReview(true);
         setCurrentEstimate(
           Number.isFinite(data.currentTotal) ? data.currentTotal : null,
@@ -758,11 +782,16 @@ export default function BookingPage() {
         throw new Error(data.error || "Request could not be saved.");
 
       setRequestComplete({
+        kind: 'submitted',
         reference: data.bookingRef,
         total: Number.isFinite(data.total)
           ? data.total
-          : totalWithAccessCharges,
+          : payload.price,
+        service: payload.service,
+        date: payload.date,
+        time: payload.time,
       });
+      rememberBookingAcknowledgement();
       setSubmitting(false);
       // Once the server saved the request, optional local cleanup or analytics
       // must never turn that success into an invitation to submit it again.
@@ -773,6 +802,8 @@ export default function BookingPage() {
       }
       clearQuoteBasket();
       clearSubmissionIdentity("booking");
+      // A successful request must not re-open its old quote on refresh.
+      try { navigate('/booking', { replace: true, state: null }); } catch { /* The saved request is authoritative. */ }
       try {
         trackBookingRequestSubmitted(selection.serviceName, data.requestId);
       } catch {
@@ -821,11 +852,91 @@ export default function BookingPage() {
         : "border-[#E3E7EE] bg-white text-navy-900 focus:border-[#0369a1]"
     }`;
 
+  // A saved request takes precedence over the now-cleared quote selection.
+  if (requestComplete) {
+    return (
+      <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
+        <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} />
+        <main id="main-content" ref={requestSuccessRef} tabIndex={-1} aria-labelledby="booking-request-heading" className="mx-auto max-w-xl px-4 py-16">
+          <div className="rounded-3xl border border-green-200 bg-white p-7 text-center shadow-xl sm:p-10">
+            <div
+              className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-700"
+              aria-hidden="true"
+            >
+              <CheckCircle2 size={30} />
+            </div>
+            <h1 id="booking-request-heading" className="mt-5 font-display text-3xl font-bold text-navy-900">
+              Your request is with our team
+            </h1>
+            <p className="mt-3 text-base leading-relaxed text-silver-700">
+              No payment is required to submit a booking request. After we review
+              and confirm the job details, we’ll email your deposit payment instructions.
+              Your booking is confirmed once the deposit is paid.
+            </p>
+            {requestComplete.kind === 'submitted' ? <>
+            <div className="mt-5 rounded-2xl bg-silver-100 px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-silver-600">
+                Request reference
+              </p>
+              <p className="mt-1 font-display text-xl font-bold text-navy-900">
+                {requestComplete.reference}
+              </p>
+            </div>
+            <dl className="mt-5 space-y-2 text-left text-sm">
+              <div>
+                <dt className="font-semibold">Service requested</dt>
+                <dd>{requestComplete.service}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold">Preferred visit</dt>
+                <dd>
+                  {requestComplete.date} · {requestComplete.time}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold">Estimated total</dt>
+                <dd>{money(requestComplete.total)}</dd>
+              </div>
+            </dl>
+            </> : <p className="mt-5 rounded-2xl bg-silver-100 px-4 py-4 text-sm text-silver-700">
+              Your request was saved recently in this browser tab. You do not need
+              to send it again. Check your email for the request details, or contact
+              us if you need help.
+            </p>}
+            <p className="mt-5 text-sm leading-relaxed text-silver-600">
+              We’ll agree the service, final price and time with you before sending
+              the secure payment instructions. Nothing is charged with this request.
+            </p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <a
+                href={BOOKING_WA}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-whatsapp inline-flex min-h-[48px] items-center justify-center rounded-xl px-6 font-bold"
+              >
+                Message us on WhatsApp
+              </a>
+              <Link
+                to="/"
+                className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-2 border-royal-600 px-6 font-bold text-royal-700 hover:bg-royal-50"
+              >
+                Return home
+              </Link>
+            </div>
+            <button type="button" onClick={handleNewRequest} className="mt-5 min-h-[44px] px-3 text-sm font-semibold text-royal-700 underline underline-offset-4">
+              Start another request
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   // ─── Show quote selector (no selection yet, or user clicked Change service) ─
   if (!selection || showSelector) {
     return (
       <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
-        <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} />
+        <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} selection={selection} />
         <main id="main-content">
           <StepIndicator current={1} />
           <h1 className="sr-only">
@@ -844,79 +955,9 @@ export default function BookingPage() {
     );
   }
 
-  // ─── Show booking form ─────────────────────────────────────────────────────
-  if (requestComplete) {
-    return (
-      <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
-        <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} />
-        <main id="main-content" ref={requestSuccessRef} tabIndex={-1} aria-labelledby="booking-request-heading" className="mx-auto max-w-xl px-4 py-16">
-          <div className="rounded-3xl border border-green-200 bg-white p-7 text-center shadow-xl sm:p-10">
-            <div
-              className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-700"
-              aria-hidden="true"
-            >
-              <CheckCircle2 size={30} />
-            </div>
-            <h1 id="booking-request-heading" className="mt-5 font-display text-3xl font-bold text-navy-900">
-              Your request is with our team
-            </h1>
-            <p className="mt-3 text-base leading-relaxed text-silver-700">
-              No payment has been taken. We will check your preferred time
-              during opening hours and contact you to confirm what is available.
-            </p>
-            <div className="mt-5 rounded-2xl bg-silver-100 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-widest text-silver-600">
-                Request reference
-              </p>
-              <p className="mt-1 font-display text-xl font-bold text-navy-900">
-                {requestComplete.reference}
-              </p>
-            </div>
-            <dl className="mt-5 space-y-2 text-left text-sm">
-              <div>
-                <dt className="font-semibold">Service requested</dt>
-                <dd>{selection.serviceName}</dd>
-              </div>
-              <div>
-                <dt className="font-semibold">Preferred visit</dt>
-                <dd>
-                  {form.date} · {form.time}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-semibold">Estimated total</dt>
-                <dd>{money(requestComplete.total)}</dd>
-              </div>
-            </dl>
-            <p className="mt-5 text-sm leading-relaxed text-silver-600">
-              We'll agree the scope, final price and time with you, then confirm
-              your appointment directly. No deposit is required.
-            </p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <a
-                href={waLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-whatsapp inline-flex min-h-[48px] items-center justify-center rounded-xl px-6 font-bold"
-              >
-                Message us on WhatsApp
-              </a>
-              <Link
-                to="/"
-                className="inline-flex min-h-[48px] items-center justify-center rounded-xl border-2 border-royal-600 px-6 font-bold text-royal-700 hover:bg-royal-50"
-              >
-                Return home
-              </Link>
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
-      <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} />
+      <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} selection={selection} />
       <nav aria-label="Booking progress">
         <StepIndicator current={2} />
       </nav>
@@ -932,9 +973,8 @@ export default function BookingPage() {
             Request a preferred cleaning time
           </h1>
           <p className="text-silver-600 text-sm">
-            Send your preferred date with no payment. Our team will check
-            availability, the final scope and price, then contact you to agree
-            the arrangements.
+            Add your details and preferred time. We’ll contact you to agree the
+            work, final price and arrival time before any payment.
           </p>
         </div>
 
@@ -1228,7 +1268,7 @@ export default function BookingPage() {
                   type="date"
                   value={form.date}
                   onChange={setField("date")}
-                  min={todayIsoDate()}
+                  min={todayLondonIsoDate()}
                   required
                   aria-required="true"
                   aria-invalid={!!errors.date}
@@ -1475,25 +1515,14 @@ export default function BookingPage() {
             )}
           </div>
 
-          {/* ── Manager handoff ─────────────────────────────────────────────── */}
-          <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5">
-            <h2 className="font-display text-lg font-bold text-navy-900">
-              What happens next
-            </h2>
-            <ol className="mt-3 space-y-2 text-sm leading-relaxed text-navy-800">
-              <li>
-                <strong>1.</strong> Our team will review your request.
-              </li>
-              <li>
-                <strong>2.</strong> We check the date, access details and final
-                price, then contact you.
-              </li>
-              <li>
-                <strong>3.</strong> After we agree the scope, final price and time
-                with you, we confirm your appointment directly. No deposit is required.
-              </li>
-            </ol>
-          </div>
+          {/* Contextual proof and the payment handoff, once beside submit. */}
+          <ServiceDecisionTrust
+            service={selection.quoteConfig?.service !== 'deep' ? 'other'
+              : selection.quoteConfig.deepService === 'end_of_tenancy' ? 'eot'
+                : selection.quoteConfig.deepService === 'carpet_upholstery' ? 'carpet-upholstery' : 'other'}
+            carpetCounts={selection.quoteConfig?.carpetCounts}
+            eotPackage={selection.quoteConfig?.eotPackage}
+          />
 
           {/* ── Submit error ────────────────────────────────────────────────── */}
           {(submitError || quoteNeedsReview) && (
@@ -1525,14 +1554,11 @@ export default function BookingPage() {
                   <a
                     href={getQuoteOriginHref(
                       selection.offerCode === "LEAFLET20",
+                      readBookingHandoff(location.state)?.quoteOrigin,
                     )}
                     onClick={() => {
                       saveDraft(form);
-                      try {
-                        sessionStorage.setItem("vve_restore_quote", "1");
-                      } catch {
-                        /* Refresh still works without storage. */
-                      }
+                      markQuoteRestore();
                     }}
                     className="mt-3 inline-flex min-h-[44px] items-center font-bold underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                   >

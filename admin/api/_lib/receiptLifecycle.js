@@ -271,18 +271,30 @@ export async function createStandaloneReceipt(supabase, input, adminId, { genera
 // fields (INVOICES_TESTING.md's visual-polish requirement 12) are read
 // live from the linked invoice at render time instead of adding new
 // columns, since both are immutable on an issued invoice in practice.
-// Never throws: a lookup failure just means the PDF renders those two
-// optional rows blank, exactly like an invoice/receipt with no linked
-// booking today.
+// Service list, address, date and customer-facing notes come from that same
+// issued invoice. No internal notes or live booking data enter the PDF.
+// Lookup failures must not silently generate an incomplete service record.
 export async function loadReceiptPdfExtras(supabase, invoiceId) {
   if (!invoiceId) return {};
   const { data, error } = await supabase
     .from('invoices')
-    .select('booking_ref_snapshot, deposit_applied')
+    .select('booking_ref_snapshot, deposit_applied, service_date, service_contact_name, service_address, service_contact_postcode, customer_address, customer_postcode, customer_notes')
     .eq('id', invoiceId)
     .maybeSingle();
-  if (error || !data) return {};
-  return { booking_ref_snapshot: data.booking_ref_snapshot, deposit_applied: data.deposit_applied };
+  if (error) throw new Error('Could not load invoice details for the receipt');
+  if (!data) return {};
+  const { data: items, error: itemsError } = await supabase.from('invoice_items')
+    .select('description, quantity, sort_order').eq('invoice_id', invoiceId).order('sort_order', { ascending: true });
+  // Do not silently issue an incomplete work record when the item lookup fails.
+  if (itemsError) throw new Error('Could not load the invoice service list for the receipt');
+  return {
+    booking_ref_snapshot: data.booking_ref_snapshot, deposit_applied: data.deposit_applied,
+    service_date: data.service_date || null,
+    service_address: data.service_address || data.customer_address || null,
+    service_postcode: data.service_contact_postcode || data.customer_postcode || null,
+    customer_notes: data.customer_notes || null,
+    service_items: items || [],
+  };
 }
 
 export async function markReceiptSent(supabase, receiptId) {

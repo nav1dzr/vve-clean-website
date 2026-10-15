@@ -163,6 +163,38 @@ the internal notes field to explain the correction if it's not obvious.
 
 ## Receipts
 
+### Proof of cleaning for a tenant or agency
+
+For a completed job, open the booking and choose **Create invoice**. Check the
+actual service date, service address, invoice items and any deposit already
+received. In **Work record & customer notes**, choose **Add cleaning completion
+record**. The helper starts from the invoice descriptions: edit the list to say
+which rooms, items and tasks were actually cleaned, add any exceptions, and
+confirm that you checked it. It never assumes every booked task was completed.
+
+Choose **Add to invoice and paid receipt**, then save the draft. The text is
+stored in the existing customer-notes field, stays editable while the invoice
+is a draft, and is included in draft recovery after it has been added. Existing
+customer notes are preserved. Do not put private staff notes here.
+
+Preview and issue the invoice. When the customer has paid, record the payment
+once against that invoice. Its generated paid receipt includes an additional
+**Cleaning service record** page containing the invoice's service date,
+property, item list and public work notes. Download or send this receipt through
+the existing receipt actions; the customer can forward the PDF to their agency.
+No additional Supabase table, project or payment connection is needed.
+
+The record reports VVE Clean's work; it is not an independent inventory
+inspection or a promise that the tenancy deposit will be returned. Payment
+alone never creates a statement that cleaning was completed. Parking and
+Congestion Charge lines are shown separately from the cleaning list.
+
+Previously stored receipt PDFs are not rewritten. Standalone receipts keep
+their existing format. For today's work, use an invoice-based receipt and add
+the detailed record **before issuing the invoice**. An already-issued or paid
+invoice cannot acquire new work notes through this helper; do not duplicate or
+record its payment again merely to change the document.
+
 Receipts are never created manually — only automatically, once an invoice
 reaches a zero balance. From the **Receipts** list or an invoice's linked
 receipt, you can **Download** the PDF or **Send/Resend** it by email, the

@@ -1,6 +1,8 @@
-# Direct booking confirmation and payment after cleaning
+# Historical workflow — direct confirmation and payment after cleaning
 
-Updated 16 September 2026. No deposit is requested and payment does not confirm an appointment. This replaces the obsolete 8 September deposit/48-hour-hold setup guide. Historical transactions and their reconciliation remain intact.
+> **Superseded on 16 September 2026.** Do not use this document as the current owner or release guide. The active agreed-booking flow is documented in [Agreed booking deposit release](booking-deposit-release-2026-09-16.md): the public request is free, VVE agrees the job details, then a £30 deposit request is sent and verified payment confirms the appointment. This file is retained only to explain the earlier no-deposit implementation and its historical tests.
+
+Historical snapshot from 16 September 2026. Its no-deposit instructions are no longer current. Historical transactions and their reconciliation remain intact.
 
 ## Owner workflow
 

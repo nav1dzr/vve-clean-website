@@ -6,6 +6,9 @@ import {
   trackContactFormSubmitted,
   trackPhoneClick,
   trackWhatsAppClick,
+  trackQuoteStarted,
+  trackQuoteCalculated,
+  trackQuoteStepCompleted,
 } from './analytics';
 
 type GtagWindow = Window & { gtag?: (...args: unknown[]) => void };
@@ -26,7 +29,7 @@ describe('Google Ads analytics events', () => {
     trackPhoneClick('header');
 
     expect(gtag).toHaveBeenCalledOnce();
-    expect(gtag).toHaveBeenCalledWith('event', 'phone_click', {
+    expect(gtag).toHaveBeenCalledWith('event', 'phone_contact', {
       event_category: 'engagement',
       event_label: 'header',
     });
@@ -48,16 +51,17 @@ describe('Google Ads analytics events', () => {
     });
   });
 
-  it('records a saved no-payment request as its own funnel event', () => {
+  it('records the browser response separately from the canonical server event', () => {
     const gtag = vi.fn();
     (window as GtagWindow).gtag = gtag;
 
-    trackBookingRequestSubmitted('Window cleaning');
+    trackBookingRequestSubmitted('Window cleaning', '11111111-1111-4111-8111-111111111111');
 
     expect(gtag).toHaveBeenCalledOnce();
-    expect(gtag).toHaveBeenCalledWith('event', 'request_submitted', {
-      event_category: 'funnel',
+    expect(gtag).toHaveBeenCalledWith('event', 'booking_request_response_received', {
+      event_category: 'diagnostic',
       event_label: 'Window cleaning',
+      transaction_id: '11111111-1111-4111-8111-111111111111',
     });
   });
 
@@ -71,6 +75,11 @@ describe('Google Ads analytics events', () => {
       send_to: 'AW-18214693277/zzetCIy-6eEcEJ3TuO1D',
       event_label: 'sticky-mobile-cta',
     });
+  });
+  it('does not report a successful booking request without the server UUID', () => {
+    const gtag = vi.fn(); (window as GtagWindow).gtag = gtag;
+    trackBookingRequestSubmitted('Carpet cleaning');
+    expect(gtag).not.toHaveBeenCalled();
   });
 
   it('sends successful contact forms to the dedicated secondary conversion action', () => {
@@ -94,23 +103,43 @@ describe('Google Ads analytics events', () => {
     }
     expect(gtag).not.toHaveBeenCalled();
   });
-  it('deduplicates saved requests and sends only a configured real request label', () => {
+  it('deduplicates saved requests without a second direct Ads conversion', () => {
     const gtag = vi.fn(); (window as GtagWindow).gtag = gtag;
     vi.stubEnv('VITE_GOOGLE_ADS_REQUEST_CONVERSION_LABEL', 'AW-18214693277/testActualLabel');
     const id = '8f761dbb-8c42-4e26-95ba-e12c151277d6';
     trackBookingRequestSubmitted('Carpet cleaning', id); trackBookingRequestSubmitted('Carpet cleaning', id);
-    expect(gtag).toHaveBeenCalledTimes(2);
-    expect(gtag).toHaveBeenLastCalledWith('event', 'conversion', { send_to: 'AW-18214693277/testActualLabel', transaction_id: id });
+    expect(gtag).toHaveBeenCalledOnce();
+    expect(gtag).toHaveBeenLastCalledWith('event', 'booking_request_response_received', {
+      event_category: 'diagnostic',
+      event_label: 'Carpet cleaning',
+      transaction_id: id,
+    });
   });
   it.each(['https://www.vveclean.co.uk/Manage-Booking?token=secret', 'https://www.vveclean.co.uk/%6danage-booking?token=secret', 'http://localhost:5173/', 'http://127.0.0.1:4173/', 'https://vve-clean-preview.vercel.app/'])(
     'does not measure private or preview URLs: %s', url => {
       vi.stubGlobal('window', { location: new URL(url), gtag: vi.fn() });
       trackPhoneClick('header'); trackBookingRequestSubmitted('Carpet cleaning'); trackContactFormSubmitted();
+      trackQuoteStarted('carpet_upholstery'); trackQuoteCalculated('carpet_upholstery', 8500); trackQuoteStepCompleted('end_of_tenancy', 1);
       expect((window as GtagWindow).gtag).not.toHaveBeenCalled();
     },
   );
   it('does not throw if an analytics provider fails after the enquiry was saved', () => {
     (window as GtagWindow).gtag = () => { throw new Error('provider unavailable'); };
     expect(() => trackContactFormSubmitted()).not.toThrow();
+  });
+  it('allowlists quote service/step values and sends no arbitrary fields or Ads labels', () => {
+    const gtag = vi.fn(); (window as GtagWindow).gtag = gtag;
+    // @ts-expect-error runtime boundary must reject arbitrary customer data too.
+    trackQuoteStarted('customer@example.com');
+    // @ts-expect-error invalid runtime service identifier.
+    trackQuoteCalculated('N1TEST', 8500);
+    trackQuoteStepCompleted('carpet_upholstery', 2);
+    trackQuoteStepCompleted('end_of_tenancy', 5);
+    expect(gtag).not.toHaveBeenCalled();
+    trackQuoteStarted('end_of_tenancy');
+    trackQuoteCalculated('end_of_tenancy', 27900);
+    trackQuoteStepCompleted('end_of_tenancy', 4);
+    expect(gtag.mock.calls.map((c) => c[1])).toEqual(['quote_started', 'quote_calculated', 'step_completed']);
+    expect(gtag.mock.calls[1][2]).toEqual({ event_category: 'funnel', service_type: 'end_of_tenancy', quoted_total: 279, currency: 'GBP' });
   });
 });

@@ -210,6 +210,46 @@ beforeEach(() => {
 });
 
 describe('stripe-webhook — Task 1: automatic customer sync for paid bookings', () => {
+  it('keeps customer details and provider identifiers out of runtime logs', async () => {
+    fakeSupabase._tables.bookings.push({ id: 'existing-1', booking_ref: 'N152NG160726', stripe_session_id: 'cs_other' });
+    constructEventMock.mockReturnValue(makeEvent('evt_private_1'));
+    const spies = ['log', 'warn', 'error'].map((method) => vi.spyOn(console, method).mockImplementation(() => {}));
+
+    try {
+      const res = makeRes();
+      await handler(makeReq(), res);
+
+      expect(res.statusCode).toBe(200);
+      const logged = JSON.stringify(spies.flatMap((spy) => spy.mock.calls));
+      expect(logged).not.toMatch(
+        /Jane Smith|jane@example\.com|07700900000|1 Test St|N15 2NG|N152NG160726|cs_test_abc|pi_test_abc|evt_private_1|id-\d+/,
+      );
+    } finally {
+      spies.forEach((spy) => spy.mockRestore());
+    }
+  });
+
+  it('logs a safe provider code without raw recipient or rejection text', async () => {
+    sendMailMock.mockRejectedValueOnce(Object.assign(
+      new Error('recipient jane@example.com rejected for booking N152NG160726'),
+      { code: 'EENVELOPE' },
+    ));
+    constructEventMock.mockReturnValue(makeEvent('evt_1'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      const res = makeRes();
+      await handler(makeReq(), res);
+
+      expect(res.statusCode).toBe(200);
+      const logged = JSON.stringify(errorSpy.mock.calls);
+      expect(logged).toContain('EENVELOPE');
+      expect(logged).not.toMatch(/jane@example\.com|N152NG160726|recipient|rejected/);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it('creates a customer for a genuinely paid booking', async () => {
     constructEventMock.mockReturnValue(makeEvent('evt_1'));
     const res = await (async () => { const r = makeRes(); await handler(makeReq(), r); return r; })();

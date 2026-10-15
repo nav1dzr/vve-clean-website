@@ -406,7 +406,7 @@ describe("public booking deposit route is retired", () => {
     const response = makeRes();
     await publicHandler(makeReq(basePayload()), response);
     expect(response.statusCode).toBe(410);
-    expect(JSON.parse(response.body).error).toMatch(/No deposit is required/);
+    expect(JSON.parse(response.body).error).toMatch(/No payment is required to submit a booking request/);
     expect(sessionsCreateMock).not.toHaveBeenCalled();
     expect(supabaseInsertMock).not.toHaveBeenCalled();
   });

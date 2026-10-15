@@ -327,8 +327,8 @@ describe('EotQuoteWizard — Step 4: Add-ons and final review', () => {
     expect(screen.getByText('Total')).toBeInTheDocument();
     expect(screen.queryByText('Total service price')).not.toBeInTheDocument();
     expect(screen.queryByText('Final total')).not.toBeInTheDocument();
-    expect(screen.getByText('No payment now.')).toBeInTheDocument();
-    expect(screen.getByText(/We check availability, scope and the final price, then contact you to confirm the appointment/i)).toBeInTheDocument();
+    expect(screen.getByText(/No payment to send your request/i)).toBeInTheDocument();
+    expect(screen.getByText(/Your booking is confirmed once the deposit is paid/i)).toBeInTheDocument();
     expect(screen.queryByText('Deposit today')).not.toBeInTheDocument();
     expect(screen.getByText(/7-day reporting window on selected tasks/)).toBeInTheDocument();
   });
@@ -512,6 +512,7 @@ describe('EotQuoteWizard — mobile footer layout', () => {
   it('lays out the price summary full-width and separately from Back/Continue on mobile, single-row from sm: up', () => {
     renderWizard();
     const nav = screen.getByTestId('footer-nav');
+    expect(nav.parentElement).toHaveClass('sticky');
     expect(nav).toHaveClass('flex-wrap');
     expect(nav).toHaveClass('sm:flex-nowrap');
 
@@ -534,6 +535,7 @@ describe('EotQuoteWizard — mobile footer layout', () => {
     renderWizard();
     await toStep4(user);
     expect(screen.queryByTestId('footer-price-summary')).not.toBeInTheDocument();
+    expect(screen.getByTestId('footer-nav').parentElement).not.toHaveClass('sticky');
     expect(screen.getByText('Your quote')).toBeInTheDocument();
     const backButton = screen.getByRole('button', { name: /^Back$/ });
     expect(backButton).toBeInTheDocument();

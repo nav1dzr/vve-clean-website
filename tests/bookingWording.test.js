@@ -36,7 +36,8 @@ const CONFIRMATION_HTML_EXEMPT_PATTERNS = new Set([/booking is confirmed\b/i, /a
 describe('booking flow — no false "slot secured" / "confirmed" wording remains', () => {
   for (const relPath of FILES) {
     it(`${relPath} contains none of the banned guarantee claims`, () => {
-      const source = readFileSync(resolve(process.cwd(), relPath), 'utf8');
+      const source = readFileSync(resolve(process.cwd(), relPath), 'utf8')
+        .replace(/Your booking is confirmed once the deposit is paid[.,]?/gi, '');
       const isConfirmationHtml = relPath.endsWith('confirmation.html');
       for (const pattern of BANNED_PATTERNS) {
         if (isConfirmationHtml && [...CONFIRMATION_HTML_EXEMPT_PATTERNS].some((p) => p.source === pattern.source)) {

@@ -1,8 +1,12 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { processDueBookingJourneys } from "../../api/_lib/bookingJourneyWorker.js";
+
+beforeEach(() => vi.stubEnv("GA4_BOOKING_MEASUREMENT_MODE", "disabled"));
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 
 function workerDb(journeys, messages = []) {
   const db = {
+    rpc: vi.fn(async () => ({ data: null, error: null })),
     from(table) {
       let filters = [],
         limit = Infinity,
@@ -67,6 +71,99 @@ function workerDb(journeys, messages = []) {
   return db;
 }
 describe("bounded booking worker", () => {
+  it("needs no extra database table or RPC when GA4 is disabled by default", async () => {
+    vi.stubEnv("GA4_BOOKING_MEASUREMENT_MODE", "");
+    vi.stubEnv("GA4_MEASUREMENT_ID", "");
+    vi.stubEnv("GA4_API_SECRET", "");
+    const db = workerDb([]);
+    const from = vi.spyOn(db, "from");
+    const deliverMeasurements = vi.fn(async () => ({ status: "completed", processed: 1 }));
+    const deliverRequestNotifications = vi.fn(async () => ({ claimed: 1, results: [{ status: "sent" }] }));
+    const result = await processDueBookingJourneys(db, {
+      perform: vi.fn(), deliver: vi.fn(), deliverRequestNotifications, deliverMeasurements,
+      purgeMeasurements: vi.fn(async () => ({ status: "completed" })),
+      now: new Date("2026-09-08T12:00:00Z"),
+    });
+    expect(result.ga4Measurement).toMatchObject({ status: "disabled", processed: 0 });
+    expect(from.mock.calls.map(([table]) => table)).toEqual([
+      "booking_journeys", "booking_journeys", "booking_journeys", "booking_journey_messages",
+    ]);
+    expect(db.rpc).not.toHaveBeenCalled();
+    expect(deliverMeasurements).toHaveBeenCalledOnce();
+    expect(deliverRequestNotifications).toHaveBeenCalledOnce();
+  });
+
+  it.each(["purge_expired_booking_ga4_measurement", "claim_booking_ga4_measurements"])("keeps Ads and notification delivery working when optional GA4 RPC %s fails", async failedRpc => {
+    vi.stubEnv("GA4_BOOKING_MEASUREMENT_MODE", "validate");
+    vi.stubEnv("GA4_MEASUREMENT_ID", "G-TEST1234");
+    vi.stubEnv("GA4_API_SECRET", "test-only-placeholder");
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const db = workerDb([], [{ id: "pending-message", booking_id: "booking-1", status: "pending", attempts: 0, created_at: "2026-09-08T10:00:00Z" }]);
+    db.rpc.mockImplementation(async name => name === failedRpc
+      ? { data: null, error: { message: "private database details", code: "PGRST202" } }
+      : { data: [], error: null });
+    const deliver = vi.fn(async () => {});
+    const deliverRequestNotifications = vi.fn(async () => ({ claimed: 3, results: [{ channel: "customer_email", status: "sent" }, { channel: "business_email", status: "sent" }, { channel: "telegram", status: "sent" }] }));
+    const deliverMeasurements = vi.fn(async () => ({ status: "completed", processed: 1 }));
+    const result = await processDueBookingJourneys(db, {
+      perform: vi.fn(), deliver, deliverRequestNotifications, deliverMeasurements,
+      purgeMeasurements: vi.fn(async () => ({ status: "completed" })),
+      now: new Date("2026-09-08T12:00:00Z"),
+    });
+    expect(deliver).toHaveBeenCalledExactlyOnceWith(db, "booking-1", "pending-message");
+    expect(deliverRequestNotifications).toHaveBeenCalledExactlyOnceWith(db, { limit: 12 });
+    expect(deliverMeasurements).toHaveBeenCalledExactlyOnceWith(db);
+    expect(result.requestNotifications.claimed).toBe(3);
+    expect(result.measurement).toEqual({ status: "completed", processed: 1 });
+    expect(result.ga4Measurement).toEqual({ status: "needs_review", code: "ga4_worker_failed" });
+    expect(db.rpc.mock.calls.some(([name]) => name === failedRpc)).toBe(true);
+    expect(warning).toHaveBeenCalledWith("[booking-worker] GA4 measurement deferred");
+    expect(JSON.stringify(warning.mock.calls)).not.toContain("private database details");
+  });
+
+  it("runs retention maintenance before measurement delivery through the scheduled worker", async () => {
+    const order = [];
+    const deliverRequestNotifications = vi.fn(async () => { order.push("request-notifications"); return { claimed: 0, results: [] }; });
+    const purgeMeasurements = vi.fn(async () => { order.push("purge"); return { status: "completed" }; });
+    const deliverMeasurements = vi.fn(async () => { order.push("deliver"); return { status: "disabled", processed: 0 }; });
+
+    const result = await processDueBookingJourneys(workerDb([]), {
+      perform: vi.fn(),
+      deliver: vi.fn(),
+      deliverRequestNotifications,
+      purgeMeasurements,
+      deliverMeasurements,
+      now: new Date("2026-09-08T12:00:00Z"),
+    });
+
+    expect(order).toEqual(["request-notifications", "purge", "deliver"]);
+    expect(deliverRequestNotifications).toHaveBeenCalledWith(expect.anything(), { limit: 12 });
+    expect(result.measurementMaintenance).toEqual({ status: "completed" });
+  });
+
+  it("keeps measurement work running when request notification retry is deferred", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const deliverMeasurements = vi.fn(async () => ({ status: "disabled", processed: 0 }));
+    const result = await processDueBookingJourneys(workerDb([]), {
+      perform: vi.fn(),
+      deliver: vi.fn(),
+      deliverRequestNotifications: vi.fn(async () => {
+        throw Object.assign(new Error("private database detail"), { code: "PGRST202" });
+      }),
+      purgeMeasurements: vi.fn(async () => ({ status: "completed" })),
+      deliverMeasurements,
+      now: new Date("2026-09-08T12:00:00Z"),
+    });
+
+    expect(deliverMeasurements).toHaveBeenCalledOnce();
+    expect(result.requestNotifications).toEqual({
+      status: "needs_review",
+      code: "PGRST202",
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("private database detail");
+    log.mockRestore();
+  });
+
   it("selects tomorrow in London and uses the existing appointment during a pending change", async () => {
     const rows = [
       {
@@ -161,5 +258,22 @@ describe("bounded booking worker", () => {
     });
     expect(deliver).toHaveBeenCalledTimes(1);
     expect(deliver.mock.calls[0].slice(1)).toEqual(["b1", "stale"]);
+  });
+});
+
+describe("agreed deposit reminders", () => {
+  it("selects only an unpaid agreed offer halfway through its hold and closes an expired hold", async () => {
+    const base = { state: "offered", revision: 1, snapshot: { paymentPlan: "deposit_after_agreement", paymentWindowHours: 48 }, customer_request: null, reminder_sent_at: null };
+    const rows = [
+      { ...base, booking_id: "due", hold_until: "2026-09-09T10:00:00Z" },
+      { ...base, booking_id: "too-early", hold_until: "2026-09-10T10:00:00Z" },
+      { ...base, booking_id: "already-sent", hold_until: "2026-09-09T10:00:00Z", reminder_sent_at: "sent" },
+      { ...base, booking_id: "paid", state: "confirmed", hold_until: "2026-09-09T10:00:00Z" },
+      { ...base, booking_id: "customer-change", customer_request: { kind: "cancel" }, hold_until: "2026-09-09T10:00:00Z" },
+      { ...base, booking_id: "expired", hold_until: "2026-09-08T10:00:00Z" },
+    ];
+    const perform = vi.fn();
+    await processDueBookingJourneys(workerDb(rows), { perform, deliver: vi.fn(), now: new Date("2026-09-08T12:00:00Z") });
+    expect(perform.mock.calls.map(c => [c[1], c[2].operation])).toEqual([["expired", "expire"], ["due", "remind"]]);
   });
 });

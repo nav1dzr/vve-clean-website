@@ -1,0 +1,105 @@
+{
+  "test_label": "VVE-MEAS-OS-GOOGLE-20260927",
+  "validate_only": true,
+  "synthetic": true,
+  "production_records_read": 0,
+  "conversions_uploaded": 0,
+  "checks": [
+    {
+      "name": "durable worker records temporary failure while other Google validations complete",
+      "status": "PASS"
+    },
+    {
+      "name": "retry validates failed event with same identity and actual GBP amount",
+      "status": "PASS"
+    },
+    {
+      "name": "repeated worker run does not resend validated milestones",
+      "status": "PASS"
+    },
+    {
+      "name": "four provider receipts saved once; nonstandard test deposit remains 4700 pence",
+      "status": "PASS"
+    }
+  ],
+  "events": [
+    {
+      "booking_id": "34ce1b73-4d01-4c76-9a35-9b5be3495d77",
+      "event_name": "booking_request_qualified",
+      "event_key": "booking:34ce1b73-4d01-4c76-9a35-9b5be3495d77:booking_request_qualified",
+      "occurred_at": "2026-09-27T21:17:57.292034+00:00",
+      "payment_external_id": null,
+      "amount_pence": null,
+      "currency": null,
+      "status": "validated",
+      "attempts": 1,
+      "provider_acknowledgement": {
+        "provider": "google_data_manager",
+        "requestId": "v-c0be09fa-ded4-4f8c-becd-def3edbb9a75",
+        "status": "VALIDATED",
+        "validateOnly": true,
+        "fieldWarningCount": 0
+      },
+      "count_in_google": 0
+    },
+    {
+      "booking_id": "34ce1b73-4d01-4c76-9a35-9b5be3495d77",
+      "event_name": "deposit_paid",
+      "event_key": "booking:34ce1b73-4d01-4c76-9a35-9b5be3495d77:deposit_paid",
+      "occurred_at": "2026-09-27T21:17:56.072+00:00",
+      "payment_external_id": "cs_test_VVE_VALIDATE_34ce1b734d014c769a359b5be3495d77",
+      "amount_pence": 4700,
+      "currency": "gbp",
+      "status": "validated",
+      "attempts": 1,
+      "provider_acknowledgement": {
+        "provider": "google_data_manager",
+        "requestId": "v-fdfecf69-0370-4495-a8d6-f915e0e0daf2",
+        "status": "VALIDATED",
+        "validateOnly": true,
+        "fieldWarningCount": 0
+      },
+      "count_in_google": 0
+    },
+    {
+      "booking_id": "34ce1b73-4d01-4c76-9a35-9b5be3495d77",
+      "event_name": "booking_request_submitted",
+      "event_key": "booking:34ce1b73-4d01-4c76-9a35-9b5be3495d77:booking_request_submitted",
+      "occurred_at": "2026-09-27T21:17:57.162414+00:00",
+      "payment_external_id": null,
+      "amount_pence": null,
+      "currency": null,
+      "status": "validated",
+      "attempts": 2,
+      "provider_acknowledgement": {
+        "provider": "google_data_manager",
+        "requestId": "v-e4dcf068-395e-497c-8f21-68fa5a3a3931",
+        "status": "VALIDATED",
+        "validateOnly": true,
+        "fieldWarningCount": 0
+      },
+      "count_in_google": 0
+    },
+    {
+      "booking_id": "34ce1b73-4d01-4c76-9a35-9b5be3495d77",
+      "event_name": "booking_confirmed",
+      "event_key": "booking:34ce1b73-4d01-4c76-9a35-9b5be3495d77:booking_confirmed",
+      "occurred_at": "2026-09-27T21:17:57.349271+00:00",
+      "payment_external_id": null,
+      "amount_pence": null,
+      "currency": null,
+      "status": "validated",
+      "attempts": 1,
+      "provider_acknowledgement": {
+        "provider": "google_data_manager",
+        "requestId": "v-96145ccf-6868-4806-b87f-e7f49756f8a7",
+        "status": "VALIDATED",
+        "validateOnly": true,
+        "fieldWarningCount": 0
+      },
+      "count_in_google": 0
+    }
+  ],
+  "status": "PASS",
+  "finished_at": "2026-09-27T21:18:02.683Z"
+}

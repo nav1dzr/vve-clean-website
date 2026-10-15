@@ -32,7 +32,7 @@ const FAQS = [
   },
   {
     q: 'Do you bring the cleaning equipment and products?',
-    a: 'Yes. We bring the equipment and cleaning products needed for the confirmed service. We only need the access arrangements and any parking information agreed before arrival.',
+    a: 'We bring the equipment and products. Please arrange the agreed access and parking, and ensure electricity and hot water are available unless we agree otherwise.',
   },
 ];
 

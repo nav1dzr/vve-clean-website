@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 const html = readFileSync('public/confirmation.html', 'utf8');
 const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
 const start = script.indexOf('function initVerifyUI');
-const verification = script.slice(start, script.lastIndexOf('// ──', script.indexOf('Conversion tracking', start)));
+const verification = script.slice(start, script.lastIndexOf('// ──', script.indexOf('Retired legacy conversion', start)));
 let doc;
 beforeEach(() => { doc = new DOMParser().parseFromString(html, 'text/html'); });
 const node = (id) => doc.getElementById(id);
@@ -72,36 +72,10 @@ describe('legacy payment confirmation display', () => {
 });
 
 
-describe('legacy payment conversion stays separate from booking requests', () => {
-  const conversion = script.slice(script.indexOf('(function () {', script.indexOf('Conversion tracking')));
-  function runConversion(result) {
-    const gtag = vi.fn();
-    const storage = { getItem: vi.fn(() => null), setItem: vi.fn() };
-    const fetch = vi.fn().mockResolvedValue({ status: 200, json: async () => result });
-    new Function('window', 'location', 'localStorage', 'fetch', 'console', 'setTimeout', 'clearTimeout', 'gtag', 'ref', 'token', 'sid', 'apiQs', conversion)(
-      { vveProductionTrackingHost: true, gtag }, { hostname: 'www.vveclean.co.uk' }, storage, fetch,
-      { log: vi.fn(), warn: vi.fn(), error: vi.fn() }, vi.fn(), vi.fn(), gtag,
-      'SYNTHETIC-LEGACY-ONLY', 'a'.repeat(64), '', url => url,
-    );
-    return { gtag, storage, fetch };
-  }
-  it.each([
-    { paid: false, livemode: true, status: 'new' },
-    { paid: false, livemode: true, status: 'confirmed' },
-    { paid: true, livemode: false },
-  ])('never counts an unpaid request/appointment or test payment: %j', async result => {
-    const { gtag, storage, fetch } = runConversion(result);
-    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
-    await new Promise(resolve => setTimeout(resolve, 0));
-    expect(gtag).not.toHaveBeenCalled();
-    expect(storage.setItem).not.toHaveBeenCalled();
-  });
-  it('preserves the historical verified live payment event', async () => {
-    const { gtag } = runConversion({ paid: true, livemode: true });
-    await waitFor(() => expect(gtag).toHaveBeenCalledOnce());
-    expect(gtag).toHaveBeenCalledWith('event', 'conversion', expect.objectContaining({
-      send_to: 'AW-18214693277/hUwdCK68gswcEJ3TuO1D',
-      value: 30, currency: 'GBP', transaction_id: 'SYNTHETIC-LEGACY-ONLY',
-    }));
+describe('legacy payment conversion is retired', () => {
+  it('returns before reading transaction identifiers or calling Google', () => {
+    const retired = script.slice(script.indexOf('(function () {', script.indexOf('Retired legacy conversion')));
+    expect(retired).toMatch(/^\(function \(\) \{\s*return;/);
+    expect(html).not.toContain('googletagmanager.com/gtag/js');
   });
 });

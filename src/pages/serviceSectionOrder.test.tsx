@@ -78,7 +78,7 @@ describe('Sofa & Upholstery page order', () => {
       ['process', at.sel('[aria-labelledby="sofa-process-heading"]')],
       ['supporting gallery', at.sel('#gallery')],
       ['what every clean includes', at.heading('What every sofa clean includes')],
-      ['pricing', at.heading('Fixed sofa cleaning prices')],
+      ['pricing', at.heading('Sofa and upholstery item prices')],
       ['FAQs', at.heading('Common questions')],
       ['related', at.heading('Explore services and advice')],
       ['final CTA', at.heading('Ready to book your sofa clean?')],
@@ -88,7 +88,7 @@ describe('Sofa & Upholstery page order', () => {
   it('places both proof blocks above the pricing table, where they used to sit below it', () => {
     const { container } = renderPage(<SofaCleaningPage />, '/sofa-cleaning-london');
     const at = locator(container);
-    const pricing = at.heading('Fixed sofa cleaning prices');
+    const pricing = at.heading('Sofa and upholstery item prices');
 
     expect(at.sel('#results')).toBeLessThan(pricing);
     expect(at.sel('#extraction')).toBeLessThan(pricing);
@@ -130,7 +130,7 @@ describe('Carpet page order', () => {
       ['benefits', at.heading('What to expect from your carpet clean')],
       ['process footage', at.sel('#process')],
       ['what every clean includes', at.heading('What every carpet clean includes')],
-      ['pricing', at.heading('Fixed carpet cleaning prices')],
+      ['pricing', at.heading('Carpet cleaning item prices')],
     ]);
   });
 

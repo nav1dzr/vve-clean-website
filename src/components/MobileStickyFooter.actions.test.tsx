@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render as renderUI, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import MobileStickyFooter from './MobileStickyFooter';
+
+function render(ui: ReactElement) {
+  return renderUI(ui, { wrapper: MemoryRouter });
+}
 
 const context = vi.hoisted(() => ({ state: 'none', waLink: 'https://wa.me/447845451111?text=Selected%20service', onBook: vi.fn() }));
 vi.mock('../context/BookingContext', () => ({ useBookingCtx: () => context }));

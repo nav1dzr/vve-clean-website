@@ -54,6 +54,7 @@ export const DETAIL_SELECT = [
   'offer_code', 'discount_percent', 'standard_total', 'discount_amount', 'final_total_after_discount',
   'first_source', 'last_source', 'landing_page',
   'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'gclid',
+  'measurement_advertising_consent', 'measurement_consent_withdrawn_at',
   'email_customer_sent', 'email_business_sent', 'telegram_sent', 'sheets_sent',
   'created_at', 'updated_at',
 ].join(', ');
@@ -160,6 +161,10 @@ export function toDetail(row) {
       utmCampaign: row.utm_campaign,
       utmContent: row.utm_content,
       gclid: row.gclid,
+    },
+    measurement: {
+      advertisingConsent: row.measurement_advertising_consent === true,
+      consentWithdrawnAt: row.measurement_consent_withdrawn_at ?? null,
     },
     notifications: {
       emailCustomerSent: row.email_customer_sent,

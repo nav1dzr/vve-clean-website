@@ -103,11 +103,11 @@ export default async function handler(req, res) {
     res.writeHead(405, headers);
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
   }
-  // Owner policy from 14 September 2026: no new booking deposits, including
-  // after agreement. An old environment flag must not reopen this route.
+  // Website requests cannot create payment sessions. Deposit checkout is made
+  // only from the reviewed agreement in the private CRM journey.
   res.writeHead(410, headers);
   return res.end(JSON.stringify({
-    error: 'No deposit is required. Send a booking request and we will confirm the agreed appointment directly.',
+    error: 'No payment is required to submit a booking request. After we review and confirm the job details, we’ll email your deposit payment instructions. Your booking is confirmed once the deposit is paid.',
   }));
 }
 

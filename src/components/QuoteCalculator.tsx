@@ -1,12 +1,16 @@
 import PriceTaxNote from './PriceTaxNote';
+import { PROPERTY_CARPET_BUNDLE_SCOPE } from '../../shared/carpetBundleScope.js';
 import GoogleBadge from './GoogleBadge';
+import ServiceDecisionTrust from './ServiceDecisionTrust';
 import { readQuoteBasket, saveQuoteBasket, clearQuoteBasket, restoreShape } from '../lib/quoteBasket';
 import { useState, useCallback, useRef, useEffect, useId, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { trackBookingInitiated, trackFunnelStep } from '../lib/analytics';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { trackBookingInitiated, trackFunnelStep, trackQuoteStepCompleted, type QuoteAnalyticsService } from '../lib/analytics';
+import { useQuoteCalculated } from '../hooks/useQuoteCalculated';
 import { Calculator, CheckCircle2, Plus, Minus, Info, AlertCircle, ChevronDown, ShieldCheck } from 'lucide-react';
 import { useBookingCtx } from '../context/BookingContext';
 import { rememberQuoteOrigin } from '../lib/quoteOrigin';
+import { bookingRouteState, readBookingHandoff, readStoredQuoteConfig, storeBookingSelection, hasQuoteRestoreFlag, clearQuoteRestoreFlag } from '../lib/bookingHandoff';
 import { useReveal } from '../hooks/useReveal';
 import type { HomepageQuoteService } from './HomeServiceSelector';
 import EotQuoteWizard, { type EotBookingResult } from './EotQuoteWizard';
@@ -98,7 +102,7 @@ const BATH_SURCHARGE: Record<DeepServiceType, number> = {
   after_builders:    0, // not quoted interactively
 };
 
-// EOT carpet add-on bundle prices (whole home — at reduced EOT rates).
+// Property-clean carpet add-on prices for the bedroom/hall scope below.
 const CARPET_BUNDLE_PRICE: Record<SizeKey, number> = {
   studio: EOT_CARPET_BUNDLE_P.studio / 100,  // 60
   bed1:   EOT_CARPET_BUNDLE_P.bed1   / 100,  // 60
@@ -119,7 +123,7 @@ const MIN_OFFICE_HOURS = COMMERCIAL_REGULAR_MIN_HOURS;       // 2
 const addOnDefs = [
   { key: 'oven',          label: 'Inside oven',           price: ADDON_PRICES_P.oven        / 100 },  // 35
   { key: 'fridge',        label: 'Fridge / freezer',      price: ADDON_PRICES_P.fridge      / 100 },  // 20
-  { key: 'carpet_bundle', label: 'Carpets — whole home',  price: 0  },
+  { key: 'carpet_bundle', label: 'Carpet bundle — bedrooms and hall', price: 0 },
   { key: 'eot_living_carpet', label: 'Living / dining room carpet', price: EOT_CARPET_ADDON_PRICES_P.living_room / 100 },
   { key: 'extra_wc',      label: 'Additional WC',         price: EOT_EXTRA_WC_P / 100 },
   { key: 'reception',     label: 'Additional reception room', price: EOT_EXTRA_AREAS_P.reception / 100 },
@@ -151,14 +155,6 @@ const EOT_INCLUDED_ITEMS = [
   'Skirting, doors, handles, switches and sockets',
   'Vacuuming, mopping, products and equipment',
 ] as const;
-
-const EOT_CARPET_BUNDLE_SCOPE: Record<SizeKey, string> = {
-  studio: 'Main sleeping area carpet + hallway',
-  bed1:   '1 bedroom carpet + hallway',
-  bed2:   '2 bedroom carpets + hallway',
-  bed3:   '3 bedroom carpets + hallway + landing',
-  bed4:   '4 bedroom carpets + hallway + landing',
-};
 
 type ServiceKey = 'deep' | 'window' | 'gutter' | 'office';
 
@@ -318,26 +314,22 @@ const TRUST_ITEMS = [
   'Direct contact with VVE Clean',
 ];
 
-// ─── Session-restore helper ───────────────────────────────────────────────────
-// Reads vve_booking.quoteConfig from sessionStorage only when the temporary
-// vve_restore_quote flag is present (set by "Back to quote" in BookingPage).
+// Back links carry their quote in router state. Session storage and the basket
+// remain optional recovery paths, never requirements for navigation.
 
-function getRestoreConfig(): BookingSelection['quoteConfig'] | null {
-  const draft = readQuoteBasket();
-  try {
-    if (!sessionStorage.getItem('vve_restore_quote')) {
-      if (draft?.kind === 'eot') return { deepService: 'end_of_tenancy' } as BookingSelection['quoteConfig'];
-      if (draft?.kind !== 'standard') return null;
-      const config = draft.config;
-      if (!['carpet_upholstery', 'move_in', 'after_builders'].includes(String(config.deepService))) return null;
-      return restoreShape({ service: 'deep', deepService: 'carpet_upholstery', deepSize: 'bed2', deepBaths: 1, addOnCounts: Object.fromEntries(addOnDefs.map(a => [a.key, 0])), carpetCounts: Object.fromEntries(CARPET_GROUPS.flatMap(g => g.items).map(i => [i.key, 0])), carpetCondition: 'normal', windowSize: 'small', gutterType: 'terraced', officeHours: 2, propertyType: 'flat' }, config) as BookingSelection['quoteConfig'];
-    }
-    const raw = sessionStorage.getItem('vve_booking');
-    if (!raw) return null;
-    return (JSON.parse(raw) as BookingSelection).quoteConfig ?? null;
-  } catch {
-    return null;
+function getRestoreConfig(routeState: unknown): BookingSelection['quoteConfig'] | null {
+  const handoff = readBookingHandoff(routeState);
+  if (handoff?.restoreQuote) return handoff.selection.quoteConfig ?? null;
+  if (hasQuoteRestoreFlag()) {
+    const stored = readStoredQuoteConfig();
+    if (stored) return stored;
   }
+  const draft = readQuoteBasket();
+  if (draft?.kind === 'eot') return { deepService: 'end_of_tenancy' } as BookingSelection['quoteConfig'];
+  if (draft?.kind !== 'standard') return null;
+  const config = draft.config;
+  if (!['carpet_upholstery', 'move_in', 'after_builders'].includes(String(config.deepService))) return null;
+  return restoreShape({ service: 'deep', deepService: 'carpet_upholstery', deepSize: 'bed2', deepBaths: 1, addOnCounts: Object.fromEntries(addOnDefs.map(a => [a.key, 0])), carpetCounts: Object.fromEntries(CARPET_GROUPS.flatMap(g => g.items).map(i => [i.key, 0])), carpetCondition: 'normal', windowSize: 'small', gutterType: 'terraced', officeHours: 2, propertyType: 'flat' }, config) as BookingSelection['quoteConfig'];
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -352,10 +344,12 @@ export default function QuoteCalculator({
   onHomepageServiceChange,
 }: Props = {}) {
   const quoteStarted = useRef(false);
+  const completedQuoteServices = useRef(new Set<QuoteAnalyticsService>());
   const recordQuoteStart = () => { if (!quoteStarted.current) { quoteStarted.current = true; trackFunnelStep('quote_start', mode); } };
   const { ref, visible } = useReveal();
   const contentVisible = aboveFold || visible;
   const navigate = useNavigate();
+  const location = useLocation();
   const { setCtx }      = useBookingCtx();
   const [bookError, setBookError]   = useState('');
   const serviceAreaRef  = useRef<HTMLDivElement>(null);
@@ -368,7 +362,7 @@ export default function QuoteCalculator({
     // An explicit service choice starts that selection; ordinary navigation and
     // the basket's resume link still restore the saved quote.
     if (homepageService !== null) return null;
-    const saved = getRestoreConfig();
+    const saved = getRestoreConfig(location.state);
     if (mode === 'eot' && saved?.deepService !== 'end_of_tenancy') return null;
     if ((mode === 'carpet' || mode === 'upholstery') && saved?.deepService !== 'carpet_upholstery') return null;
     return saved;
@@ -377,8 +371,15 @@ export default function QuoteCalculator({
   // Clear the restore flag immediately after we've read it so a future
   // direct homepage visit doesn't unexpectedly hydrate an old quote.
   useEffect(() => {
-    try { sessionStorage.removeItem('vve_restore_quote'); } catch { /* Optional browser storage. */ }
+    clearQuoteRestoreFlag();
   }, []);
+  useEffect(() => {
+    if (readBookingHandoff(location.state)?.restoreQuote) {
+      // The selection has already been captured. Do not let a later refresh
+      // replay this old handoff over edits saved to the quote basket.
+      navigate(`${location.pathname}${location.search}${location.hash}`, { replace: true, state: null });
+    }
+  }, [location.pathname, location.search, location.hash, location.state, navigate]);
 
   const isEotFocused        = mode === 'eot';
   const isCarpetFocused     = mode === 'carpet';
@@ -608,13 +609,13 @@ export default function QuoteCalculator({
       if (deepService === 'end_of_tenancy') {
         const extras = addOnDefs
           .filter((a) => !['oven', 'fridge', 'sofa', 'mattress'].includes(a.key) && addOnCounts[a.key] > 0)
-          .map((a) => `${a.label}${addOnCounts[a.key] > 1 ? ` ×${addOnCounts[a.key]}` : ''}`)
+          .map((a) => `${a.key === 'carpet_bundle' ? PROPERTY_CARPET_BUNDLE_SCOPE[deepSize] : a.label}${addOnCounts[a.key] > 1 ? ` ×${addOnCounts[a.key]}` : ''}`)
           .join(', ');
         extrasLine = `Complete package includes appliances, cupboards and internal windows${extras ? `; upgrades: ${extras}` : ''}.`;
       } else {
         const extras = addOnDefs
           .filter((a) => addOnCounts[a.key] > 0)
-          .map((a) => `${a.label}${addOnCounts[a.key] > 1 ? ` ×${addOnCounts[a.key]}` : ''}`)
+          .map((a) => `${a.key === 'carpet_bundle' ? PROPERTY_CARPET_BUNDLE_SCOPE[deepSize] : a.label}${addOnCounts[a.key] > 1 ? ` ×${addOnCounts[a.key]}` : ''}`)
           .join(', ');
         extrasLine = extras || 'None';
       }
@@ -696,6 +697,11 @@ export default function QuoteCalculator({
         ...(isCarpet ? { carpetCounts, carpetCondition } : {}),
       },
     };
+    recordCalculatedQuoteStart();
+    if (quoteAnalyticsService && !completedQuoteServices.current.has(quoteAnalyticsService)) {
+      completedQuoteServices.current.add(quoteAnalyticsService);
+      trackQuoteStepCompleted(quoteAnalyticsService, 1);
+    }
     trackFunnelStep('quote_complete', bookingServiceName);
     trackBookingInitiated(bookingServiceName);
     // Navigation state only, never part of the payload: lets "Back to quote"
@@ -707,8 +713,8 @@ export default function QuoteCalculator({
     if (onBook) {
       onBook(sel);
     } else {
-      sessionStorage.setItem('vve_booking', JSON.stringify(sel));
-      navigate('/booking');
+      storeBookingSelection(sel);
+      navigate('/booking', { state: bookingRouteState(sel, location.pathname) });
     }
   };
 
@@ -719,6 +725,11 @@ export default function QuoteCalculator({
   const isManualQuote = isAfterBuilders || (isEot && eotTailoredQuote)
     || (isCarpet && (isRugOnlySelection || (carpetResult?.isPhotoQuote ?? false)));
   const isReadyToBook = canBookOnline && price > 0;
+  const quoteAnalyticsService: QuoteAnalyticsService | null = isEot ? null : service !== 'deep'
+    ? service : isCarpet ? 'carpet_upholstery' : deepService === 'move_in' ? 'move_in' : isAfterBuilders ? 'after_builders' : null;
+  const recordCalculatedQuoteStart = useQuoteCalculated(quoteAnalyticsService, Math.round(price * 100), !isEot && isReadyToBook,
+    JSON.stringify({ service, deepService, deepSize, deepBaths, addOnCounts,
+      windowSize, gutterType, officeHours, propertyType, carpetCounts, carpetCondition }));
 
   // Stable ref wrapper — lets context consumers call handleBookNow without stale closures
   const _bookRef = useRef(handleBookNow);
@@ -795,9 +806,9 @@ export default function QuoteCalculator({
               <div className="p-6 sm:p-9 lg:p-11">
                 <div className="mb-6 flex items-center justify-between gap-4">
                   <div>
-                    <p className="mb-3 inline-flex rounded-full bg-royal-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-royal-800">Instant quote</p>
-                    <h2 className="font-display text-3xl font-bold text-navy-900 sm:text-4xl">Get an instant quote</h2>
-                    <p className="mt-2 text-sm text-muted">Choose a service, select the work and review your price.</p>
+                    <p className="mb-3 inline-flex rounded-full bg-royal-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-royal-800">Your cleaning price</p>
+                    <h2 className="font-display text-3xl font-bold text-navy-900 sm:text-4xl">Get your cleaning price</h2>
+                    <p className="mt-2 text-sm text-muted">Choose your service. We’ll show an estimate or explain what we need to quote.</p>
                   </div>
                   <span className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-royal-600 to-sky-500 text-white shadow-lg shadow-sky-200 sm:flex">
                     <Calculator size={24} />
@@ -911,8 +922,9 @@ export default function QuoteCalculator({
       if (onBook) {
         onBook({ serviceName: result.serviceName, price: result.price, quoteConfig: result.quoteConfig });
       } else {
-        sessionStorage.setItem('vve_booking', JSON.stringify({ serviceName: result.serviceName, price: result.price, quoteConfig: result.quoteConfig }));
-        navigate('/booking');
+        const selection = { serviceName: result.serviceName, price: result.price, quoteConfig: result.quoteConfig };
+        storeBookingSelection(selection);
+        navigate('/booking', { state: bookingRouteState(selection, location.pathname) });
       }
     };
 
@@ -922,8 +934,8 @@ export default function QuoteCalculator({
           <div className={`text-center mb-8 transition-all duration-700 ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             {homepageMode ? (
               <>
-                <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-royal-700">Instant quote</p>
-                <h2 className="mb-3 font-display text-4xl font-bold text-navy-900 md:text-5xl">Get an instant quote</h2>
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-royal-700">Your cleaning price</p>
+                <h2 className="mb-3 font-display text-4xl font-bold text-navy-900 md:text-5xl">Get your cleaning price</h2>
               </>
             ) : (
               <>
@@ -974,8 +986,8 @@ export default function QuoteCalculator({
         <div className={`text-center mb-10 transition-all duration-700 ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           {homepageMode ? (
             <>
-              <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-royal-700">Instant quote</p>
-              <h2 className="mb-3 font-display text-4xl font-bold text-navy-900 md:text-5xl">Get an instant quote</h2>
+              <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-royal-700">Your cleaning price</p>
+              <h2 className="mb-3 font-display text-4xl font-bold text-navy-900 md:text-5xl">Get your cleaning price</h2>
               <p className="text-lg text-muted">Start by choosing the service you need.</p>
             </>
           ) : (
@@ -1360,7 +1372,7 @@ export default function QuoteCalculator({
                                     ? CARPET_BUNDLE_PRICE[deepSize]
                                     : item.price;
                                   const label = key === 'carpet_bundle'
-                                    ? EOT_CARPET_BUNDLE_SCOPE[deepSize]
+                                    ? PROPERTY_CARPET_BUNDLE_SCOPE[deepSize]
                                     : item.label;
                                   return (
                                     <div
@@ -1413,19 +1425,17 @@ export default function QuoteCalculator({
                               })
                               .map((a) => {
                                 const dynamicPrice = a.key === 'carpet_bundle' ? CARPET_BUNDLE_PRICE[deepSize] : a.price;
-                                const saving = a.key === 'carpet_bundle'
-                                  ? BASE_PRICES.carpet_upholstery[deepSize] - CARPET_BUNDLE_PRICE[deepSize]
-                                  : 0;
+                                const label = a.key === 'carpet_bundle' ? PROPERTY_CARPET_BUNDLE_SCOPE[deepSize] : a.label;
                                 return (
                                   <div key={a.key} className="flex items-center justify-between rounded-xl px-3 py-2 border transition-all duration-200 bg-silver-50 border-silver-200">
                                     <div>
-                                      <span className="text-navy-800 text-xs font-medium">{a.label}</span>
+                                      <span className="text-navy-800 text-xs font-medium">{label}</span>
                                       <div className="text-royal-700 text-xs font-semibold mt-0.5">
                                         +£{dynamicPrice}
-                                        {saving > 0 && <span className="text-green-600 ml-1">· saves £{saving}</span>}
                                       </div>
                                     </div>
                                     <Counter
+                                      itemLabel={label}
                                       value={addOnCounts[a.key]}
                                       onChange={(value) => setAddOnCounts((previous) => ({ ...previous, [a.key]: value }))}
                                     />
@@ -1566,7 +1576,7 @@ export default function QuoteCalculator({
                       </div>
 
                       {/* Bundle discount: original price with strikethrough */}
-                      {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
+                      {isCarpet && carpetResult?.showSaving && (
                         <div className="text-center mb-1">
                           <span className="line-through text-silver-600 text-lg">£{carpetResult!.bundle.preDiscount}</span>
                         </div>
@@ -1620,7 +1630,7 @@ export default function QuoteCalculator({
                       {/* Next-band nudge — hidden when a promo already beats all bands */}
                       {isCarpet && (carpetResult?.bundle.toNextBand ?? 0) > 0 && carpetResult!.bundle.source !== 'promo' && (
                         <div className="text-center text-xs font-medium mt-1.5" style={{ color: '#1e6b42' }}>
-                          Add {carpetResult!.bundle.toNextBand} more item{carpetResult!.bundle.toNextBand !== 1 ? 's' : ''} to save £{carpetResult!.bundle.nextBandSaving}
+                          Add {carpetResult!.bundle.toNextBand} more item{carpetResult!.bundle.toNextBand !== 1 ? 's' : ''} to reach the £{carpetResult!.bundle.nextBandSaving} bundle discount band. £{CARPET_MIN_BOOKING} minimum applies.
                         </div>
                       )}
 
@@ -1678,6 +1688,10 @@ export default function QuoteCalculator({
                   <AlertCircle size={14} className="flex-shrink-0 mt-0.5 text-amber-600" aria-hidden="true" />
                   <span>{bookError}</span>
                 </div>
+              )}
+
+              {isCarpet && isReadyToBook && !isManualQuote && (
+                <ServiceDecisionTrust service="carpet-upholstery" carpetCounts={carpetCounts} />
               )}
 
               {/* Primary CTA */}
@@ -1741,7 +1755,7 @@ export default function QuoteCalculator({
               <h3 className="text-silver-400 text-xs font-medium tracking-widest uppercase mb-2">
                 {isAfterBuilders ? 'Starting From' : (isEot && eotTailoredQuote) ? 'Tailored Quote' : isRugOnlySelection ? 'Add-on only' : isCarpet && carpetResult?.isPhotoQuote ? 'Photo Quote' : 'Your price'}
               </h3>
-              {isCarpet && (carpetResult?.bundle.saving ?? 0) > 0 && (
+              {isCarpet && carpetResult?.showSaving && (
                 <div className="text-silver-400 text-base line-through mb-0.5">
                   £{carpetResult!.bundle.preDiscount}
                 </div>
@@ -1927,7 +1941,7 @@ export default function QuoteCalculator({
                               .map((item) => (
                                 <div key={item.key} className="flex justify-between gap-3 text-[11px]">
                                   <span className="text-silver-300">
-                                    {item.key === 'carpet_bundle' ? EOT_CARPET_BUNDLE_SCOPE[deepSize] : item.label}
+                                    {item.key === 'carpet_bundle' ? PROPERTY_CARPET_BUNDLE_SCOPE[deepSize] : item.label}
                                     {addOnCounts[item.key] > 1 ? ` ×${addOnCounts[item.key]}` : ''}
                                   </span>
                                   <span className="text-white font-semibold">

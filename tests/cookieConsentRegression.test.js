@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -14,9 +14,9 @@ describe('cookie consent — the Google tag is not duplicated', () => {
     expect(matches.length).toBe(1);
   });
 
-  it('confirmation.html loads the gtag.js script exactly once', () => {
+  it('the private confirmation page loads no Google tag', () => {
     const matches = read('public/confirmation.html').match(GTAG_LOADER) || [];
-    expect(matches.length).toBe(1);
+    expect(matches.length).toBe(0);
   });
 
   it('the consent default block runs before the gtag.js loader in index.html', () => {
@@ -27,23 +27,13 @@ describe('cookie consent — the Google tag is not duplicated', () => {
     expect(defaultIdx).toBeLessThan(loaderIdx);
   });
 
-  it('the consent default block runs before the gtag.js loader in confirmation.html', () => {
-    const source = read('public/confirmation.html');
-    const defaultIdx = source.indexOf("gtag('consent', 'default'");
-    const loaderIdx = source.indexOf('googletagmanager.com/gtag/js');
-    expect(defaultIdx).toBeGreaterThan(-1);
-    expect(defaultIdx).toBeLessThan(loaderIdx);
-  });
-
-  it('the four consent signals default to denied in both entry points', () => {
-    for (const file of ['index.html', 'public/confirmation.html']) {
-      const source = read(file);
-      const block = source.slice(source.indexOf("gtag('consent', 'default'"), source.indexOf("gtag('consent', 'default'") + 300);
-      expect(block).toMatch(/ad_storage:\s*'denied'/);
-      expect(block).toMatch(/analytics_storage:\s*'denied'/);
-      expect(block).toMatch(/ad_user_data:\s*'denied'/);
-      expect(block).toMatch(/ad_personalization:\s*'denied'/);
-    }
+  it('the four consent signals default to denied on the public site', () => {
+    const source = read('index.html');
+    const block = source.slice(source.indexOf("gtag('consent', 'default'"), source.indexOf("gtag('consent', 'default'") + 300);
+    expect(block).toMatch(/ad_storage:\s*'denied'/);
+    expect(block).toMatch(/analytics_storage:\s*'denied'/);
+    expect(block).toMatch(/ad_user_data:\s*'denied'/);
+    expect(block).toMatch(/ad_personalization:\s*'denied'/);
   });
 
   it('enables URL passthrough only after denied-by-default consent is established', () => {
@@ -74,47 +64,20 @@ describe('cookie consent — the Google tag is not duplicated', () => {
   });
 });
 
-describe('cookie consent — the paid-booking conversion pipeline is untouched', () => {
+describe('private legacy confirmation page', () => {
   const html = read('public/confirmation.html');
 
-  it('still gates conversions on a verified server payment response (paid === true)', () => {
-    expect(html).toMatch(/if\s*\(\s*!data\.paid\s*\)/);
+  it('still verifies payment before showing success', () => {
+    expect(html).toMatch(/if\s*\(d\.paid\s*===\s*true\)/);
   });
 
-  it('still requires livemode === true and one of the exact production hostnames', () => {
-    expect(html).toMatch(/var\s+PROD_HOST\s*=\s*"www\.vveclean\.co\.uk"/);
-    expect(html).toMatch(/data\.livemode\s*===\s*true/);
-    expect(html).toMatch(/window\.vveProductionTrackingHost\s*===\s*true/);
-    expect(html).toContain("['vveclean.co.uk', 'www.vveclean.co.uk'].includes(location.hostname)");
+  it('explicitly disables the retired conversion block before it can read URL identifiers', () => {
+    const start = html.indexOf('(function () {', html.indexOf('Retired legacy conversion'));
+    expect(html.slice(start, start + 40)).toMatch(/\(function \(\) \{\s*return;/);
   });
 
-  it.each(['localhost','127.0.0.1','preview.vercel.app','evil.vveclean.co.uk','www.vveclean.co.uk.attacker.invalid'])('never loads Google on %s', (hostname) => {
-    const start=html.indexOf('window.vveProductionTrackingHost =');
-    const block=html.slice(start,html.indexOf('</script>',start));
-    const appendChild=vi.fn(),gtag=vi.fn();
-    new Function('window','document','location','gtag',block)({}, {createElement:()=>({}),head:{appendChild}}, {hostname},gtag);
-    expect(appendChild).not.toHaveBeenCalled();expect(gtag).not.toHaveBeenCalled();
-  });
-
-  it('still uses the exact conversion label AW-18214693277/hUwdCK68gswcEJ3TuO1D', () => {
-    expect(html).toMatch(/var\s+SEND_TO\s*=\s*"AW-18214693277\/hUwdCK68gswcEJ3TuO1D"/);
-  });
-
-  it('still deduplicates by transaction id before firing, and only marks it fired after the hit is confirmed', () => {
-    expect(html).toMatch(/var\s+dedupSet\s*=\s*storageKey\s*\?\s*!!localStorage\.getItem\(storageKey\)\s*:\s*false/);
-    expect(html).toMatch(/if\s*\(\s*dedupSet\s*\)\s*\{/);
-    expect(html).toMatch(/localStorage\.setItem\(storageKey,\s*"1"\)/);
-  });
-
-  it('does not gate the conversion fetch/fire itself on the new cookie-consent state', () => {
-    // Consent Mode governs what gtag.js stores/sends under the hood; our own
-    // JS must not add a second, redundant "if consent denied, skip" branch
-    // around the existing verified-payment gating. The block already had one
-    // pre-existing, unconditional diagnostic console.log reading vve_consent
-    // (never used to gate anything) — confirm that's still the only mention.
-    const conversionBlock = html.slice(html.indexOf('Conversion tracking'), html.indexOf('</script>', html.indexOf('Conversion tracking')));
-    const mentions = conversionBlock.match(/vve_consent/g) || [];
-    expect(mentions.length).toBe(1);
-    expect(conversionBlock).toMatch(/console\.log\("\[VVE conv\] consent state\s*:"\s*,\s*cs\)/);
+  it('contains no Google loader and keeps the historic code unreachable', () => {
+    expect(html).not.toContain('googletagmanager.com/gtag/js');
+    expect(html).toContain('Retired legacy conversion tracking');
   });
 });

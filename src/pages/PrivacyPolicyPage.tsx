@@ -228,10 +228,22 @@ const sections: Section[] = [
           adverts (for example, Google Ads). We also record on your device how you reached our site — the
           advertising campaign, search click or link you arrived from, so we can understand which adverts lead
           to enquiries and bookings. That record is attached to a booking request or contact enquiry when you
-          submit it; it is not sent separately while you are simply browsing, and it is never shown on
-          the page. All of this is switched off until you agree to it. If you refuse, or later withdraw your
-          agreement using <CookieSettingsLink />, we store none of it and delete anything already stored — your
-          quote, your booking and any discount you were promised carry on working exactly as before.
+          submit it; it is not shown on the page. If you submit a booking request after agreeing to advertising
+          measurement, we may also normalise and securely hash the email address and phone number you supplied,
+          then send only those hashes and the advertising click identifier to Google so a later qualified or paid
+          booking can be matched to the advert. This campaign record is not sent separately while you are simply
+          browsing. We do not put your name, email address, phone number, home address
+          or postcode into analytics event names, advertising URLs or conversion references.
+        </p>
+        <p className="mt-3">
+          This measurement is switched off until you agree to it. If you refuse, we do not create this advertising
+          attribution or matching data. If you later change your choice using <CookieSettingsLink />, we clear the
+          advertising attribution stored in that browser and do not attach it to a later request. To withdraw consent
+          for measurement already attached to a booking request, contact us and quote the booking reference; we will
+          suppress any record that has not already been accepted for processing. Information already processed by
+          Google cannot be recalled through the cookie control. Measurement attribution and matching hashes held for
+          this purpose are removed after 90 days from the first visit. Your quote, booking and any discount you were
+          promised continue to work without advertising consent.
         </p>
 
         <h3 className="font-semibold text-navy-900 text-sm mt-5 mb-2">Google Consent Mode</h3>

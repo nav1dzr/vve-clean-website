@@ -42,6 +42,8 @@ export default function BookingInvoicesSection({ bookingId }: { bookingId: strin
         </Link>
       </div>
 
+      <p className="mb-3 text-sm text-navy-600">Need proof of cleaning for an agency? Create an invoice, add a cleaning completion record, then record the final payment to produce the paid receipt.</p>
+
       {state.status === 'loading' && <p className="text-sm text-navy-500">Loading invoices…</p>}
       {state.status === 'error' && <ErrorState message={state.message} onRetry={load} />}
       {state.status === 'success' && state.data.results.length === 0 && (

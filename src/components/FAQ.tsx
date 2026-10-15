@@ -44,7 +44,7 @@ export const FAQS = [
   {
     q: 'When do I pay?',
     group: 'Prices and payment',
-    a: `${BOOKING_REQUEST_NOTE} Payment is normally due after the service, unless a different arrangement is agreed in writing. No deposit is required.`,
+    a: `${BOOKING_REQUEST_NOTE} The remaining balance is normally due after the service, unless a different arrangement is agreed in writing.`,
   },
   {
     q: 'Can the price change?',

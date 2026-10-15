@@ -9,6 +9,7 @@ import ServiceTemplateCombobox from './ServiceTemplateCombobox';
 import CatalogueItemCombobox from './CatalogueItemCombobox';
 import type { CatalogueItem } from '../types/catalogue';
 import StructuredAddressFields from './StructuredAddressFields';
+import CleaningRecordBuilder from './CleaningRecordBuilder';
 import {
   readInvoiceDraftRecovery, writeInvoiceDraftRecovery, clearInvoiceDraftRecovery,
   INVOICE_RECOVERY_CLEARED_EVENT, type InvoiceRecoveryContext, type InvoiceRecoverySnapshot,
@@ -757,16 +758,20 @@ export default function InvoiceItemsForm({
           <label>
             <span className={labelClass}>Booking deposit received (£)</span>
             <input type="number" inputMode="decimal" min="0" step="0.01" value={value.depositApplied} onChange={(e) => setValue((v) => ({ ...v, depositApplied: Number(e.target.value) }))} className={inputClass} />
-            <span className="mt-1 block text-xs leading-5 text-navy-500">Leave this at £0 for new bookings. Enter a deposit here only if it was already received for a historical booking. For a full payment, record it after issuing or <a href="/receipts/new" className="font-medium text-sky-600 hover:text-sky-700">create a receipt</a>.</span>
+            <span className="mt-1 block text-xs leading-5 text-navy-500">Enter only a booking deposit you have verified was received. Leave this at £0 if no deposit was paid. For a full payment, record it after issuing or <a href="/receipts/new" className="font-medium text-sky-600 hover:text-sky-700">create a receipt</a>.</span>
           </label>
           <label className="sm:col-span-2">
             <span className={labelClass}>Payment terms</span>
             <input type="text" value={value.paymentTerms} onChange={(e) => setValue((v) => ({ ...v, paymentTerms: e.target.value }))} className={inputClass} />
           </label>
           <label className="sm:col-span-2">
-            <span className={labelClass}>Customer notes (printed on the invoice)</span>
-            <textarea value={value.customerNotes} onChange={(e) => setValue((v) => ({ ...v, customerNotes: e.target.value }))} rows={2} className="w-full rounded-lg border border-silver-300 px-3 py-2 text-base text-navy-950 outline-none focus:border-sky-500" />
+            <span className={labelClass}>Work record & customer notes (printed on invoice and paid receipt)</span>
+            <textarea value={value.customerNotes} onChange={(e) => setValue((v) => ({ ...v, customerNotes: e.target.value }))} rows={6} className="w-full rounded-lg border border-silver-300 px-3 py-2 text-base text-navy-950 outline-none focus:border-sky-500" />
+            <span className="mt-1 block text-xs leading-5 text-navy-500">For an agency or landlord, include the rooms, items and tasks actually cleaned. Check the service date and address before issuing. The receipt is created once the invoice is fully paid.</span>
           </label>
+          <div className="sm:col-span-2">
+            <CleaningRecordBuilder serviceDate={value.serviceDate} descriptions={value.items.map(item => `${item.quantity} x ${item.description}`)} onAdd={text => setValue(v => ({ ...v, customerNotes: [v.customerNotes.trim(), text].filter(Boolean).join('\n\n') }))} />
+          </div>
           <label className="sm:col-span-2">
             <span className={labelClass}>Internal notes (never printed)</span>
             <textarea value={value.internalNotes} onChange={(e) => setValue((v) => ({ ...v, internalNotes: e.target.value }))} rows={2} className="w-full rounded-lg border border-silver-300 px-3 py-2 text-base text-navy-950 outline-none focus:border-sky-500" />

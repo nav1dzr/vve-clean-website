@@ -1,6 +1,9 @@
 import PriceTaxNote from './PriceTaxNote';
+import ServiceDecisionTrust from './ServiceDecisionTrust';
 import { readQuoteBasket, saveQuoteBasket, restoreShape } from '../lib/quoteBasket';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { trackQuoteStepCompleted } from '../lib/analytics';
+import { useQuoteCalculated } from '../hooks/useQuoteCalculated';
 import {
   BadgeCheck, Bath, Building2, CheckCircle2, ChevronLeft, ChevronRight, CircleOff, Home, Info,
   Layers3, ListChecks, Mail, MessageCircle, Minus, Plus, ShieldCheck, Sparkles, Waves, XCircle,
@@ -160,6 +163,9 @@ const SIZE_OPTIONS: { key: SizeKey; label: string }[] = [
 
 const STEP_LABELS = ['Property', 'Package', 'Floor care', 'Review'];
 const TOTAL_STEPS = 4;
+const PROPERTY_SELECTION_ERROR = 'Choose your property size to continue.';
+const CARPET_SELECTION_ERROR = 'Choose at least one carpet area, or select Standard floor care.';
+const PHOTO_REVIEW_ERROR = 'This property needs a quick photo review before we can confirm a price — please use WhatsApp or email below.';
 
 const MANUAL_CARPET_FIELDS: { key: keyof Omit<ManualCarpetCounts, 'stairFlights'>; addonKey: string; label: string; idPrefix: string; priceP: number }[] = [
   { key: 'bedroom', addonKey: 'bedroom', label: 'Bedrooms', idPrefix: 'bed', priceP: CARPET_ITEM_PRICES_P.bedroom },
@@ -238,32 +244,78 @@ function manualCarpetRooms(counts: ManualCarpetCounts): RoomState[] {
   return rooms;
 }
 
+type StoredCarpetRoom = Pick<RoomState, 'id' | 'addonKey' | 'floor' | 'stairFlights'>;
+const RESTORABLE_CARPET_KEYS = new Set(['bedroom', 'living_room', 'dining_room', 'large_lounge', 'hallway', 'landing', 'stairs']);
+
+function isStoredRoomId(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length < 100;
+}
+
+function isStoredCarpetRoom(value: unknown): value is StoredCarpetRoom {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const room = value as Record<string, unknown>;
+  return isStoredRoomId(room.id)
+    && typeof room.addonKey === 'string' && RESTORABLE_CARPET_KEYS.has(room.addonKey)
+    && typeof room.floor === 'string' && ['unset', 'carpet', 'hard', 'na'].includes(room.floor)
+    && (room.stairFlights === undefined || (typeof room.stairFlights === 'number'
+      && Number.isInteger(room.stairFlights) && room.stairFlights >= 1 && room.stairFlights <= 100));
+}
+
+function restoredAdditionalRoomLabel(room: StoredCarpetRoom): string | null {
+  if (/^reception-\d+$/.test(room.id) && room.addonKey === 'living_room') return 'Additional reception room';
+  if (/^hallway-\d+$/.test(room.id) && room.addonKey === 'hallway') return 'Additional hallway';
+  if (/^landing-\d+$/.test(room.id) && room.addonKey === 'landing') return 'Additional landing';
+  return null;
+}
+
+// The booking hand-off stores selected areas, including rooms added beyond the
+// suggested layout. Rebuild their labels from known area types, not saved HTML.
+function restoreWholeCarpetRooms(defaults: RoomState[], stored: StoredCarpetRoom[], selectedIds: string[]): RoomState[] {
+  const selected = new Set(selectedIds);
+  const storedById = new Map(stored.map(room => [room.id, room]));
+  const defaultIds = new Set(defaults.map(room => room.id));
+  const rooms = defaults.map((room): RoomState => {
+    const match = storedById.get(room.id);
+    if (!match || match.addonKey !== room.addonKey) return room;
+    return {
+      ...room,
+      floor: match.floor,
+      steamClean: match.floor === 'carpet' && selected.has(room.id),
+      ...(room.addonKey === 'stairs' ? { stairFlights: match.stairFlights ?? 1 } : {}),
+    };
+  });
+  for (const room of stored) {
+    if (defaultIds.has(room.id) || !selected.has(room.id) || room.floor !== 'carpet') continue;
+    const label = restoredAdditionalRoomLabel(room);
+    if (label) rooms.push({ ...room, label, steamClean: true, removable: true });
+  }
+  return rooms;
+}
+
 function makeInitialState(restore?: EotBookingResult['quoteConfig'] | null): EotWizardState {
   const restoredPropertyType: PropertyType = restore?.isHouse ? 'house' : 'flat';
   const restoredSize: SizeKey = (restore?.deepSize as SizeKey) ?? 'studio';
   const size: SizeKey = eotPropertySizeValid(restoredPropertyType, restoredSize) ? restoredSize : 'bed1';
   const propertyType = restoredPropertyType;
-  const restoredCarpetIds = restore?.carpetRoomIds ?? [];
+  const restoredCarpetIds = Array.isArray(restore?.carpetRoomIds) && restore.carpetRoomIds.length <= 80
+    && restore.carpetRoomIds.every(isStoredRoomId)
+    && new Set(restore.carpetRoomIds).size === restore.carpetRoomIds.length ? restore.carpetRoomIds : [];
+  const restoredRooms = Array.isArray(restore?.rooms) && restore.rooms.length <= 80
+    && restore.rooms.every(isStoredCarpetRoom)
+    && new Set(restore.rooms.map(room => room.id)).size === restore.rooms.length ? restore.rooms : [];
   const hasCarpet = restoredCarpetIds.length > 0;
   const isManualRestore = hasCarpet && restoredCarpetIds.some((id) => id.startsWith('manual-'));
 
-  const rooms = defaultRooms(size, propertyType);
+  let rooms = defaultRooms(size, propertyType);
   const manualCarpetCounts = defaultManualCarpetCounts();
 
-  if (hasCarpet && !isManualRestore && restore?.rooms) {
-    for (const r of rooms) {
-      const match = restore.rooms.find((rr) => rr.id === r.id);
-      if (match) {
-        r.floor = match.floor as FloorState;
-        if (r.addonKey === 'stairs') r.stairFlights = Number(match.stairFlights) || 1;
-      }
-      r.steamClean = restoredCarpetIds.includes(r.id);
-    }
-  } else if (isManualRestore && restore?.rooms) {
-    for (const r of restore.rooms) {
-      if (!restoredCarpetIds.includes(r.id)) continue;
+  if (hasCarpet && !isManualRestore) {
+    rooms = restoreWholeCarpetRooms(rooms, restoredRooms, restoredCarpetIds);
+  } else if (isManualRestore) {
+    for (const r of restoredRooms) {
+      if (!restoredCarpetIds.includes(r.id) || r.floor !== 'carpet') continue;
       if (r.addonKey === 'stairs') { manualCarpetCounts.stairFlights = Number(r.stairFlights) || 1; continue; }
-      const field = MANUAL_CARPET_FIELDS.find((f) => r.id.startsWith(`manual-${f.idPrefix}-`));
+      const field = MANUAL_CARPET_FIELDS.find((f) => r.addonKey === f.addonKey && r.id.startsWith(`manual-${f.idPrefix}-`));
       if (field) manualCarpetCounts[field.key] += 1;
     }
   }
@@ -392,7 +444,7 @@ const COMPLETE_KEY_BENEFITS = [
 ];
 const COMPLETE_MORE_INCLUDED = [
   'Internal windows', 'Bathrooms fully descaled, tiles, grouting and fixtures',
-  'Skirting boards, doors, frames and switches', 'Photographic cleaning receipt',
+  'Skirting boards, doors, frames and switches', 'Cleaning completion record for your agent',
 ];
 const COMPLETE_NOT_INCLUDED = [
   'Professional carpet steam cleaning', 'Upholstery cleaning', 'Exterior windows', 'Rubbish removal', 'Parking and Congestion Charge',
@@ -403,7 +455,7 @@ const TAILORED_CORE_INCLUDED = [
   'Standard vacuuming and hard-floor mopping',
 ];
 const TAILORED_MORE_INCLUDED = [
-  'Bedrooms and reception rooms', 'Internal windows', 'Skirting boards, doors, frames and switches', 'Photographic receipt',
+  'Bedrooms and reception rooms', 'Internal windows', 'Skirting boards, doors, frames and switches', 'Cleaning completion record for your agent',
 ];
 const TAILORED_ADD_LATER = [
   'Inside microwave', 'Inside fridge/freezer', 'Inside dishwasher', 'Inside washing machine', 'Cupboards, drawers and wardrobes',
@@ -441,12 +493,21 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
     return restored;
   });
   const [step, setStep] = useState(() => state.propertySizeChosen && savedBasket?.kind === 'eot' ? Math.min(4, Math.max(1, savedBasket.step || 1)) : 1);
+  const completedQuoteSteps = useRef(new Set<number>());
+  function recordStepCompleted(completedStep: number) {
+    recordQuoteStart();
+    if (completedQuoteSteps.current.has(completedStep)) return;
+    completedQuoteSteps.current.add(completedStep);
+    trackQuoteStepCompleted('end_of_tenancy', completedStep);
+  }
   const basketChanged = useRef(false);
   useEffect(() => {
     if (!basketChanged.current) return;
     saveQuoteBasket({ kind: 'eot', label: `End of tenancy · ${state.is5Plus ? '5+ bedrooms' : state.size === 'studio' ? 'Studio' : state.size.replace('bed', '') + ' bedrooms'} · ${state.pkg === 'complete' ? 'Complete' : 'Tailored'}`, href: '', config: { ...state }, step });
   }, [state, step]);
   const [bookError, setBookError] = useState('');
+  const bookErrorRef = useRef<HTMLDivElement>(null);
+  const [validationAttempt, setValidationAttempt] = useState(0);
   const [upholsteryOpen, setUpholsteryOpen] = useState(false);
   const wizardRootRef = useRef<HTMLDivElement>(null);
   const hasMountedRef = useRef(false);
@@ -541,6 +602,37 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   const completeSavingP = totalP - completeTotalP;
   const hasExtraFridgeFreezers = state.tailoredAddOns.extraFridgeFreezers > 0;
   const canOfferComplete = quote.shouldOfferComplete && !hasExtraFridgeFreezers;
+  const needsCarpetSelection = state.floorCareChoice === 'professional' && activeCarpetRooms.length === 0;
+  const recordQuoteStart = useQuoteCalculated('end_of_tenancy', totalP,
+    step === TOTAL_STEPS && state.propertySizeChosen && !state.is5Plus &&
+      !needsCarpetSelection && !isQuoteReviewCondition,
+    JSON.stringify({ propertyType: state.propertyType, size: state.size,
+      propertySizeChosen: state.propertySizeChosen, is5Plus: state.is5Plus,
+      pkg: state.pkg, fullBathrooms: state.fullBathrooms, extraWcs: state.extraWcs,
+      floorCareChoice: state.floorCareChoice, carpetMode: state.carpetMode,
+      tailoredAddOns: state.tailoredAddOns, extras: state.extras,
+      upholsteryCounts: state.upholsteryCounts, condition: state.condition,
+      areas: activeCarpetRooms.map(({ addonKey, stairFlights }) => ({ addonKey, stairFlights })) }));
+
+  function showBookingError(message: string, targetStep = step) {
+    setBookError(message);
+    setStep(targetStep);
+    setValidationAttempt(attempt => attempt + 1);
+  }
+
+  useEffect(() => {
+    if (!bookError) return;
+    // Follow step-heading focus when a saved review needs correction, and focus
+    // the same error again after repeated attempts. Cancel stale focus callbacks.
+    const frame = window.requestAnimationFrame(() => bookErrorRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [bookError, validationAttempt, step]);
+
+  useEffect(() => {
+    if ((bookError === CARPET_SELECTION_ERROR && !needsCarpetSelection)
+      || (bookError === PROPERTY_SELECTION_ERROR && state.propertySizeChosen && !state.is5Plus)
+      || (bookError === PHOTO_REVIEW_ERROR && !isQuoteReviewCondition)) setBookError('');
+  }, [bookError, needsCarpetSelection, state.propertySizeChosen, state.is5Plus, isQuoteReviewCondition]);
 
   function selectPackage(pkg: EotPackage) {
     // Extra units are outside the comparable standard package. The current
@@ -605,7 +697,16 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   }
 
   function goNext() {
+    if (step === 1 && (!state.propertySizeChosen || state.is5Plus)) {
+      showBookingError(PROPERTY_SELECTION_ERROR, 1);
+      return;
+    }
+    if (step === 3 && needsCarpetSelection) {
+      showBookingError(CARPET_SELECTION_ERROR, 3);
+      return;
+    }
     setBookError('');
+    recordStepCompleted(step);
     setStep((s) => Math.min(TOTAL_STEPS, s + 1));
   }
   function goBack() {
@@ -614,10 +715,19 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
   }
 
   function handleBook() {
-    if (isQuoteReviewCondition) {
-      setBookError('This property needs a quick photo review before we can confirm a price — please use WhatsApp below.');
+    if (!state.propertySizeChosen || state.is5Plus) {
+      showBookingError(PROPERTY_SELECTION_ERROR, 1);
       return;
     }
+    if (needsCarpetSelection) {
+      showBookingError(CARPET_SELECTION_ERROR, 3);
+      return;
+    }
+    if (isQuoteReviewCondition) {
+      showBookingError(PHOTO_REVIEW_ERROR);
+      return;
+    }
+    setBookError('');
     const sel: EotBookingResult = {
       serviceName: `End of tenancy — ${state.pkg === 'complete' ? 'Complete Agency-Ready Clean' : 'Tailored Checklist Clean'} · ${SIZE_OPTIONS.find((s) => s.key === state.size)?.label}`,
       // Exact pence, converted to pounds without rounding — a £127.50 total
@@ -642,16 +752,9 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         condition: state.condition,
       },
     };
+    recordStepCompleted(TOTAL_STEPS);
     onBook(sel);
   }
-
-  const WA_LINK = `https://wa.me/447845451111?text=${encodeURIComponent(
-    "Hi VVE Clean, I'd like a photo review for an end of tenancy clean (heavy condition / rubbish / mould / biohazard).",
-  )}`;
-  const WA_5PLUS_LINK = `https://wa.me/447845451111?text=${encodeURIComponent(
-    "Hi VVE Clean, I'd like a tailored quote for a 5+ bedroom end of tenancy clean.",
-  )}`;
-  const EMAIL_5PLUS_LINK = 'mailto:contact@vveclean.co.uk?subject=' + encodeURIComponent('5+ bedroom end of tenancy quote request');
 
   const sizeLabel = SIZE_OPTIONS.find((s) => s.key === state.size)?.label ?? '';
 
@@ -670,9 +773,59 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
       : penceToDisplay(totalP);
   const propertySummary = `${sizeLabel} ${state.propertyType === 'flat' ? 'flat' : 'house / maisonette'} · ${state.fullBathrooms} bathroom${state.fullBathrooms !== 1 ? 's' : ''}${state.extraWcs > 0 ? ` · ${state.extraWcs} WC${state.extraWcs !== 1 ? 's' : ''}` : ''}`;
   const packageSummary = state.pkg === 'complete' ? 'Complete' : 'Tailored';
-  const floorSummary = state.floorCareChoice === 'professional'
+  const floorSummary = needsCarpetSelection ? 'Choose carpet areas'
+    : state.floorCareChoice === 'professional'
     ? 'Professional carpet cleaning'
     : state.floorCareChoice === 'none' ? 'Hard floors only' : state.floorCareChoice === 'standard' ? 'Standard floor care' : 'Floor care not selected';
+  // Carry calculator choices into both contact options. These are preferences
+  // for a manual assessment, not a fixed-price quote or an agreed checklist.
+  const contactProperty = state.is5Plus
+    ? `5+ bedroom ${state.propertyType === 'flat' ? 'flat' : 'house / maisonette'} · ${state.fullBathrooms} bathroom${state.fullBathrooms !== 1 ? 's' : ''}${state.extraWcs > 0 ? ` · ${state.extraWcs} separate WC${state.extraWcs !== 1 ? 's' : ''}` : ''}`
+    : propertySummary;
+  const contactCarpetAreas = activeCarpetRooms.filter(room => room.floor === 'carpet' && room.steamClean)
+    .map(room => room.addonKey === 'stairs' ? `${room.label} (${room.stairFlights ?? 1} flights)` : room.label);
+  const contactExtras = [
+    ...UPHOLSTERY_FIELDS.filter(field => state.upholsteryCounts[field.key] > 0)
+      .map(field => `${state.upholsteryCounts[field.key]} × ${field.label}`),
+    ...([
+      ['ext_windows', 'Exterior windows'], ['balcony', 'Balcony'], ['wall_marks', 'Wall-mark treatment'],
+      ['key_collect', 'Key collection/return'], ['rubbish', 'Rubbish removal'],
+    ] as const).filter(([key]) => state.extras[key] > 0).map(([key, label]) => `${state.extras[key]} × ${label}`),
+    ...(state.pkg === 'tailored' ? ([
+      ['microwaveInside', 'Inside microwave'], ['fridgeFreezerInside', 'Inside fridge/freezer'],
+      ['dishwasherInside', 'Inside dishwasher'], ['washingMachineInside', 'Inside washing machine'],
+      ['cupboards', 'Cupboards, drawers and wardrobes'],
+    ] as const).filter(([key]) => state.tailoredAddOns[key]).map(([, label]) => label) : []),
+    ...(state.pkg === 'tailored' && state.tailoredAddOns.extraFridgeFreezers > 0
+      ? [`${state.tailoredAddOns.extraFridgeFreezers} × Additional fridge/freezer`] : []),
+  ];
+  const selectedCondition = {
+    normal: 'Normal used condition', heavy: 'Heavy grease, scale or build-up',
+    clutter: 'Excessive rubbish or clutter', biohazard: 'Mould, biohazard or specialist contamination',
+  }[state.condition];
+  function manualContact(reason: 'rug' | 'condition' | 'large') {
+    const subject = reason === 'rug' ? 'Rug cleaning photo assessment'
+      : reason === 'large' ? '5+ bedroom end of tenancy quote request' : 'End of tenancy photo review';
+    const introduction = reason === 'rug'
+      ? "Hi VVE Clean, I'd like a rug cleaning assessment alongside my end of tenancy clean. Please let me know which rug photos or measurements you need."
+      : reason === 'large'
+        ? "Hi VVE Clean, I'd like a quote for a 5+ bedroom end of tenancy clean. Please let me know which details or photos you need."
+        : `Hi VVE Clean, I'd like a photo review for an end of tenancy clean. The condition I selected is: ${selectedCondition}.`;
+    const body = [introduction, '', 'My calculator choices:', `Property: ${contactProperty}`,
+      `Package preference: ${packageSummary}`, `Floor care: ${floorSummary}`,
+      ...(contactCarpetAreas.length ? [`Carpet areas: ${contactCarpetAreas.join(', ')}`] : []),
+      ...(contactExtras.length ? [`Additional items: ${contactExtras.join(', ')}`] : []),
+      reason === 'condition' ? '' : `Property condition: ${selectedCondition}`,
+      '', 'Please confirm the cleaning list, availability and price with me.',
+    ].filter((line, index, lines) => line !== '' || lines[index - 1] !== '').join('\n');
+    return {
+      whatsapp: `https://wa.me/447845451111?text=${encodeURIComponent(body)}`,
+      email: `mailto:contact@vveclean.co.uk?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+    };
+  }
+  const rugContact = manualContact('rug');
+  const conditionContact = manualContact('condition');
+  const largeContact = manualContact('large');
   const footerSubtext = step === 1
     ? !state.propertySizeChosen ? 'Complete clean · choose your property size to see its price' : state.is5Plus ? `5+ bedroom ${state.propertyType === 'flat' ? 'flat' : 'house / maisonette'} · tailored quote` : propertySummary
     : step === 2 ? `${propertySummary} · ${packageSummary}`
@@ -706,6 +859,12 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
       )}
 
       <div className="px-5 sm:px-8 lg:px-10 py-7 sm:py-9 max-w-3xl mx-auto w-full">
+        {bookError && (
+          <div ref={bookErrorRef} role="alert" tabIndex={-1}
+            className="mb-4 scroll-mt-28 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-amber-600">
+            {bookError}
+          </div>
+        )}
         {hasExtraFridgeFreezers && (step === 2 || step === 4) && <p id="extra-fridge-scope" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Your selection includes an additional fridge/freezer. Keep Tailored for this estimate and ask us to confirm the Complete scope before switching. Your additional units remain selected.</p>}
         {/* ══ Step 1: Property ══ */}
         {step === 1 && (
@@ -773,11 +932,12 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:min-w-[180px]">
-                  <a href={WA_5PLUS_LINK} target="_blank" rel="noopener noreferrer"
+                  <a href={largeContact.whatsapp} target="_blank" rel="noopener noreferrer"
                     className="btn-whatsapp inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[44px] rounded-xl font-bold text-sm">
                     <MessageCircle size={16} /> WhatsApp us
                   </a>
-                  <a href={EMAIL_5PLUS_LINK}
+                  <a href={largeContact.email}
+                    aria-label="Request a quote by email"
                     className="inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[44px] rounded-xl font-bold text-sm border border-amber-400 text-amber-900 hover:bg-amber-100">
                     <Mail size={16} /> Request a quote
                   </a>
@@ -1196,12 +1356,15 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                   )}
                 </div>
 
-                <div className="flex items-center justify-between gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
                   <div>
                     <div className="text-navy-800 text-sm font-medium">Rug cleaning</div>
                     <div className="text-amber-800 text-[11px] font-semibold">Photo assessment required — not automatically priced</div>
                   </div>
-                  <a href={WA_LINK} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-amber-800 underline underline-offset-2 whitespace-nowrap">WhatsApp a photo</a>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    <a href={rugContact.whatsapp} target="_blank" rel="noopener noreferrer" className="inline-flex items-center min-h-[44px] text-xs font-semibold text-amber-800 underline underline-offset-2">WhatsApp a photo</a>
+                    <a href={rugContact.email} className="inline-flex items-center min-h-[44px] text-xs font-semibold text-amber-800 underline underline-offset-2">Email about a rug</a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1260,7 +1423,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                 <div className="px-4 py-3 flex justify-between text-sm">
                   <span className="text-navy-600">Floor care</span>
                   <span className="text-navy-900 font-semibold">
-                    {state.floorCareChoice === 'professional' ? 'Professional carpet steam cleaning' : state.floorCareChoice === 'none' ? 'No carpeted areas' : 'Standard (included)'}
+                    {needsCarpetSelection ? 'Choose carpet areas before continuing' : state.floorCareChoice === 'professional' ? 'Professional carpet steam cleaning' : state.floorCareChoice === 'none' ? 'No carpeted areas' : 'Standard (included)'}
                   </span>
                 </div>
                 {state.pkg === 'tailored' && Object.entries(state.tailoredAddOns).some(([k, v]) => (k === 'extraFridgeFreezers' ? Number(v) > 0 : v)) && (
@@ -1320,12 +1483,13 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                 <div className="rounded-2xl bg-purple-50 border-2 border-purple-200 p-5 text-center space-y-2 mt-4">
                   <p className="text-purple-900 font-bold text-sm">Photo review required</p>
                   <p className="text-purple-800 text-xs leading-relaxed">
-                    The condition you selected needs a photo review before we can confirm a fixed price — no automatic surcharge is applied. Send us photos on WhatsApp so we can review the scope.
+                    The condition you selected needs a photo review before we can confirm a fixed price — no automatic surcharge is applied. Send photos by WhatsApp or email. Your selected details are included in the message; attach your photos before sending.
                   </p>
-                  <a href={WA_LINK} target="_blank" rel="noopener noreferrer"
+                  <a href={conditionContact.whatsapp} target="_blank" rel="noopener noreferrer"
                     className="btn-whatsapp inline-flex items-center justify-center gap-2 px-6 py-3 min-h-[44px] rounded-full font-bold text-sm mt-2">
                     Send photos on WhatsApp
                   </a>
+                  <div><a href={conditionContact.email} className="inline-flex items-center gap-2 min-h-[44px] px-4 text-sm font-semibold text-purple-900 underline underline-offset-2"><Mail size={16} aria-hidden="true" /> Send photos by email</a></div>
                 </div>
               ) : (
                 // ── Final quote card ── one clear total, guarantee and next step.
@@ -1336,20 +1500,13 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
                     <span data-testid="final-total" className="text-navy-900 font-display font-bold text-3xl">{penceToDisplay(totalP)}</span>
                   </div>
                   <PriceTaxNote className="mt-2" />
-                  <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-sm text-navy-800">
-                    <strong>No payment now.</strong> Send your preferred time first. We check availability, scope and the final price, then contact you to confirm the appointment.
-                  </div>
-                  <div className="mt-4 inline-flex items-center gap-1.5 text-green-800 bg-green-50 border border-green-200 rounded-full px-3 py-1.5 text-xs font-semibold">
-                    <ShieldCheck size={13} /> {state.pkg === 'complete' ? `${EOT_GUARANTEE_HOURS / 24}-day reporting window on the agreed checklist` : `${EOT_GUARANTEE_HOURS / 24}-day reporting window on selected tasks`}
+                  <div className="mt-3">
+                    <ServiceDecisionTrust service="eot" eotPackage={state.pkg} />
                   </div>
                   <p className="text-navy-600 text-[11px] mt-3 leading-relaxed">
-                    Your preferred time is a request until our team confirms it. The remaining balance is due after the work is completed and you have had the opportunity to inspect it.
+                    The remaining balance is due on the day of the clean.
                   </p>
                 </div>
-              )}
-
-              {bookError && (
-                <div role="alert" className="rounded-xl px-4 py-3 bg-amber-50 border border-amber-200 text-amber-900 text-sm mt-3">{bookError}</div>
               )}
 
               {!isQuoteReviewCondition && (
@@ -1363,11 +1520,9 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         )}
       </div>
 
-      {/* Sticky quote summary. It sits above the site's mobile booking bar and
-          cookie banner, then returns to bottom: 0 when that bar is hidden on
-          desktop. The content area remains in normal document flow, so no
-          selections are obscured behind it. */}
-      <div className="sticky bottom-[calc(var(--vve-cookie-banner-h,0px)+env(safe-area-inset-bottom,0px))] z-30 border-t border-line bg-white/95 backdrop-blur-xl rounded-b-[28px] shadow-[0_-14px_34px_rgba(2,11,36,0.10)]">
+      {/* Keep step navigation visible while selecting. On the review step the
+          back-only footer stays in flow so it cannot cover the request button. */}
+      <div className={`${step < TOTAL_STEPS ? 'sticky bottom-[calc(var(--vve-cookie-banner-h,0px)+env(safe-area-inset-bottom,0px))]' : ''} z-30 border-t border-line bg-white/95 backdrop-blur-xl rounded-b-[28px] shadow-[0_-14px_34px_rgba(2,11,36,0.10)]`}>
         <div
           className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-y-3 gap-x-4 px-5 sm:px-8 lg:px-10 py-4 max-w-3xl mx-auto"
           data-testid="footer-nav"

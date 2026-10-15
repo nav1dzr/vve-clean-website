@@ -4,6 +4,19 @@ import {
   JourneyError,
   londonToday,
 } from "../../admin/api/_lib/bookingJourney.js";
+import { deliverBookingMeasurements } from "./depositMeasurement.js";
+import { deliverGa4Measurements, purgeExpiredGa4Measurements } from './ga4Measurement.js';
+import {
+  deliverBookingRequestNotifications,
+  safeOperationalCode,
+} from "./bookingRequestNotifications.js";
+
+export async function purgeExpiredBookingMeasurements(db) {
+  const { error } = await db.rpc("purge_expired_booking_measurement");
+  if (error)
+    throw new JourneyError("Measurement retention maintenance failed.", 503);
+  return { status: "completed" };
+}
 
 export async function processDueBookingJourneys(
   db,
@@ -11,11 +24,32 @@ export async function processDueBookingJourneys(
     perform = performAdminAction,
     deliver = deliverJourneyMessages,
     now = new Date(),
+    deliverRequestNotifications = deliverBookingRequestNotifications,
+    deliverMeasurements = deliverBookingMeasurements,
+    purgeMeasurements = purgeExpiredBookingMeasurements,
+    deliverGa4 = deliverGa4Measurements,
+    purgeGa4 = purgeExpiredGa4Measurements,
   } = {},
 ) {
   const results = [];
-  // Deposit requests are retired. Do not remind customers to pay or release
-  // their old provisional holds automatically; staff agrees and confirms directly.
+  // Only new, explicitly agreed deposit offers participate. Historic offers
+  // and free website requests never trigger payment reminders.
+  const { data: offers, error: offerError } = await db.from("booking_journeys")
+    .select("booking_id,revision,hold_until,reminder_sent_at,snapshot,customer_request")
+    .eq("state", "offered").eq("snapshot->>paymentPlan", "deposit_after_agreement")
+    .is("customer_request", null).order("hold_until", { ascending: true }).limit(10);
+  if (offerError) throw new JourneyError("Could not load agreed deposit offers.", 503);
+  for (const j of offers || []) {
+    const remaining = new Date(j.hold_until).getTime() - now.getTime();
+    const windowHours = Number(j.snapshot?.paymentWindowHours || 48);
+    const operation = remaining <= 0 ? "expire" :
+      !j.reminder_sent_at && remaining <= windowHours * 3600000 / 2 && remaining > 31 * 60000 ? "remind" : null;
+    if (!operation) continue;
+    try {
+      await perform(db, j.booking_id, { operation, revision: j.revision }, "worker");
+      results.push({ id: j.booking_id, status: `${operation}_queued` });
+    } catch (error) { results.push({ id: j.booking_id, status: "needs_review", error: error.message }); }
+  }
   const nextLondonDay = new Date(`${londonToday(now)}T12:00:00Z`);
   nextLondonDay.setUTCDate(nextLondonDay.getUTCDate() + 1);
   for (const [state, field] of [
@@ -64,5 +98,39 @@ export async function processDueBookingJourneys(
     .limit(20);
   if (me) throw new JourneyError("Could not load message retries.", 503);
   for (const m of messages || []) await deliver(db, m.booking_id, m.id);
-  return { results };
+  let requestNotifications;
+  try {
+    requestNotifications = await deliverRequestNotifications(db, {
+      limit: 12,
+    });
+  } catch (error) {
+    const code = safeOperationalCode(
+      error,
+      "booking_request_notification_worker_failed",
+    );
+    console.error("[booking-worker] request notification delivery deferred", code);
+    requestNotifications = { status: "needs_review", code };
+  }
+  // The existing protected follow-up scheduler invokes this worker every ten
+  // minutes. The purge RPC is idempotent, so this gives retention a durable
+  // schedule without introducing another public endpoint or cron secret.
+  const measurementMaintenance = await purgeMeasurements(db);
+  let ga4Measurement;
+  try {
+    await purgeGa4(db);
+    ga4Measurement = await deliverGa4(db);
+  } catch {
+    // No raw database/provider errors (or secrets) in logs; optional GA4 must
+    // not interrupt the existing Ads worker or business notifications.
+    console.warn('[booking-worker] GA4 measurement deferred');
+    ga4Measurement = { status: 'needs_review', code: 'ga4_worker_failed' };
+  }
+  const measurement = await deliverMeasurements(db);
+  return {
+    results,
+    requestNotifications,
+    measurement,
+    measurementMaintenance,
+    ga4Measurement,
+  };
 }

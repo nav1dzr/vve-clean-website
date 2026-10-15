@@ -5,7 +5,7 @@ import QuoteCalculator from '../components/QuoteCalculator';
 import EotResultsSection from '../components/gallery/EotResultsSection';
 import GuaranteeTerms from '../components/GuaranteeTerms';
 import { GUARANTEE_SUMMARY, GUARANTEE_LIMIT } from '../data/guarantee';
-import { ClipboardList, PackageCheck, RefreshCw, Camera } from 'lucide-react';
+import { ClipboardList, PackageCheck, RefreshCw, FileCheck2 } from 'lucide-react';
 import {
   EOT_BASE_PRICES_P,
   EOT_TAILORED_START_PRICES_P,
@@ -18,6 +18,7 @@ const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%2
 
 const p = (pence: number) => String(pence / 100);
 const pDisplay = (pence: number) => `£${pence / 100}`;
+const EOT_GUARANTEE_LABEL = `${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee`;
 
 // Single source for this page's questions. The visible accordion and the
 // FAQPage schema are both generated from it, so the two can never drift —
@@ -27,7 +28,7 @@ const pDisplay = (pence: number) => `£${pence / 100}`;
 const FAQS = [
   {
     q: 'Can I share the cleaning details with my letting agent?',
-    a: 'Yes. We list the work in your quote and provide a photographic cleaning receipt. Send any specific agent requirements before booking so we can check them against your chosen package. Complete includes the listed appliance and storage interiors; Tailored covers the tasks you select.',
+    a: 'Yes. We list the work in your quote and can provide an itemised invoice with a cleaning completion record for your letting agent. A paid receipt is available once payment is recorded. Send any specific agent requirements before booking so we can check them against your chosen package. Complete includes the listed appliance and storage interiors; Tailored covers the tasks you select.',
   },
   {
     q: 'Is oven cleaning included?',
@@ -69,7 +70,7 @@ const SCHEMA = JSON.stringify({
       '@type': 'Service',
       name: 'End of Tenancy Cleaning London',
       description:
-        `End of tenancy cleaning across East and North London. Oven cleaning included in both packages, with listed appliance and storage interiors in Complete. ${EOT_GUARANTEE_HOURS / 24}-day reporting window for missed covered work and photographic cleaning receipt.`,
+        `End of tenancy cleaning across East and North London. Oven cleaning included in both packages, with listed appliance and storage interiors in Complete. ${EOT_GUARANTEE_HOURS / 24}-day reporting window for missed covered work and a cleaning completion record for your agent.`,
       provider: { '@type': 'LocalBusiness', name: 'VVE Clean', url: 'https://www.vveclean.co.uk', telephone: '+442080502233' },
       areaServed: 'London',
       url: 'https://www.vveclean.co.uk/end-of-tenancy-cleaning-london',
@@ -97,22 +98,24 @@ const DATA: ServiceLandingData = {
   schema: SCHEMA,
   breadcrumb: 'End of Tenancy Cleaning London',
 
-  eyebrow: 'For your move-out clean',
-  h1: 'End of Tenancy Cleaning London',
+  eyebrow: 'End of Tenancy Cleaning · East & North London',
+  h1: 'End of tenancy cleaning in London',
   h1Highlight: '',
-  heroSubtitle: 'Kitchen, bathrooms and living areas ready for handover. Our Complete clean includes the oven and listed appliance and cupboard interiors.',
-  heroTaxNoteCompact: true,
+  heroSubtitle: 'Complete includes your oven, listed appliance interiors and empty cupboards. Choose your property to see the price.',
   heroAside: <ManagedServiceHeroPhoto service="end-of-tenancy" fallback={{ src: '/end_of_tenancy/before-after/kitchen1_after.jpg', alt: 'Kitchen hob after cleaning', caption: 'A real end of tenancy result' }} detail="See the full before-and-after pair below. Cleaning does not repair existing scratches or wear." managedDetail="Cleaning does not repair existing scratches or wear." />,
   heroAsideOnMobile: true,
   heroPriceChip: `Studio flat Complete clean from ${pDisplay(EOT_BASE_PRICES_P.studio)}`,
+  heroTaxNoteCompact: true,
+  heroDecisionNote: <a href="#guarantee" className="font-semibold text-navy-900 underline decoration-slate-400 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-royal-600">{EOT_GUARANTEE_LABEL} — see what is covered</a>,
   heroBadges: [
     'Oven cleaning included',
-    `${EOT_GUARANTEE_HOURS / 24}-day re-clean guarantee`,
+    'Cleaning record for your agent',
   ],
   heroGoogleBadge: true,
   heroCompactMobile: true,
+  heroTrustLine: '£5m public liability insurance · included work agreed before booking',
   primaryHref: '/end-of-tenancy-cleaning-london#quote',
-  primaryLabel: 'Check my price',
+  primaryLabel: 'Get my moving-out quote',
   secondaryHref: WA,
   secondaryLabel: 'WhatsApp us first',
   secondaryIsWa: true,
@@ -141,9 +144,9 @@ const DATA: ServiceLandingData = {
       body: `Report missed work from the agreed scope within ${EOT_GUARANTEE_HOURS / 24} days, with photos or an inspection report. We arrange one free return for covered areas. See the full terms below.`,
     },
     {
-      icon: <Camera size={28} />,
-      title: 'Photographic cleaning receipt',
-      body: 'A photographic cleaning receipt records the finished work and can be shared with your letting agent or landlord. It does not guarantee a tenancy-deposit refund.',
+      icon: <FileCheck2 size={28} />,
+      title: 'Cleaning record for your agent',
+      body: 'We can provide an itemised invoice and a record of the cleaning completed for your letting agent or landlord. It is not an independent property inspection or a guarantee of tenancy-deposit release.',
     },
   ],
 
@@ -157,7 +160,7 @@ const DATA: ServiceLandingData = {
     'Accessible internal windows',
     'Skirting boards, light switches and door frames wiped',
     `${EOT_GUARANTEE_HOURS / 24} days to report missed work from the agreed scope`,
-    'Photographic cleaning receipt emailed on completion',
+    'Cleaning completion record available for your agent',
   ],
 
   pricingH2: 'Fixed end of tenancy cleaning prices',

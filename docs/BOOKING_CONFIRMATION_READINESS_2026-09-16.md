@@ -1,5 +1,7 @@
 # Booking confirmations: review result, 16 September 2026
 
+> **Historical readiness record.** The no-deposit/direct-confirmation model described below was superseded later on 16 September 2026 by [Agreed booking deposit release](booking-deposit-release-2026-09-16.md). Use that release guide for the current flow: request first, agreed details second, then the £30 deposit secures the appointment. This record remains for audit history only.
+
 **Local improvements are prepared. Live confirmation sending is not ready. No real booking, payment, customer message or production database was changed.**
 
 ## Found live
@@ -36,4 +38,4 @@ The actual CRM component, generated email and private customer component were re
 
 The existing journey intentionally cannot adopt an already scheduled/closed/settled or historical paid booking lacking a journey. Never reset it to New to bypass that check. Booking and invoice payment ledgers remain separate; reconcile before issuing accounting documents so money is not counted twice. Invoice-specific Stripe links are currently pasted manually, whereas the booking journey creates Checkout automatically after completion. A reminder scheduler has not been newly activated by this work.
 
-Full setup and owner steps: [Booking journey setup](BOOKING_JOURNEY_SETUP.md).
+Historical setup referenced during this review: [superseded booking journey setup](BOOKING_JOURNEY_SETUP.md). Current owner steps are in [Agreed booking deposit release](booking-deposit-release-2026-09-16.md).
