@@ -110,6 +110,7 @@ export default function BookingJourneyPanel({
     paymentWindowHours: 48,
   };
   const [view, setView] = useState<View | null>(null),
+    [loading, setLoading] = useState(true),
     [agreement, setAgreement] = useState(initial),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -124,6 +125,7 @@ export default function BookingJourneyPanel({
   const endpoint = `/api/bookings/${booking.id}?action=journey`;
   useEffect(() => {
     let active = true;
+    setLoading(true);
     authFetch<View>(endpoint)
       .then((data) => {
         if (active) {
@@ -133,6 +135,9 @@ export default function BookingJourneyPanel({
       })
       .catch((e) => {
         if (active) setError(e.message || "Could not load booking management.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
     return () => {
       active = false;
@@ -182,7 +187,7 @@ export default function BookingJourneyPanel({
   }
   const j = view?.journey;
   const paid = j ? j.paid_pence - j.refunded_pence : 0;
-  const locked = busy || !view?.enabled;
+  const locked = busy || loading || !view?.enabled;
   function update(key: keyof Agreement, value: string | number) {
     setAgreement((old) => ({ ...old, [key]: value }));
     setPreview(false);
@@ -202,16 +207,18 @@ export default function BookingJourneyPanel({
             Arrange and confirm this booking
           </h2>
           <p className="mt-1 text-sm text-navy-700">
-            {agreement.paymentPlan === 'deposit_after_agreement'
+            {!view
+              ? 'Check the booking details once the workflow has loaded.'
+              : agreement.paymentPlan === 'deposit_after_agreement'
               ? 'Agree the details with the customer, then send the £30 deposit request. Their appointment is confirmed when the deposit is received.'
               : 'No deposit for this booking. Check the agreed details, then confirm the appointment directly. Payment is due on the cleaning day.'}
           </p>
         </div>
         <span className="rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-900">
-          {statusLabels[j?.state || "draft"]}
+          {loading ? 'Loading booking workflow…' : !view ? 'Booking workflow unavailable' : statusLabels[j?.state || "draft"]}
         </span>
       </div>
-      {!view?.enabled && (
+      {view && !view.enabled && (
         <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
           Sending is disabled until the booking workspace and test email delivery
           have been checked. Deposit requests and automatic confirmations are not active yet.
@@ -280,8 +287,9 @@ export default function BookingJourneyPanel({
           </p>
           <p>{j.customer_request.reason}</p>
           <p className="mt-2">
-            Check availability, agree the change, save and send the revised
-            details below.
+            {j.customer_request.kind === 'cancel'
+              ? 'Review the cancellation request with the customer. If agreed, use Cancel appointment below. Cancelling does not issue a refund; review any refund separately.'
+              : 'Check availability, agree the change, save and send the revised details below.'}
           </p>
         </div>
       )}
