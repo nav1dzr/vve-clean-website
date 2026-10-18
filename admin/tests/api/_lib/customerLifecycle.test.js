@@ -151,6 +151,23 @@ describe('createCustomer / updateCustomer', () => {
 });
 
 describe('getCustomerDetail', () => {
+  it.each([
+    ['audit_one@example.invalid', 'auditXone@example.invalid'],
+    ['audit%one@example.invalid', 'auditManyCharactersone@example.invalid'],
+  ])('matches the literal email %s without wildcard matches', async (email, decoy) => {
+    const supabase = createFakeSupabase({
+      customers: [{ id: 'c-1', name: 'Audit', email: email.toUpperCase(), phone: null }],
+      bookings: [
+        { id: 'exact', email, phone: null, created_at: '2026-01-01' },
+        { id: 'decoy', email: decoy, phone: null, created_at: '2026-01-01' },
+      ],
+    });
+    const result = await getCustomerDetail(supabase, 'c-1');
+    expect(result.ok).toBe(true);
+    expect(result.bookings.map((booking) => booking.id)).toEqual(['exact']);
+    expect(result.bookings[0]).not.toHaveProperty('email');
+  });
+
   it('returns customer + matched bookings + invoices/receipts + balances', async () => {
     const supabase = createFakeSupabase({
       customers: [{ id: 'c-1', name: 'Jane', email: 'jane@example.com', phone: '07700900123', postcode: null, customer_type: 'individual', source: 'other' }],

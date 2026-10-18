@@ -94,7 +94,10 @@ export interface CustomerUpdateResponse {
 }
 
 export interface ManualBookingInput {
+  requestId?: string;
   service: string;
+  paymentPlan?: 'deposit_after_agreement' | 'after_clean';
+  arrivalWindow?: string | null;
   serviceDate?: string | null;
   totalPrice?: number | null;
   notes?: string | null;

@@ -6,6 +6,7 @@ import CustomerDetailPage from './CustomerDetailPage';
 import { ApiError } from '../lib/authFetch';
 
 const { authFetchMock, navigateMock } = vi.hoisted(() => ({ authFetchMock: vi.fn(), navigateMock: vi.fn() }));
+vi.mock('../auth/useAuth', () => ({ useAuth: () => ({ admin: { id: 'owner-manual-test' } }) }));
 
 vi.mock('../lib/authFetch', () => {
   class MockApiError extends Error {
@@ -45,6 +46,7 @@ const baseCustomer = {
 
 describe('CustomerDetailPage', () => {
   beforeEach(() => {
+    sessionStorage.clear();
     authFetchMock.mockReset();
     navigateMock.mockReset();
   });
@@ -160,11 +162,31 @@ describe('CustomerDetailPage', () => {
 
     authFetchMock.mockResolvedValueOnce({ ok: true, bookingId: 'new-booking-id', bookingRef: 'N152NG010826' });
     await user.type(within(dialog).getByLabelText(/service \*/i), 'Deep clean');
+    await user.selectOptions(within(dialog).getByLabelText(/Payment arrangement/), 'after_clean');
     await user.click(within(dialog).getByRole('button', { name: /^create booking$/i }));
 
     await waitFor(() => {
       expect(authFetchMock).toHaveBeenCalledWith('/api/customers/cust-1?action=bookings', expect.objectContaining({ method: 'POST' }));
       expect(navigateMock).toHaveBeenCalledWith('/bookings/new-booking-id');
     });
+  });
+
+  it('does not navigate away from a new customer when an earlier manual booking finishes', async () => {
+    const user = userEvent.setup();
+    let finish!: (value: unknown) => void;
+    authFetchMock.mockImplementation((url: string, options?: { method?: string }) => options?.method === 'POST'
+      ? new Promise((resolve) => { finish = resolve; })
+      : Promise.resolve(url.endsWith('cust-2') ? { ...baseCustomer, id: 'cust-2', name: 'Current customer' } : baseCustomer));
+    render(<MemoryRouter initialEntries={['/customers/cust-1']}><Link to="/customers/cust-2">Next customer</Link><Routes><Route path="/customers/:id" element={<CustomerDetailPage />} /></Routes></MemoryRouter>);
+    await screen.findByRole('heading', { name: 'Jane Doe' });
+    await user.click(screen.getByRole('button', { name: /create booking/i }));
+    const dialog = screen.getByRole('dialog');
+    await user.type(within(dialog).getByLabelText(/service \*/i), 'Carpet cleaning');
+    await user.selectOptions(within(dialog).getByLabelText(/Payment arrangement/), 'after_clean');
+    await user.click(within(dialog).getByRole('button', { name: /^create booking$/i }));
+    await user.click(screen.getByRole('link', { name: 'Next customer' }));
+    await screen.findByRole('heading', { name: 'Current customer' });
+    await act(async () => finish({ ok: true, bookingId: 'old-booking' }));
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 });

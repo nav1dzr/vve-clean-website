@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
 import type { CustomerListResponse, CustomerSortValue } from '../types/customer';
@@ -37,8 +37,10 @@ export default function CustomerListPage() {
   const filters = readFilters(searchParams);
   const [state, setState] = useState<State>({ status: 'loading' });
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const loadVersion = useRef(0);
 
   function load() {
+    const version = ++loadVersion.current;
     setState({ status: 'loading' });
     const qs = new URLSearchParams();
     if (filters.customerType) qs.set('customerType', filters.customerType);
@@ -49,12 +51,17 @@ export default function CustomerListPage() {
     qs.set('pageSize', String(PAGE_SIZE));
 
     authFetch<CustomerListResponse>(`/api/customers?${qs.toString()}`)
-      .then((data) => setState({ status: 'success', data }))
-      .catch((err) => setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load customers.' }));
+      .then((data) => { if (version === loadVersion.current) setState({ status: 'success', data }); })
+      .catch((err) => {
+        if (version === loadVersion.current) setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load customers.' });
+      });
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(load, [searchParams]);
+  useEffect(() => {
+    load();
+    return () => { loadVersion.current += 1; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   function updateFilter(key: string, value: string) {
     const next = new URLSearchParams(searchParams);
@@ -93,6 +100,8 @@ export default function CustomerListPage() {
           </button>
         </div>
       </div>
+
+      {searchParams.get('createBooking') === '1' && <section className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-navy-900"><h2 className="font-semibold">Who is this booking for?</h2><p className="mt-1">Search for an existing customer and open their record, then choose Create booking. For a new customer, choose New customer first. You will choose £30 deposit or no deposit before reviewing the booking email.</p></section>}
 
       <div className={`mb-6 grid grid-cols-1 gap-3 rounded-xl border border-silver-300 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4 ${filtersOpen ? 'grid' : 'hidden sm:grid'}`}>
         <label className="text-sm text-navy-900">

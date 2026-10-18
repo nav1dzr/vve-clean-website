@@ -1,7 +1,7 @@
 import { verifyAdminRequest } from './_lib/adminAuth.js';
 import { corsHeaders } from './_lib/cors.js';
 import { getServiceClient } from './_lib/supabaseAdmin.js';
-import { CARD_SELECT, toCard } from './_lib/bookingFields.js';
+import { CARD_SELECT, toCard, applyJourneyReadState } from './_lib/bookingFields.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -112,6 +112,14 @@ export default async function handler(req, res) {
       },
       unscheduledCount: unscheduledResult.count ?? 0,
     };
+
+    const cards = await applyJourneyReadState(supabase, [
+      ...payload.today.bookings, ...payload.upcoming.bookings, ...payload.recent.bookings,
+    ]);
+    const byId = new Map(cards.map(card => [card.id, card]));
+    for (const section of [payload.today, payload.upcoming, payload.recent]) {
+      section.bookings = section.bookings.map(card => byId.get(card.id) || card);
+    }
 
     res.writeHead(200, headers);
     res.end(JSON.stringify(payload));

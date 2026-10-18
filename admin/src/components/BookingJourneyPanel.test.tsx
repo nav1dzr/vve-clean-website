@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import BookingJourneyPanel from "./BookingJourneyPanel";
 import type { BookingDetail } from "../types/booking";
@@ -20,6 +20,28 @@ const booking = {
 const empty = { enabled: true, journey: null, notifications: [], events: [] };
 beforeEach(() => authFetchMock.mockReset());
 describe("CRM booking agreement controls", () => {
+  it('saves the selected appointment date after a native date input change', async () => {
+    authFetchMock.mockResolvedValue(empty);
+    const user = userEvent.setup();
+    render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save agreement and preview email' })).toBeEnabled());
+    fireEvent.change(screen.getByLabelText('Appointment date'), { target: { value: '2026-10-25' } });
+    await user.tab();
+    await user.click(screen.getByRole('button', { name: 'Save agreement and preview email' }));
+    await waitFor(() => expect(authFetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(authFetchMock.mock.calls[1][1].body).agreement.date).toBe('2026-10-25');
+  });
+  it('restores the explicit manual no-deposit choice after reload without changing the public request default', async () => {
+    authFetchMock.mockResolvedValue(empty);
+    const { unmount } = render(<BookingJourneyPanel booking={{ ...booking, email: 'local@example.invalid', attribution: { firstSource: 'admin_manual' } as BookingDetail['attribution'], quoteConfig: { manualPaymentPlan: 'after_clean' } }} onChanged={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save agreement and preview email' })).toBeEnabled());
+    expect(screen.getByLabelText('Payment arrangement')).toHaveValue('after_clean');
+    expect(screen.getByText(/No deposit for this booking/)).toBeInTheDocument();
+    expect(screen.queryByText(/Their appointment is confirmed when the deposit is received/)).not.toBeInTheDocument();
+    unmount();
+    render(<BookingJourneyPanel booking={{ ...booking, quoteConfig: { manualPaymentPlan: 'after_clean' } }} onChanged={() => {}} />);
+    await waitFor(() => expect(screen.getByLabelText('Payment arrangement')).toHaveValue('deposit_after_agreement'));
+  });
   it("saves a new request without optional typing and never sends it automatically", async () => {
     const user = userEvent.setup();
     authFetchMock.mockResolvedValue(empty);

@@ -10,6 +10,7 @@ import { customerTypeLabel } from '../lib/format';
 import ErrorState from '../components/ErrorState';
 import { CardListSkeleton } from '../components/Skeleton';
 import StructuredAddressFields from '../components/StructuredAddressFields';
+import { customerSourceChoice, customerSourceInput } from '../lib/customerSource';
 
 interface FormValue {
   name: string; email: string; phone: string; address: string; postcode: string;
@@ -56,7 +57,7 @@ export default function CustomerFormPage() {
         if (!active) return;
         setValue({
           name: c.name, email: c.email || '', phone: c.phone || '', address: c.address || '', postcode: c.postcode || '',
-          customerType: c.customerType, source: c.source, preferredContactMethod: c.preferredContactMethod || '', notes: c.notes || '',
+          customerType: c.customerType, source: customerSourceChoice(c.source, c.notes), preferredContactMethod: c.preferredContactMethod || '', notes: c.notes || '',
         });
       })
       : authFetch<BookingDetail>(`/api/bookings/${fromBookingId}`).then((b) => {
@@ -85,6 +86,7 @@ export default function CustomerFormPage() {
     setSubmitting(true);
     setError(null);
 
+    const savedSource = customerSourceInput(value.source, value.notes);
     const input: CustomerDraftInput = {
       name: value.name.trim(),
       email: value.email.trim() || null,
@@ -92,9 +94,9 @@ export default function CustomerFormPage() {
       address: value.address.trim() || null,
       postcode: value.postcode.trim() || null,
       customerType: value.customerType as CustomerDraftInput['customerType'],
-      source: value.source as CustomerDraftInput['source'],
+      source: savedSource.source as CustomerDraftInput['source'],
       preferredContactMethod: (value.preferredContactMethod || null) as CustomerDraftInput['preferredContactMethod'],
-      notes: value.notes.trim() || null,
+      notes: savedSource.notes,
     };
 
     try {
@@ -185,6 +187,7 @@ export default function CustomerFormPage() {
             <label>
               <span className={labelClass}>Source</span>
               <select value={value.source} onChange={(e) => setValue((v) => ({ ...v, source: e.target.value }))} className={inputClass}>
+                <option value="checkatrade">Checkatrade</option>
                 {CUSTOMER_SOURCE_VALUES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
               </select>
             </label>

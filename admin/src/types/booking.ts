@@ -19,6 +19,7 @@ export interface BookingCard {
   awaitingAvailabilityReview?: boolean;
   isFreeRequest?: boolean;
   journeyState?: string;
+  paymentPlan?: 'after_clean' | 'deposit_after_agreement';
   createdAt: string;
   // True when this is a still-pending_payment row with a same-phone paid
   // sibling created within 24h of it — almost certainly an abandoned
@@ -86,6 +87,7 @@ export interface BookingDetail {
   paymentStatus: string | null;
   awaitingAvailabilityReview?: boolean;
   journeyState?: string;
+  paymentPlan?: 'after_clean' | 'deposit_after_agreement';
   balanceStatus: string | null;
   balancePaidAt: string | null;
   balancePaymentMethod: string | null;

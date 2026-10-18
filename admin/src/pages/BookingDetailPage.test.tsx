@@ -222,8 +222,8 @@ describe('BookingDetailPage', () => {
     renderDetail();
 
     expect(await screen.findAllByText('Check availability')).not.toHaveLength(0);
-    expect(screen.getByText('Preferred-time request — no payment taken')).toBeInTheDocument();
-    expect(screen.getByText(/agree.*scope.*final price.*time/i)).toBeInTheDocument();
+    expect(screen.getByText('Booking details to review — no payment taken')).toBeInTheDocument();
+    expect(screen.getByText(/Review the payment arrangement before sending/)).toHaveTextContent('not a confirmed appointment yet');
   });
 
   it('shows "unavailable" action states instead of broken links when contact info is missing', async () => {
@@ -255,6 +255,16 @@ describe('BookingDetailPage', () => {
     // Word-boundary match — a plain /NaN/i would also match "te-nan-cy".
     expect(screen.queryByText(/\bNaN\b/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Invalid Date/i)).not.toBeInTheDocument();
+  });
+
+  it('uses the agreement workflow instead of conflicting legacy status and balance controls', async () => {
+    setupAuthFetchMock({ booking: { ...fullBooking, journeyState: 'confirmed' } });
+    renderDetail();
+    await screen.findByText(fullBooking.bookingRef!);
+    expect(screen.queryByLabelText('Update booking status')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Update balance status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save balance status' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Booking status and payments are managed in the booking workflow below/)).toBeInTheDocument();
   });
 
   it('never renders the confirmation token anywhere on the page', async () => {

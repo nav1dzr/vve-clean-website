@@ -1,7 +1,7 @@
 import { verifyAdminRequest } from '../_lib/adminAuth.js';
 import { corsHeaders } from '../_lib/cors.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
-import { DETAIL_SELECT, toDetail, toNote, BOOKING_STATUS_VALUES } from '../_lib/bookingFields.js';
+import { DETAIL_SELECT, toDetail, toNote, BOOKING_STATUS_VALUES, journeyPaymentPlan } from '../_lib/bookingFields.js';
 import { isValidUuid, validateNote } from '../_lib/normalise.js';
 import { extractIdParam } from '../_lib/routeParams.js';
 import { readJsonBody } from '../_lib/body.js';
@@ -109,10 +109,20 @@ export default async function handler(req, res) {
       return res.end(JSON.stringify({ error: 'Booking not found' }));
     }
 
-    const detail=toDetail(data);
-    if(detail.awaitingAvailabilityReview) {
-      const {data:journey}=await supabase.from('booking_journeys').select('state').eq('booking_id',id).maybeSingle();
-      if(journey?.state) {detail.journeyState=journey.state;detail.awaitingAvailabilityReview=journey.state==='draft';}
+    const detail = toDetail(data);
+    // Read the owner of status/payment changes for every booking, including
+    // paid/completed rows. Otherwise the UI exposes legacy controls which the
+    // write endpoints correctly reject for a managed booking.
+    const { data: journey, error: journeyError } = await supabase
+      .from('booking_journeys').select('state,snapshot,previous_snapshot,draft').eq('booking_id', id).maybeSingle();
+    if (journeyError && !['42P01', 'PGRST205'].includes(journeyError.code)) {
+      res.writeHead(503, headers);
+      return res.end(JSON.stringify({ error: 'Could not check the booking agreement. Please retry.' }));
+    }
+    if (journey?.state) {
+      detail.journeyState = journey.state;
+      detail.paymentPlan = journeyPaymentPlan(journey);
+      detail.awaitingAvailabilityReview = journey.state === 'draft';
     }
     res.writeHead(200, headers);
     res.end(JSON.stringify(detail));

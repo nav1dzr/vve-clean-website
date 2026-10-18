@@ -149,6 +149,32 @@ describe('GET /api/bookings/:id', () => {
     expect(res.statusCode).toBe(500);
     expect(res.body).not.toContain('internal detail');
   });
+
+  it('includes the authoritative journey state on paid and completed booking details', async () => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: {} });
+    getServiceClientMock.mockReturnValue({ from: table => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({
+      data: table === 'booking_journeys' ? { state: 'completed' } : {
+        id: VALID_UUID, status: 'completed', payment_status: 'paid', deposit_amount: 30,
+      }, error: null,
+    }) }) }) }) });
+    const res = makeRes();
+    await handler({ method: 'GET', headers: {}, query: { id: VALID_UUID } }, res);
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).journeyState).toBe('completed');
+  });
+
+  it('does not expose legacy edit controls when agreement status cannot be checked', async () => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: {} });
+    getServiceClientMock.mockReturnValue({ from: table => ({ select: () => ({ eq: () => ({ maybeSingle: async () => (
+      table === 'booking_journeys'
+        ? { data: null, error: { code: '08006', message: 'private database detail' } }
+        : { data: { id: VALID_UUID, status: 'confirmed', payment_status: 'paid', deposit_amount: 30 }, error: null }
+    ) }) }) }) });
+    const res = makeRes();
+    await handler({ method: 'GET', headers: {}, query: { id: VALID_UUID } }, res);
+    expect(res.statusCode).toBe(503);
+    expect(res.body).not.toContain('private database detail');
+  });
 });
 
 describe('POST /api/bookings/:id?action=measurement-consent', () => {

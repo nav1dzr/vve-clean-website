@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { authFetch } from "../lib/authFetch";
 import type { BookingDetail } from "../types/booking";
-import { bookingAgreementText, fillMissingAgreementText, requestedArrivalWindow } from "../lib/bookingAgreementDefaults";
+import { bookingAgreementText, fillMissingAgreementText, initialBookingPaymentPlan, requestedArrivalWindow } from "../lib/bookingAgreementDefaults";
 
 type Agreement = {
   service: string;
@@ -106,7 +106,7 @@ export default function BookingJourneyPanel({
     time: requestedArrivalWindow(booking.preferredTime),
     totalPence: Math.round((booking.totalPrice || 0) * 100),
     changeReason: "",
-    paymentPlan: "deposit_after_agreement",
+    paymentPlan: initialBookingPaymentPlan(booking),
     paymentWindowHours: 48,
   };
   const [view, setView] = useState<View | null>(null),
@@ -202,8 +202,9 @@ export default function BookingJourneyPanel({
             Arrange and confirm this booking
           </h2>
           <p className="mt-1 text-sm text-navy-700">
-            Agree the details with the customer, then send the £30 deposit request.
-            Their appointment is confirmed when the deposit is received.
+            {agreement.paymentPlan === 'deposit_after_agreement'
+              ? 'Agree the details with the customer, then send the £30 deposit request. Their appointment is confirmed when the deposit is received.'
+              : 'No deposit for this booking. Check the agreed details, then confirm the appointment directly. Payment is due on the cleaning day.'}
           </p>
         </div>
         <span className="rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-900">
@@ -216,6 +217,7 @@ export default function BookingJourneyPanel({
           have been checked. Deposit requests and automatic confirmations are not active yet.
         </p>
       )}
+      {!booking.email && <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">This booking has no customer email address. It can be kept as a manual record, but a booking email cannot reach the customer.</p>}
       {(!j || j.state === "draft") &&
         (booking.notifications.emailCustomerSent === false ||
           booking.notifications.emailBusinessSent === false) && (

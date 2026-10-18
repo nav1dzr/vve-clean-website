@@ -13,7 +13,7 @@ import BookingInvoicesSection from '../components/BookingInvoicesSection';
 import BookingCustomerSection from '../components/BookingCustomerSection';
 import BookingJourneyPanel from '../components/BookingJourneyPanel';
 import {
-  paymentStatusBadge,
+  bookingPaymentBadge,
   formatServiceDate,
   formatPreferred,
   formatDateTime,
@@ -169,22 +169,29 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
         {b.awaitingAvailabilityReview ? (
           <StatusBadge label="Check availability" className="bg-sky-100 text-sky-900" />
         ) : (
-          <StatusBadge {...paymentStatusBadge(b.paymentStatus)} />
+          <StatusBadge {...bookingPaymentBadge(b)} />
         )}
       </div>
 
       {b.awaitingAvailabilityReview && (
         <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-relaxed text-navy-900">
-          <p className="font-semibold">Preferred-time request — no payment taken</p>
+          <p className="font-semibold">Booking details to review — no payment taken</p>
           <p className="mt-1">
-            Agree the scope, final price and time with the customer, then send the booking details and £30 deposit request from the CRM. This request is not a confirmed appointment.
+            Check the cleaning list, total, date and arrival window below. Review the payment arrangement before sending. This record is not a confirmed appointment yet.
           </p>
         </div>
       )}
 
-      <Section title="Status">
-        <StatusControl bookingId={b.id} status={b.status} onUpdated={handleStatusUpdated} />
-      </Section>
+      {b.journeyState ? (
+        <p className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-navy-800">
+          Booking status and payments are managed in the booking workflow below. Use its actions to send updates, record payments or finish the job.
+        </p>
+      ) : (
+        <Section title="Internal job status">
+          <p className="mb-3 text-sm text-navy-700">This older status record does not send a customer confirmation. Use the booking workflow below to agree and confirm an appointment.</p>
+          <StatusControl bookingId={b.id} status={b.status} onUpdated={handleStatusUpdated} />
+        </Section>
+      )}
 
       <BookingJourneyPanel booking={b} onChanged={load} />
 
@@ -210,15 +217,16 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
         <p className="text-sm text-navy-900">{b.service || 'Service not recorded'}</p>
         <p className="text-sm text-navy-700">{dateLabel}</p>
         {b.quoteConfig ? (
+          <details className="mt-2 text-sm text-navy-700"><summary className="cursor-pointer">Technical request details</summary>
           <pre className="mt-2 overflow-x-auto rounded-lg bg-silver-100 p-3 text-xs text-navy-700">
             {JSON.stringify(b.quoteConfig, null, 2)}
-          </pre>
+          </pre></details>
         ) : (
           <p className="mt-1 text-sm text-navy-500">Itemised quote unavailable</p>
         )}
       </Section>
 
-      <Section title="Balance">
+      {!b.journeyState && <Section title="Internal balance record">
         <BalanceControl
           bookingId={b.id}
           totalPrice={b.totalPrice}
@@ -230,7 +238,7 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
           balancePaymentMethod={b.balancePaymentMethod}
           onUpdated={handleBalanceUpdated}
         />
-      </Section>
+      </Section>}
 
       <BookingCustomerSection bookingId={b.id} fullName={b.fullName} email={b.email} phone={b.phone} />
 

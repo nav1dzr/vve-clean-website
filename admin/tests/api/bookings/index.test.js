@@ -35,7 +35,9 @@ function makeChainableClient(result) {
     range: () => builder,
     then: (resolve, reject) => Promise.resolve(result).then(resolve, reject),
   };
-  return { from: () => builder };
+  return { from: table => table === 'booking_journeys'
+    ? { select: () => ({ in: async () => ({ data: [], error: null }) }) }
+    : builder };
 }
 
 function makeReq(url, headers = { authorization: 'Bearer t' }) {
@@ -49,7 +51,8 @@ function makeReq(url, headers = { authorization: 'Bearer t' }) {
 function makeQueuedClient(results) {
   const queue = [...results];
   return {
-    from: () => {
+    from: table => {
+      if (table === 'booking_journeys') return { select: () => ({ in: async () => ({ data: [], error: null }) }) };
       // Each call to .from() starts a new query chain — resolve it to the
       // next queued result (repeating the last one once the queue is
       // empty, so an unexpected extra call doesn't crash the test).

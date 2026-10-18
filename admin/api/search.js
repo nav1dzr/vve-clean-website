@@ -3,7 +3,7 @@ import { corsHeaders } from './_lib/cors.js';
 import { getServiceClient } from './_lib/supabaseAdmin.js';
 import { readJsonBody } from './_lib/body.js';
 import { validateSearchQuery } from './_lib/normalise.js';
-import { toCard } from './_lib/bookingFields.js';
+import { toCard, applyJourneyReadState } from './_lib/bookingFields.js';
 import { websitePricebookHandler } from './_lib/websitePricebookActions.js';
 import { enquiriesHandler } from './_lib/enquiries.js';
 import { mediaCollectionHandler } from './_lib/mediaCollectionActions.js';
@@ -82,7 +82,7 @@ export default async function handler(req, res) {
     }
 
     res.writeHead(200, headers);
-    res.end(JSON.stringify({ results: (data || []).map(toCard) }));
+    res.end(JSON.stringify({ results: await applyJourneyReadState(supabase, (data || []).map(toCard)) }));
   } catch (err) {
     console.error('[admin/api] search unexpected error:', err?.message);
     res.writeHead(500, headers);

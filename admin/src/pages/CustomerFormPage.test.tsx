@@ -62,6 +62,18 @@ describe('CustomerFormPage — create', () => {
     navigateMock.mockReset();
   });
 
+  it('stores Checkatrade using the supported source and preserves the owner notes', async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockResolvedValue({ id: 'new-customer', duplicateWarnings: [] });
+    renderNew();
+    await user.type(screen.getByLabelText('Name *'), 'Synthetic customer');
+    await user.selectOptions(screen.getByLabelText('Source'), 'checkatrade');
+    await user.type(screen.getByLabelText('Notes'), 'Keys held by concierge.');
+    await user.click(screen.getByRole('button', { name: 'Create customer' }));
+    await waitFor(() => expect(authFetchMock).toHaveBeenCalled());
+    expect(JSON.parse(authFetchMock.mock.calls[0][1].body)).toMatchObject({ source: 'other', notes: 'Customer source: Checkatrade.\nKeys held by concierge.' });
+  });
+
   it('requires a name before submitting', async () => {
     const user = userEvent.setup();
     renderNew();
@@ -150,6 +162,18 @@ describe('CustomerFormPage — edit', () => {
   beforeEach(() => {
     authFetchMock.mockReset();
     navigateMock.mockReset();
+  });
+
+  it('recognises a saved Checkatrade source and keeps existing notes when saving again', async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockResolvedValueOnce({ id: 'cust-1', name: 'Synthetic customer', customerType: 'individual', source: 'other', notes: 'Customer source: Checkatrade.\nKeep side gate shut.' });
+    authFetchMock.mockResolvedValueOnce({ ok: true, duplicateWarnings: [] });
+    renderEdit();
+    await screen.findByDisplayValue('Synthetic customer');
+    expect(screen.getByLabelText('Source')).toHaveValue('checkatrade');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(authFetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(authFetchMock.mock.calls[1][1].body)).toMatchObject({ source: 'other', notes: 'Customer source: Checkatrade.\nKeep side gate shut.' });
   });
 
   it('loads and prefills the existing customer', async () => {

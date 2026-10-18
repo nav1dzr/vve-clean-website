@@ -9,6 +9,16 @@ describe('CARD_SELECT / DETAIL_SELECT', () => {
 });
 
 describe('toCard', () => {
+  it('reads the active payment plan for confirmed no-deposit cards and keeps proposed changes separate', async () => {
+    const client={from:()=>({select:()=>({in:async()=>({data:[
+      {booking_id:'direct',state:'confirmed',snapshot:{paymentPlan:'after_clean'}},
+      {booking_id:'changing',state:'change_pending',snapshot:{paymentPlan:'after_clean'},previous_snapshot:{paymentPlan:'deposit_after_agreement'}},
+    ],error:null})})})};
+    const cards = await applyJourneyReadState(client,[{id:'direct',awaitingAvailabilityReview:false},{id:'changing',awaitingAvailabilityReview:false}]);
+    expect(cards[0].paymentPlan).toBe('after_clean');
+    expect(cards[1].paymentPlan).toBe('deposit_after_agreement');
+    expect(cards[0].journeyState).toBe('confirmed');
+  });
   it('shows an offered request as awaiting payment rather than still needing availability review', async () => {
     const client={from:()=>({select:()=>({in:async()=>({data:[{booking_id:'free',state:'offered'}],error:null})})})};
     const [card]=await applyJourneyReadState(client,[{id:'free',awaitingAvailabilityReview:true}]);

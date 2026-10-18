@@ -44,13 +44,16 @@ function makeChainable(result) {
 // responses up against that order.
 function makeQueuedClient(results) {
   let i = 0;
-  return { from: () => makeChainable(results[i++]) };
+  return { from: table => table === 'booking_journeys'
+    ? { select: () => ({ in: async () => ({ data: [], error: null }) }) }
+    : makeChainable(results[i++]) };
 }
 
 // Evaluate the small set of query operations against representative rows so
 // queue assertions cover returned data and counts, not just method calls.
 function makeFilteringClient(rows) {
-  return { from: () => {
+  return { from: table => {
+    if (table === 'booking_journeys') return { select: () => ({ in: async () => ({ data: [], error: null }) }) };
     let selected = rows.slice();
     let maxRows = Infinity;
     let head = false;
