@@ -95,6 +95,38 @@ describe('InvoiceDetailPage — draft', () => {
     expect(screen.getByRole('button', { name: /delete draft/i })).toBeInTheDocument();
   });
 
+  it('retains the booking balance warning when a linked saved draft is reopened without changing its amounts', async () => {
+    const linkedDraft = { ...draftInvoice, bookingId: 'paid-booking' };
+    authFetchMock.mockImplementation((path: string) => {
+      if (path === '/api/bookings/paid-booking?action=journey') return Promise.resolve({ journey: { state: 'paid' }, payments: [{ kind: 'manual_balance', amount_pence: 10000 }] });
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      return Promise.resolve(linkedDraft);
+    });
+    const first = renderDetail();
+    expect(await screen.findByText('A balance payment is recorded on this booking')).toBeInTheDocument();
+    first.unmount();
+    renderDetail();
+    expect(await screen.findByText('A balance payment is recorded on this booking')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Review booking payments' })).toHaveAttribute('href', '/bookings/paid-booking');
+    expect(screen.getByRole('spinbutton', { name: /booking deposit received/i })).toHaveValue(0);
+    expect(screen.getByLabelText('Unit price (£)')).toHaveValue('100');
+    expect(screen.getByRole('button', { name: /issue invoice/i })).toBeEnabled();
+    expect(authFetchMock.mock.calls.every((call) => !call[1]?.method || call[1].method === 'GET')).toBe(true);
+  });
+
+  it('keeps a linked draft editable when booking balance history is unavailable without asserting a payment', async () => {
+    authFetchMock.mockImplementation((path: string) => {
+      if (path.includes('action=journey')) return Promise.reject(new ApiError(503, 'Unavailable'));
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      return Promise.resolve({ ...draftInvoice, bookingId: 'paid-booking' });
+    });
+    renderDetail();
+    expect(await screen.findByText('Could not check booking payments')).toBeInTheDocument();
+    expect(screen.queryByText('A balance payment is recorded on this booking')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Retry payment check' })).toBeEnabled();
+  });
+
   it('issuing shows an inline confirmation before calling the API', async () => {
     mockRouteBasedFetch(draftInvoice);
     const user = userEvent.setup();

@@ -8,6 +8,7 @@ import type {
   ReceiptListResponse,
 } from '../types/invoice';
 import InvoiceItemsForm, { emptyFormValue } from '../components/InvoiceItemsForm';
+import BookingBalancePaymentNotice from '../components/BookingBalancePaymentNotice';
 import RecordPaymentModal from '../components/RecordPaymentModal';
 import VoidInvoiceModal from '../components/VoidInvoiceModal';
 import SendDocumentModal from '../components/SendDocumentModal';
@@ -405,6 +406,7 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
             This is a draft — no formal number is allocated yet. Save your changes, then issue it when it&apos;s ready.
           </p>
         </div>
+        {inv.bookingId && <BookingBalancePaymentNotice bookingId={inv.bookingId} accountId={adminId} />}
         {isRevision && (
           <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
             <p className="font-semibold mb-1">Revised invoice draft</p>
