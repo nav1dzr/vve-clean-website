@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Link, MemoryRouter, Routes, Route } from 'react-router-dom';
 import InvoiceEditorPage from './InvoiceEditorPage';
@@ -324,6 +324,47 @@ describe('InvoiceEditorPage', () => {
   });
 
   describe('booking reference — linked booking', () => {
+    it('uses the separate service postcode on Auto-fill while preserving a manually saved reference until requested', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await user.type(screen.getByLabelText('Postcode'), 'E8 1AA');
+      await user.type(screen.getByLabelText('Service date'), '2026-10-28');
+      await user.clear(screen.getByLabelText('Booking reference'));
+      await user.type(screen.getByLabelText('Booking reference'), 'KEEP-EXISTING-REF');
+      await user.click(screen.getByRole('checkbox', { name: /different person\/address/i }));
+      await user.type(within(screen.getByRole('group', { name: 'Service address' })).getByLabelText('Postcode'), 'N1 1AA');
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('KEEP-EXISTING-REF');
+      await user.click(screen.getByRole('button', { name: /auto-fill/i }));
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('N11AA281026');
+    });
+
+    it('falls back to billing postcode when the separate service postcode is empty or disabled', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await user.type(screen.getByLabelText('Postcode'), 'E8 1AA');
+      await user.type(screen.getByLabelText('Service date'), '2026-10-28');
+      await user.click(screen.getByRole('checkbox', { name: /different person\/address/i }));
+      await user.click(screen.getByRole('button', { name: /auto-fill/i }));
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('E81AA281026');
+      await user.type(within(screen.getByRole('group', { name: 'Service address' })).getByLabelText('Postcode'), 'N1 1AA');
+      await user.click(screen.getByRole('button', { name: /auto-fill/i }));
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('N11AA281026');
+      await user.click(screen.getByRole('checkbox', { name: /different person\/address/i }));
+      await user.click(screen.getByRole('button', { name: /auto-fill/i }));
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('E81AA281026');
+    });
+
+    it('can generate a reference from a service postcode when the billing postcode is absent', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await user.type(screen.getByLabelText('Service date'), '2026-10-28');
+      await user.click(screen.getByRole('checkbox', { name: /different person\/address/i }));
+      await user.type(within(screen.getByRole('group', { name: 'Service address' })).getByLabelText('Postcode'), 'N1 1AA');
+      expect(screen.getByRole('button', { name: /auto-fill/i })).toBeEnabled();
+      await user.click(screen.getByRole('button', { name: /auto-fill/i }));
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('N11AA281026');
+    });
+
     it('fills the booking reference field with the saved booking_ref, not auto-generated from postcode+date', async () => {
       authFetchMock.mockResolvedValue({
         id: 'booking-1', fullName: 'Jane Doe', email: 'jane@example.com', phone: '07700900000',
