@@ -212,7 +212,7 @@ export async function createStandaloneReceipt(supabase, input, adminId, { genera
   const { data: numberResult, error: numberErr } = await supabase.rpc('next_document_number', { p_doc_type: 'receipt' });
   if (numberErr || !numberResult) {
     console.error('[admin/api] standalone receipt number allocation failed:', numberErr?.code, numberErr?.message);
-    return { ok: false, error: 'Failed to allocate a receipt number' };
+    return { ok: false, status: 503, error: 'Could not allocate a receipt number. Retry the same receipt.' };
   }
 
   const businessSnapshot = getBusinessSettings();
@@ -252,13 +252,16 @@ export async function createStandaloneReceipt(supabase, input, adminId, { genera
     .select('id, receipt_number')
     .single();
 
-  if (insertErr) {
-    if (requestId && insertErr.code === '23505') {
+  if (insertErr || !receiptRow) {
+    if (requestId && insertErr?.code === '23505') {
       const previous = await findPreviousRequest();
       if (previous) return previous;
     }
-    console.error('[admin/api] standalone receipt insert failed:', insertErr.code, insertErr.message);
-    return { ok: false, error: 'Failed to create receipt' };
+    console.error('[admin/api] standalone receipt insert failed:', insertErr?.code, insertErr?.message);
+    // A database/proxy failure can arrive after the insert committed. This
+    // must not look like input validation: the editor retains the same UUID
+    // on 5xx, and the next attempt resolves the existing record above.
+    return { ok: false, status: 503, error: 'Could not verify whether the receipt was saved. Retry the same receipt; do not start a new one.' };
   }
 
   await logEvent(supabase, {

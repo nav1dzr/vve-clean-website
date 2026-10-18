@@ -1,11 +1,15 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/useAuth';
 import StructuredAddressFields from '../components/StructuredAddressFields';
 import { authFetch, ApiError } from '../lib/authFetch';
 import { invoicePaymentMethodLabel } from '../lib/format';
+import { INVOICE_RECOVERY_CLEARED_EVENT } from '../lib/invoiceDraftRecovery';
+import { clearPendingStandaloneReceipt, readPendingStandaloneReceipt, rememberPendingStandaloneReceipt, type PendingReceiptState } from '../lib/pendingStandaloneReceipt';
 import {
   INVOICE_PAYMENT_METHOD_VALUES,
   type CreateReceiptResponse,
+  type ReceiptDetail,
   type StandaloneReceiptInput,
 } from '../types/invoice';
 
@@ -14,25 +18,75 @@ function today() {
 }
 
 export default function ReceiptEditorPage() {
+  const { admin } = useAuth();
+  if (!admin?.id) return <p role="alert">Sign in to create a receipt.</p>;
+  return <ReceiptEditorForm key={admin.id} ownerId={admin.id} />;
+}
+
+function ReceiptEditorForm({ ownerId }: { ownerId: string }) {
   const navigate = useNavigate();
-  const [customer, setCustomer] = useState({ name: '', email: '', phone: '', address: '', postcode: '' });
-  const [serviceDescription, setServiceDescription] = useState('');
-  const [amount, setAmount] = useState('');
-  const [paymentDate, setPaymentDate] = useState(today);
-  const [paymentMethod, setPaymentMethod] = useState<(typeof INVOICE_PAYMENT_METHOD_VALUES)[number]>('bank_transfer');
-  const [paymentReference, setPaymentReference] = useState('');
-  const [confirmed, setConfirmed] = useState(false);
+  const [recovery, setRecovery] = useState<PendingReceiptState>(() => readPendingStandaloneReceipt(ownerId));
+  const recoveredInput = recovery.status === 'pending' ? recovery.input : null;
+  const [customer, setCustomer] = useState(() => ({ name: recoveredInput?.customer.name || '', email: recoveredInput?.customer.email || '', phone: recoveredInput?.customer.phone || '', address: recoveredInput?.customer.address || '', postcode: recoveredInput?.customer.postcode || '' }));
+  const [serviceDescription, setServiceDescription] = useState(recoveredInput?.serviceDescription || '');
+  const [amount, setAmount] = useState(recoveredInput ? String(recoveredInput.amount) : '');
+  const [paymentDate, setPaymentDate] = useState(recoveredInput?.paymentDate || today());
+  const [paymentMethod, setPaymentMethod] = useState<(typeof INVOICE_PAYMENT_METHOD_VALUES)[number]>(recoveredInput?.paymentMethod || 'bank_transfer');
+  const [paymentReference, setPaymentReference] = useState(recoveredInput?.paymentReference || '');
+  const [confirmed, setConfirmed] = useState(!!recoveredInput);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const pendingInput = useRef<StandaloneReceiptInput | null>(null);
+  const [reviewedReceipts, setReviewedReceipts] = useState(false);
+  const [savedReceiptId, setSavedReceiptId] = useState<string | null>(null);
+  const [lookup, setLookup] = useState<'idle' | 'checking' | 'missing' | 'error'>('idle');
+  const [lookupRetry, setLookupRetry] = useState(0);
+  const [revoked, setRevoked] = useState(false);
+  const pendingInput = useRef<StandaloneReceiptInput | null>(recoveredInput);
   const submittingRef = useRef(false);
+  const revokedRef = useRef(false);
+  const activeRef = useRef(true);
+  const recoveryBlocked = recovery.status === 'review' || recovery.status === 'unavailable' || revoked || !!savedReceiptId;
+
+  useEffect(() => {
+    activeRef.current = true;
+    const onAccessCleared = () => { revokedRef.current = true; setRevoked(true); };
+    window.addEventListener(INVOICE_RECOVERY_CLEARED_EVENT, onAccessCleared);
+    return () => { activeRef.current = false; window.removeEventListener(INVOICE_RECOVERY_CLEARED_EVENT, onAccessCleared); };
+  }, []);
+
+  const reviewRequestId = recovery.status === 'review' ? recovery.requestId : undefined;
+  useEffect(() => {
+    if (!reviewRequestId || revoked) return;
+    let active = true;
+    setLookup('checking');
+    setReviewedReceipts(false);
+    void authFetch<ReceiptDetail>(`/api/receipts?id=${encodeURIComponent(reviewRequestId)}`)
+      .then((receipt) => {
+        if (!active || revokedRef.current) return;
+        if (receipt.id !== reviewRequestId || receipt.source !== 'standalone' || receipt.createdByAdminId !== ownerId) {
+          setLookup('error');
+          return;
+        }
+        setSavedReceiptId(receipt.id);
+        if (clearPendingStandaloneReceipt(ownerId, reviewRequestId)) {
+          setRecovery({ status: 'none' });
+          setError(null);
+        } else {
+          setError('Your saved receipt was found, but this browser could not clear its recovery record. Open it below; do not create another for this payment.');
+        }
+      })
+      .catch((err) => {
+        if (active && !revokedRef.current) setLookup(err instanceof ApiError && err.status === 404 ? 'missing' : 'error');
+      });
+    return () => { active = false; };
+  }, [ownerId, reviewRequestId, lookupRetry, revoked]);
 
   const inputClass = 'min-h-11 w-full rounded-lg border border-silver-300 bg-white px-3 text-base text-navy-950 outline-none transition-colors focus:border-sky-500 focus:ring-2 focus:ring-sky-100';
   const labelClass = 'mb-1 block text-sm font-medium text-navy-900';
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submittingRef.current) return;
+    if (submittingRef.current || revokedRef.current || recoveryBlocked) return;
     const numericAmount = Number(amount);
     if (!customer.name.trim()) return setError('Customer name is required.');
     if (!customer.email.trim() && !customer.phone.trim()) return setError('Add an email address or phone number.');
@@ -56,6 +110,11 @@ export default function ReceiptEditorPage() {
       paymentReference: paymentReference.trim() || null,
     };
 
+    if (!rememberPendingStandaloneReceipt(ownerId, input)) {
+      setRecovery(readPendingStandaloneReceipt(ownerId));
+      setError('This browser could not safely keep the receipt for recovery. No new request was sent. Allow session storage, then reload and check Receipts before trying again.');
+      return;
+    }
     pendingInput.current = input;
     submittingRef.current = true;
     setSubmitting(true);
@@ -65,14 +124,33 @@ export default function ReceiptEditorPage() {
         method: 'POST',
         body: JSON.stringify(input),
       });
+      if (!activeRef.current || revokedRef.current) return;
+      if (!clearPendingStandaloneReceipt(ownerId, input.requestId)) {
+        setSavedReceiptId(result.receiptId);
+        setError('The receipt was saved, but this browser could not clear its recovery record. Open the saved receipt below. Do not create another for this payment.');
+        return;
+      }
       navigate(`/receipts/${result.receiptId}`);
     } catch (err) {
+      if (!activeRef.current || revokedRef.current) return;
       setError(err instanceof ApiError ? err.message : 'Could not create this receipt.');
-      if (err instanceof ApiError && err.status === 400) pendingInput.current = null;
-      setSubmitting(false);
+      if (err instanceof ApiError && err.status === 400 && clearPendingStandaloneReceipt(ownerId, input.requestId)) {
+        pendingInput.current = null;
+        setRecovery({ status: 'none' });
+      }
     } finally {
       submittingRef.current = false;
+      if (activeRef.current && !revokedRef.current) setSubmitting(false);
     }
+  }
+
+  function discardReviewedAttempt() {
+    if (revokedRef.current || recovery.status !== 'review' || !reviewedReceipts || (reviewRequestId && lookup !== 'missing')
+      || !window.confirm('Only continue if you checked Receipts and this payment has no receipt. Clear this old recovery record?')) return;
+    if (!clearPendingStandaloneReceipt(ownerId)) return setError('The recovery record could not be cleared. Check browser storage before continuing.');
+    setRecovery({ status: 'none' });
+    setReviewedReceipts(false);
+    setError(null);
   }
 
   return (
@@ -89,7 +167,18 @@ export default function ReceiptEditorPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <fieldset disabled={submitting || !!pendingInput.current} className="min-w-0 space-y-4">
+        {revoked && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Your account access changed. Sign in again before creating a receipt.</p>}
+        {recovery.status === 'unavailable' && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Browser storage is unavailable. Receipt creation is paused so a lost connection cannot create duplicates. Allow session storage and reload this page.</p>}
+        {recovery.status === 'review' && !savedReceiptId && <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <p role="alert">An earlier receipt request {recovery.reason === 'expired' ? 'is more than 24 hours old' : 'could not be recovered safely'}. It may already have been saved. Check Receipts before starting another.</p>
+          {reviewRequestId && lookup === 'checking' && <p role="status" className="mt-2">Checking the original receipt…</p>}
+          {reviewRequestId && lookup === 'error' && <div className="mt-2"><p>We could not verify the original receipt. Your recovery record is kept safely.</p><button type="button" className="mt-2 min-h-11 font-semibold underline" onClick={() => setLookupRetry((value) => value + 1)} disabled={revoked}>Retry receipt check</button></div>}
+          {reviewRequestId && lookup === 'missing' && <p className="mt-2">The original receipt was not found. Check the Receipts list too before clearing this recovery record.</p>}
+          <Link to="/receipts" target="_blank" rel="noreferrer" className="mt-2 inline-block font-semibold underline">Check Receipts</Link>
+          <label className="mt-3 flex items-start gap-2"><input type="checkbox" checked={reviewedReceipts} onChange={(event) => setReviewedReceipts(event.target.checked)} disabled={revoked || (!!reviewRequestId && lookup !== 'missing')} />I checked Receipts and this payment has no receipt.</label>
+          <button type="button" onClick={discardReviewedAttempt} disabled={!reviewedReceipts || revoked || (!!reviewRequestId && lookup !== 'missing')} className="mt-3 min-h-11 rounded-lg border border-amber-700 px-3 font-semibold disabled:opacity-50">Clear reviewed recovery record</button>
+        </section>}
+        <fieldset disabled={submitting || !!pendingInput.current || recoveryBlocked} className="min-w-0 space-y-4">
         <section className="rounded-2xl border border-silver-300 bg-white p-4 shadow-sm sm:p-5">
           <h2 className="mb-4 text-base font-semibold text-navy-950">1. Customer</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -155,11 +244,13 @@ export default function ReceiptEditorPage() {
         </section>
 
         </fieldset>
-        {error && pendingInput.current && <p className="text-sm text-navy-700">Your original details are kept for a safe retry. Retry to check or finish the same receipt, or check the Receipts list before starting another.</p>}
+        {pendingInput.current && !savedReceiptId && !revoked && <p className="text-sm text-navy-700">Your original details are kept for a safe retry, including after refreshing this page. Retry to check or finish the same receipt, or check the Receipts list before starting another.</p>}
         {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        {savedReceiptId && <Link to={`/receipts/${savedReceiptId}`} className="inline-block min-h-11 font-semibold text-sky-700 underline">Open saved receipt</Link>}
+        {savedReceiptId && recovery.status === 'none' && <div className="rounded-lg bg-green-50 p-3 text-sm text-green-900"><p>The original receipt is already saved. Its recovery record has been cleared.</p><button type="button" className="mt-2 min-h-11 font-semibold underline" onClick={() => setSavedReceiptId(null)} disabled={revoked}>Create a different receipt</button></div>}
 
         <div className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-10 -mx-4 border-t border-silver-300 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur sm:static sm:mx-0 sm:flex sm:justify-end sm:border-0 sm:bg-transparent sm:px-0 sm:shadow-none">
-          <button type="submit" disabled={submitting || !confirmed} className="min-h-12 w-full rounded-xl bg-navy-950 px-5 text-sm font-semibold text-white transition-colors hover:bg-navy-900 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">
+          <button type="submit" disabled={submitting || !confirmed || recoveryBlocked} className="min-h-12 w-full rounded-xl bg-navy-950 px-5 text-sm font-semibold text-white transition-colors hover:bg-navy-900 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">
             {submitting ? 'Creating receipt…' : pendingInput.current ? 'Retry same receipt' : 'Create final receipt'}
           </button>
         </div>

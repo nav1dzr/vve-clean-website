@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import PDFDocument from 'pdfkit';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -302,6 +303,42 @@ describe('generateInvoicePdfBuffer', () => {
 });
 
 describe('generateReceiptPdfBuffer', () => {
+  it('positions payment rows and totals after wrapped standalone descriptions and references', async () => {
+    const calls = [];
+    const originalText = PDFDocument.prototype.text;
+    const spy = vi.spyOn(PDFDocument.prototype, 'text').mockImplementation(function (text, x, y, options) {
+      const startY = typeof y === 'number' ? y : this.y;
+      const result = originalText.call(this, text, x, y, options);
+      calls.push({ text: String(text), startY, endY: this.y });
+      return result;
+    });
+    const description = 'Synthetic cleaned surfaces, kitchen cupboards, oven, bathroom tiles and floors. '.repeat(6);
+    const reference = 'TEST-ONLY-LONG-PAYMENT-REFERENCE-20261016-NOT-A-REAL-BANK-TRANSFER';
+    try {
+      const buffer = await generateReceiptPdfBuffer(receipt({ source: 'standalone', invoice_id: null, service_description: description, payment_reference: reference, invoice_total: 987.65, total_paid: 987.65 }), settings);
+      const descriptionCall = calls.find((call) => call.text === description);
+      const paymentDate = calls.find((call) => call.text === 'Payment Date: ');
+      const referenceCall = calls.find((call) => call.text === reference);
+      const summary = calls.find((call) => call.text === 'Payment total');
+      expect(paymentDate.startY).toBeGreaterThanOrEqual(descriptionCall.endY);
+      expect(summary.startY).toBeGreaterThan(referenceCall.endY);
+      expect(extractPdfText(buffer)).toContain('£987.65');
+      expect(extractPdfText(buffer)).toContain('Final balance: £0.00');
+      expect(pageCount(buffer)).toBe(1);
+    } finally { spy.mockRestore(); }
+  });
+
+  it('flows oversized receipt details to additional pages without losing their last line or totals', async () => {
+    const reference = 'Synthetic reference detail '.repeat(160) + 'FINAL-REFERENCE-MARK';
+    const buffer = await generateReceiptPdfBuffer(receipt({ source: 'standalone', invoice_id: null, service_description: 'Synthetic clean '.repeat(30), payment_reference: reference }), settings);
+    const text = extractPdfText(buffer);
+    expect(text).toContain('FINAL-REFERENCE-MARK');
+    expect(text).toContain('Details (continued)');
+    expect(text).toContain('Amount Received');
+    expect(text).toContain('Final balance: £0.00');
+    expect(pageCount(buffer)).toBeGreaterThan(1);
+  });
+
   it('includes invoice work notes, service date and property without leaking internal notes', async () => {
     const buffer = await generateReceiptPdfBuffer(receipt({
       service_date: '2026-09-30', service_address: '12 Sample Road', service_postcode: 'E8 1AA',

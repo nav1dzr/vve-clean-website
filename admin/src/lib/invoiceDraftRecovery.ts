@@ -1,4 +1,6 @@
 import { clearPendingInvoicePayments } from './pendingInvoicePayment';
+import { clearPendingStandaloneReceipts } from './pendingStandaloneReceipt';
+import { clearPendingManualBookings } from './pendingManualBooking';
 import type { InvoiceItemsFormValue } from '../components/InvoiceItemsForm';
 
 export const INVOICE_RECOVERY_TTL_MS = 24 * 60 * 60 * 1000;
@@ -146,6 +148,8 @@ export function clearInvoiceDraftRecoveries(): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new Event(INVOICE_RECOVERY_CLEARED_EVENT));
   clearPendingInvoicePayments();
+  clearPendingStandaloneReceipts();
+  clearPendingManualBookings();
   try {
     const storage = window.sessionStorage;
     for (let index = storage.length - 1; index >= 0; index -= 1) {

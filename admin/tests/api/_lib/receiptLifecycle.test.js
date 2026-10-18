@@ -109,6 +109,44 @@ describe('createStandaloneReceipt', () => {
     expect(supabase._tables.invoice_events.filter(e => e.event_type === 'receipt_created')).toHaveLength(1);
   });
 
+  it('preserves a retryable failure when the database commits an insert but its response is lost', async () => {
+    const supabase = createFakeSupabase();
+    const from = supabase.from.bind(supabase);
+    let loseInsertResponse = true;
+    supabase.from = (table) => {
+      const builder = from(table);
+      if (table === 'receipts' && loseInsertResponse) {
+        const insert = builder.insert.bind(builder);
+        builder.insert = (...args) => {
+          insert(...args);
+          const single = builder.single.bind(builder);
+          builder.single = async () => {
+            await single(); // Commit the real fake-store row before losing the result.
+            loseInsertResponse = false;
+            return { data: null, error: { code: 'NETWORK_ERROR', message: 'Insert response lost after commit' } };
+          };
+          return builder;
+        };
+      }
+      return builder;
+    };
+    const input = standaloneInput({ requestId: 'd82c6ccb-e8eb-4410-a649-ab59f395b76b' });
+    const first = await createStandaloneReceipt(supabase, input, ADMIN_ID);
+    expect(first).toMatchObject({ ok: false, status: 503 });
+    expect(supabase._tables.receipts).toHaveLength(1);
+    const retry = await createStandaloneReceipt(supabase, input, ADMIN_ID);
+    expect(retry).toMatchObject({ ok: true, receiptId: input.requestId, alreadyExisted: true });
+    expect(supabase._tables.receipts).toHaveLength(1);
+  });
+
+  it('treats receipt-number allocation errors as retryable server failures', async () => {
+    const supabase = createFakeSupabase();
+    supabase.rpc = async () => ({ data: null, error: { code: 'NETWORK_ERROR', message: 'Unavailable' } });
+    const result = await createStandaloneReceipt(supabase, standaloneInput({ requestId: 'd82c6ccb-e8eb-4410-a649-ab59f395b76b' }), ADMIN_ID);
+    expect(result).toMatchObject({ ok: false, status: 503 });
+    expect(supabase._tables.receipts).toHaveLength(0);
+  });
+
   it('rejects changed details or another owner reusing an existing request identity', async () => {
     const supabase = createFakeSupabase();
     const input = standaloneInput({ requestId: 'd82c6ccb-e8eb-4410-a649-ab59f395b76b' });
