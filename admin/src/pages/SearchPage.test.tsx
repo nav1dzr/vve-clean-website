@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import SearchPage from './SearchPage';
 import { ApiError } from '../lib/authFetch';
 
@@ -29,6 +29,18 @@ function renderSearch(initialEntries = ['/search']) {
       <SearchPage />
     </MemoryRouter>,
   );
+}
+
+function HistoryControls() {
+  const navigate = useNavigate();
+  return <><button onClick={() => navigate(-1)}>Back</button><button onClick={() => navigate(1)}>Forward</button></>;
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
 }
 
 describe('SearchPage', () => {
@@ -91,5 +103,60 @@ describe('SearchPage', () => {
 
     expect(await screen.findByText('Jasmine Carter')).toBeInTheDocument();
     expect(screen.getByText('N15NJ180726')).toBeInTheDocument();
+  });
+
+  it('keeps the latest search when an earlier response arrives last', async () => {
+    const first = deferred<{ results: [] }>();
+    authFetchMock.mockReturnValueOnce(first.promise).mockResolvedValue({ results: [] });
+    const user = userEvent.setup();
+    renderSearch(['/search?q=Earlier']);
+    const input = screen.getByRole('searchbox');
+    await user.clear(input);
+    await user.type(input, 'Latest{Enter}');
+    expect(await screen.findByText(/no results for "Latest"/i)).toBeInTheDocument();
+    await act(async () => { first.resolve({ results: [] }); });
+    expect(screen.getByText(/no results for "Latest"/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no results for "Earlier"/i)).not.toBeInTheDocument();
+  });
+
+  it('ignores an earlier failure after a newer search succeeds', async () => {
+    const first = deferred<{ results: [] }>();
+    authFetchMock.mockReturnValueOnce(first.promise).mockResolvedValue({ results: [] });
+    const user = userEvent.setup();
+    renderSearch(['/search?q=Earlier']);
+    await user.clear(screen.getByRole('searchbox'));
+    await user.type(screen.getByRole('searchbox'), 'Latest{Enter}');
+    expect(await screen.findByText(/no results for "Latest"/i)).toBeInTheDocument();
+    await act(async () => { first.reject(new ApiError(500, 'Old search failed')); });
+    expect(screen.getByText(/no results for "Latest"/i)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('keeps an empty submitted query idle after an earlier search resolves', async () => {
+    const first = deferred<{ results: [] }>();
+    authFetchMock.mockReturnValue(first.promise);
+    const user = userEvent.setup();
+    renderSearch(['/search?q=Earlier']);
+    await user.clear(screen.getByRole('searchbox'));
+    await user.keyboard('{Enter}');
+    await act(async () => { first.resolve({ results: [] }); });
+    expect(screen.getByText('Search for a customer')).toBeInTheDocument();
+    expect(screen.queryByText(/no results for "Earlier"/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps the input and results in sync with browser Back and Forward', async () => {
+    authFetchMock.mockResolvedValue({ results: [] });
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={['/search?q=First']}><HistoryControls /><SearchPage /></MemoryRouter>);
+    expect(await screen.findByText(/no results for "First"/i)).toBeInTheDocument();
+    await user.clear(screen.getByRole('searchbox'));
+    await user.type(screen.getByRole('searchbox'), 'Second{Enter}');
+    expect(await screen.findByText(/no results for "Second"/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByText(/no results for "First"/i)).toBeInTheDocument();
+    expect(screen.getByRole('searchbox')).toHaveValue('First');
+    await user.click(screen.getByRole('button', { name: 'Forward' }));
+    expect(await screen.findByText(/no results for "Second"/i)).toBeInTheDocument();
+    expect(screen.getByRole('searchbox')).toHaveValue('Second');
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
 import type { ReceiptListResponse } from '../types/invoice';
@@ -21,20 +21,29 @@ export default function ReceiptListPage() {
   const page = Number.parseInt(searchParams.get('page') || '1', 10) || 1;
   const [state, setState] = useState<State>({ status: 'loading' });
   const [localQuery, setLocalQuery] = useState(q);
+  const loadVersion = useRef(0);
+
+  useEffect(() => setLocalQuery(q), [q]);
 
   function load() {
+    const version = ++loadVersion.current;
     setState({ status: 'loading' });
     const qs = new URLSearchParams();
     if (q) qs.set('q', q);
     qs.set('page', String(page));
     qs.set('pageSize', String(PAGE_SIZE));
     authFetch<ReceiptListResponse>(`/api/receipts?${qs.toString()}`)
-      .then((data) => setState({ status: 'success', data }))
-      .catch((err) => setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load receipts.' }));
+      .then((data) => { if (version === loadVersion.current) setState({ status: 'success', data }); })
+      .catch((err) => {
+        if (version === loadVersion.current) setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load receipts.' });
+      });
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(load, [searchParams]);
+  useEffect(() => {
+    load();
+    return () => { loadVersion.current += 1; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   function applySearch() {
     const next = new URLSearchParams(searchParams);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
 import type { InvoiceListResponse, InvoiceSortValue } from '../types/invoice';
@@ -42,8 +42,10 @@ export default function InvoiceListPage() {
   const filters = readFilters(searchParams);
   const [state, setState] = useState<State>({ status: 'loading' });
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const loadVersion = useRef(0);
 
   function load() {
+    const version = ++loadVersion.current;
     setState({ status: 'loading' });
     const qs = new URLSearchParams();
     if (filters.documentStatus) qs.set('documentStatus', filters.documentStatus);
@@ -56,14 +58,17 @@ export default function InvoiceListPage() {
     qs.set('pageSize', String(PAGE_SIZE));
 
     authFetch<InvoiceListResponse>(`/api/invoices?${qs.toString()}`)
-      .then((data) => setState({ status: 'success', data }))
-      .catch((err) =>
-        setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load invoices.' }),
-      );
+      .then((data) => { if (version === loadVersion.current) setState({ status: 'success', data }); })
+      .catch((err) => {
+        if (version === loadVersion.current) setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load invoices.' });
+      });
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(load, [searchParams]);
+  useEffect(() => {
+    load();
+    return () => { loadVersion.current += 1; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   function updateFilter(key: string, value: string) {
     const next = new URLSearchParams(searchParams);
