@@ -62,6 +62,7 @@ describe('InvoiceEditorPage', () => {
   it('renders an empty form with no prefill when there is no bookingId', () => {
     renderEditor();
     expect(screen.getByLabelText('Name *')).toHaveValue('');
+    expect(screen.getByLabelText('Payment terms')).toHaveValue('Payment is due on the cleaning day.');
   });
 
   it('prefills customer and a single line item from the booking when ?bookingId= is present', async () => {

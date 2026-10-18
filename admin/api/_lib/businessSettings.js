@@ -48,7 +48,9 @@ export function getBusinessSettings() {
     currencySymbol: '£',
 
     defaultPaymentTermsDays: 0,
+    // Preserve the legacy email fallback for historical documents with no saved terms.
     defaultPaymentTermsText: 'Payment is due after the clean.',
+    newInvoicePaymentTermsText: 'Payment is due on the cleaning day.',
 
     invoicePrefix: 'INV',
     receiptPrefix: 'REC',
