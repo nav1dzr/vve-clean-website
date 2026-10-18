@@ -1459,14 +1459,21 @@ export async function journeyAdminView(db, id) {
   ]);
   if (ne || ee || pe)
     throw new JourneyError("Booking history could not be loaded.", 503);
+  const terminalPreview = ["cancelled", "completed", "payment_review"].includes(journey.state);
+  const previewAgreement = terminalPreview ? journey.snapshot || journey.draft : journey.draft;
+  const previewKind = journey.state === "cancelled" ? "cancelled"
+    : journey.state === "payment_review" ? "payment_review"
+    : journey.state === "completed" ? (journey.paid_pence - journey.refunded_pence >= previewAgreement.totalPence ? "receipt" : "balance_due")
+    : ["confirmed", "change_pending"].includes(journey.state) ? "change_proposal"
+    : requiresDeposit(journey.draft) ? "deposit_request" : "confirmation";
   const previewJourney = {
     ...journey,
     snapshot: {
-      ...journey.draft,
+      ...previewAgreement,
       paymentInstructions: bookingPaymentInstructions(booking.booking_ref, journey.snapshot?.paymentInstructions ? journey.snapshot : journey.draft),
     },
     state: ["draft", "offered", "expired"].includes(journey.state) ? (requiresDeposit(journey.draft) ? "offered" : "confirmed") : journey.state,
-    hold_until: requiresDeposit(journey.draft) ? new Date(Date.now() + Number(journey.draft.paymentWindowHours || 48) * 3600000).toISOString() : null,
+    hold_until: terminalPreview ? journey.hold_until : requiresDeposit(journey.draft) ? new Date(Date.now() + Number(journey.draft.paymentWindowHours || 48) * 3600000).toISOString() : null,
   };
   return {
     journey,
@@ -1479,9 +1486,7 @@ export async function journeyAdminView(db, id) {
       messagePayload(
         booking,
         previewJourney,
-        ["confirmed", "change_pending"].includes(journey.state)
-          ? "change_proposal"
-          : requiresDeposit(journey.draft) ? "deposit_request" : "confirmation",
+        previewKind,
       ),
     ),
     manageUrl: manageLink(journey),

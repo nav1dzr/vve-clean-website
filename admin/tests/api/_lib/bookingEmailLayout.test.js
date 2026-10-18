@@ -13,6 +13,23 @@ const build = (patch = {}, options = {}) => renderBookingEmail({
 });
 
 describe('customer booking presentation', () => {
+  it.each(['after_clean', 'deposit_after_agreement'])('labels proposed changes as awaiting approval for %s without changing the confirmed state', (paymentPlan) => {
+    const journey = { snapshot: { ...snapshot, paymentPlan }, state: 'confirmed', paid_pence: paymentPlan === 'after_clean' ? 0 : 3000, refunded_pence: 0 };
+    const before = structuredClone(journey);
+    const email = build({}, { payload: { kind: 'change_proposal', name: 'Test Customer', reference: 'TEST', journey }, heading: 'Please review your revised booking', depositDue: false });
+    expect(email.html).toContain('CHANGES AWAITING YOUR APPROVAL');
+    expect(email.html).toContain('Proposed appointment');
+    expect(email.text).toContain('Proposed appointment:');
+    expect(email.html).not.toContain('APPOINTMENT CONFIRMED');
+    expect(email.html).not.toContain('background:#eaf7f0');
+    expect(journey).toEqual(before);
+  });
+  it('keeps the confirmed badge for an accepted revised appointment', () => {
+    const email = build({}, { payload: { kind: 'revised_confirmation', name: 'Test Customer', reference: 'TEST', journey: { snapshot, state: 'confirmed', paid_pence: 3000 } }, depositDue: false });
+    expect(email.html).toContain('APPOINTMENT CONFIRMED');
+    expect(email.html).not.toContain('CHANGES AWAITING YOUR APPROVAL');
+    expect(email.html).not.toContain('Proposed appointment');
+  });
   it.each(['P', 'P.', 'P. J.', 'PJ', 'Paul Example'])('uses the full entered name without guessing: %s', (name) => {
     const email = build({}, { payload: { name, reference: 'EXAMPLE', journey: { snapshot, state: 'offered', paid_pence: 0, refunded_pence: 0 } } });
     expect(email.text.startsWith(`Hello ${name},`)).toBe(true);
