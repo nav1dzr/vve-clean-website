@@ -209,6 +209,15 @@ export async function createStandaloneReceipt(supabase, input, adminId, { genera
     if (previous) return previous;
   }
 
+  // Validate new records against the business timezone, not server-local or
+  // UTC midnight. Exact retries above only recover existing immutable records.
+  const londonToday = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
+  if (input.paymentDate > londonToday) {
+    return { ok: false, error: 'Payment date cannot be in the future (London time).' };
+  }
+
   const { data: numberResult, error: numberErr } = await supabase.rpc('next_document_number', { p_doc_type: 'receipt' });
   if (numberErr || !numberResult) {
     console.error('[admin/api] standalone receipt number allocation failed:', numberErr?.code, numberErr?.message);

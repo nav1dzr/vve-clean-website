@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { createFakeSupabase } from './fakeSupabase.js';
 import {
   createReceiptIfPaid, createStandaloneReceipt, markReceiptSent, loadReceiptPdfExtras,
@@ -98,6 +98,50 @@ describe('createStandaloneReceipt', () => {
       ...overrides,
     };
   }
+
+  afterEach(() => { vi.useRealTimers(); });
+
+  it.each([
+    ['2026-07-01T23:30:00Z', '2026-07-03'],
+    ['2026-12-01T23:30:00Z', '2026-12-02'],
+  ])('rejects a future payment date before writes at %s', async (now, paymentDate) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(now));
+    const supabase = createFakeSupabase();
+    const allocate = vi.spyOn(supabase, 'rpc');
+    const generateAndStorePdf = vi.fn();
+    const result = await createStandaloneReceipt(supabase, standaloneInput({ paymentDate }), ADMIN_ID, { generateAndStorePdf });
+    expect(result).toMatchObject({ ok: false, error: 'Payment date cannot be in the future (London time).' });
+    expect(allocate).not.toHaveBeenCalled();
+    expect(supabase._tables.receipts ?? []).toHaveLength(0);
+    expect(supabase._tables.invoice_events ?? []).toHaveLength(0);
+    expect(generateAndStorePdf).not.toHaveBeenCalled();
+  });
+
+  it('accepts the current London date after summer midnight even while UTC is yesterday', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-07-01T23:30:00Z'));
+    const supabase = createFakeSupabase();
+    const result = await createStandaloneReceipt(supabase, standaloneInput({ paymentDate: '2026-07-02' }), ADMIN_ID);
+    expect(result.ok).toBe(true);
+    expect(supabase._tables.receipts[0].payment_date).toBe('2026-07-02');
+  });
+
+  it('recovers an already-saved exact request without rewriting an existing receipt date', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-19T12:00:00Z'));
+    const supabase = createFakeSupabase();
+    const input = standaloneInput({ requestId: 'd82c6ccb-e8eb-4410-a649-ab59f395b76b', paymentDate: '2026-10-19' });
+    const first = await createStandaloneReceipt(supabase, input, ADMIN_ID);
+    // Represents an existing receipt created before the future-date guard.
+    vi.setSystemTime(new Date('2026-10-18T12:00:00Z'));
+    const allocate = vi.spyOn(supabase, 'rpc');
+    const replay = await createStandaloneReceipt(supabase, input, ADMIN_ID);
+    expect(replay).toMatchObject({ ok: true, alreadyExisted: true, receiptId: first.receiptId });
+    expect(allocate).not.toHaveBeenCalled();
+    expect(supabase._tables.receipts).toHaveLength(1);
+    expect(supabase._tables.receipts[0].payment_date).toBe('2026-10-19');
+  });
 
   it('returns the original receipt when the same request is retried after a lost response', async () => {
     const supabase = createFakeSupabase();

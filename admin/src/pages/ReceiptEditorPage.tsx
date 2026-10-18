@@ -92,6 +92,10 @@ function ReceiptEditorForm({ ownerId }: { ownerId: string }) {
     if (!customer.email.trim() && !customer.phone.trim()) return setError('Add an email address or phone number.');
     if (!serviceDescription.trim()) return setError('Describe what the customer paid for.');
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) return setError('Enter the amount already received.');
+    // Keep an uncertain request unchanged so the server can recover its
+    // original receipt; only new submissions must pass today's date limit.
+    if (!pendingInput.current && !paymentDate) return setError('Enter the payment date.');
+    if (!pendingInput.current && paymentDate > today()) return setError('Payment date cannot be in the future (London time).');
     if (!confirmed) return setError('Confirm that the payment has already been received.');
 
     const input: StandaloneReceiptInput = pendingInput.current || {
@@ -218,7 +222,7 @@ function ReceiptEditorForm({ ownerId }: { ownerId: string }) {
             </label>
             <label>
               <span className={labelClass}>Payment date *</span>
-              <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className={inputClass} />
+              <input type="date" value={paymentDate} max={today()} onFocus={(e) => { e.currentTarget.max = today(); }} onChange={(e) => setPaymentDate(e.target.value)} className={inputClass} />
             </label>
             <label>
               <span className={labelClass}>Payment method *</span>

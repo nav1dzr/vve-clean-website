@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import ReceiptEditorPage from './ReceiptEditorPage';
@@ -59,6 +59,59 @@ describe('ReceiptEditorPage', () => {
     await user.click(screen.getByRole('button', { name: /create final receipt/i }));
     expect(screen.getByRole('alert')).toHaveTextContent(/email address or phone number/i);
     expect(authFetchMock).not.toHaveBeenCalled();
+  });
+
+  function fillDateTestReceipt(paymentDate: string) {
+    fireEvent.change(screen.getByLabelText('Customer name *'), { target: { value: 'TEST ONLY - receipt date' } });
+    fireEvent.change(screen.getByLabelText('Phone'), { target: { value: '07700900977' } });
+    fireEvent.change(screen.getByLabelText('What did they pay for? *'), { target: { value: 'Synthetic cleaning' } });
+    fireEvent.change(screen.getByLabelText('Amount received (£) *'), { target: { value: '10' } });
+    fireEvent.change(screen.getByLabelText('Payment date *'), { target: { value: paymentDate } });
+    fireEvent.click(screen.getByRole('checkbox'));
+  }
+
+  it('blocks future dates before sending or storing a receipt, even if native form validation is bypassed', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-12-01T23:30:00Z'));
+    renderPage();
+    fillDateTestReceipt('2026-12-02');
+    fireEvent.submit(screen.getByRole('button', { name: 'Create final receipt' }).closest('form')!);
+    expect(screen.getByRole('alert')).toHaveTextContent('Payment date cannot be in the future (London time).');
+    expect(screen.getByLabelText('Payment date *')).toHaveAttribute('max', '2026-12-01');
+    expect(authFetchMock).not.toHaveBeenCalled();
+    expect(readPendingStandaloneReceipt(account.id).status).toBe('none');
+  });
+
+  it('uses the current London date at submit time when the form stays open over midnight', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-07-01T22:59:00Z'));
+    authFetchMock.mockResolvedValue({ ok: true, receiptId: 'receipt-midnight' });
+    renderPage();
+    fillDateTestReceipt('2026-07-02');
+    expect(screen.getByLabelText('Payment date *')).toHaveAttribute('max', '2026-07-01');
+    vi.setSystemTime(new Date('2026-07-01T23:01:00Z'));
+    fireEvent.focus(screen.getByLabelText('Payment date *'));
+    expect(screen.getByLabelText('Payment date *')).toHaveAttribute('max', '2026-07-02');
+    fireEvent.submit(screen.getByRole('button', { name: 'Create final receipt' }).closest('form')!);
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/receipts/receipt-midnight'));
+    expect(JSON.parse(authFetchMock.mock.calls[0][1].body).paymentDate).toBe('2026-07-02');
+  });
+
+  it('allows exact recovery of a previously submitted receipt even if its saved date is in the future', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-18T12:00:00Z'));
+    const input: StandaloneReceiptInput = {
+      requestId: 'd82c6ccb-e8eb-4410-a649-ab59f395b76b',
+      customer: { name: 'TEST ONLY - prior receipt', phone: '07700900977', email: null, address: null, postcode: null },
+      serviceDescription: 'Synthetic previously saved payment', amount: 10,
+      paymentDate: '2026-10-19', paymentMethod: 'bank_transfer',
+    };
+    rememberPendingStandaloneReceipt(account.id, input);
+    authFetchMock.mockResolvedValue({ ok: true, receiptId: input.requestId });
+    renderPage();
+    fireEvent.submit(screen.getByRole('button', { name: 'Retry same receipt' }).closest('form')!);
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/receipts/${input.requestId}`));
+    expect(JSON.parse(authFetchMock.mock.calls[0][1].body)).toEqual(input);
   });
 
   it('submits a standalone receipt with a structured address and opens it', async () => {
