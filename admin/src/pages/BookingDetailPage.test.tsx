@@ -303,6 +303,7 @@ describe('BookingDetailPage', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Withdraw measurement consent' }));
     expect(screen.getByText(/confirm the customer has asked/i)).toBeInTheDocument();
+    expect(screen.getByText(/original request source details will remain on this booking/i)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Confirm withdrawal' }));
 
     await waitFor(() => expect(authFetchMock).toHaveBeenCalledWith(
@@ -310,6 +311,9 @@ describe('BookingDetailPage', () => {
       { method: 'POST' },
     ));
     expect(await screen.findByText(/consent withdrawn/i)).toBeInTheDocument();
+    expect(screen.getByText(/advertising reporting is disabled for this booking/i)).toBeInTheDocument();
+    expect(screen.getByText(/original request source details remain on this booking/i)).toBeInTheDocument();
+    expect(screen.queryByText(/stored measurement identifiers were removed/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Withdraw measurement consent' })).not.toBeInTheDocument();
   });
 

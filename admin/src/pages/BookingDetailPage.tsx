@@ -268,14 +268,14 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
       <Section title="Advertising measurement">
         {b.measurement.consentWithdrawnAt ? (
           <p className="text-sm text-navy-700">
-            Consent withdrawn {formatDateTime(b.measurement.consentWithdrawnAt)}. Stored measurement identifiers were removed and unsent events were suppressed.
+            Consent withdrawn {formatDateTime(b.measurement.consentWithdrawnAt)}. Advertising reporting is disabled for this booking. Identifiers in reporting records were removed and unsent events were suppressed. Original request source details remain on this booking.
           </p>
         ) : b.measurement.advertisingConsent ? (
           <div className="space-y-3">
             <p className="text-sm text-navy-700">Advertising measurement consent is currently recorded for this booking.</p>
             {withdrawalStep !== 'idle' ? (
               <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                <p className="text-sm text-red-900">Confirm the customer has asked to withdraw advertising measurement consent. This removes stored measurement identifiers and suppresses unsent events.</p>
+                <p className="text-sm text-red-900">Confirm the customer has asked to withdraw advertising measurement consent. This disables advertising reporting, removes identifiers from reporting records and suppresses unsent events. Original request source details will remain on this booking.</p>
                 {withdrawalError && <p role="alert" className="mt-2 text-sm text-red-800">{withdrawalError}</p>}
                 <div className="mt-3 flex gap-2">
                   <button type="button" disabled={withdrawalStep === 'saving'} onClick={withdrawMeasurementConsent} className="min-h-11 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white disabled:opacity-60">
