@@ -196,6 +196,9 @@ export async function updateCustomer(supabase, customerId, input, adminId) {
     .from('customers').select('id').eq('id', customerId).maybeSingle();
   if (fetchErr) return { ok: false, error: 'Failed to load customer' };
   if (!existing) return { ok: false, error: 'Customer not found', status: 404 };
+  if (typeof input?.expectedUpdatedAt !== 'string' || !Number.isFinite(Date.parse(input.expectedUpdatedAt))) {
+    return { ok: false, status: 400, error: 'Reload the customer before saving so the latest details can be checked.' };
+  }
 
   const check = validateCustomerInput(input);
   if (!check.ok) return { ok: false, error: check.error };
@@ -204,7 +207,7 @@ export async function updateCustomer(supabase, customerId, input, adminId) {
     email: input.email, phone: input.phone, postcode: input.postcode, name: input.name,
   }, customerId);
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('customers')
     .update({
       name: input.name.trim(),
@@ -220,16 +223,22 @@ export async function updateCustomer(supabase, customerId, input, adminId) {
       normalised_phone: normalisePhoneForDedup(input.phone),
       updated_at: nowIso(),
     })
-    .eq('id', customerId);
+    .eq('id', customerId)
+    .eq('updated_at', input.expectedUpdatedAt)
+    .select('updated_at')
+    .maybeSingle();
 
   if (error) {
     console.error('[admin/api] customer update failed:', error.code, error.message);
     return { ok: false, error: 'Failed to update customer' };
   }
+  if (!updated) {
+    return { ok: false, status: 409, error: 'This customer changed since you opened it. Copy your edits, then reload and review the latest details before saving.' };
+  }
 
   await logEvent(supabase, { documentId: customerId, eventType: 'updated', adminId });
 
-  return { ok: true, duplicateWarnings };
+  return { ok: true, duplicateWarnings, updatedAt: updated.updated_at };
 }
 
 // Customer detail + history. Balances/totals are only summed across

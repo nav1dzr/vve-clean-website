@@ -164,9 +164,44 @@ describe('CustomerFormPage — edit', () => {
     navigateMock.mockReset();
   });
 
+  it('submits the loaded version, preserves a stale edit, and reloads only after explicit discard', async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockResolvedValueOnce({ id: 'cust-1', name: 'Test customer', customerType: 'individual', source: 'other', notes: 'Original', updatedAt: '2026-10-18T12:00:00.000Z' });
+    renderEdit();
+    await screen.findByDisplayValue('Test customer');
+    await user.clear(screen.getByLabelText('Notes'));
+    await user.type(screen.getByLabelText('Notes'), 'My unsaved edit');
+    authFetchMock.mockRejectedValueOnce(new ApiError(409, 'This customer changed since you opened it. Copy your edits, then reload and review the latest details before saving.'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('customer changed');
+    expect(JSON.parse(authFetchMock.mock.calls[1][1].body).expectedUpdatedAt).toBe('2026-10-18T12:00:00.000Z');
+    expect(screen.getByLabelText('Notes')).toHaveValue('My unsaved edit');
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+    expect(navigateMock).not.toHaveBeenCalled();
+    authFetchMock.mockResolvedValueOnce({ id: 'cust-1', name: 'Test customer', customerType: 'individual', source: 'other', notes: 'Latest saved by another editor', updatedAt: '2026-10-18T12:05:00.000Z' });
+    await user.click(screen.getByRole('button', { name: 'Discard edits and reload latest' }));
+    expect(await screen.findByDisplayValue('Latest saved by another editor')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled();
+  });
+
+  it('uses the returned version after a successful save stays open for a duplicate warning', async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockResolvedValueOnce({ id: 'cust-1', name: 'Test customer', customerType: 'individual', source: 'other', updatedAt: '2026-10-18T12:00:00.000Z' });
+    renderEdit();
+    await screen.findByDisplayValue('Test customer');
+    authFetchMock.mockResolvedValueOnce({ ok: true, updatedAt: '2026-10-18T12:05:00.000Z', duplicateWarnings: [{ type: 'email', customer: { id: 'other', name: 'Other customer' } }] });
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText(/Possible duplicate/);
+    await user.type(screen.getByLabelText('Notes'), 'Reviewed duplicate; separate person.');
+    authFetchMock.mockResolvedValueOnce({ ok: true, updatedAt: '2026-10-18T12:06:00.000Z', duplicateWarnings: [] });
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(JSON.parse(authFetchMock.mock.calls[2][1].body).expectedUpdatedAt).toBe('2026-10-18T12:05:00.000Z');
+    expect(navigateMock).toHaveBeenCalledWith('/customers/cust-1');
+  });
+
   it('recognises a saved Checkatrade source and keeps existing notes when saving again', async () => {
     const user = userEvent.setup();
-    authFetchMock.mockResolvedValueOnce({ id: 'cust-1', name: 'Synthetic customer', customerType: 'individual', source: 'other', notes: 'Customer source: Checkatrade.\nKeep side gate shut.' });
+    authFetchMock.mockResolvedValueOnce({ id: 'cust-1', name: 'Synthetic customer', customerType: 'individual', source: 'other', notes: 'Customer source: Checkatrade.\nKeep side gate shut.', updatedAt: '2026-10-18T12:00:00.000Z' });
     authFetchMock.mockResolvedValueOnce({ ok: true, duplicateWarnings: [] });
     renderEdit();
     await screen.findByDisplayValue('Synthetic customer');

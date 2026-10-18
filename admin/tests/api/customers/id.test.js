@@ -105,20 +105,32 @@ describe('/api/customers/:id[?action=] (detail/update/history/manual booking)', 
 
   it('updates a customer', async () => {
     const supabase = createFakeSupabase({
-      customers: [{ id: VALID_UUID, name: 'Jane Doe', email: 'jane@example.com', phone: null, postcode: null, customer_type: 'individual', source: 'other', created_at: '2026-01-01T00:00:00Z' }],
+      customers: [{ id: VALID_UUID, name: 'Jane Doe', email: 'jane@example.com', phone: null, postcode: null, customer_type: 'individual', source: 'other', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-10-18T12:00:00.000Z' }],
     });
     getServiceClientMock.mockReturnValue(supabase);
 
     const res = makeRes();
     await handler(makeReq({
       url: `/api/customers/${VALID_UUID}`, method: 'PATCH',
-      bodyObj: { name: 'Jane Updated', email: 'jane@example.com', customerType: 'business', source: 'referral' },
+      bodyObj: { name: 'Jane Updated', email: 'jane@example.com', customerType: 'business', source: 'referral', expectedUpdatedAt: '2026-10-18T12:00:00.000Z' },
     }), res);
     expect(res.statusCode).toBe(200);
 
     const row = supabase._tables.customers.find((c) => c.id === VALID_UUID);
     expect(row.name).toBe('Jane Updated');
     expect(row.customer_type).toBe('business');
+    expect(JSON.parse(res.body).updatedAt).toBe(row.updated_at);
+  });
+
+  it('returns409 for a stale customer PATCH and preserves current data', async () => {
+    const supabase = createFakeSupabase({ customers: [{ id: VALID_UUID, name: 'Latest customer', notes: 'Newer note', updated_at: '2026-10-18T12:05:00.000Z' }] });
+    getServiceClientMock.mockReturnValue(supabase);
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/customers/${VALID_UUID}`, method: 'PATCH', bodyObj: { name: 'Stale edit', expectedUpdatedAt: '2026-10-18T12:00:00.000Z' } }), res);
+    expect(res.statusCode).toBe(409);
+    expect(JSON.parse(res.body).error).toMatch(/changed since you opened/);
+    expect(supabase._tables.customers[0].notes).toBe('Newer note');
+    expect(supabase._tables.customers[0].name).toBe('Latest customer');
   });
 
   it('creates a manual booking for the customer via ?action=bookings', async () => {
@@ -202,12 +214,12 @@ describe('/api/customers/:id[?action=] (detail/update/history/manual booking)', 
 
   it('returns customer event history via ?action=events', async () => {
     const supabase = createFakeSupabase({
-      customers: [{ id: VALID_UUID, name: 'Jane Doe', email: 'jane@example.com', phone: null, postcode: null, customer_type: 'individual', source: 'other', created_at: '2026-01-01T00:00:00Z' }],
+      customers: [{ id: VALID_UUID, name: 'Jane Doe', email: 'jane@example.com', phone: null, postcode: null, customer_type: 'individual', source: 'other', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-10-18T12:00:00.000Z' }],
     });
     getServiceClientMock.mockReturnValue(supabase);
     await handler(makeReq({
       url: `/api/customers/${VALID_UUID}`, method: 'PATCH',
-      bodyObj: { name: 'Jane Doe', email: 'jane@example.com' },
+      bodyObj: { name: 'Jane Doe', email: 'jane@example.com', expectedUpdatedAt: '2026-10-18T12:00:00.000Z' },
     }), makeRes());
 
     const res = makeRes();

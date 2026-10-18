@@ -113,7 +113,7 @@ async function handleUpdate(req, res, headers, supabase, customerId, auth) {
   }
 
   res.writeHead(200, headers);
-  return res.end(JSON.stringify({ ok: true, duplicateWarnings: result.duplicateWarnings }));
+  return res.end(JSON.stringify({ ok: true, duplicateWarnings: result.duplicateWarnings, updatedAt: result.updatedAt }));
 }
 
 async function handleEvents(req, res, headers, supabase, customerId) {

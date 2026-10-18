@@ -40,11 +40,15 @@ export default function CustomerFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<CustomerDuplicateWarning[]>([]);
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | undefined>();
+  const [conflict, setConflict] = useState(false);
 
   useEffect(() => {
     let active = true;
     setError(null);
     setWarnings([]);
+    setExpectedUpdatedAt(undefined);
+    setConflict(false);
     setValue(emptyValue());
     if (!id && !fromBookingId) {
       setLoad({ key: loadKey, status: 'ready' });
@@ -55,6 +59,7 @@ export default function CustomerFormPage() {
     const request = id
       ? authFetch<CustomerDetail>(`/api/customers/${id}`).then((c) => {
         if (!active) return;
+        setExpectedUpdatedAt(c.updatedAt);
         setValue({
           name: c.name, email: c.email || '', phone: c.phone || '', address: c.address || '', postcode: c.postcode || '',
           customerType: c.customerType, source: customerSourceChoice(c.source, c.notes), preferredContactMethod: c.preferredContactMethod || '', notes: c.notes || '',
@@ -79,6 +84,7 @@ export default function CustomerFormPage() {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submitting || conflict) return;
     if (!value.name.trim()) {
       setError('Name is required.');
       return;
@@ -88,6 +94,7 @@ export default function CustomerFormPage() {
 
     const savedSource = customerSourceInput(value.source, value.notes);
     const input: CustomerDraftInput = {
+      ...(isEdit ? { expectedUpdatedAt } : {}),
       name: value.name.trim(),
       email: value.email.trim() || null,
       phone: value.phone.trim() || null,
@@ -102,6 +109,7 @@ export default function CustomerFormPage() {
     try {
       if (isEdit && id) {
         const result = await authFetch<CustomerUpdateResponse>(`/api/customers/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+        setExpectedUpdatedAt(result.updatedAt);
         if (result.duplicateWarnings.length > 0) {
           setWarnings(result.duplicateWarnings);
           setSubmitting(false);
@@ -121,6 +129,7 @@ export default function CustomerFormPage() {
         navigate(`/customers/${result.id}`);
       }
     } catch (err) {
+      if (err instanceof ApiError && err.status === 409) setConflict(true);
       setError(err instanceof ApiError ? err.message : 'Could not save this customer.');
       setSubmitting(false);
     }
@@ -206,8 +215,12 @@ export default function CustomerFormPage() {
         </section>
 
         {error && <p role="alert" className="mb-3 text-sm text-red-600">{error}</p>}
+        {conflict && <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-navy-900">
+          <p className="mb-2">Your edits are still here. Copy anything you want to keep before loading the latest saved customer.</p>
+          <button type="button" onClick={() => setRetry((attempt) => attempt + 1)} className="min-h-11 rounded-lg border border-amber-300 px-3 font-semibold">Discard edits and reload latest</button>
+        </div>}
 
-        <button type="submit" disabled={submitting} className="min-h-11 w-full rounded-lg bg-navy-950 px-4 text-sm font-semibold text-white transition-colors hover:bg-navy-900 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
+        <button type="submit" disabled={submitting || conflict} className="min-h-11 w-full rounded-lg bg-navy-950 px-4 text-sm font-semibold text-white transition-colors hover:bg-navy-900 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
           {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create customer'}
         </button>
       </form>
