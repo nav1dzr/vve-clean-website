@@ -5,7 +5,7 @@
 // offered an enlargement that does not exist.
 
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import PhotoLightbox from './PhotoLightbox';
@@ -99,6 +99,37 @@ describe('PhotoLightbox — opening', () => {
 });
 
 describe('PhotoLightbox — closing', () => {
+  it('closes and restores scrolling/focus when a media refresh removes the current index', async () => {
+    const user = userEvent.setup();
+    document.body.style.overflow = 'auto';
+    const { rerender } = render(<Harness />);
+    const opener = screen.getByRole('button', { name: 'Open Photo A' });
+    await user.click(opener);
+    await user.click(screen.getByRole('button', { name: 'Previous photo' }));
+    expect(within(dialog()).getByText('Photo 3 of 3')).toBeInTheDocument();
+
+    rerender(<Harness photos={[PHOTOS[0]]} />);
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe('auto');
+    await waitFor(() => expect(opener).toHaveFocus());
+    await user.click(opener);
+    expect(within(dialog()).getByAltText('Alt for photo A')).toBeInTheDocument();
+  });
+
+  it('clears the open state when every photo disappears so a later refresh cannot reopen it', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<Harness />);
+    await user.click(screen.getByRole('button', { name: 'Open Photo A' }));
+
+    rerender(<Harness photos={[]} />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe('');
+    rerender(<Harness />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe('');
+  });
+
   it('closes on the Close button and unlocks scrolling', async () => {
     const user = userEvent.setup();
     render(<Harness />);

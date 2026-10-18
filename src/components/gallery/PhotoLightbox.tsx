@@ -27,9 +27,15 @@ export default function PhotoLightbox({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const isOpen = index !== null && photos.length > 0;
+  const isOpen = index !== null && Number.isInteger(index) && index >= 0 && index < photos.length;
   const total = photos.length;
   const multiple = total > 1;
+
+  // A publication refresh can remove photos while the viewer is open. Close
+  // through its owner so scrolling, focus and the saved index all recover.
+  useEffect(() => {
+    if (index !== null && !isOpen) onClose();
+  }, [index, isOpen, onClose]);
 
   const goPrev = useCallback(() => {
     if (index === null) return;
