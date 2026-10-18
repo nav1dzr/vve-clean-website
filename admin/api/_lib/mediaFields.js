@@ -103,9 +103,15 @@ export function validateNewAsset(body) {
 }
 
 export function normaliseMetadata(body) {
+  const categoryPlacement = {
+    carpet: "gallery-carpet",
+    "sofa-upholstery": "gallery-sofa",
+    "end-of-tenancy": "gallery-end-of-tenancy",
+  };
+  const chosenCategory = CATEGORY_VALUES.includes(body.category) ? body.category : "end-of-tenancy";
   const placement = PLACEMENT_VALUES.includes(body.placement)
     ? body.placement
-    : "gallery-end-of-tenancy";
+    : categoryPlacement[chosenCategory];
   const defaults = PLACEMENT_DEFAULTS[placement];
   const category = CATEGORY_VALUES.includes(body.category)
     ? body.category
@@ -116,7 +122,9 @@ export function normaliseMetadata(body) {
   return {
     title: text(body.title, MAX_TITLE),
     altText: text(body.altText, MAX_TEXT),
-    service: text(body.service, 100) || defaults.service,
+    service: text(body.service, 100) || (category === defaults.category
+      ? defaults.service
+      : PLACEMENT_DEFAULTS[categoryPlacement[category]].service),
     category,
     placement,
     beforeAfter,
