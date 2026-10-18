@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import BookingManagementPage from "./BookingManagementPage";
 
@@ -45,6 +45,57 @@ beforeEach(() => {
   );
 });
 describe("private customer management journey", () => {
+  it("switches private links without retaining the prior booking or unfinished form", async () => {
+    const user = userEvent.setup();
+    render(<BookingManagementPage />);
+    await screen.findByText("Booking TEST-001");
+    await user.click(screen.getByRole("button", { name: "Request cancellation" }));
+    await user.type(screen.getByLabelText("Reason (optional)"), "Private note for first booking");
+    let resolveSecond!: (response: Response) => void;
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>(resolve => { resolveSecond = resolve; }));
+    window.history.replaceState(null, "", "/manage-booking#token=second-private-token");
+    fireEvent(window, new HashChangeEvent("hashchange"));
+    expect(screen.queryByText("Booking TEST-001")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Reason (optional)")).not.toBeInTheDocument();
+    expect(window.location.hash).toBe("");
+    expect(sessionStorage.getItem("vve-private-booking-token")).toBe("second-private-token");
+    expect(vi.mocked(fetch).mock.calls[1][1]).toMatchObject({ method: "GET", headers: { Authorization: "Bearer second-private-token" } });
+    await act(async () => { resolveSecond({ ok: true, json: async () => ({ booking: { ...booking, reference: "TEST-002" } }) } as Response); });
+    expect(await screen.findByText("Booking TEST-002")).toBeInTheDocument();
+    expect(vi.mocked(fetch).mock.calls.every(([, options]) => options?.method === "GET")).toBe(true);
+  });
+
+  it("ignores a late read from an earlier private link", async () => {
+    let resolveFirst!: (response: Response) => void;
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>(resolve => { resolveFirst = resolve; }));
+    render(<BookingManagementPage />);
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => ({ booking: { ...booking, reference: "TEST-002" } }) } as Response);
+    window.history.replaceState(null, "", "/manage-booking#token=second-private-token");
+    fireEvent(window, new PopStateEvent("popstate"));
+    await screen.findByText("Booking TEST-002");
+    await act(async () => { resolveFirst({ ok: true, json: async () => ({ booking }) } as Response); });
+    expect(screen.queryByText("Booking TEST-001")).not.toBeInTheDocument();
+    expect(screen.getByText("Booking TEST-002")).toBeInTheDocument();
+  });
+
+  it("ignores an old customer action result after opening another booking", async () => {
+    const user = userEvent.setup();
+    render(<BookingManagementPage />);
+    await screen.findByText("Booking TEST-001");
+    await user.click(screen.getByRole("button", { name: "Request cancellation" }));
+    await user.click(screen.getByRole("checkbox", { name: "I want to cancel this appointment." }));
+    let resolveAction!: (response: Response) => void;
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>(resolve => { resolveAction = resolve; }));
+    await user.click(screen.getByRole("button", { name: "Send cancellation request" }));
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => ({ booking: { ...booking, reference: "TEST-002" } }) } as Response);
+    window.history.replaceState(null, "", "/manage-booking#token=second-private-token");
+    fireEvent(window, new HashChangeEvent("hashchange"));
+    await screen.findByText("Booking TEST-002");
+    await act(async () => { resolveAction({ ok: true, json: async () => ({ booking: { ...booking, customerRequest: { kind: "cancel" } } }) } as Response); });
+    expect(screen.queryByText(/Your cancellation request is with the team/)).not.toBeInTheDocument();
+    expect(screen.getByText("Booking TEST-002")).toBeInTheDocument();
+  });
+
   it("does not offer deposit payment for an older unpaid offer, even if a stale response allows it", async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
