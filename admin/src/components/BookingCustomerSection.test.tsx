@@ -1,11 +1,11 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import BookingCustomerSection from './BookingCustomerSection';
 
 const { authFetchMock } = vi.hoisted(() => ({ authFetchMock: vi.fn() }));
 vi.mock('../lib/authFetch', () => ({ authFetch: (...args: unknown[]) => authFetchMock(...args), ApiError: class extends Error {} }));
-const card = (id: string, email: string, phone: string | null = null) => ({ id, name: id, email, phone });
+const card = (id: string, email: string | null, phone: string | null = null) => ({ id, name: id, email, phone });
 const data = (results: ReturnType<typeof card>[]) => ({ results, page: 1, pageSize: 5, totalCount: results.length, hasMore: false });
 const view = (email: string, phone: string | null = null) => <MemoryRouter><BookingCustomerSection bookingId="booking-a" fullName="Audit customer" email={email} phone={phone} /></MemoryRouter>;
 
@@ -45,5 +45,60 @@ describe('BookingCustomerSection', () => {
     await act(async () => { resolve(data([card('Earlier customer', 'earlier@example.invalid')])); });
     expect(screen.queryByRole('link', { name: 'Earlier customer' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Current customer' })).toBeInTheDocument();
+  });
+
+  it('finds the original phone-only customer when an optional booking email has no match', async () => {
+    authFetchMock.mockResolvedValueOnce(data([])).mockResolvedValueOnce(data([
+      card('Original customer', null, '+44 7700 900974'),
+      card('Phone substring decoy', null, '077009009740'),
+    ]));
+    render(view('new-booking@example.invalid', '07700900974'));
+    expect(await screen.findByRole('link', { name: 'Original customer' })).toHaveAttribute('href', '/customers/Original customer');
+    expect(authFetchMock).toHaveBeenNthCalledWith(2, '/api/customers?q=07700900974&pageSize=5');
+    expect(screen.queryByRole('link', { name: 'Phone substring decoy' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/no customer record found/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/does not link or merge records/)).toBeInTheDocument();
+  });
+
+  it('does not offer a merely similar phone from the empty-email fallback', async () => {
+    authFetchMock.mockResolvedValueOnce(data([])).mockResolvedValueOnce(data([card('Phone decoy', null, '077009009740')]));
+    render(view('new-booking@example.invalid', '07700900974'));
+    await waitFor(() => expect(authFetchMock).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/no customer record found/i)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Phone decoy' })).not.toBeInTheDocument();
+  });
+
+  it('ignores a late phone fallback after switching booking contact', async () => {
+    let resolvePhone!: (value: ReturnType<typeof data>) => void;
+    authFetchMock.mockResolvedValueOnce(data([]))
+      .mockReturnValueOnce(new Promise((resolve) => { resolvePhone = resolve; }))
+      .mockResolvedValueOnce(data([card('Current customer', 'current@example.invalid')]));
+    const rendered = render(view('new-booking@example.invalid', '07700900974'));
+    await waitFor(() => expect(authFetchMock).toHaveBeenCalledTimes(2));
+    rendered.rerender(view('current@example.invalid', '07700900555'));
+    await screen.findByRole('link', { name: 'Current customer' });
+    await act(async () => { resolvePhone(data([card('Old phone customer', null, '07700900974')])); });
+    expect(screen.queryByRole('link', { name: 'Old phone customer' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Current customer' })).toBeInTheDocument();
+  });
+
+  it('refreshes the fallback if the phone changes while the optional email stays the same', async () => {
+    authFetchMock.mockResolvedValueOnce(data([]))
+      .mockResolvedValueOnce(data([card('Old phone customer', null, '07700900974')]))
+      .mockResolvedValueOnce(data([]))
+      .mockResolvedValueOnce(data([card('Current phone customer', null, '07700900555')]));
+    const rendered = render(view('new-booking@example.invalid', '07700900974'));
+    await screen.findByRole('link', { name: 'Old phone customer' });
+    rendered.rerender(view('new-booking@example.invalid', '07700900555'));
+    expect(await screen.findByRole('link', { name: 'Current phone customer' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Old phone customer' })).not.toBeInTheDocument();
+    expect(authFetchMock).toHaveBeenNthCalledWith(4, '/api/customers?q=07700900555&pageSize=5');
+  });
+
+  it('shows retryable failure rather than no-match when the phone fallback cannot load', async () => {
+    authFetchMock.mockResolvedValueOnce(data([])).mockRejectedValueOnce(new Error('Synthetic phone lookup failed'));
+    render(view('new-booking@example.invalid', '07700900974'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not look up customer matches.');
+    expect(screen.queryByText(/no customer record found/i)).not.toBeInTheDocument();
   });
 });

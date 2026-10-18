@@ -1,7 +1,7 @@
 import { verifyAdminRequest } from '../_lib/adminAuth.js';
 import { corsHeaders } from '../_lib/cors.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
-import { DETAIL_SELECT, toDetail, toNote, BOOKING_STATUS_VALUES, journeyPaymentPlan } from '../_lib/bookingFields.js';
+import { DETAIL_SELECT, toDetail, toNote, BOOKING_STATUS_VALUES, journeyPaymentPlan, hasExplicitManualWorkflow } from '../_lib/bookingFields.js';
 import { isValidUuid, validateNote } from '../_lib/normalise.js';
 import { extractIdParam } from '../_lib/routeParams.js';
 import { readJsonBody } from '../_lib/body.js';
@@ -242,6 +242,20 @@ async function handleStatus(req, res, headers) {
       return res.end(JSON.stringify({ error: 'Could not check the booking agreement. Please retry.' }));
     }
     if (managed?.booking_id) {
+      res.writeHead(409, headers);
+      return res.end(JSON.stringify({ error: 'Use Arrange and confirm this booking to change this managed booking and keep customer messages and payments consistent.' }));
+    }
+    const { data: booking, error: bookingError } = await supabase.from('bookings')
+      .select('first_source,quote_config').eq('id', bookingId).maybeSingle();
+    if (bookingError) {
+      res.writeHead(503, headers);
+      return res.end(JSON.stringify({ error: 'Could not check the booking workflow. Please retry.' }));
+    }
+    if (!booking) {
+      res.writeHead(404, headers);
+      return res.end(JSON.stringify({ error: 'Booking not found' }));
+    }
+    if (hasExplicitManualWorkflow(booking)) {
       res.writeHead(409, headers);
       return res.end(JSON.stringify({ error: 'Use Arrange and confirm this booking to change this managed booking and keep customer messages and payments consistent.' }));
     }

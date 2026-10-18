@@ -28,6 +28,14 @@ export const SORT_VALUES = ['newest', 'oldest', 'service_date', 'highest_value']
 // the same way every other filter does.
 export const NOTIFICATION_FILTER_VALUES = ['failed'];
 
+// New manual bookings opt into the agreement/payment workflow at creation,
+// before a booking_journeys row exists. Older records without this explicit
+// saved choice keep their original internal-status controls.
+export function hasExplicitManualWorkflow(row) {
+  return row?.first_source === 'admin_manual'
+    && ['after_clean', 'deposit_after_agreement'].includes(row?.quote_config?.manualPaymentPlan);
+}
+
 // Card projection — used by dashboard-summary, search, and the booking list.
 // Deliberately excludes address/notes/Stripe IDs/attribution/tokens; those
 // are detail-only fields (§19).

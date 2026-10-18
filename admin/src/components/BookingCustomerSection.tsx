@@ -9,6 +9,11 @@ type State =
   | { status: 'error'; message: string }
   | { status: 'success'; data: CustomerListResponse };
 
+const normalisePhone = (value: string | null) => {
+  const digits = value?.replace(/\D/g, '') || '';
+  return digits.length === 12 && digits.startsWith('44') ? `0${digits.slice(2)}` : digits;
+};
+
 // Bookings have no customer_id FK. These are possible matches from the
 // customer search, with literal contact matches preferred over substrings.
 // Purely a lookup — never creates or links
@@ -22,31 +27,39 @@ export default function BookingCustomerSection({
 }) {
   const [state, setState] = useState<State>({ status: 'loading' });
   const requestVersion = useRef(0);
-  const q = email?.trim() || phone?.trim();
+  const emailQuery = email?.trim() || '';
+  const phoneQuery = phone?.trim() || '';
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     const version = ++requestVersion.current;
+    const q = emailQuery || phoneQuery;
     if (!q) {
       setState({ status: 'success', data: { results: [], page: 1, pageSize: 0, totalCount: 0, hasMore: false } });
       return;
     }
     setState({ status: 'loading' });
-    authFetch<CustomerListResponse>(`/api/customers?q=${encodeURIComponent(q)}&pageSize=5`)
-      .then((data) => { if (version === requestVersion.current) setState({ status: 'success', data }); })
-      .catch((err) => {
-        if (version === requestVersion.current) setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not look up customer matches.' });
-      });
-  }, [q]);
+    try {
+      let data = await authFetch<CustomerListResponse>(`/api/customers?q=${encodeURIComponent(q)}&pageSize=5`);
+      if (version !== requestVersion.current) return;
+      // A manual booking may add an email to an existing phone-only customer.
+      // Only exact phone matches are offered by this fallback; it never links records.
+      if (emailQuery && data.results.length === 0 && normalisePhone(phoneQuery)) {
+        const phoneData = await authFetch<CustomerListResponse>(`/api/customers?q=${encodeURIComponent(phoneQuery)}&pageSize=5`);
+        if (version !== requestVersion.current) return;
+        const results = phoneData.results.filter((customer) => normalisePhone(customer.phone) === normalisePhone(phoneQuery));
+        data = { ...phoneData, results, totalCount: results.length, hasMore: false };
+      }
+      setState({ status: 'success', data });
+    } catch (err) {
+      if (version === requestVersion.current) setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not look up customer matches.' });
+    }
+  }, [emailQuery, phoneQuery]);
 
   useEffect(() => {
-    load();
+    void load();
     return () => { requestVersion.current += 1; };
   }, [load]);
 
-  const normalisePhone = (value: string | null) => {
-    const digits = value?.replace(/\D/g, '') || '';
-    return digits.length === 12 && digits.startsWith('44') ? `0${digits.slice(2)}` : digits;
-  };
   const possibleMatches = state.status === 'success' ? state.data.results : [];
   const exactMatches = possibleMatches.filter((customer) =>
     (email?.trim() && customer.email?.trim().toLowerCase() === email.trim().toLowerCase())

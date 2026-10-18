@@ -267,6 +267,28 @@ describe('BookingDetailPage', () => {
     expect(screen.getByText(/Booking status and payments are managed in the booking workflow below/)).toBeInTheDocument();
   });
 
+  it.each(['after_clean', 'deposit_after_agreement'])('uses the workflow immediately for a new manual %s booking before its first saved agreement', async (manualPaymentPlan) => {
+    setupAuthFetchMock({ booking: {
+      ...fullBooking, journeyState: undefined, status: 'new', depositAmount: 0, paymentStatus: 'pending_payment',
+      quoteConfig: { manualPaymentPlan }, attribution: { ...fullBooking.attribution, firstSource: 'admin_manual' },
+    } });
+    renderDetail();
+    await screen.findByText(fullBooking.bookingRef!);
+    expect(screen.queryByLabelText('Update booking status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save balance status' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Internal job status')).not.toBeInTheDocument();
+    expect(screen.queryByText('Internal balance record')).not.toBeInTheDocument();
+    expect(screen.getByText(/Booking status and payments are managed in the booking workflow below/)).toBeInTheDocument();
+  });
+
+  it('keeps historical manual records without an explicit arrangement on their existing controls', async () => {
+    setupAuthFetchMock({ booking: { ...fullBooking, attribution: { ...fullBooking.attribution, firstSource: 'admin_manual' } } });
+    renderDetail();
+    await screen.findByText(fullBooking.bookingRef!);
+    expect(screen.getByLabelText('Update booking status')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save balance status' })).toBeInTheDocument();
+  });
+
   it('never renders the confirmation token anywhere on the page', async () => {
     setupAuthFetchMock();
     const { container } = renderDetail();

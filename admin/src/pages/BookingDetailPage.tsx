@@ -122,6 +122,10 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
   }
 
   const b = state.data;
+  const workflowManaged = Boolean(b.journeyState) || (
+    b.attribution.firstSource === 'admin_manual'
+    && ['after_clean', 'deposit_after_agreement'].includes(String(b.quoteConfig?.manualPaymentPlan || ''))
+  );
   const dateLabel = b.serviceDate ? formatServiceDate(b.serviceDate) : formatPreferred(b.preferredDate, b.preferredTime);
   const tel = telHref(b.phone);
   const wa = whatsappHref(b.phone);
@@ -182,7 +186,7 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
         </div>
       )}
 
-      {b.journeyState ? (
+      {workflowManaged ? (
         <p className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-navy-800">
           Booking status and payments are managed in the booking workflow below. Use its actions to send updates, record payments or finish the job.
         </p>
@@ -226,7 +230,7 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
         )}
       </Section>
 
-      {!b.journeyState && <Section title="Internal balance record">
+      {!workflowManaged && <Section title="Internal balance record">
         <BalanceControl
           bookingId={b.id}
           totalPrice={b.totalPrice}
