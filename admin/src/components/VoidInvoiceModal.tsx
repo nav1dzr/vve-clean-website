@@ -34,7 +34,7 @@ export default function VoidInvoiceModal({ onClose, onConfirm }: Props) {
       <form onSubmit={handleSubmit}>
         <p className="mb-3 text-sm text-navy-700">
           The invoice number stays permanently retired — it is never reused. This cannot be undone; if the invoice
-          needs correcting instead, use &ldquo;Duplicate as corrected draft&rdquo;.
+          needs correcting instead, use &ldquo;Adjust services or price&rdquo;.
         </p>
         <label htmlFor="void-reason" className="mb-1.5 block text-sm font-medium text-navy-900">
           Reason *
