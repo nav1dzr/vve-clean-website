@@ -559,7 +559,7 @@ export default function BookingJourneyPanel({
         <div className="mt-5 flex flex-wrap gap-2 border-t border-silver-200 pt-4">
           {j.state === "offered" && j.snapshot?.paymentPlan === "deposit_after_agreement" && (
             <button className={button} disabled={locked || !!j.reminder_sent_at || !!j.customer_request || (!!j.hold_until && new Date(j.hold_until) <= new Date())} onClick={() => action("remind")}>
-              {j.reminder_sent_at ? "Deposit reminder sent" : "Send unpaid deposit reminder"}
+              {j.reminder_sent_at ? "Reminder requested" : "Send unpaid deposit reminder"}
             </button>
           )}
           {j.state === "payment_review" && (

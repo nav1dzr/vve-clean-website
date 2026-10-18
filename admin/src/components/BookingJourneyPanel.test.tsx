@@ -260,14 +260,28 @@ describe("deposit operator controls", () => {
     expect(screen.queryByText("Refunded", { exact: true })).not.toBeInTheDocument();
     expect(JSON.parse(authFetchMock.mock.calls[authFetchMock.mock.calls.length - 1][1].body)).toMatchObject({ operation: "manual_deposit", amountPence: 3000, method: "bank_transfer", reference: "E11AA101026", receivedConfirmed: true });
   });
-  it("offers a reminder only until one is sent", async () => {
+  it("does not claim delivery when a requested reminder failed", async () => {
+    authFetchMock.mockResolvedValue({
+      ...offered,
+      journey: { ...offered.journey, revision: 3, reminder_sent_at: "2026-09-16T12:00:00Z" },
+      notifications: [{ id: "test-reminder", kind: "reminder", channel: "email", audience: "customer", status: "failed", attempts: 1, last_error: "TEST ONLY — mail delivery unavailable", sent_at: null, created_at: "2026-09-16T12:00:00Z" }],
+    });
+    render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
+    expect(await screen.findByRole("button", { name: "Reminder requested" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Deposit reminder sent" })).not.toBeInTheDocument();
+    expect(screen.getByText("failed", { exact: true })).toBeInTheDocument();
+    expect(screen.getByText("TEST ONLY — mail delivery unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry this delivery" })).toBeEnabled();
+    expect(authFetchMock).toHaveBeenCalledTimes(1);
+  });
+  it("offers a reminder only until one is requested", async () => {
     const user = userEvent.setup();
     authFetchMock.mockResolvedValueOnce(offered);
     render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
     const remind = await screen.findByRole("button", { name: "Send unpaid deposit reminder" });
     authFetchMock.mockResolvedValueOnce({ ...offered, journey: { ...offered.journey, revision: 3, reminder_sent_at: "2026-09-16T12:00:00Z" } });
     await user.click(remind);
-    expect(await screen.findByRole("button", { name: "Deposit reminder sent" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Reminder requested" })).toBeDisabled();
     expect(JSON.parse(authFetchMock.mock.calls[authFetchMock.mock.calls.length - 1][1].body)).toMatchObject({ operation: "remind", revision: 2 });
   });
 });
