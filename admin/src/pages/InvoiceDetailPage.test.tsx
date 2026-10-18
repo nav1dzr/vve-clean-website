@@ -654,3 +654,50 @@ describe('InvoiceDetailPage — isolated loading and receipt recovery', () => {
     expect(await screen.findByRole('link', { name: 'View / send receipt' })).toHaveAttribute('href', '/receipts/receipt-ready');
   });
 });
+
+
+describe('InvoiceDetailPage — unavailable history', () => {
+  beforeEach(() => { authFetchMock.mockReset(); authFetchBlobMock.mockReset(); });
+
+  it('shows a retryable history error without inventing an empty history or reloading the invoice', async () => {
+    let historyCalls = 0;
+    authFetchMock.mockImplementation((path: string) => {
+      if (path.includes('action=events')) {
+        historyCalls += 1;
+        return historyCalls === 1 ? Promise.reject(new ApiError(503, 'Unavailable'))
+          : Promise.resolve({ results: [{ id: 'evt-sent', eventType: 'sent', createdAt: '2026-10-18T12:00:00Z' }] });
+      }
+      return Promise.resolve(issuedInvoice);
+    });
+    const user = userEvent.setup(); renderDetail();
+    expect(await screen.findByText(/could not load invoice history/i)).toBeInTheDocument();
+    expect(screen.queryByText('No history yet.')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'INV-2026-000001' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry history' }));
+    await waitFor(() => expect(screen.queryByText(/could not load invoice history/i)).not.toBeInTheDocument());
+    expect(historyCalls).toBe(2);
+    expect(authFetchMock.mock.calls.filter(([path]) => path === '/api/invoices/inv-1')).toHaveLength(1);
+    expect(screen.queryByText('No history yet.')).not.toBeInTheDocument();
+  });
+
+  it('ignores an old invoice history response after navigation', async () => {
+    let resolveOld!: (value: unknown) => void;
+    const oldHistory = new Promise(resolve => { resolveOld = resolve; });
+    authFetchMock.mockImplementation((path: string) => {
+      if (path === '/api/invoices/inv-1?action=events') return oldHistory;
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      return Promise.resolve(path.endsWith('inv-2')
+        ? { ...issuedInvoice, id: 'inv-2', invoiceNumber: 'INV-AUDIT-SECOND' } : issuedInvoice);
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={['/invoices/inv-1']}>
+      <Link to="/invoices/inv-2">Open second invoice</Link>
+      <Routes><Route path="/invoices/:id" element={<InvoiceDetailPage />} /></Routes>
+    </MemoryRouter>);
+    await screen.findByRole('heading', { name: 'INV-2026-000001' });
+    await user.click(screen.getByRole('link', { name: 'Open second invoice' }));
+    await screen.findByRole('heading', { name: 'INV-AUDIT-SECOND' });
+    await act(async () => resolveOld({ results: [{ id: 'old-sent', eventType: 'sent', createdAt: '2026-10-18T12:00:00Z' }] }));
+    expect(screen.getByText('No history yet.')).toBeInTheDocument();
+    expect(screen.queryByText('Sent')).not.toBeInTheDocument();
+  });});

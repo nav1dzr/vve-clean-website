@@ -51,6 +51,7 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
   const [hasPendingPayment, setHasPendingPayment] = useState(false);
   const [state, setState] = useState<State>({ status: 'loading' });
   const [events, setEvents] = useState<InvoiceEvent[] | null>(null);
+  const [eventsError, setEventsError] = useState(false);
   const [receiptId, setReceiptId] = useState<string | null>(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [receiptError, setReceiptError] = useState(false);
@@ -60,6 +61,7 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
   const [pendingAction, setPendingAction] = useState<null | 'issue' | 'delete'>(null);
   const requestVersion = useRef(0);
   const receiptRequestVersion = useRef(0);
+  const historyRequestVersion = useRef(0);
 
   const loadReceipt = useCallback(async () => {
     if (!id) return;
@@ -76,10 +78,27 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
     }
   }, [id]);
 
+  const loadHistory = useCallback(async () => {
+    if (!id) return;
+    const invoiceVersion = requestVersion.current;
+    const historyVersion = ++historyRequestVersion.current;
+    const current = () => invoiceVersion === requestVersion.current && historyVersion === historyRequestVersion.current;
+    setEvents(null);
+    setEventsError(false);
+    try {
+      const result = await authFetch<InvoiceEventsResponse>(`/api/invoices/${id}?action=events`);
+      if (current()) setEvents(result.results);
+    } catch {
+      if (current()) setEventsError(true);
+    }
+  }, [id]);
+
   const load = useCallback(() => {
     if (!id) return;
     const version = ++requestVersion.current;
     receiptRequestVersion.current += 1;
+    historyRequestVersion.current += 1;
+    setEventsError(false);
     setState({ status: 'loading' });
     setEvents(null);
     setReceiptId(null);
@@ -95,9 +114,7 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
         setDraftDirty(false);
         setDraftConflict(false);
         setState({ status: 'success', data });
-        authFetch<InvoiceEventsResponse>(`/api/invoices/${id}?action=events`)
-          .then((r) => { if (version === requestVersion.current) setEvents(r.results); })
-          .catch(() => { if (version === requestVersion.current) setEvents([]); });
+        void loadHistory();
         // Fully paid — the "send invoice" flow is retired in favour of the
         // receipt (see handleSend's paid-invoice block on the server); look
         // it up so the UI can link straight to it.
@@ -110,13 +127,14 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
         if (err instanceof ApiError && err.status === 404) setState({ status: 'not-found' });
         else setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load this invoice.' });
       });
-  }, [id, adminId, loadReceipt]);
+  }, [id, adminId, loadReceipt, loadHistory]);
 
   useEffect(() => {
     load();
     return () => {
       requestVersion.current += 1;
       receiptRequestVersion.current += 1;
+      historyRequestVersion.current += 1;
     };
   }, [load]);
 
@@ -717,7 +735,11 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
       </Section>
 
       <Section title="History">
-        {events === null && <p className="text-sm text-navy-500">Loading…</p>}
+        {eventsError && <div role="alert" className="text-sm text-navy-700">
+          <p>Could not load invoice history. Saved invoice details are still shown above.</p>
+          <button type="button" onClick={() => void loadHistory()} className="mt-2 min-h-11 rounded-lg border border-silver-300 px-3 font-semibold">Retry history</button>
+        </div>}
+        {!eventsError && events === null && <p className="text-sm text-navy-500">Loading…</p>}
         {events !== null && events.length === 0 && <p className="text-sm text-navy-500">No history yet.</p>}
         {events !== null && events.length > 0 && (
           <ul className="space-y-1.5 text-sm">
