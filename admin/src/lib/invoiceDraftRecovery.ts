@@ -1,5 +1,6 @@
 import { clearPendingInvoicePayments } from './pendingInvoicePayment';
 import { clearPendingStandaloneReceipts } from './pendingStandaloneReceipt';
+import { clearStandaloneReceiptDrafts } from './standaloneReceiptDraft';
 import { clearPendingManualBookings } from './pendingManualBooking';
 import type { InvoiceItemsFormValue } from '../components/InvoiceItemsForm';
 
@@ -149,6 +150,7 @@ export function clearInvoiceDraftRecoveries(): void {
   window.dispatchEvent(new Event(INVOICE_RECOVERY_CLEARED_EVENT));
   clearPendingInvoicePayments();
   clearPendingStandaloneReceipts();
+  clearStandaloneReceiptDrafts();
   clearPendingManualBookings();
   try {
     const storage = window.sessionStorage;

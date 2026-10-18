@@ -5,6 +5,7 @@ import StructuredAddressFields from '../components/StructuredAddressFields';
 import { authFetch, ApiError } from '../lib/authFetch';
 import { invoicePaymentMethodLabel } from '../lib/format';
 import { INVOICE_RECOVERY_CLEARED_EVENT } from '../lib/invoiceDraftRecovery';
+import { clearStandaloneReceiptDraft, readStandaloneReceiptDraft, writeStandaloneReceiptDraft, type StandaloneReceiptDraft } from '../lib/standaloneReceiptDraft';
 import { clearPendingStandaloneReceipt, readPendingStandaloneReceipt, rememberPendingStandaloneReceipt, type PendingReceiptState } from '../lib/pendingStandaloneReceipt';
 import {
   INVOICE_PAYMENT_METHOD_VALUES,
@@ -27,12 +28,19 @@ function ReceiptEditorForm({ ownerId }: { ownerId: string }) {
   const navigate = useNavigate();
   const [recovery, setRecovery] = useState<PendingReceiptState>(() => readPendingStandaloneReceipt(ownerId));
   const recoveredInput = recovery.status === 'pending' ? recovery.input : null;
-  const [customer, setCustomer] = useState(() => ({ name: recoveredInput?.customer.name || '', email: recoveredInput?.customer.email || '', phone: recoveredInput?.customer.phone || '', address: recoveredInput?.customer.address || '', postcode: recoveredInput?.customer.postcode || '' }));
-  const [serviceDescription, setServiceDescription] = useState(recoveredInput?.serviceDescription || '');
-  const [amount, setAmount] = useState(recoveredInput ? String(recoveredInput.amount) : '');
-  const [paymentDate, setPaymentDate] = useState(recoveredInput?.paymentDate || today());
-  const [paymentMethod, setPaymentMethod] = useState<(typeof INVOICE_PAYMENT_METHOD_VALUES)[number]>(recoveredInput?.paymentMethod || 'bank_transfer');
-  const [paymentReference, setPaymentReference] = useState(recoveredInput?.paymentReference || '');
+  // Submitted operations always take precedence over an older unsent form.
+  const [draftAtOpen] = useState(() => recovery.status === 'none' ? readStandaloneReceiptDraft(ownerId) : null);
+  const restoredDraft = draftAtOpen?.status === 'restored' ? draftAtOpen.draft : null;
+  const [initialDate] = useState(today);
+  const [customer, setCustomer] = useState(() => ({ name: recoveredInput?.customer.name || restoredDraft?.customer.name || '', email: recoveredInput?.customer.email || restoredDraft?.customer.email || '', phone: recoveredInput?.customer.phone || restoredDraft?.customer.phone || '', address: recoveredInput?.customer.address || restoredDraft?.customer.address || '', postcode: recoveredInput?.customer.postcode || restoredDraft?.customer.postcode || '' }));
+  const [serviceDescription, setServiceDescription] = useState(recoveredInput?.serviceDescription || restoredDraft?.serviceDescription || '');
+  const [amount, setAmount] = useState(recoveredInput ? String(recoveredInput.amount) : restoredDraft?.amount || '');
+  const [paymentDate, setPaymentDate] = useState(recoveredInput?.paymentDate || restoredDraft?.paymentDate || initialDate);
+  const [paymentMethod, setPaymentMethod] = useState<(typeof INVOICE_PAYMENT_METHOD_VALUES)[number]>(recoveredInput?.paymentMethod || restoredDraft?.paymentMethod || 'bank_transfer');
+  const [paymentReference, setPaymentReference] = useState(recoveredInput?.paymentReference || restoredDraft?.paymentReference || '');
+  const [showRestoredDraft, setShowRestoredDraft] = useState(!!restoredDraft);
+  const [draftStorageAvailable, setDraftStorageAvailable] = useState(draftAtOpen?.status !== 'unavailable');
+  const [confirmDiscardDraft, setConfirmDiscardDraft] = useState(false);
   const [confirmed, setConfirmed] = useState(!!recoveredInput);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -46,6 +54,41 @@ function ReceiptEditorForm({ ownerId }: { ownerId: string }) {
   const revokedRef = useRef(false);
   const activeRef = useRef(true);
   const recoveryBlocked = recovery.status === 'review' || recovery.status === 'unavailable' || revoked || !!savedReceiptId;
+  const draftStopped = useRef(false);
+  const draftWritten = useRef(!!restoredDraft);
+  const draft: StandaloneReceiptDraft = { customer, serviceDescription, amount, paymentDate, paymentMethod, paymentReference };
+  const hasDraftContent = Object.values(customer).some(Boolean) || !!serviceDescription || !!amount || !!paymentReference || paymentMethod !== 'bank_transfer' || paymentDate !== today();
+  const draftFingerprint = JSON.stringify(draft);
+  const latestDraft = useRef({ draft, hasDraftContent, blocked: true });
+  latestDraft.current = { draft, hasDraftContent, blocked: recoveryBlocked || !!pendingInput.current || submitting };
+
+  useEffect(() => {
+    const latest = latestDraft.current;
+    if (!draftStopped.current && !revokedRef.current && !latest.blocked && (latest.hasDraftContent || draftWritten.current)) {
+      const saved = writeStandaloneReceiptDraft(ownerId, latest.draft);
+      if (saved) draftWritten.current = true;
+      setDraftStorageAvailable(saved);
+    }
+  }, [ownerId, draftFingerprint, recoveryBlocked, submitting]);
+
+  useEffect(() => {
+    const persist = () => {
+      const latest = latestDraft.current;
+      if (!draftStopped.current && !revokedRef.current && !latest.blocked && (latest.hasDraftContent || draftWritten.current)) {
+        const saved = writeStandaloneReceiptDraft(ownerId, latest.draft);
+        if (saved) draftWritten.current = true;
+        setDraftStorageAvailable(saved);
+      }
+    };
+    const hide = () => { if (document.visibilityState === 'hidden') persist(); };
+    window.addEventListener('pagehide', persist);
+    document.addEventListener('visibilitychange', hide);
+    return () => {
+      window.removeEventListener('pagehide', persist);
+      document.removeEventListener('visibilitychange', hide);
+    };
+  }, [ownerId]);
+
 
   useEffect(() => {
     activeRef.current = true;
@@ -68,7 +111,7 @@ function ReceiptEditorForm({ ownerId }: { ownerId: string }) {
           return;
         }
         setSavedReceiptId(receipt.id);
-        if (clearPendingStandaloneReceipt(ownerId, reviewRequestId)) {
+        if (clearStandaloneReceiptDraft(ownerId) && clearPendingStandaloneReceipt(ownerId, reviewRequestId)) {
           setRecovery({ status: 'none' });
           setError(null);
         } else {
@@ -129,11 +172,12 @@ function ReceiptEditorForm({ ownerId }: { ownerId: string }) {
         body: JSON.stringify(input),
       });
       if (!activeRef.current || revokedRef.current) return;
-      if (!clearPendingStandaloneReceipt(ownerId, input.requestId)) {
+      if (!clearStandaloneReceiptDraft(ownerId) || !clearPendingStandaloneReceipt(ownerId, input.requestId)) {
         setSavedReceiptId(result.receiptId);
         setError('The receipt was saved, but this browser could not clear its recovery record. Open the saved receipt below. Do not create another for this payment.');
         return;
       }
+      draftStopped.current = true;
       navigate(`/receipts/${result.receiptId}`);
     } catch (err) {
       if (!activeRef.current || revokedRef.current) return;
@@ -146,6 +190,19 @@ function ReceiptEditorForm({ ownerId }: { ownerId: string }) {
       submittingRef.current = false;
       if (activeRef.current && !revokedRef.current) setSubmitting(false);
     }
+  }
+
+  function discardUnsentDraft() {
+    if (!confirmDiscardDraft || recoveryBlocked || pendingInput.current || submitting || revokedRef.current) return;
+    if (!clearStandaloneReceiptDraft(ownerId)) {
+      setDraftStorageAvailable(false);
+      return;
+    }
+    draftWritten.current = false;
+    setCustomer({ name: '', email: '', phone: '', address: '', postcode: '' });
+    setServiceDescription(''); setAmount(''); setPaymentDate(today());
+    setPaymentMethod('bank_transfer'); setPaymentReference(''); setConfirmed(false);
+    setShowRestoredDraft(false); setConfirmDiscardDraft(false); setError(null);
   }
 
   function discardReviewedAttempt() {
@@ -181,6 +238,13 @@ function ReceiptEditorForm({ ownerId }: { ownerId: string }) {
           <Link to="/receipts" target="_blank" rel="noreferrer" className="mt-2 inline-block font-semibold underline">Check Receipts</Link>
           <label className="mt-3 flex items-start gap-2"><input type="checkbox" checked={reviewedReceipts} onChange={(event) => setReviewedReceipts(event.target.checked)} disabled={revoked || (!!reviewRequestId && lookup !== 'missing')} />I checked Receipts and this payment has no receipt.</label>
           <button type="button" onClick={discardReviewedAttempt} disabled={!reviewedReceipts || revoked || (!!reviewRequestId && lookup !== 'missing')} className="mt-3 min-h-11 rounded-lg border border-amber-700 px-3 font-semibold disabled:opacity-50">Clear reviewed recovery record</button>
+        </section>}
+        {!pendingInput.current && !recoveryBlocked && <section className="rounded-xl border border-silver-200 bg-silver-50 p-3 text-sm text-navy-800">
+          {showRestoredDraft && <p className="mb-1 font-medium">Restored your unsent receipt. Check the details and confirm the payment was received before creating it.</p>}
+          {(draftAtOpen?.status === 'expired' || draftAtOpen?.status === 'invalid') && <p className="mb-1">The earlier unsent draft expired or could not be read. No receipt was created from it.</p>}
+          <p role="status">{draftStorageAvailable ? 'Unsent details are kept in this browser tab for up to 24 hours. Signing out clears them.' : 'This browser cannot keep a draft copy. Keep this page open and copy any details you need before leaving.'}</p>
+          {hasDraftContent && !confirmDiscardDraft && <button type="button" onClick={() => setConfirmDiscardDraft(true)} className="mt-2 min-h-11 font-semibold underline">Discard unsent draft</button>}
+          {confirmDiscardDraft && <div className="mt-2"><p>Discard these unsent details? This does not change any saved receipt.</p><div className="flex flex-wrap gap-4"><button type="button" onClick={discardUnsentDraft} className="min-h-11 font-semibold text-red-700 underline">Discard this draft</button><button type="button" onClick={() => setConfirmDiscardDraft(false)} className="min-h-11 font-semibold underline">Keep editing</button></div></div>}
         </section>}
         <fieldset disabled={submitting || !!pendingInput.current || recoveryBlocked} className="min-w-0 space-y-4">
         <section className="rounded-2xl border border-silver-300 bg-white p-4 shadow-sm sm:p-5">

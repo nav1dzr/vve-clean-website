@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import ReceiptEditorPage from './ReceiptEditorPage';
 import { clearInvoiceDraftRecoveries } from '../lib/invoiceDraftRecovery';
+import { readStandaloneReceiptDraft, writeStandaloneReceiptDraft } from '../lib/standaloneReceiptDraft';
 import { readPendingStandaloneReceipt, rememberPendingStandaloneReceipt, PENDING_RECEIPT_TTL_MS } from '../lib/pendingStandaloneReceipt';
 import type { StandaloneReceiptInput } from '../types/invoice';
 import { ApiError } from '../lib/authFetch';
@@ -42,6 +43,62 @@ describe('ReceiptEditorPage', () => {
     window.sessionStorage.clear();
   });
   afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
+
+  it('restores an unsent receipt after remount without treating it as a submitted payment', () => {
+    const first = renderPage();
+    fireEvent.change(screen.getByLabelText('Customer name *'), { target: { value: 'TEST ONLY - unfinished receipt' } });
+    fireEvent.change(screen.getByLabelText('Phone'), { target: { value: '07700900977' } });
+    fireEvent.change(screen.getByLabelText('What did they pay for? *'), { target: { value: 'Unfinished work description' } });
+    fireEvent.change(screen.getByLabelText('Amount received (£) *'), { target: { value: '12.5' } });
+    fireEvent.change(screen.getByLabelText('Payment method *'), { target: { value: 'cash' } });
+    fireEvent.change(screen.getByLabelText('Reference'), { target: { value: 'TEST-DRAFT' } });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent(window, new Event('pagehide'));
+    first.unmount();
+    renderPage();
+    expect(screen.getByLabelText('Customer name *')).toHaveValue('TEST ONLY - unfinished receipt');
+    expect(screen.getByLabelText('Phone')).toHaveValue('07700900977');
+    expect(screen.getByLabelText('What did they pay for? *')).toHaveValue('Unfinished work description');
+    expect(screen.getByLabelText('Amount received (£) *')).toHaveValue(12.5);
+    expect(screen.getByLabelText('Payment method *')).toHaveValue('cash');
+    expect(screen.getByLabelText('Reference')).toHaveValue('TEST-DRAFT');
+    expect(screen.getByRole('checkbox')).not.toBeChecked();
+    expect(screen.getByText(/Restored your unsent receipt/)).toBeInTheDocument();
+    expect(readPendingStandaloneReceipt(account.id).status).toBe('none');
+    expect(authFetchMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps intentionally cleared fields empty instead of restoring older typed details', () => {
+    const first = renderPage();
+    fireEvent.change(screen.getByLabelText('Customer name *'), { target: { value: 'TEST ONLY - remove typed name' } });
+    fireEvent.change(screen.getByLabelText('Customer name *'), { target: { value: '' } });
+    first.unmount();
+    renderPage();
+    expect(screen.getByLabelText('Customer name *')).toHaveValue('');
+    expect(authFetchMock).not.toHaveBeenCalled();
+  });
+
+  it('discards an unsent draft only after explicit confirmation and keeps it when cancelled', () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText('Customer name *'), { target: { value: 'TEST ONLY - explicit discard' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Discard unsent draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.getByLabelText('Customer name *')).toHaveValue('TEST ONLY - explicit discard');
+    fireEvent.click(screen.getByRole('button', { name: 'Discard unsent draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard this draft' }));
+    expect(screen.getByLabelText('Customer name *')).toHaveValue('');
+    expect(window.sessionStorage.getItem('vve-standalone-receipt-draft:v1:owner-test')).toBeNull();
+    expect(authFetchMock).not.toHaveBeenCalled();
+  });
+
+  it('warns truthfully when unsent draft storage fails and keeps the entered fields', () => {
+    renderPage();
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('storage full'); });
+    fireEvent.change(screen.getByLabelText('Customer name *'), { target: { value: 'TEST ONLY - storage unavailable' } });
+    expect(screen.getByRole('status')).toHaveTextContent('cannot keep a draft copy');
+    expect(screen.getByLabelText('Customer name *')).toHaveValue('TEST ONLY - storage unavailable');
+    expect(authFetchMock).not.toHaveBeenCalled();
+  });
 
   it('explains that the flow records an existing payment without charging Stripe', () => {
     renderPage();
@@ -200,6 +257,59 @@ describe('ReceiptEditorPage', () => {
     await user.click(screen.getByRole('button', { name: 'Retry same receipt' }));
     expect(authFetchMock.mock.calls.map(([, options]) => options.body)).toEqual([JSON.stringify(pending), JSON.stringify(pending)]);
     expect(navigateMock).toHaveBeenCalledWith(`/receipts/${pending.requestId}`);
+  });
+
+  it('prefers an exact pending operation over an older unsent draft and clears both after success', async () => {
+    writeStandaloneReceiptDraft(account.id, {
+      customer: { name: 'OLD UNSENT CUSTOMER', email: '', phone: '', address: '', postcode: '' },
+      serviceDescription: 'Old unsent description', amount: '5', paymentDate: '2026-10-15', paymentMethod: 'cash', paymentReference: 'OLD',
+    });
+    rememberPendingStandaloneReceipt(account.id, pending);
+    authFetchMock.mockResolvedValue({ ok: true, receiptId: pending.requestId });
+    renderPage();
+    expect(screen.getByLabelText('Customer name *')).toHaveValue(pending.customer.name);
+    expect(screen.queryByRole('button', { name: 'Discard unsent draft' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry same receipt' }));
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/receipts/${pending.requestId}`));
+    expect(JSON.parse(authFetchMock.mock.calls[0][1].body)).toEqual(pending);
+    expect(readStandaloneReceiptDraft(account.id).status).toBe('none');
+    expect(readPendingStandaloneReceipt(account.id).status).toBe('none');
+  });
+
+  it('clears unsent details on sign-out and cannot recreate them on pagehide', () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText('Customer name *'), { target: { value: 'TEST ONLY - private unsent details' } });
+    expect(readStandaloneReceiptDraft(account.id).status).toBe('restored');
+    act(() => clearInvoiceDraftRecoveries());
+    fireEvent(window, new Event('pagehide'));
+    expect(readStandaloneReceiptDraft(account.id).status).toBe('none');
+    expect(screen.getByRole('button', { name: 'Create final receipt' })).toBeDisabled();
+  });
+
+  it('does not display the previous account’s unsent draft after account switch', () => {
+    const page = renderPage();
+    fireEvent.change(screen.getByLabelText('Customer name *'), { target: { value: 'TEST ONLY - previous account' } });
+    act(() => clearInvoiceDraftRecoveries());
+    account.id = 'other-owner';
+    page.rerender(<MemoryRouter><ReceiptEditorPage /></MemoryRouter>);
+    expect(screen.getByLabelText('Customer name *')).toHaveValue('');
+    expect(readStandaloneReceiptDraft('owner-test').status).toBe('none');
+    expect(authFetchMock).not.toHaveBeenCalled();
+  });
+
+  it('retains pending identity if the successful receipt cannot clear its old unsent copy', async () => {
+    rememberPendingStandaloneReceipt(account.id, pending);
+    authFetchMock.mockResolvedValue({ ok: true, receiptId: pending.requestId });
+    renderPage();
+    const removeItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function(this: Storage, key: string) {
+      if (key.startsWith('vve-standalone-receipt-draft:')) throw new Error('clear blocked');
+      return removeItem.call(this, key);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry same receipt' }));
+    await screen.findByRole('link', { name: 'Open saved receipt' });
+    expect(readPendingStandaloneReceipt(account.id)).toMatchObject({ status: 'pending', input: pending });
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 
   it('does not show or replay another account’s recovered customer details', () => {
