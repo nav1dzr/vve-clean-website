@@ -604,6 +604,15 @@ async function assignMedia(res, headers, supabase, asset, body, adminId) {
     return reply(res, headers, 400, {
       error: "Check each file type and its before/after stage.",
     });
+  if (target.slot_kind === "before_after") {
+    const jobKeys = new Set(
+      chosen.map((row) => String(row.pair_key || "").trim().toLowerCase()).filter(Boolean),
+    );
+    if (jobKeys.size > 1)
+      return reply(res, headers, 409, {
+        error: "Choose before and after photographs from the same job. Their job / pair names are different; check the details before publishing.",
+      });
+  }
   const { data: references, error: referencesError } = await supabase
     .from(MEDIA_REFERENCES_TABLE)
     .select("reference_key,page_key,page_label,component_label")

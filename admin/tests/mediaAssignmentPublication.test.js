@@ -206,6 +206,31 @@ describe("authenticated atomic media publication", () => {
     db._tables.media_assets[1].before_after = "during";
     expect((await call({ ...assignment, preview: true })).statusCode).toBe(400);
   });
+  it.each(["preview", "publish"])("rejects different nonempty job keys during %s without writes", async (stage) => {
+    db._tables.media_assets[0].pair_key = "job-a";
+    db._tables.media_assets[1].pair_key = "job-b";
+    const originalAssets = structuredClone(db._tables.media_assets);
+    const originalAssignments = structuredClone(db._tables.media_assignments);
+    const result = await call({
+      ...assignment,
+      ...(stage === "preview" ? { preview: true } : { confirm: true, expected: [] }),
+    });
+    expect(result.statusCode).toBe(409);
+    expect(result.body.error).toContain("same job");
+    expect(db.rpc).not.toHaveBeenCalled();
+    expect(db._tables.media_assignments).toEqual(originalAssignments);
+    expect(db._tables.media_assets).toEqual(originalAssets);
+  });
+  it.each([[null, null], ["", "job-a"], ["job-a", ""], ["job-a", "job-a"]])(
+    "preserves matching and unkeyed legacy pairs (%s / %s)", async (beforeKey, afterKey) => {
+      db._tables.media_assets[0].pair_key = beforeKey;
+      db._tables.media_assets[1].pair_key = afterKey;
+      expect((await call({ ...assignment, preview: true })).statusCode).toBe(200);
+      expect(db.rpc).not.toHaveBeenCalled();
+      expect((await call({ ...assignment, confirm: true, expected: [] })).statusCode).toBe(200);
+      expect(db.rpc).toHaveBeenCalledTimes(1);
+    },
+  );
   it("requires ready media with actual captions", async () => {
     db._tables.media_assets[1].alt_text = "";
     expect((await call({ ...assignment, preview: true })).statusCode).toBe(409);
