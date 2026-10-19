@@ -1,5 +1,4 @@
 import { escHtml } from './escHtml.js';
-import { emailWordmarkHtml } from './brandWordmark.js';
 
 export const EMAIL_BODY_LIMIT = 20000;
 export function validateCustomerEmail(input) {
@@ -58,21 +57,16 @@ export function renderCustomerMessage(body) {
   return blocks.join('');
 }
 
-// Hybrid columns keep the brand and contact details side by side in desktop
-// mail clients, with a stacked fallback and an explicit narrow-screen layout.
-function brandedHeader(settings) {
-  const phone = String(settings.phone || '').trim();
-  const dialNumber = phone.replace(/[^+0-9]/g, '');
-  return '<style>@media only screen and (max-width:520px){.vve-letter-header .vve-letter-column{display:block!important;width:100%!important;min-width:0!important}.vve-letter-header .vve-letter-contact{text-align:left!important;padding-top:16px!important}}</style>' +
-    '<div class="vve-letter-header" style="margin-bottom:26px;padding-bottom:20px;border-bottom:1px solid #dce5ef;font-size:0;line-height:0;text-align:left">' +
-    '<!--[if mso]><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="50%" valign="middle"><![endif]-->' +
-    '<div class="vve-letter-column" style="display:inline-block;width:50%;min-width:240px;max-width:100%;vertical-align:middle">' + emailWordmarkHtml() + '</div>' +
-    '<!--[if mso]></td><td width="50%" valign="middle"><![endif]-->' +
-    '<div class="vve-letter-column" style="display:inline-block;width:50%;min-width:240px;max-width:100%;vertical-align:middle"><div class="vve-letter-contact" style="text-align:right;font-family:Arial,Helvetica,sans-serif;line-height:1.6">' +
-    '<div style="font-size:10px;line-height:18px;font-weight:700;letter-spacing:1px;color:#526378">CONTACT VVE CLEAN</div>' +
-    (dialNumber ? '<a href="tel:' + escHtml(dialNumber) + '" style="display:block;font-size:16px;line-height:25px;font-weight:700;color:#12356d;text-decoration:none">' + escHtml(phone) + '</a>' : '') +
-    '<a href="mailto:contact@vveclean.co.uk" style="display:block;font-size:12px;line-height:24px;color:#155582;text-decoration:underline">contact@vveclean.co.uk</a>' +
-    '</div></div><!--[if mso]></td></tr></table><![endif]--></div>';
+// A single presentation-table row keeps both parts of the brand aligned in
+// mobile email clients without relying on media queries or wrapping columns.
+function brandedHeader() {
+  return '<div style="margin-bottom:26px;padding:8px 0 22px;border-bottom:1px solid #dce5ef">' +
+    '<table role="presentation" aria-label="VVE Clean" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse"><tr>' +
+    '<td width="96" valign="middle" style="width:96px;padding:0"><table role="presentation" width="96" cellpadding="0" cellspacing="0" style="width:96px;border-collapse:collapse">' +
+    '<tr><td align="center" style="padding:0;color:#1268d9;font-family:Arial,Helvetica,sans-serif;font-size:44px;font-weight:800;font-style:italic;letter-spacing:-4px;line-height:42px">vve</td></tr>' +
+    '<tr><td align="center" style="padding:5px 0 0;color:#1268d9;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;line-height:15px">CLEAN</td></tr></table></td>' +
+    '<td align="right" valign="middle" style="padding:0 0 0 14px;text-align:right;color:#12356d;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;line-height:18px;white-space:nowrap">CLEANING &amp;<br>PROPERTY<br>SERVICES</td>' +
+    '</tr></table></div>';
 }
 
 export function buildCustomerEmail(message, settings) {
@@ -84,7 +78,7 @@ export function buildCustomerEmail(message, settings) {
   const branded = message.style === 'branded';
   const fragment = '<div style="box-sizing:border-box;background:' + (branded ? '#eef4fa' : '#ffffff') + ';padding:' + (branded ? '16px 8px' : '0') + ';font-family:Arial,Helvetica,sans-serif;color:#1e293b;overflow-wrap:anywhere">' +
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;margin:0 auto;background:white;border-collapse:separate;border-spacing:0;' + (branded ? 'border-top:4px solid #1268d9;border-radius:8px;' : '') + '"><tr><td style="padding:' + (branded ? '24px 18px' : '16px 8px') + ';font-size:15px;line-height:1.7">' +
-    (branded ? brandedHeader(settings) : '') +
+    (branded ? brandedHeader() : '') +
     renderCustomerMessage(message.body) + footer + '</td></tr></table></div>';
   const text = message.body.replace(/^#{1,3}\s+/gm, '').replace(/\*\*([^*\n]+)\*\*/g, '$1') +
     '\n\n' + settings.tradingName + ' | Cleaning & Property Services\ncontact@vveclean.co.uk | ' + settings.phone +
