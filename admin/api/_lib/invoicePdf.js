@@ -101,7 +101,7 @@ function formatPaymentMethod(value) {
 function formatContactLines(name, address, postcode, email, phone) {
   return [
     smartTitleCase(name),
-    smartTitleCase(address),
+    String(address || '').split(/\r?\n/).map(line => smartTitleCase(line.trim())).filter(Boolean).join('\n'),
     formatPostcodeDisplay(postcode),
     formatEmailDisplay(email),
     phone,
