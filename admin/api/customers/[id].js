@@ -1,3 +1,4 @@
+import { listCustomerEmails, previewCustomerEmail, sendCustomerEmail } from '../_lib/customerEmails.js';
 import { verifyAdminRequest } from '../_lib/adminAuth.js';
 import { corsHeaders } from '../_lib/cors.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
@@ -57,6 +58,7 @@ export default async function handler(req, res) {
   const action = new URL(req.url, 'https://x').searchParams.get('action');
 
   try {
+    if (action === 'emails') return await handleEmails(req, res, headers, supabase, customerId, auth);
     if (action === 'bookings') return await handleCreateBooking(req, res, headers, supabase, customerId, auth);
     if (action === 'events') return await handleEvents(req, res, headers, supabase, customerId);
 
@@ -161,4 +163,26 @@ async function handleCreateBooking(req, res, headers, supabase, customerId, auth
 
   res.writeHead(201, headers);
   return res.end(JSON.stringify({ ok: true, bookingId: result.bookingId, bookingRef: result.bookingRef }));
+}
+
+async function handleEmails(req, res, headers, db, customerId, auth) {
+  if (!['GET', 'POST'].includes(req.method)) {
+    res.writeHead(405, headers); return res.end(JSON.stringify({ error: 'Method not allowed' }));
+  }
+  const customer = await db.from('customers').select('id').eq('id', customerId).maybeSingle();
+  if (customer.error || !customer.data) {
+    res.writeHead(customer.error ? 503 : 404, headers); return res.end(JSON.stringify({ error: customer.error ? 'Could not check this customer.' : 'Customer not found.' }));
+  }
+  let result;
+  if (req.method === 'GET') result = await listCustomerEmails(db, customerId);
+  else {
+    let body;
+    try { body = await readJsonBody(req, 128 * 1024); }
+    catch { res.writeHead(400, headers); return res.end(JSON.stringify({ error: 'Invalid or oversized email request.' })); }
+    if (body?.operation === 'preview') result = await previewCustomerEmail(db, customerId, auth.admin.id, body);
+    else if (body?.operation === 'send') result = await sendCustomerEmail(db, customerId, body);
+    else result = { ok: false, status: 400, error: 'Choose preview or send.' };
+  }
+  res.writeHead(result.ok ? 200 : result.status || 400, headers);
+  res.end(JSON.stringify(result.ok ? result : { error: result.error }));
 }

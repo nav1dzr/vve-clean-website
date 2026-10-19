@@ -31,7 +31,7 @@ export function isMailerConfigured() {
 // Returns { ok: true, messageId } on success or { ok: false, error } on
 // failure — never throws, so callers can record a send-failure event
 // without an unhandled rejection.
-export async function sendMail({ to, subject, html, text, attachments, fromName }) {
+export async function sendMail({ to, subject, html, text, attachments, fromName, messageId }) {
   const isolation = previewIsolation();
   if (!isolation.ok) return { ok: false, error: isolation.error };
   if (!isMailerConfigured()) {
@@ -51,6 +51,7 @@ export async function sendMail({ to, subject, html, text, attachments, fromName 
       html,
       text: text || undefined,
       attachments: attachments || undefined,
+      ...(messageId ? { messageId } : {}),
     });
     return { ok: true, messageId: info?.messageId || null };
   } catch (err) {

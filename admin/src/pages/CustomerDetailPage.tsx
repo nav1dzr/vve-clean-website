@@ -121,6 +121,7 @@ export default function CustomerDetailPage() {
           <QuickAction label="Call" href={tel} disabled={!tel} />
           <QuickAction label="WhatsApp" href={whatsapp} disabled={!whatsapp} />
           <QuickAction label="Email" href={mail} disabled={!mail} />
+          <Link to={`/customers/${c.id}/email`} className="min-h-11 flex items-center rounded-lg bg-sky-700 px-3.5 text-sm font-semibold text-white hover:bg-sky-800">Write email in CRM</Link>
           <button type="button" onClick={() => { setActionError(null); setShowBookingModal(true); }} className="min-h-11 rounded-lg border border-silver-300 px-3.5 text-sm font-medium text-navy-900 hover:bg-silver-100">
             Create booking
           </button>

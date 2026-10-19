@@ -1,3 +1,4 @@
+import { clearCustomerEmailDrafts } from './customerEmailDraft';
 import { clearPendingInvoicePayments } from './pendingInvoicePayment';
 import { clearPendingStandaloneReceipts } from './pendingStandaloneReceipt';
 import { clearStandaloneReceiptDrafts } from './standaloneReceiptDraft';
@@ -152,6 +153,7 @@ export function clearInvoiceDraftRecoveries(): void {
   clearPendingStandaloneReceipts();
   clearStandaloneReceiptDrafts();
   clearPendingManualBookings();
+  clearCustomerEmailDrafts();
   try {
     const storage = window.sessionStorage;
     for (let index = storage.length - 1; index >= 0; index -= 1) {

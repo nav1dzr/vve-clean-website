@@ -448,3 +448,20 @@ describe('generateReceiptPdfBuffer', () => {
     expect(text).not.toContain('PAID IN FULL');
   });
 });
+
+
+describe('optional address line spacing', () => {
+  it('omits empty and whitespace-only address lines in PDF rendering without changing the source', async () => {
+    const textSpy = vi.spyOn(PDFDocument.prototype, 'text');
+    try {
+      const source = invoice({ customer_address: '1 Test Street\n   \nLondon', service_address: '2 Sample Road\r\n\r\nLondon', service_contact_name: 'Test contact' });
+      const original = source.customer_address;
+      await generateInvoicePdfBuffer(source, items(), settings, { isDraft: true });
+      const strings = textSpy.mock.calls.map(call => String(call[0]));
+      expect(strings.some(text => text.includes('1 Test Street\nLondon'))).toBe(true);
+      expect(strings.some(text => text.includes('2 Sample Road\nLondon'))).toBe(true);
+      expect(strings.some(text => /Street\n\s*\nLondon/.test(text))).toBe(false);
+      expect(source.customer_address).toBe(original);
+    } finally { textSpy.mockRestore(); }
+  });
+});
