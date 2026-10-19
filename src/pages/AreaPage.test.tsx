@@ -29,7 +29,7 @@ describe('local visitor journey in server-rendered pages', () => {
       : '#area-services');
     expect(primary.textContent).toContain(area.coverageConfirmed === false ? 'Check my postcode' : 'Choose my service');
     expect(main.textContent).toContain(BOOKING_REQUEST_NOTE);
-    expect(main.textContent).not.toMatch(/confirm with £30|before you pay|payment confirms/i);
+    expect(main.textContent).not.toMatch(/confirm with £30|before you pay|payment confirms|no deposit (?:is )?required/i);
     expect(main.querySelectorAll('h1')).toHaveLength(1);
     expect(main.querySelector(`[aria-labelledby="${area.slug}-visit-heading"]`)).not.toBeNull();
 
@@ -50,6 +50,17 @@ describe('local visitor journey in server-rendered pages', () => {
         expect(video.querySelector('source')).toBeNull();
       }
     }
+  });
+
+  it.each([AREAS_BY_SLUG.hackney, AREAS_BY_SLUG.angel])('$name explains the conditional deposit after agreement beside its final action', (area) => {
+    const container = renderArea(area);
+    const heading = [...container.querySelectorAll('h2')].find((item) => item.textContent === `Arrange your clean in ${area.name}`)!;
+    const finalSection = heading.closest('section')!;
+    const message = finalSection.querySelector('p')!.textContent!;
+    expect(message).toMatch(/request with no payment[\s\S]*agree the work, final price and time[\s\S]*email[\s\S]*deposit payment instructions/i);
+    expect(message).toMatch(/If a deposit is requested[\s\S]*confirmed once it is paid/i);
+    expect(message).not.toMatch(/no deposit|£\s*\d/i);
+    expect(finalSection.querySelector('a[href="#area-services"]')?.textContent).toContain('Choose my service');
   });
 
   it('keeps Highgate an availability enquiry, with working external actions and no claimed service coverage', () => {

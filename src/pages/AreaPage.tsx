@@ -129,7 +129,7 @@ function buildAreaLandingData(area: AreaInfo): ServiceLandingData {
       { href: '/pricing', label: 'All services & prices' },
     ],
     ctaH2: covered ? `Arrange your clean in ${area.name}` : 'Check your postcode with VVE Clean',
-    ctaBody: covered ? 'Choose a service and tell us what needs cleaning. We will agree the work, final price and time with you, then confirm your appointment. No deposit is required.' : 'Include the full postcode, service and preferred date in your message. We will check availability before you send a booking request.',
+    ctaBody: covered ? 'Send your request with no payment. We’ll agree the work, final price and time, then email your booking details and any deposit payment instructions. If a deposit is requested, your appointment is confirmed once it is paid.' : 'Include the full postcode, service and preferred date in your message. We will check availability before you send a booking request.',
     ctaPrimary: covered ? { href: '#area-services', label: 'Choose my service' } : { href: whatsapp, label: 'Check my postcode', isWa: true },
     ctaSecondary: { href: 'tel:02080502233', label: 'Call 020 8050 2233', isTel: true },
   };
