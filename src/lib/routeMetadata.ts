@@ -3,7 +3,7 @@ import { BLOG_POSTS } from '../data/blog';
 import { areaHasRealProof } from './areaProof';
 import {
   CARPET_ITEM_PRICES_P, CARPET_MIN_BOOKING_P, EOT_BASE_PRICES_P,
-  MOVEIN_BASE_PRICES_P, AFTER_BUILDERS_START_FROM_P,
+  MOVEIN_BASE_PRICES_P,
   EOT_GUARANTEE_APPROVED, EOT_GUARANTEE_HOURS, penceToDisplay,
 } from '../data/pricing';
 
@@ -13,7 +13,6 @@ const CARPET_ROOM = penceToDisplay(CARPET_ITEM_PRICES_P.bedroom);
 const CARPET_MIN = penceToDisplay(CARPET_MIN_BOOKING_P);
 const EOT_FROM = penceToDisplay(EOT_BASE_PRICES_P.studio);
 const MOVE_IN_FROM = penceToDisplay(MOVEIN_BASE_PRICES_P.studio);
-const AFTER_BUILDERS_FROM = penceToDisplay(AFTER_BUILDERS_START_FROM_P);
 const RECLEAN = EOT_GUARANTEE_APPROVED
   ? `${EOT_GUARANTEE_HOURS / 24}-day re-clean for missed agreed tasks`
   : 'agreed package scope';
@@ -59,7 +58,7 @@ const routes: RouteDefinition[] = [
       `Studio Complete from ${EOT_FROM}; carpet rooms ${CARPET_ROOM} and 2-seater sofas ${SOFA_FROM}, with a ${CARPET_MIN} visit minimum. Compare inclusions and request your clean.`,
     ogTitle: 'Cleaning Prices London | VVE Clean',
     ogDescription:
-      `Compare studio Complete from ${EOT_FROM}, studio move-in from ${MOVE_IN_FROM} and after builders from ${AFTER_BUILDERS_FROM}. See carpet and sofa prices with visit minimums.`,
+      `Compare studio Complete from ${EOT_FROM}, studio move-in from ${MOVE_IN_FROM} and assessed after-builders quotes. See carpet and sofa prices with visit minimums.`,
     changefreq: 'monthly',
     priority: '0.8',
     sources: ['src/pages/PricingPage.tsx', 'src/data/pricing.ts'],
@@ -184,15 +183,15 @@ const routes: RouteDefinition[] = [
   },
   {
     path: '/after-builders-cleaning-london',
-    title: 'After Builders Cleaning London | VVE Clean',
+    title: 'After Builders Cleaning London | Prices & Quotes | VVE Clean',
     description:
-      `After builders cleaning in London from ${AFTER_BUILDERS_FROM}. Send photos of the dust and residue so we can review the work and confirm a quote.`,
-    ogTitle: 'After Builders Cleaning London | VVE Clean',
+      'After builders cleaning in East & North London. View indicative budget ranges, choose the work needed and request an assessed written quote.',
+    ogTitle: 'After Builders Cleaning London | Prices & Fixed Quotes',
     ogDescription:
-      `After builders cleaning from ${AFTER_BUILDERS_FROM}. Send photos so VVE Clean can review the dust, residue and access, then agree the scope and price.`,
+      'Plan your after-builders clean with a budget guide, room-by-room cleaning choices and clearly assessed extras. Agree your final written quote before booking.',
     changefreq: 'monthly',
     priority: '0.8',
-    sources: ['src/pages/AfterBuildersPage.tsx'],
+    sources: ['src/pages/AfterBuildersPage.tsx', 'src/components/AfterBuildersContent.tsx', 'src/data/afterBuildersContent.ts', 'src/pages/after-builders.css'],
   },
   // ── Process pages ───────────────────────────────────────────────────────────
   {

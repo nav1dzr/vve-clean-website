@@ -1,5 +1,6 @@
 import { Phone } from 'lucide-react';
 import { useBookingCtx } from '../context/BookingContext';
+import type { ReactNode } from 'react';
 import { resolvePath, useLocation } from 'react-router-dom';
 import MobileActionBar, { MOBILE_PRIMARY_CLASS, WhatsAppActionIcon } from './MobileActionBar';
 import PagePrimaryActionLink, { type PagePrimaryAction } from './PagePrimaryActionLink';
@@ -22,9 +23,10 @@ export interface MobileLandingAction extends PagePrimaryAction {
 interface MobileStickyFooterProps {
   fallbackAction?: PagePrimaryAction;
   landingAction?: MobileLandingAction;
+  secondaryAction?: ReactNode;
 }
 
-export default function MobileStickyFooter({ fallbackAction, landingAction }: MobileStickyFooterProps = {}) {
+export default function MobileStickyFooter({ fallbackAction, landingAction, secondaryAction }: MobileStickyFooterProps = {}) {
   const { state, waLink, onBook } = useBookingCtx();
   const location = useLocation();
 
@@ -82,11 +84,11 @@ export default function MobileStickyFooter({ fallbackAction, landingAction }: Mo
   return (
     <MobileActionBar
       whatsappHref={helpLink}
-      secondary={state === 'manual' ? (
+      secondary={secondaryAction ?? (state === 'manual' ? (
         <a href="tel:02080502233" className="flex-1 inline-flex min-w-0 min-h-[48px] items-center justify-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold text-navy-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-700" aria-label="Call VVE Clean about your quote">
           <Phone size={18} aria-hidden="true" /><span>Call us</span>
         </a>
-      ) : undefined}
+      ) : undefined)}
       primary={state === 'manual' ? (
         <a href={waLink} target="_blank" rel="noopener noreferrer" className={MOBILE_PRIMARY_CLASS} aria-label="Request a quote via WhatsApp">
           <WhatsAppActionIcon /><span>Request a quote</span>

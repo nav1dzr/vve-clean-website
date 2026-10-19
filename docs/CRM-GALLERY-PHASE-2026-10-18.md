@@ -16,4 +16,3 @@ The owner flow starts with Upload & library, offers editable caption suggestions
 No production data, prices, DNS, Stripe behaviour or deposit amount changed. This feature branch is for review and does not constitute a production release. Preserved unfinished caption work is included, not discarded.
 
 Detailed evidence and coverage are in the task artifact folder `crm-gallery-audit-2026-10-15`, including `gallery-runtime-coverage.csv`, `gallery-runtime-findings.md`, `gallery-published-browser.png` and `VERIFICATION-REMAINING.md`.
-

@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { computePrice } from './servicePrices.js';
+import { requiresAfterBuildersAssessment, AFTER_BUILDERS_ASSESSMENT_REQUIRED } from '../shared/requestPricing.js';
 import { formatServiceDetail } from './_lib/formatBookingItems.js';
 
 export const config = { api: { bodyParser: false } };
@@ -186,6 +187,11 @@ export async function archivedDepositCheckout(req, res) {
     console.warn('[checkout] Rejected: quoteConfig absent (possible legacy URL exploit)');
     res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'quoteConfig is required' }));
+  }
+
+  if (requiresAfterBuildersAssessment(quoteConfig)) {
+    res.writeHead(400, { ...headers, 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(AFTER_BUILDERS_ASSESSMENT_REQUIRED));
   }
 
   // Only this specific configuration is an approved manual-quote path.

@@ -37,8 +37,27 @@ describe('durable contact enquiries', () => {
     expect(insert).not.toHaveBeenCalled(); expect(deliverEnquiry).not.toHaveBeenCalled();
   });
   it('rejects an identifier reused with changed content', async () => {
-    find.mockResolvedValue({ data: { ...validateEnquiry(body), request_fingerprint: 'different' }, error: null });
+    find.mockResolvedValue({ data: validateEnquiry({ ...body, message: 'A different cleaning request.' }), error: null });
     await expect(saveEnquiry(db, validateEnquiry(body))).rejects.toThrow(/changed/);
+  });
+  it('replays attribution-only changes after a lost response with one enquiry and one notification delivery', async () => {
+    const firstBody = { ...body, attribution: { gclid: 'test-consented-click', first_source: 'google-ads', measurement_consent: { advertising: true } } };
+    const saved = { ...validateEnquiry(firstBody), id: 'existing' };
+    find.mockResolvedValueOnce({ data: null, error: null }).mockResolvedValue({ data: saved, error: null });
+    insert.mockResolvedValue({ data: saved, error: null });
+    const first = response(); await handler({ method: 'POST', headers: {}, body: firstBody }, first);
+    const retry = response(); await handler({ method: 'POST', headers: {}, body: { ...body, attribution: { measurement_consent: { advertising: false } } } }, retry);
+    expect(first.status).toBe(201);
+    expect(retry.body).toMatchObject({ ok: true, replayed: true, enquiryId: first.body.enquiryId });
+    expect(insert).toHaveBeenCalledTimes(1); expect(deliverEnquiry).toHaveBeenCalledTimes(1);
+    expect(saved.request_fingerprint).toBe(validateEnquiry(firstBody).request_fingerprint);
+  });
+  it.each(['fullName', 'email', 'phone', 'service', 'message', 'sourcePage', 'marketingOptIn'])('rejects changed %s even if consent changes on retry', async field => {
+    const original = { ...body, phone: '00000000000', service: 'After builders cleaning', sourcePage: '/after-builders-cleaning', marketingOptIn: false, attribution: { gclid: 'test-click' } };
+    find.mockResolvedValue({ data: validateEnquiry(original), error: null });
+    const changed = { ...original, attribution: {}, [field]: field === 'email' ? 'changed@example.com' : field === 'marketingOptIn' ? true : 'Changed content' };
+    await expect(saveEnquiry(db, validateEnquiry(changed))).rejects.toThrow(/changed/);
+    expect(insert).not.toHaveBeenCalled(); expect(deliverEnquiry).not.toHaveBeenCalled();
   });
   it('coalesces simultaneous saves after the unique-key insertion race', async () => {
     const row = { ...validateEnquiry(body), id: '9fec4dcd-c52d-4772-aa57-749d16aeb21a' };

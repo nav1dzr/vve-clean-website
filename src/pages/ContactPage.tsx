@@ -1,4 +1,5 @@
 import Contact from '../components/Contact';
+import { useSearchParams } from 'react-router-dom';
 import { BOOKING_REQUEST_NOTE } from '../data/businessPolicy';
 import FaqSchema from '../components/FaqSchema';
 import Navbar from '../components/Navbar';
@@ -12,12 +13,15 @@ const CONTACT_FAQS = [
 ];
 
 export default function ContactPage() {
+  const [params] = useSearchParams();
+  // Only a recognised service key can preselect the enquiry. Never render raw URL input.
+  const initialService = params.get('service') === 'after_builders' ? 'After builders cleaning' : undefined;
   return (
     <div className="mobile-page-bottom min-h-screen bg-white lg:pb-0">
       <FaqSchema items={CONTACT_FAQS} />
       <Navbar />
       <main id="main-content" className="pt-16 lg:pt-20">
-        <Contact standalone />
+        <Contact standalone initialService={initialService} />
         <section className="bg-surface px-4 pb-20">
           <div className="mx-auto max-w-3xl">
             <h2 className="font-display text-3xl font-bold text-navy-900">Contact questions</h2>

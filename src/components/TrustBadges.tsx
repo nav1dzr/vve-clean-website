@@ -35,7 +35,7 @@ export default function TrustBadges() {
               <badge.icon className="text-royal-500 mb-2" size={22} aria-hidden="true" />
               <div className="text-navy-800 text-xs font-semibold mb-0.5">{badge.label}</div>
               {badge.icon === Star ? <>
-                <p className="text-slate-600 text-xs leading-relaxed">{rating ? `${rating.value.toFixed(1)} from ${rating.count} Google reviews` : badge.sub}</p>
+                <p className="text-slate-600 text-xs leading-relaxed">{rating ? `${rating.value.toFixed(1)} out of 5 on Google` : badge.sub}</p>
                 {rating && <p className="mt-1 text-xs leading-relaxed text-slate-600">{googleRatingSourceLabel(rating)}</p>}
                 <a href={GOOGLE_PROFILE_LINK} target="_blank" rel="noopener noreferrer"
                   aria-label="Read VVE Clean reviews on Google (opens in a new tab)"

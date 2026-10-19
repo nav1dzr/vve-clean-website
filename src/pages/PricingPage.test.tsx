@@ -14,6 +14,20 @@ function renderPricing() {
 }
 
 describe('PricingPage — current service prices and meaningful comparisons', () => {
+  it('routes after-builders enquiries to an assessed guide rather than quoting a whole-home starting amount', async () => {
+    const user = userEvent.setup();
+    renderPricing();
+    await user.click(screen.getByRole('button', { name: /^Other cleans/ }));
+    const builders = screen.getByRole('heading', { name: 'After Builders Clean' }).parentElement!.parentElement!;
+    expect(builders).toHaveTextContent('Assessed quote');
+    expect(builders).toHaveTextContent('Budget ranges are guidance only');
+    expect(builders).not.toHaveTextContent('£249');
+    expect(within(builders).getByRole('link', { name: 'See the after-builders budget guide' })).toHaveAttribute('href', '/after-builders-cleaning-london#builders-prices');
+    expect(within(builders).getByRole('link', { name: 'Tell us about your project' })).toHaveAttribute('href', '/after-builders-cleaning-london#builders-quote');
+    await user.click(screen.getByText('Optional services and access costs'));
+    expect(screen.getByText(/These listed extras apply/)).toHaveTextContent('not fixed after-builders add-on fees');
+  });
+
   it('leads with Complete flat prices and keeps selected-task prices clearly separate', async () => {
     const user = userEvent.setup();
     renderPricing();
