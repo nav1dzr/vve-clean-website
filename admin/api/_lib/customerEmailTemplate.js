@@ -59,16 +59,16 @@ export function renderCustomerMessage(body) {
 }
 
 // Hybrid columns keep the brand and contact details side by side in desktop
-// mail clients, with a stacked fallback and an explicit narrow-screen layout.
+// mail clients. Inline alignment and spacing also work when email apps strip
+// style blocks or render a narrow message inside a wider viewport.
 function brandedHeader(settings) {
   const phone = String(settings.phone || '').trim();
   const dialNumber = phone.replace(/[^+0-9]/g, '');
-  return '<style>@media only screen and (max-width:520px){.vve-letter-header .vve-letter-column{display:block!important;width:100%!important;min-width:0!important}.vve-letter-header .vve-letter-contact{text-align:left!important;padding-top:16px!important}}</style>' +
-    '<div class="vve-letter-header" style="margin-bottom:26px;padding-bottom:20px;border-bottom:1px solid #dce5ef;font-size:0;line-height:0;text-align:left">' +
+  return '<div class="vve-letter-header" style="margin-bottom:26px;padding-bottom:20px;border-bottom:1px solid #dce5ef;font-size:0;line-height:0;text-align:left">' +
     '<!--[if mso]><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="50%" valign="middle"><![endif]-->' +
-    '<div class="vve-letter-column" style="display:inline-block;width:50%;min-width:240px;max-width:100%;vertical-align:middle">' + emailWordmarkHtml() + '</div>' +
+    '<div class="vve-letter-column" style="display:inline-block;width:100%;max-width:300px;padding:8px 0;vertical-align:middle">' + emailWordmarkHtml() + '</div>' +
     '<!--[if mso]></td><td width="50%" valign="middle"><![endif]-->' +
-    '<div class="vve-letter-column" style="display:inline-block;width:50%;min-width:240px;max-width:100%;vertical-align:middle"><div class="vve-letter-contact" style="text-align:right;font-family:Arial,Helvetica,sans-serif;line-height:1.6">' +
+    '<div class="vve-letter-column" style="display:inline-block;width:100%;max-width:300px;padding:8px 0;vertical-align:middle"><div class="vve-letter-contact" style="text-align:left;font-family:Arial,Helvetica,sans-serif;line-height:1.6">' +
     '<div style="font-size:10px;line-height:18px;font-weight:700;letter-spacing:1px;color:#526378">CONTACT VVE CLEAN</div>' +
     (dialNumber ? '<a href="tel:' + escHtml(dialNumber) + '" style="display:block;font-size:16px;line-height:25px;font-weight:700;color:#12356d;text-decoration:none">' + escHtml(phone) + '</a>' : '') +
     '<a href="mailto:contact@vveclean.co.uk" style="display:block;font-size:12px;line-height:24px;color:#155582;text-decoration:underline">contact@vveclean.co.uk</a>' +
