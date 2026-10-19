@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
 import type { ReceiptDetail, InvoiceEvent, InvoiceEventsResponse, DownloadUrlResponse, SendResponse } from '../types/invoice';
@@ -8,64 +8,77 @@ import ErrorState from '../components/ErrorState';
 import { CardListSkeleton } from '../components/Skeleton';
 import { formatMoney, formatDateTime, invoicePaymentMethodLabel, invoiceEventLabel } from '../lib/format';
 
-type State =
+type State = { receiptId?: string } & (
   | { status: 'loading' }
   | { status: 'not-found' }
   | { status: 'error'; message: string }
-  | { status: 'success'; data: ReceiptDetail };
+  | { status: 'success'; data: ReceiptDetail });
 
 export default function ReceiptDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [state, setState] = useState<State>({ status: 'loading' });
   const [events, setEvents] = useState<InvoiceEvent[] | null>(null);
+  const [eventsError, setEventsError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const generation = useRef(0);
 
-  function load() {
+  useEffect(() => {
     if (!id) return;
-    setState({ status: 'loading' });
+    const request = ++generation.current;
+    const current = () => generation.current === request;
+    setState({ receiptId: id, status: 'loading' });
+    setEvents(null);
+    setEventsError(null);
+    setSendOpen(false);
+    setBusy(false);
+    setActionError(null);
     authFetch<ReceiptDetail>(`/api/receipts?id=${id}`)
       .then((data) => {
-        setState({ status: 'success', data });
-        authFetch<InvoiceEventsResponse>(`/api/receipts?id=${id}&action=events`)
-          .then((r) => setEvents(r.results))
-          .catch(() => setEvents([]));
+        if (!current()) return;
+        setState({ receiptId: id, status: 'success', data });
+        void authFetch<InvoiceEventsResponse>(`/api/receipts?id=${id}&action=events`)
+          .then((r) => { if (current()) setEvents(r.results); })
+          .catch((err) => { if (current()) setEventsError(err instanceof ApiError ? err.message : 'Could not load this receipt’s history.'); });
       })
       .catch((err) => {
-        if (err instanceof ApiError && err.status === 404) setState({ status: 'not-found' });
-        else setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load this receipt.' });
+        if (!current()) return;
+        if (err instanceof ApiError && err.status === 404) setState({ receiptId: id, status: 'not-found' });
+        else setState({ receiptId: id, status: 'error', message: err instanceof ApiError ? err.message : 'Could not load this receipt.' });
       });
-  }
-
-  useEffect(load, [id]);
+    return () => { generation.current += 1; };
+  }, [id, retry]);
+  const reload = () => setRetry((attempt) => attempt + 1);
 
   async function handleDownload() {
     if (!id) return;
+    const request = generation.current;
     setBusy(true);
     setActionError(null);
     try {
       const result = await authFetch<DownloadUrlResponse>(`/api/receipts?id=${id}&action=download`);
-      window.open(result.url, '_blank', 'noopener');
+      if (generation.current === request) window.open(result.url, '_blank', 'noopener');
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : 'Could not download this receipt.');
+      if (generation.current === request) setActionError(err instanceof ApiError ? err.message : 'Could not download this receipt.');
     } finally {
-      setBusy(false);
+      if (generation.current === request) setBusy(false);
     }
   }
 
   async function handleSend(to: string, message: string) {
-    if (!id || state.status !== 'success') return;
+    if (!id || state.receiptId !== id || state.status !== 'success') return;
+    const request = generation.current;
     const action = state.data.sentAt ? 'resend' : 'send';
     await authFetch<SendResponse>(`/api/receipts?id=${id}&action=${action}`, {
       method: 'POST',
       body: JSON.stringify({ to, message: message || undefined }),
     });
-    setSendOpen(false);
-    load();
+    if (generation.current === request) { setSendOpen(false); reload(); }
   }
 
-  if (state.status === 'loading') {
+  if (state.receiptId !== id || state.status === 'loading') {
     return (
       <div className="px-4 py-6 sm:px-6">
         <CardListSkeleton count={1} />
@@ -88,7 +101,7 @@ export default function ReceiptDetailPage() {
   if (state.status === 'error') {
     return (
       <div className="px-4 py-6 sm:px-6">
-        <ErrorState message={state.message} onRetry={load} />
+        <ErrorState message={state.message} onRetry={reload} />
       </div>
     );
   }
@@ -151,7 +164,8 @@ export default function ReceiptDetailPage() {
       </Section>
 
       <Section title="History">
-        {events === null && <p className="text-sm text-navy-500">Loading…</p>}
+        {eventsError && <div role="alert"><p className="text-sm text-red-700">{eventsError}</p><button type="button" onClick={reload} className="mt-2 min-h-11 rounded-lg border border-silver-300 px-3.5 text-sm font-medium text-navy-900 hover:bg-silver-100">Retry history</button></div>}
+        {events === null && !eventsError && <p className="text-sm text-navy-500">Loading…</p>}
         {events !== null && events.length === 0 && <p className="text-sm text-navy-500">No history yet.</p>}
         {events !== null && events.length > 0 && (
           <ul className="space-y-1.5 text-sm">

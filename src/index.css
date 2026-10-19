@@ -317,7 +317,33 @@ details[open] > .faq-summary .faq-icon {
   .service-hero-compact .service-photo > img { max-height: 220px; width: 100%; object-fit: cover; }
 }
 
-@media (max-width: 419px) { .nav-brand-divider, .nav-brand-descriptor { display: none; } }
+/* A readable service descriptor still fits beneath the logo on narrow phones. */
+.nav-brand-mobile { display: none; }
+.mobile-nav-panel { max-height: calc(100dvh - 4rem - 5.5rem - var(--vve-cookie-banner-h, 0px)); }
+@media (max-width: 419px) {
+  .nav-brand-divider, .nav-brand-descriptor { display: none; }
+  .nav-brand-mobile { display: block; }
+  .nav-brand-mark { min-width: 96px; }
+}
+.home-hero {
+  background: radial-gradient(ellipse at 100% 0%, #d4eaf5 0%, transparent 58%), linear-gradient(140deg, #f8fbfd 25%, #eaf3f8 100%);
+}
+.home-hero::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  width: clamp(20rem, 54vw, 50rem);
+  aspect-ratio: 1;
+  right: -14%;
+  top: -28%;
+  border: clamp(2rem, 6vw, 6rem) solid #ffffff55;
+  border-radius: 50%;
+}
+@media (max-width: 639px) {
+  .home-hero h1 { font-size: clamp(1.875rem, 7.6vw, 2.2rem); }
+  .service-hero-actions { gap: .25rem; margin-top: 1.25rem; }
+}
 
 /* Let room labels and their 44px controls use separate rows when a quote
    card is narrow, without widening the grid or clipping either control. */

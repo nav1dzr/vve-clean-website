@@ -74,6 +74,23 @@ describe('/api/customers/:id[?action=] (detail/update/history/manual booking)', 
     expect(body.outstandingBalance).toBe(20);
   });
 
+  it.each(['customers', 'bookings', 'invoices', 'receipts'])('returns a retryable error rather than empty history when the %s read fails', async (failedTable) => {
+    const base = createFakeSupabase({
+      customers: [{ id: VALID_UUID, name: 'Test Customer', email: 'fixture@example.invalid', customer_type: 'individual', source: 'other' }],
+      invoices: [{ id: 'inv-test', billing_customer_id: VALID_UUID, document_status: 'issued', total: 125, amount_due: 125 }],
+    });
+    const failed = { select() { return this; }, eq() { return this; }, or() { return this; }, in() { return this; }, order() { return this; }, maybeSingle() { return Promise.resolve({ data: null, error: { code: 'XX000' } }); }, then(resolve) { return Promise.resolve({ data: null, error: { code: 'XX000' } }).then(resolve); } };
+    getServiceClientMock.mockReturnValue({ from: (table) => table === failedTable ? failed : base.from(table) });
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/customers/${VALID_UUID}` }), res);
+    expect(res.statusCode).toBe(503);
+    const body = JSON.parse(res.body);
+    expect(body.error).toBeTruthy();
+    expect(body.outstandingBalance).toBeUndefined();
+    expect(body.totalPaid).toBeUndefined();
+    expect(body.bookings).toBeUndefined();
+  });
+
   it('never exposes normalised_email/normalised_phone (internal dedup keys)', async () => {
     const supabase = createFakeSupabase({
       customers: [{ id: VALID_UUID, name: 'Jane Doe', email: 'jane@example.com', phone: '07700900123', postcode: null, customer_type: 'individual', source: 'other', created_at: '2026-01-01T00:00:00Z', normalised_email: 'jane@example.com', normalised_phone: '07700900123' }],
@@ -88,20 +105,32 @@ describe('/api/customers/:id[?action=] (detail/update/history/manual booking)', 
 
   it('updates a customer', async () => {
     const supabase = createFakeSupabase({
-      customers: [{ id: VALID_UUID, name: 'Jane Doe', email: 'jane@example.com', phone: null, postcode: null, customer_type: 'individual', source: 'other', created_at: '2026-01-01T00:00:00Z' }],
+      customers: [{ id: VALID_UUID, name: 'Jane Doe', email: 'jane@example.com', phone: null, postcode: null, customer_type: 'individual', source: 'other', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-10-18T12:00:00.000Z' }],
     });
     getServiceClientMock.mockReturnValue(supabase);
 
     const res = makeRes();
     await handler(makeReq({
       url: `/api/customers/${VALID_UUID}`, method: 'PATCH',
-      bodyObj: { name: 'Jane Updated', email: 'jane@example.com', customerType: 'business', source: 'referral' },
+      bodyObj: { name: 'Jane Updated', email: 'jane@example.com', customerType: 'business', source: 'referral', expectedUpdatedAt: '2026-10-18T12:00:00.000Z' },
     }), res);
     expect(res.statusCode).toBe(200);
 
     const row = supabase._tables.customers.find((c) => c.id === VALID_UUID);
     expect(row.name).toBe('Jane Updated');
     expect(row.customer_type).toBe('business');
+    expect(JSON.parse(res.body).updatedAt).toBe(row.updated_at);
+  });
+
+  it('returns409 for a stale customer PATCH and preserves current data', async () => {
+    const supabase = createFakeSupabase({ customers: [{ id: VALID_UUID, name: 'Latest customer', notes: 'Newer note', updated_at: '2026-10-18T12:05:00.000Z' }] });
+    getServiceClientMock.mockReturnValue(supabase);
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/customers/${VALID_UUID}`, method: 'PATCH', bodyObj: { name: 'Stale edit', expectedUpdatedAt: '2026-10-18T12:00:00.000Z' } }), res);
+    expect(res.statusCode).toBe(409);
+    expect(JSON.parse(res.body).error).toMatch(/changed since you opened/);
+    expect(supabase._tables.customers[0].notes).toBe('Newer note');
+    expect(supabase._tables.customers[0].name).toBe('Latest customer');
   });
 
   it('creates a manual booking for the customer via ?action=bookings', async () => {
@@ -136,14 +165,61 @@ describe('/api/customers/:id[?action=] (detail/update/history/manual booking)', 
     expect(res.statusCode).toBe(400);
   });
 
+  it.each(['after_clean', 'deposit_after_agreement'])('persists the explicit manual %s choice without taking payment', async (paymentPlan) => {
+    const supabase = createFakeSupabase({ customers: [{ id: VALID_UUID, name: 'Synthetic customer', email: 'manual@example.invalid' }] });
+    getServiceClientMock.mockReturnValue(supabase);
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/customers/${VALID_UUID}?action=bookings`, method: 'POST', bodyObj: { service: 'Carpet cleaning', paymentPlan, arrivalWindow: '09:00–11:00', totalPrice: 100 } }), res);
+    expect(res.statusCode).toBe(201);
+    expect(supabase._tables.bookings[0]).toMatchObject({ quote_config: { manualPaymentPlan: paymentPlan }, preferred_time: '09:00–11:00', deposit_amount: 0, status: 'new', payment_status: 'pending_payment' });
+    expect(supabase._tables.bookings[0].stripe_session_id).toBeUndefined();
+  });
+  it('rejects an unsupported manual payment arrangement before creating a booking', async () => {
+    const supabase = createFakeSupabase({ customers: [{ id: VALID_UUID, name: 'Synthetic customer', email: 'manual@example.invalid' }] });
+    getServiceClientMock.mockReturnValue(supabase);
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/customers/${VALID_UUID}?action=bookings`, method: 'POST', bodyObj: { service: 'Carpet cleaning', paymentPlan: 'pretend_paid' } }), res);
+    expect(res.statusCode).toBe(400);
+    expect(supabase._tables.bookings || []).toHaveLength(0);
+  });
+  it('replays one manual operation without inserting another booking and rejects a changed customer or payload', async () => {
+    const customer = { id: VALID_UUID, name: 'Synthetic customer', email: 'manual@example.invalid' };
+    const otherId = '123e4567-e89b-12d3-a456-426614174111';
+    const requestId = '123e4567-e89b-42d3-a456-426614174222';
+    const supabase = createFakeSupabase({ customers: [customer, { ...customer, id: otherId }] });
+    getServiceClientMock.mockReturnValue(supabase);
+    const bodyObj = { requestId, service: 'Carpet cleaning', paymentPlan: 'after_clean', totalPrice: 100 };
+    const create = async (customerId, input) => { const res = makeRes(); await handler(makeReq({ url: `/api/customers/${customerId}?action=bookings`, method: 'POST', bodyObj: input }), res); return res; };
+    const first = await create(VALID_UUID, bodyObj);
+    const retry = await create(VALID_UUID, bodyObj);
+    expect(first.statusCode).toBe(201);
+    expect(retry.statusCode).toBe(201);
+    expect(JSON.parse(first.body).bookingId).toBe(requestId);
+    expect(JSON.parse(retry.body).bookingId).toBe(requestId);
+    expect(supabase._tables.bookings).toHaveLength(1);
+    expect((await create(VALID_UUID, { ...bodyObj, totalPrice: 101 })).statusCode).toBe(409);
+    expect((await create(otherId, bodyObj)).statusCode).toBe(409);
+    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: { id: 'different-admin' } });
+    expect((await create(VALID_UUID, bodyObj)).statusCode).toBe(409);
+    expect(supabase._tables.bookings).toHaveLength(1);
+  });
+  it.each([{arrivalWindow: '11:00–09:00'}, {arrivalWindow: '25:00–26:00'}, {email: 'not-an-email'}])('rejects invalid new manual fields before insertion: %j', async (fields) => {
+    const supabase = createFakeSupabase({ customers: [{ id: VALID_UUID, name: 'Synthetic customer', email: 'manual@example.invalid' }] });
+    getServiceClientMock.mockReturnValue(supabase);
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/customers/${VALID_UUID}?action=bookings`, method: 'POST', bodyObj: { service: 'Carpet cleaning', paymentPlan: 'after_clean', ...fields } }), res);
+    expect(res.statusCode).toBe(400);
+    expect(supabase._tables.bookings || []).toHaveLength(0);
+  });
+
   it('returns customer event history via ?action=events', async () => {
     const supabase = createFakeSupabase({
-      customers: [{ id: VALID_UUID, name: 'Jane Doe', email: 'jane@example.com', phone: null, postcode: null, customer_type: 'individual', source: 'other', created_at: '2026-01-01T00:00:00Z' }],
+      customers: [{ id: VALID_UUID, name: 'Jane Doe', email: 'jane@example.com', phone: null, postcode: null, customer_type: 'individual', source: 'other', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-10-18T12:00:00.000Z' }],
     });
     getServiceClientMock.mockReturnValue(supabase);
     await handler(makeReq({
       url: `/api/customers/${VALID_UUID}`, method: 'PATCH',
-      bodyObj: { name: 'Jane Doe', email: 'jane@example.com' },
+      bodyObj: { name: 'Jane Doe', email: 'jane@example.com', expectedUpdatedAt: '2026-10-18T12:00:00.000Z' },
     }), makeRes());
 
     const res = makeRes();

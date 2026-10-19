@@ -172,7 +172,7 @@ export async function createDraftInvoice(supabase, input, adminId) {
       amount_due: totalsResult.totals.amountDue,
       customer_notes: input.customerNotes || null,
       internal_notes: input.internalNotes || null,
-      payment_terms: input.paymentTerms || getBusinessSettings().defaultPaymentTermsText,
+      payment_terms: input.paymentTerms || getBusinessSettings().newInvoicePaymentTermsText,
       document_status: 'draft',
       payment_status: 'unpaid',
       created_by_admin_id: adminId,

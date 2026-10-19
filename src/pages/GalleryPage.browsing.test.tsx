@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
@@ -14,7 +14,12 @@ vi.mock('../lib/managedGalleryMedia', async (original) => ({
 
 beforeEach(() => {
   managed.mockReturnValue({ 'end-of-tenancy': [], carpet: [], 'sofa-upholstery': [] });
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 function NavigationProbe() {
   const location = useLocation();
@@ -56,15 +61,15 @@ describe('Gallery browsing', () => {
     expect(within(dialog).getByRole('img')).toHaveAttribute('src', pair.after);
   });
 
-  it('keeps clips unloaded until the visitor chooses Play', async () => {
+  it('keeps offscreen clips unloaded and supports explicit playback', async () => {
     const user = userEvent.setup();
     const { container } = renderGallery(['/gallery?category=carpet&type=video']);
     const clips = GALLERY_MEDIA.carpet.filter((item) => item.type === 'video');
     expect(screen.getByRole('button', { name: 'Videos (4)' })).toHaveAttribute('aria-pressed', 'true');
-    expect(container.querySelector('video, iframe')).toBeNull();
+    expect(container.querySelector('video source, iframe')).toBeNull();
     await user.click(screen.getByRole('button', { name: `Play ${clips[0].label}` }));
-    expect(container.querySelectorAll('video')).toHaveLength(1);
-    expect(container.querySelector('video')).toHaveAttribute('src', clips[0].src);
+    expect(container.querySelectorAll('video source')).toHaveLength(1);
+    expect(container.querySelector('video source')).toHaveAttribute('src', clips[0].src);
     expect(container.querySelector('video')).toHaveAttribute('controls');
   });
 

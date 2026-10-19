@@ -80,7 +80,7 @@ describe('Sofa & Upholstery page order', () => {
       ['what every clean includes', at.heading('What every sofa clean includes')],
       ['pricing', at.heading('Sofa and upholstery item prices')],
       ['FAQs', at.heading('Common questions')],
-      ['related', at.heading('Other services')],
+      ['related', at.heading('Explore services and advice')],
       ['final CTA', at.heading('Ready to book your sofa clean?')],
     ]);
   });

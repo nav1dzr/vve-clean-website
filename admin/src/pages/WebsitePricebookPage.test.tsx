@@ -18,6 +18,14 @@ beforeEach(() => {
   });
 });
 describe('CRM website price review', () => {
+  it.each(['Carpet', 'CARPET', ' carpet '])('finds a service group regardless of case and surrounding spaces: %s', async (query) => {
+    const user = userEvent.setup();
+    render(<WebsitePricebookPage />);
+    await screen.findByText('Current list: original website prices');
+    await user.type(screen.getByRole('searchbox'), query);
+    expect(screen.getByLabelText(/Carpet and upholstery items · bedroom/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
   it('saves and reviews changed prices before enabling publication, and invalidates review on further editing', async () => {
     const user = userEvent.setup(); render(<WebsitePricebookPage />);
     await screen.findByText('Current list: original website prices');

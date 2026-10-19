@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
 import type { BookingDetail, BalanceUpdateResponse } from '../types/booking';
@@ -13,7 +13,7 @@ import BookingInvoicesSection from '../components/BookingInvoicesSection';
 import BookingCustomerSection from '../components/BookingCustomerSection';
 import BookingJourneyPanel from '../components/BookingJourneyPanel';
 import {
-  paymentStatusBadge,
+  bookingPaymentBadge,
   formatServiceDate,
   formatPreferred,
   formatDateTime,
@@ -31,17 +31,27 @@ type State =
 
 export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
+  // Keep all forms, confirmations and in-flight callbacks tied to one record.
+  return <BookingDetailContent key={id} id={id} />;
+}
+
+function BookingDetailContent({ id }: { id: string | undefined }) {
   const [state, setState] = useState<State>({ status: 'loading' });
+  const requestVersion = useRef(0);
   const [copied, setCopied] = useState<'address' | 'ref' | null>(null);
   const [withdrawalStep, setWithdrawalStep] = useState<'idle' | 'confirm' | 'saving'>('idle');
   const [withdrawalError, setWithdrawalError] = useState<string | null>(null);
 
-  function load() {
+  const load = useCallback(() => {
     if (!id) return;
+    const version = ++requestVersion.current;
     setState({ status: 'loading' });
     authFetch<BookingDetail>(`/api/bookings/${id}`)
-      .then((data) => setState({ status: 'success', data }))
+      .then((data) => {
+        if (version === requestVersion.current) setState({ status: 'success', data });
+      })
       .catch((err) => {
+        if (version !== requestVersion.current) return;
         if (err instanceof ApiError && err.status === 404) {
           setState({ status: 'not-found' });
         } else {
@@ -51,9 +61,12 @@ export default function BookingDetailPage() {
           });
         }
       });
-  }
+  }, [id]);
 
-  useEffect(load, [id]);
+  useEffect(() => {
+    load();
+    return () => { requestVersion.current += 1; };
+  }, [load]);
 
   function handleStatusUpdated(status: string, updatedAt: string) {
     setState((prev) => (prev.status === 'success' ? { status: 'success', data: { ...prev.data, status, updatedAt } } : prev));
@@ -109,6 +122,10 @@ export default function BookingDetailPage() {
   }
 
   const b = state.data;
+  const workflowManaged = Boolean(b.journeyState) || (
+    b.attribution.firstSource === 'admin_manual'
+    && ['after_clean', 'deposit_after_agreement'].includes(String(b.quoteConfig?.manualPaymentPlan || ''))
+  );
   const dateLabel = b.serviceDate ? formatServiceDate(b.serviceDate) : formatPreferred(b.preferredDate, b.preferredTime);
   const tel = telHref(b.phone);
   const wa = whatsappHref(b.phone);
@@ -156,22 +173,29 @@ export default function BookingDetailPage() {
         {b.awaitingAvailabilityReview ? (
           <StatusBadge label="Check availability" className="bg-sky-100 text-sky-900" />
         ) : (
-          <StatusBadge {...paymentStatusBadge(b.paymentStatus)} />
+          <StatusBadge {...bookingPaymentBadge(b)} />
         )}
       </div>
 
       {b.awaitingAvailabilityReview && (
         <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-relaxed text-navy-900">
-          <p className="font-semibold">Preferred-time request — no payment taken</p>
+          <p className="font-semibold">Booking details to review — no payment taken</p>
           <p className="mt-1">
-            Agree the scope, final price and time with the customer, then send the booking details and £30 deposit request from the CRM. This request is not a confirmed appointment.
+            Check the cleaning list, total, date and arrival window below. Review the payment arrangement before sending. This record is not a confirmed appointment yet.
           </p>
         </div>
       )}
 
-      <Section title="Status">
-        <StatusControl bookingId={b.id} status={b.status} onUpdated={handleStatusUpdated} />
-      </Section>
+      {workflowManaged ? (
+        <p className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-navy-800">
+          Booking status and payments are managed in the booking workflow below. Use its actions to send updates, record payments or finish the job.
+        </p>
+      ) : (
+        <Section title="Internal job status">
+          <p className="mb-3 text-sm text-navy-700">This older status record does not send a customer confirmation. Use the booking workflow below to agree and confirm an appointment.</p>
+          <StatusControl bookingId={b.id} status={b.status} onUpdated={handleStatusUpdated} />
+        </Section>
+      )}
 
       <BookingJourneyPanel booking={b} onChanged={load} />
 
@@ -197,15 +221,16 @@ export default function BookingDetailPage() {
         <p className="text-sm text-navy-900">{b.service || 'Service not recorded'}</p>
         <p className="text-sm text-navy-700">{dateLabel}</p>
         {b.quoteConfig ? (
+          <details className="mt-2 text-sm text-navy-700"><summary className="cursor-pointer">Technical request details</summary>
           <pre className="mt-2 overflow-x-auto rounded-lg bg-silver-100 p-3 text-xs text-navy-700">
             {JSON.stringify(b.quoteConfig, null, 2)}
-          </pre>
+          </pre></details>
         ) : (
           <p className="mt-1 text-sm text-navy-500">Itemised quote unavailable</p>
         )}
       </Section>
 
-      <Section title="Balance">
+      {!workflowManaged && <Section title="Internal balance record">
         <BalanceControl
           bookingId={b.id}
           totalPrice={b.totalPrice}
@@ -217,7 +242,7 @@ export default function BookingDetailPage() {
           balancePaymentMethod={b.balancePaymentMethod}
           onUpdated={handleBalanceUpdated}
         />
-      </Section>
+      </Section>}
 
       <BookingCustomerSection bookingId={b.id} fullName={b.fullName} email={b.email} phone={b.phone} />
 
@@ -243,14 +268,14 @@ export default function BookingDetailPage() {
       <Section title="Advertising measurement">
         {b.measurement.consentWithdrawnAt ? (
           <p className="text-sm text-navy-700">
-            Consent withdrawn {formatDateTime(b.measurement.consentWithdrawnAt)}. Stored measurement identifiers were removed and unsent events were suppressed.
+            Consent withdrawn {formatDateTime(b.measurement.consentWithdrawnAt)}. Advertising reporting is disabled for this booking. Identifiers in reporting records were removed and unsent events were suppressed. Original request source details remain on this booking.
           </p>
         ) : b.measurement.advertisingConsent ? (
           <div className="space-y-3">
             <p className="text-sm text-navy-700">Advertising measurement consent is currently recorded for this booking.</p>
             {withdrawalStep !== 'idle' ? (
               <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                <p className="text-sm text-red-900">Confirm the customer has asked to withdraw advertising measurement consent. This removes stored measurement identifiers and suppresses unsent events.</p>
+                <p className="text-sm text-red-900">Confirm the customer has asked to withdraw advertising measurement consent. This disables advertising reporting, removes identifiers from reporting records and suppresses unsent events. Original request source details will remain on this booking.</p>
                 {withdrawalError && <p role="alert" className="mt-2 text-sm text-red-800">{withdrawalError}</p>}
                 <div className="mt-3 flex gap-2">
                   <button type="button" disabled={withdrawalStep === 'saving'} onClick={withdrawMeasurementConsent} className="min-h-11 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white disabled:opacity-60">

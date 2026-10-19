@@ -34,17 +34,19 @@ function hashSeed(seed: string): number {
   return hash >>> 0;
 }
 
-/** Stable for a whole day, but varied by area. One clip comes from each of
+/** Deterministic for an area and selection key. One clip comes from each of
  * two different services so the section never looks like a carpet-only page. */
-export function selectAreaShowcaseVideos(areaSlug: string, dateKey: string): AreaShowcaseVideo[] {
+export function selectAreaShowcaseVideos(areaSlug: string, selectionKey: string): AreaShowcaseVideo[] {
   if (CARPET_POOL.length === 0 || SOFA_POOL.length === 0) return [];
-  const hash = hashSeed(`${areaSlug}:${dateKey}`);
+  const hash = hashSeed(`${areaSlug}:${selectionKey}`);
   return [
     CARPET_POOL[hash % CARPET_POOL.length],
     SOFA_POOL[Math.floor(hash / 13) % SOFA_POOL.length],
   ];
 }
 
-export function getAreaShowcaseVideos(areaSlug: string, date = new Date()): AreaShowcaseVideo[] {
-  return selectAreaShowcaseVideos(areaSlug, date.toISOString().slice(0, 10));
+// A fixed key keeps the prerendered HTML and client navigation identical, even
+// when a visitor opens the page on a later day than the build.
+export function getAreaShowcaseVideos(areaSlug: string): AreaShowcaseVideo[] {
+  return selectAreaShowcaseVideos(areaSlug, 'published');
 }

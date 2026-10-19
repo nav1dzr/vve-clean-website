@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ProtectedShell from './ProtectedShell';
@@ -17,6 +17,7 @@ function renderShell(initialEntries = ['/bookings']) {
         <Route element={<ProtectedShell />}>
           <Route path="/" element={<div>Home page</div>} />
           <Route path="/bookings" element={<div>Bookings page</div>} />
+          <Route path="/media" element={<div>Media page</div>} />
           <Route path="/search" element={<div>Search page</div>} />
         </Route>
       </Routes>
@@ -25,6 +26,7 @@ function renderShell(initialEntries = ['/bookings']) {
 }
 
 describe('ProtectedShell', () => {
+  afterEach(() => vi.unstubAllGlobals());
   beforeEach(() => {
     useAuthMock.mockReset();
     useAuthMock.mockReturnValue({
@@ -70,4 +72,55 @@ describe('ProtectedShell', () => {
     renderShell();
     expect(screen.getByText('Sam Wilson')).toBeInTheDocument();
   });
+  it('makes every secondary section reachable from More and closes on navigation', async () => {
+    const user = userEvent.setup();
+    renderShell();
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    const menu = screen.getByRole('dialog', { name: 'More in your CRM' });
+    for (const name of ['Enquiries', 'Receipts', 'Catalogue', 'Media', 'Website prices', 'Customers', 'Search']) {
+      expect(within(menu).getByRole('link', { name })).toBeInTheDocument();
+    }
+    await user.click(within(menu).getByRole('link', { name: 'Media' }));
+    expect(screen.getByText('Media page')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('closes More with Escape and returns focus to its trigger', async () => {
+    const user = userEvent.setup();
+    renderShell();
+    const more = screen.getByRole('button', { name: 'More' });
+    await user.click(more);
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(more).toHaveFocus();
+    expect(more).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('unmounts More when switching to desktop and does not reopen on returning to mobile', async () => {
+    const listeners = new Set<(event: MediaQueryListEvent) => void>();
+    const mediaQuery = {
+      matches: false,
+      addEventListener: vi.fn((_type: string, listener: (event: MediaQueryListEvent) => void) => listeners.add(listener)),
+      removeEventListener: vi.fn((_type: string, listener: (event: MediaQueryListEvent) => void) => listeners.delete(listener)),
+    };
+    vi.stubGlobal('matchMedia', vi.fn(() => mediaQuery));
+    const user = userEvent.setup();
+    const { unmount } = renderShell();
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    expect(screen.getByRole('dialog', { name: 'More in your CRM' })).toBeInTheDocument();
+    act(() => {
+      mediaQuery.matches = true;
+      listeners.forEach((listener) => listener({ matches: true } as MediaQueryListEvent));
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More' })).toHaveAttribute('aria-expanded', 'false');
+    act(() => {
+      mediaQuery.matches = false;
+      listeners.forEach((listener) => listener({ matches: false } as MediaQueryListEvent));
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    unmount();
+    expect(listeners.size).toBe(0);
+  });
+
 });

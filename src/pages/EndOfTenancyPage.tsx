@@ -152,6 +152,7 @@ const DATA: ServiceLandingData = {
 
   whyH2: 'What every Complete end of tenancy clean includes',
   whyPoints: [
+    '£5m public liability insurance',
     'Kitchen and living-area tasks listed in your quote',
     'Oven, hob, grill, extractor and listed appliance interiors',
     'Inside all cupboards, drawers and wardrobes',

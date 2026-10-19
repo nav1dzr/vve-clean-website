@@ -9,6 +9,7 @@ import ErrorState from '../components/ErrorState';
 import { CardListSkeleton } from '../components/Skeleton';
 import { useAuth } from '../auth/useAuth';
 import { clearInvoiceDraftRecovery } from '../lib/invoiceDraftRecovery';
+import BookingBalancePaymentNotice from '../components/BookingBalancePaymentNotice';
 
 type PrefillState =
   | { status: 'none' }
@@ -126,6 +127,10 @@ export default function InvoiceEditorPage() {
         ← Invoices
       </Link>
       <h1 className="mb-4 font-semibold text-xl text-navy-950">New invoice</h1>
+
+      {bookingId && prefill.status === 'ready' && prefill.sourceKey === documentKey && (
+        <BookingBalancePaymentNotice bookingId={bookingId} accountId={admin?.id} />
+      )}
 
       {prefill.status === 'loading' && <CardListSkeleton count={1} />}
       {prefill.status === 'error' && <ErrorState message={prefill.message} onRetry={() => setPrefillRetry((attempt) => attempt + 1)} />}

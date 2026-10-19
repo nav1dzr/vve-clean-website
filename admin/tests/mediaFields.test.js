@@ -6,6 +6,15 @@ import {
 } from "../api/_lib/mediaFields.js";
 
 describe("media upload fields", () => {
+  it.each([
+    ["carpet", "Carpet cleaning", "gallery-carpet"],
+    ["sofa-upholstery", "Sofa & upholstery cleaning", "gallery-sofa"],
+    ["end-of-tenancy", "End of tenancy cleaning", "gallery-end-of-tenancy"],
+  ])("derives %s upload service and placement from the chosen category", (category, service, placement) => {
+    const result = validateNewAsset({ filename: "photo.jpg", contentType: "image/jpeg", size: 100, category });
+    expect(result.value).toMatchObject({ category, service, placement });
+  });
+
   it("accepts browser-safe iPhone photo details and keeps a new upload unassigned", () => {
     const result = validateNewAsset({
       filename: "Living room.jpg",
@@ -36,6 +45,7 @@ describe("media upload fields", () => {
     expect(normaliseMetadata({ slotKey: "gallery-99" }).requestedSlotKey).toBe(
       null,
     );
+    expect(normaliseMetadata({ category: "__proto__" })).toMatchObject({ category: "end-of-tenancy", placement: "gallery-end-of-tenancy" });
   });
 });
 

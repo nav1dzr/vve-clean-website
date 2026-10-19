@@ -111,15 +111,38 @@ function privateToken() {
     return "";
   }
 }
+function readPrivateLink() {
+  const payFromEmail = typeof window !== "undefined" &&
+    new URLSearchParams(window.location.hash.slice(1)).get("pay") === "deposit";
+  return { token: privateToken(), payFromEmail };
+}
+
 export default function BookingManagementPage() {
-  const [payFromEmail] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.hash.slice(1)).get("pay") === "deposit");
+  const [link, setLink] = useState(readPrivateLink);
+  useEffect(() => {
+    const openLink = () => {
+      if (new URLSearchParams(window.location.hash.slice(1)).has("token"))
+        setLink(readPrivateLink());
+    };
+    window.addEventListener("hashchange", openLink);
+    window.addEventListener("popstate", openLink);
+    return () => {
+      window.removeEventListener("hashchange", openLink);
+      window.removeEventListener("popstate", openLink);
+    };
+  }, []);
+  // A different private link starts a separate session: no prior record or
+  // unfinished customer action is carried into the newly opened booking.
+  return <BookingManagementSession key={`${link.token}:${link.payFromEmail}`} {...link} />;
+}
+
+function BookingManagementSession({ token, payFromEmail }: ReturnType<typeof readPrivateLink>) {
   const automaticCheckoutAttempted = useRef(false);
   const statusCheckInFlight = useRef(false);
   const automaticStatusChecks = useRef(0);
   const responseGeneration = useRef(0);
   const mounted = useRef(true);
-  const [token] = useState(privateToken),
-    [booking, setBooking] = useState<Booking | null>(null),
+  const [booking, setBooking] = useState<Booking | null>(null),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [paymentStatusNotice, setPaymentStatusNotice] = useState(""),
@@ -255,13 +278,14 @@ export default function BookingManagementPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
   async function act(operation: string, extra: Record<string, unknown> = {}) {
-    responseGeneration.current += 1;
+    const generation = ++responseGeneration.current;
     setBusy(true);
     setError("");
     setNotice("");
     setPaymentStatusNotice("");
     try {
       const result = await request(operation, extra);
+      if (!mounted.current || generation !== responseGeneration.current) return;
       if (result.checkoutUrl) {
         const url = new URL(result.checkoutUrl);
         if (url.protocol !== "https:" || url.hostname !== "checkout.stripe.com")
@@ -282,11 +306,10 @@ export default function BookingManagementPage() {
             : "Your revised arrangements have been accepted.",
       );
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "This action could not be completed.",
-      );
+      if (mounted.current && generation === responseGeneration.current)
+        setError(e instanceof Error ? e.message : "This action could not be completed.");
     } finally {
-      setBusy(false);
+      if (mounted.current && generation === responseGeneration.current) setBusy(false);
     }
   }
   useEffect(() => {

@@ -82,7 +82,7 @@ describe('POST /api/search', () => {
 
   it('returns mapped, safe result cards for a valid query', async () => {
     verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: { id: 'a', email: 'a@x.com', displayName: 'Sam' } });
-    getServiceClientMock.mockReturnValue({ rpc: rpcMock });
+    getServiceClientMock.mockReturnValue({ rpc: rpcMock, from: () => ({ select: () => ({ in: async () => ({ data: [], error: null }) }) }) });
     rpcMock.mockResolvedValue({
       data: [{
         id: '1', booking_ref: 'N15NJ180726', full_name: 'Jasmine Carter', phone: '07123456789',

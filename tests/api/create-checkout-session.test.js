@@ -119,6 +119,32 @@ describe('POST /api/create-checkout-session — terms and scheduling requirement
     expect(sessionsCreateMock).not.toHaveBeenCalled();
   });
 
+  it.each(['small', 'studio', 'bed1', 'bed2', 'bed3', 'bed4'])('rejects the %s after-builders starting guide before archived checkout or persistence', async deepSize => {
+    process.env.VITE_SUPABASE_URL = 'https://example.supabase.co';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
+    const res = makeRes();
+    await handler(makeReq(basePayload({
+      service: 'Window cleaning',
+      price: 1,
+      deposit: 1,
+      quoteMode: 'fixed_quote',
+      assessed: true,
+      quoteConfig: {
+        service: 'deep', deepService: 'after_builders', deepSize, deepBaths: 6,
+        addOnCounts: { oven: 1, carpet_bundle: 1 }, parkingAvailable: 'yes', congestionZone: 'no',
+        quoteMode: 'fixed_quote', assessed: true,
+      },
+    })), res);
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body)).toEqual({
+      error: expect.stringMatching(/after-builders.*assessment.*fixed price/i),
+      code: 'manual_quote_required',
+      quoteUrl: '/after-builders-cleaning-london#builders-quote',
+    });
+    expect(sessionsCreateMock).not.toHaveBeenCalled();
+    expect(supabaseInsertMock).not.toHaveBeenCalled();
+  });
+
   it('rejects a request with no phone number', async () => {
     const res = makeRes();
     await handler(makeReq(basePayload({ phone: '' })), res);

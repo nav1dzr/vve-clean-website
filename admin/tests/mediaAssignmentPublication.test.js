@@ -100,6 +100,59 @@ const assignment = {
   ],
 };
 describe("authenticated atomic media publication", () => {
+  it.each([false, true])("rejects a standalone position without a real consumer (seeded reference: %s)", async (seededReference) => {
+    db._tables.media_website_slots = [{ id: T, slot_key: "about-team-photo" }];
+    if (seededReference) db._tables.media_page_references = [{ website_slot_id: T, active: true, page_key: "about-team-photo", reference_key: "website-about-team-photo" }];
+    const current = [{ asset_id: B, website_slot_id: T, media_role: "primary" }];
+    db._tables.media_assignments = current;
+    const result = await call({ action: "assign", targetType: "website", targetId: T, assignments: [{ assetId: A, role: "primary" }], preview: true });
+    expect(result.statusCode).toBe(409);
+    expect(result.body.error).toContain("not connected");
+    expect(db._tables.media_assignments).toEqual(current);
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it("accepts photographs for connected website positions and rejects videos", async () => {
+    db._tables.media_website_slots = [{ id: T, slot_key: "homepage-hero" }];
+    db._tables.media_page_references = [{ website_slot_id: T, active: true, page_key: "homepage-hero-image", reference_key: "hero" }];
+    const request = { action: "assign", targetType: "website", targetId: T, assignments: [{ assetId: A, role: "primary" }], preview: true };
+    expect((await call(request)).statusCode).toBe(200);
+    db._tables.media_assets[0].media_type = "video";
+    const result = await call(request);
+    expect(result.statusCode).toBe(400);
+    expect(result.body.error).toContain("photographs only");
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it("continues to accept ready videos in gallery video positions", async () => {
+    Object.assign(db._tables.media_assets[0], { media_type: "video", mux_playback_id: "synthetic-video" });
+    db._tables.media_gallery_slots[0].slot_kind = "video";
+    const result = await call({ action: "assign", targetType: "gallery", targetId: T, assignments: [{ assetId: A, role: "primary" }], preview: true });
+    expect(result.statusCode).toBe(200);
+    expect(result.body.assets[0].mediaType).toBe("video");
+  });
+
+  it("keeps omitted metadata in a partial caption PATCH", async () => {
+    Object.assign(db._tables.media_assets[0], { service: "Carpet cleaning", placement: "gallery-carpet", pair_key: "audit-job", location_label: "Test area" });
+    const result = await call({ title: "New title only", updatedAt: "2026-09-08T10:00:00Z" }, "PATCH");
+    expect(result.statusCode).toBe(200);
+    expect(result.body.asset).toMatchObject({ title: "New title only", altText: "Carpet fibres", service: "Carpet cleaning", category: "carpet", beforeAfter: "before", pairKey: "audit-job", locationLabel: "Test area" });
+  });
+
+  it("preserves an existing service and placement when only its caption is edited", async () => {
+    Object.assign(db._tables.media_assets[0], { service: "Carpet cleaning", placement: "carpet-page" });
+    const result = await call({ title: "Updated carpet caption", altText: "Updated description", category: "carpet", beforeAfter: "before", updatedAt: "2026-09-08T10:00:00Z" }, "PATCH");
+    expect(result.statusCode).toBe(200);
+    expect(result.body.asset).toMatchObject({ service: "Carpet cleaning", placement: "carpet-page", category: "carpet" });
+  });
+
+  it("updates category defaults together when an unused asset changes service", async () => {
+    Object.assign(db._tables.media_assets[0], { service: "Carpet cleaning", placement: "gallery-carpet" });
+    const result = await call({ title: "Sofa caption", altText: "Sofa description", category: "sofa-upholstery", beforeAfter: "before", updatedAt: "2026-09-08T10:00:00Z" }, "PATCH");
+    expect(result.statusCode).toBe(200);
+    expect(result.body.asset).toMatchObject({ service: "Sofa & upholstery cleaning", placement: "gallery-sofa", category: "sofa-upholstery" });
+  });
+
   it("rejects unauthenticated callers before storage access", async () => {
     mocks.auth.mockResolvedValue({
       ok: false,
@@ -153,6 +206,31 @@ describe("authenticated atomic media publication", () => {
     db._tables.media_assets[1].before_after = "during";
     expect((await call({ ...assignment, preview: true })).statusCode).toBe(400);
   });
+  it.each(["preview", "publish"])("rejects different nonempty job keys during %s without writes", async (stage) => {
+    db._tables.media_assets[0].pair_key = "job-a";
+    db._tables.media_assets[1].pair_key = "job-b";
+    const originalAssets = structuredClone(db._tables.media_assets);
+    const originalAssignments = structuredClone(db._tables.media_assignments);
+    const result = await call({
+      ...assignment,
+      ...(stage === "preview" ? { preview: true } : { confirm: true, expected: [] }),
+    });
+    expect(result.statusCode).toBe(409);
+    expect(result.body.error).toContain("same job");
+    expect(db.rpc).not.toHaveBeenCalled();
+    expect(db._tables.media_assignments).toEqual(originalAssignments);
+    expect(db._tables.media_assets).toEqual(originalAssets);
+  });
+  it.each([[null, null], ["", "job-a"], ["job-a", ""], ["job-a", "job-a"]])(
+    "preserves matching and unkeyed legacy pairs (%s / %s)", async (beforeKey, afterKey) => {
+      db._tables.media_assets[0].pair_key = beforeKey;
+      db._tables.media_assets[1].pair_key = afterKey;
+      expect((await call({ ...assignment, preview: true })).statusCode).toBe(200);
+      expect(db.rpc).not.toHaveBeenCalled();
+      expect((await call({ ...assignment, confirm: true, expected: [] })).statusCode).toBe(200);
+      expect(db.rpc).toHaveBeenCalledTimes(1);
+    },
+  );
   it("requires ready media with actual captions", async () => {
     db._tables.media_assets[1].alt_text = "";
     expect((await call({ ...assignment, preview: true })).statusCode).toBe(409);

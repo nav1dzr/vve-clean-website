@@ -104,6 +104,24 @@ describe('findDuplicateWarnings', () => {
 });
 
 describe('createCustomer / updateCustomer', () => {
+  it('rejects an older customer edit without replacing newer notes or adding an audit event', async () => {
+    const supabase = createFakeSupabase({ customers: [{ id: 'c-conflict', name: 'Test customer', notes: 'Original', updated_at: '2026-10-18T12:00:00.000Z' }] });
+    const first = await updateCustomer(supabase, 'c-conflict', { name: 'Test customer', notes: 'Newer saved notes', expectedUpdatedAt: '2026-10-18T12:00:00.000Z' }, 'admin-1');
+    expect(first.ok).toBe(true);
+    const stale = await updateCustomer(supabase, 'c-conflict', { name: 'Test customer', notes: 'Stale editor notes', expectedUpdatedAt: '2026-10-18T12:00:00.000Z' }, 'admin-1');
+    expect(stale).toMatchObject({ ok: false, status: 409 });
+    expect(supabase._tables.customers[0].notes).toBe('Newer saved notes');
+    expect(supabase._tables.invoice_events).toHaveLength(1);
+    expect(first.updatedAt).toBe(supabase._tables.customers[0].updated_at);
+  });
+
+  it.each([undefined, '', 'not-a-date'])('requires a valid customer edit version (%s)', async (expectedUpdatedAt) => {
+    const supabase = createFakeSupabase({ customers: [{ id: 'c-version', name: 'Original', updated_at: '2026-10-18T12:00:00.000Z' }] });
+    const result = await updateCustomer(supabase, 'c-version', { name: 'Overwritten', expectedUpdatedAt }, 'admin-1');
+    expect(result).toMatchObject({ ok: false, status: 400 });
+    expect(supabase._tables.customers[0].name).toBe('Original');
+  });
+
   it('creates a customer, normalises email/phone, and returns duplicate warnings', async () => {
     const supabase = createFakeSupabase({
       customers: [{ id: 'c-existing', name: 'Existing', email: 'dup@example.com', phone: null, postcode: null, normalised_email: 'dup@example.com', normalised_phone: null }],
@@ -129,9 +147,9 @@ describe('createCustomer / updateCustomer', () => {
 
   it('updates a customer and logs an "updated" event', async () => {
     const supabase = createFakeSupabase({
-      customers: [{ id: 'c-1', name: 'Jane', email: 'jane@example.com', phone: null, postcode: null, normalised_email: 'jane@example.com', normalised_phone: null, customer_type: 'individual', source: 'other' }],
+      customers: [{ id: 'c-1', name: 'Jane', email: 'jane@example.com', phone: null, postcode: null, normalised_email: 'jane@example.com', normalised_phone: null, customer_type: 'individual', source: 'other', updated_at: '2026-10-18T12:00:00.000Z' }],
     });
-    const result = await updateCustomer(supabase, 'c-1', { name: 'Jane Updated', email: 'jane@example.com', customerType: 'business', source: 'referral' }, 'admin-1');
+    const result = await updateCustomer(supabase, 'c-1', { name: 'Jane Updated', email: 'jane@example.com', customerType: 'business', source: 'referral', expectedUpdatedAt: '2026-10-18T12:00:00.000Z' }, 'admin-1');
     expect(result.ok).toBe(true);
 
     const row = supabase._tables.customers.find((c) => c.id === 'c-1');
@@ -151,6 +169,23 @@ describe('createCustomer / updateCustomer', () => {
 });
 
 describe('getCustomerDetail', () => {
+  it.each([
+    ['audit_one@example.invalid', 'auditXone@example.invalid'],
+    ['audit%one@example.invalid', 'auditManyCharactersone@example.invalid'],
+  ])('matches the literal email %s without wildcard matches', async (email, decoy) => {
+    const supabase = createFakeSupabase({
+      customers: [{ id: 'c-1', name: 'Audit', email: email.toUpperCase(), phone: null }],
+      bookings: [
+        { id: 'exact', email, phone: null, created_at: '2026-01-01' },
+        { id: 'decoy', email: decoy, phone: null, created_at: '2026-01-01' },
+      ],
+    });
+    const result = await getCustomerDetail(supabase, 'c-1');
+    expect(result.ok).toBe(true);
+    expect(result.bookings.map((booking) => booking.id)).toEqual(['exact']);
+    expect(result.bookings[0]).not.toHaveProperty('email');
+  });
+
   it('returns customer + matched bookings + invoices/receipts + balances', async () => {
     const supabase = createFakeSupabase({
       customers: [{ id: 'c-1', name: 'Jane', email: 'jane@example.com', phone: '07700900123', postcode: null, customer_type: 'individual', source: 'other' }],

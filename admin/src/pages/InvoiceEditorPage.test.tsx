@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { Link, MemoryRouter, Routes, Route } from 'react-router-dom';
 import InvoiceEditorPage from './InvoiceEditorPage';
 
 const { authFetchMock, navigateMock } = vi.hoisted(() => ({ authFetchMock: vi.fn(), navigateMock: vi.fn() }));
@@ -62,6 +62,7 @@ describe('InvoiceEditorPage', () => {
   it('renders an empty form with no prefill when there is no bookingId', () => {
     renderEditor();
     expect(screen.getByLabelText('Name *')).toHaveValue('');
+    expect(screen.getByLabelText('Payment terms')).toHaveValue('Payment is due on the cleaning day.');
   });
 
   it('prefills customer and a single line item from the booking when ?bookingId= is present', async () => {
@@ -75,6 +76,94 @@ describe('InvoiceEditorPage', () => {
     expect(await screen.findByDisplayValue('Jane Doe')).toBeInTheDocument();
     expect(screen.getByDisplayValue('End of tenancy clean')).toBeInTheDocument();
     expect(screen.getByDisplayValue('250')).toBeInTheDocument();
+  });
+
+  describe('linked booking balance-payment warning', () => {
+    const booking = {
+      id: 'booking-paid', fullName: 'Audit customer', email: '', phone: '07700900123',
+      address: '1 Test Street', postcode: 'N15 2NG', service: 'Carpet clean',
+      totalPrice: 100, depositAmount: 0, serviceDate: '2026-10-18', bookingRef: 'AUDIT-PAID',
+    };
+
+    it.each(['manual_balance', 'balance'])('warns for %s without applying the payment or blocking a draft', async (kind) => {
+      const user = userEvent.setup();
+      authFetchMock.mockImplementation(async (url: string, options?: RequestInit) => {
+        if (options?.method === 'POST') return { id: 'draft-1' };
+        if (url.endsWith('?action=journey')) return { journey: { state: 'paid' }, payments: [{ kind, amount_pence: 10000 }] };
+        return booking;
+      });
+      renderEditor(['/invoices/new?bookingId=booking-paid']);
+
+      expect(await screen.findByText('A balance payment is recorded on this booking')).toBeInTheDocument();
+      expect(screen.getByText(/balance payments are not automatically applied to this invoice/i)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Review booking payments' })).toHaveAttribute('href', '/bookings/booking-paid');
+      expect(screen.getByRole('spinbutton', { name: /booking deposit received/i })).toHaveValue(0);
+      expect(screen.getByLabelText('Unit price (£)')).toHaveValue('100');
+      expect(screen.getByRole('button', { name: /save draft/i })).toBeEnabled();
+
+      await user.click(screen.getByRole('button', { name: /save draft/i }));
+      await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/invoices/draft-1', { replace: true }));
+      const postCall = authFetchMock.mock.calls.find((call) => (call[1] as RequestInit)?.method === 'POST');
+      const body = JSON.parse((postCall?.[1] as RequestInit).body as string);
+      expect(body).toMatchObject({ bookingId: 'booking-paid', depositApplied: 0, items: [{ unitPrice: 100 }] });
+    });
+
+    it.each([
+      { journey: null },
+      { journey: { state: 'confirmed' }, payments: [{ kind: 'manual_deposit', amount_pence: 3000 }] },
+      { journey: { state: 'confirmed' }, payments: [{ kind: 'balance', amount_pence: 0 }, { kind: 'refund', amount_pence: -10000 }] },
+    ])('does not claim a balance payment from deposits, refunds or an empty journey: %#', async (journey) => {
+      authFetchMock.mockImplementation(async (url: string) => url.endsWith('?action=journey') ? journey : booking);
+      renderEditor(['/invoices/new?bookingId=booking-paid']);
+
+      await screen.findByDisplayValue('Audit customer');
+      expect(screen.queryByText('A balance payment is recorded on this booking')).not.toBeInTheDocument();
+      expect(screen.queryByText('Could not check booking payments')).not.toBeInTheDocument();
+    });
+
+    it('keeps a failed payment-history read neutral and retryable without blocking the draft', async () => {
+      const user = userEvent.setup();
+      let historyReads = 0;
+      authFetchMock.mockImplementation(async (url: string) => {
+        if (!url.endsWith('?action=journey')) return booking;
+        historyReads += 1;
+        if (historyReads === 1) throw new Error('Temporary read failure');
+        return { journey: { state: 'paid' }, payments: [{ kind: 'manual_balance', amount_pence: 10000 }] };
+      });
+      renderEditor(['/invoices/new?bookingId=booking-paid']);
+
+      expect(await screen.findByText('Could not check booking payments')).toBeInTheDocument();
+      expect(screen.queryByText('A balance payment is recorded on this booking')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /save draft/i })).toBeEnabled();
+      await user.click(screen.getByRole('button', { name: 'Retry payment check' }));
+      expect(await screen.findByText('A balance payment is recorded on this booking')).toBeInTheDocument();
+      expect(historyReads).toBe(2);
+      expect(screen.getByRole('spinbutton', { name: /booking deposit received/i })).toHaveValue(0);
+    });
+
+    it('ignores a late payment-history response after switching to a different booking', async () => {
+      const user = userEvent.setup();
+      let finishOldRead!: (value: unknown) => void;
+      const oldRead = new Promise((resolve) => { finishOldRead = resolve; });
+      authFetchMock.mockImplementation(async (url: string) => {
+        if (url === '/api/bookings/booking-paid?action=journey') return oldRead;
+        if (url.endsWith('?action=journey')) return { journey: null };
+        return { ...booking, id: url.split('/').slice(-1)[0], fullName: url.endsWith('booking-next') ? 'Next customer' : booking.fullName };
+      });
+      render(
+        <MemoryRouter initialEntries={['/invoices/new?bookingId=booking-paid']}>
+          <Link to="/invoices/new?bookingId=booking-next">Next booking</Link>
+          <Routes><Route path="/invoices/new" element={<InvoiceEditorPage />} /></Routes>
+        </MemoryRouter>,
+      );
+      await screen.findByDisplayValue('Audit customer');
+      await user.click(screen.getByRole('link', { name: 'Next booking' }));
+      await screen.findByDisplayValue('Next customer');
+      await act(async () => finishOldRead({ journey: { state: 'paid' }, payments: [{ kind: 'balance', amount_pence: 10000 }] }));
+
+      expect(screen.queryByText('A balance payment is recorded on this booking')).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Review booking payments' })).not.toBeInTheDocument();
+    });
   });
 
   it('submits a POST to /api/invoices and navigates to the created invoice', async () => {
@@ -236,6 +325,47 @@ describe('InvoiceEditorPage', () => {
   });
 
   describe('booking reference — linked booking', () => {
+    it('uses the separate service postcode on Auto-fill while preserving a manually saved reference until requested', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await user.type(screen.getByLabelText('Postcode'), 'E8 1AA');
+      await user.type(screen.getByLabelText('Service date'), '2026-10-28');
+      await user.clear(screen.getByLabelText('Booking reference'));
+      await user.type(screen.getByLabelText('Booking reference'), 'KEEP-EXISTING-REF');
+      await user.click(screen.getByRole('checkbox', { name: /different person\/address/i }));
+      await user.type(within(screen.getByRole('group', { name: 'Service address' })).getByLabelText('Postcode'), 'N1 1AA');
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('KEEP-EXISTING-REF');
+      await user.click(screen.getByRole('button', { name: /auto-fill/i }));
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('N11AA281026');
+    });
+
+    it('falls back to billing postcode when the separate service postcode is empty or disabled', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await user.type(screen.getByLabelText('Postcode'), 'E8 1AA');
+      await user.type(screen.getByLabelText('Service date'), '2026-10-28');
+      await user.click(screen.getByRole('checkbox', { name: /different person\/address/i }));
+      await user.click(screen.getByRole('button', { name: /auto-fill/i }));
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('E81AA281026');
+      await user.type(within(screen.getByRole('group', { name: 'Service address' })).getByLabelText('Postcode'), 'N1 1AA');
+      await user.click(screen.getByRole('button', { name: /auto-fill/i }));
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('N11AA281026');
+      await user.click(screen.getByRole('checkbox', { name: /different person\/address/i }));
+      await user.click(screen.getByRole('button', { name: /auto-fill/i }));
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('E81AA281026');
+    });
+
+    it('can generate a reference from a service postcode when the billing postcode is absent', async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await user.type(screen.getByLabelText('Service date'), '2026-10-28');
+      await user.click(screen.getByRole('checkbox', { name: /different person\/address/i }));
+      await user.type(within(screen.getByRole('group', { name: 'Service address' })).getByLabelText('Postcode'), 'N1 1AA');
+      expect(screen.getByRole('button', { name: /auto-fill/i })).toBeEnabled();
+      await user.click(screen.getByRole('button', { name: /auto-fill/i }));
+      expect(screen.getByLabelText('Booking reference')).toHaveValue('N11AA281026');
+    });
+
     it('fills the booking reference field with the saved booking_ref, not auto-generated from postcode+date', async () => {
       authFetchMock.mockResolvedValue({
         id: 'booking-1', fullName: 'Jane Doe', email: 'jane@example.com', phone: '07700900000',

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
 import type { BookingListResponse } from '../types/booking';
@@ -10,7 +10,7 @@ import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import { CardListSkeleton } from '../components/Skeleton';
 import {
-  bookingStatusBadge, paymentStatusBadge, balanceStatusBadge, formatCurrency, formatServiceDate, formatPreferred,
+  bookingStatusBadge, balanceStatusBadge, appointmentStatusBadge, bookingPaymentBadge, bookingBalanceBadge, formatCurrency, formatServiceDate, formatPreferred,
 } from '../lib/format';
 
 const SORT_LABELS: Record<SortValue, string> = {
@@ -49,8 +49,10 @@ export default function BookingListPage() {
   const filters = readFilters(searchParams);
   const [state, setState] = useState<State>({ status: 'loading' });
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const loadVersion = useRef(0);
 
   function load() {
+    const version = ++loadVersion.current;
     setState({ status: 'loading' });
     const qs = new URLSearchParams();
     if (filters.status) qs.set('status', filters.status);
@@ -67,14 +69,19 @@ export default function BookingListPage() {
     qs.set('pageSize', String(PAGE_SIZE));
 
     authFetch<BookingListResponse>(`/api/bookings?${qs.toString()}`)
-      .then((data) => setState({ status: 'success', data }))
-      .catch((err) =>
-        setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load bookings.' }),
-      );
+      .then((data) => {
+        if (version === loadVersion.current) setState({ status: 'success', data });
+      })
+      .catch((err) => {
+        if (version === loadVersion.current) setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load bookings.' });
+      });
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(load, [searchParams]);
+  useEffect(() => {
+    load();
+    return () => { loadVersion.current += 1; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   function updateFilter(key: string, value: string) {
     const next = new URLSearchParams(searchParams);
@@ -95,8 +102,9 @@ export default function BookingListPage() {
 
   return (
     <div className="px-4 py-6 sm:px-6">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-semibold text-xl text-navy-950">Bookings</h1>
+        <Link to="/customers?createBooking=1" className="flex min-h-11 items-center rounded-lg bg-navy-950 px-4 text-sm font-semibold text-white hover:bg-navy-900">+ Add booking</Link>
         <button
           type="button"
           onClick={() => setFiltersOpen((v) => !v)}
@@ -106,6 +114,7 @@ export default function BookingListPage() {
           {filtersOpen ? 'Hide filters' : 'Filters'}
         </button>
       </div>
+      <p className="mb-4 text-sm text-navy-700">For phone, WhatsApp or Checkatrade jobs, choose Add booking. Select an existing customer or add a new one, then choose the payment arrangement for that booking.</p>
 
       <div
         className={`mb-6 grid grid-cols-1 gap-3 rounded-xl border border-silver-300 bg-white p-4 sm:grid-cols-3 lg:grid-cols-4 ${
@@ -122,12 +131,12 @@ export default function BookingListPage() {
           ]}
         />
         <FilterSelect
-          label="Payment status"
+          label="Deposit status"
           value={filters.paymentStatus}
           onChange={(v) => updateFilter('paymentStatus', v)}
           options={[
-            { value: '', label: 'All payment statuses' },
-            ...PAYMENT_STATUS_VALUES.map((s) => ({ value: s, label: paymentStatusBadge(s).label })),
+            { value: '', label: 'All deposit statuses' },
+            ...PAYMENT_STATUS_VALUES.map((s) => ({ value: s, label: bookingPaymentBadge({ paymentStatus: s }).label })),
           ]}
         />
         <FilterSelect
@@ -168,6 +177,7 @@ export default function BookingListPage() {
           />
           Show superseded (abandoned) bookings
         </label>
+        <p className="text-xs text-navy-700 sm:col-span-3 lg:col-span-4">Deposit status does not show whether the full job has been paid. For no-deposit bookings, leave Deposit status on All and use Balance status.</p>
       </div>
 
       {state.status === 'loading' && <CardListSkeleton count={5} />}
@@ -214,7 +224,7 @@ export default function BookingListPage() {
                     <th className="px-4 py-2.5 font-medium">Service</th>
                     <th className="px-4 py-2.5 font-medium">Date</th>
                     <th className="px-4 py-2.5 font-medium">Status</th>
-                    <th className="px-4 py-2.5 font-medium">Payment</th>
+                    <th className="px-4 py-2.5 font-medium">Deposit</th>
                     <th className="px-4 py-2.5 font-medium">Balance</th>
                     <th className="px-4 py-2.5 text-right font-medium">Value</th>
                   </tr>
@@ -224,9 +234,9 @@ export default function BookingListPage() {
                     const dateLabel = b.serviceDate
                       ? formatServiceDate(b.serviceDate)
                       : formatPreferred(b.preferredDate, b.preferredTime);
-                    const statusBadge = bookingStatusBadge(b.status);
-                    const payBadge = paymentStatusBadge(b.paymentStatus);
-                    const balBadge = b.balanceStatus ? balanceStatusBadge(b.balanceStatus) : null;
+                    const statusBadge = appointmentStatusBadge(b);
+                    const payBadge = bookingPaymentBadge(b);
+                    const balBadge = b.balanceStatus ? bookingBalanceBadge(b) : null;
                     return (
                       <tr key={b.id} className={`border-t border-silver-200 hover:bg-silver-100 ${b.superseded ? 'opacity-60' : ''}`}>
                         <td className="px-4 py-2.5">

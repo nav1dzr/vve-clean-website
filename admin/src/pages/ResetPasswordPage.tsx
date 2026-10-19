@@ -27,36 +27,51 @@ export default function ResetPasswordPage() {
 
   async function handleRequest(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (submitting) return;
+    if (submitting || !e.currentTarget.reportValidity()) return;
     setSubmitting(true);
     setError(null);
     setMessage(null);
 
     const redirectTo = `${window.location.origin}/reset-password`;
-    await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-
-    setSubmitting(false);
-    // Same message regardless of whether the account exists — never confirms
-    // or denies a registered admin email to an unauthenticated caller.
-    setMessage("If that email is registered, we've sent a password reset link.");
+    try {
+      const { error: requestError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+      // Report transport/service failures without exposing account-specific
+      // responses that could reveal whether an admin address is registered.
+      if (requestError && (!requestError.status || requestError.status === 429 || requestError.status >= 500)) {
+        setError('The reset service is unavailable. Please try again shortly.');
+        return;
+      }
+      setMessage("If that email is registered, we've sent a password reset link.");
+    } catch {
+      setError('The reset service is unavailable. Please try again shortly.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleUpdate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (submitting) return;
+    if (submitting || !e.currentTarget.reportValidity()) return;
+    if (newPassword.length < 8) {
+      setError('Use at least 8 characters for your new password.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     setMessage(null);
 
-    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
-    setSubmitting(false);
-
-    if (updateError) {
-      setError('Could not update your password. Request a new reset link and try again.');
-      return;
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) {
+        setError('Could not update your password. Request a new reset link and try again.');
+        return;
+      }
+      setMessage('Password updated. You can now sign in with your new password.');
+    } catch {
+      setError('Could not update your password. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
-
-    setMessage('Password updated. You can now sign in with your new password.');
   }
 
   if (mode === 'update') {
@@ -132,6 +147,11 @@ export default function ResetPasswordPage() {
             />
           </div>
 
+          {error && (
+            <p role="alert" className="mb-4 text-sm text-red-600">
+              {error}
+            </p>
+          )}
           {message && (
             <p role="status" className="mb-4 text-sm text-green-700">
               {message}

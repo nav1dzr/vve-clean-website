@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
 import type { CustomerListResponse } from '../types/customer';
@@ -9,10 +9,14 @@ type State =
   | { status: 'error'; message: string }
   | { status: 'success'; data: CustomerListResponse };
 
-// "View linked customer" for a booking's detail page — bookings have no
-// customer_id FK by design (see customerLifecycle.js's header), so the
-// link is found the same way a customer's own booking history is: by
-// matching email/phone. Purely a lookup — never creates or links
+const normalisePhone = (value: string | null) => {
+  const digits = value?.replace(/\D/g, '') || '';
+  return digits.length === 12 && digits.startsWith('44') ? `0${digits.slice(2)}` : digits;
+};
+
+// Bookings have no customer_id FK. These are possible matches from the
+// customer search, with literal contact matches preferred over substrings.
+// Purely a lookup — never creates or links
 // anything on its own; "+ Create customer" hands off to the normal
 // create-customer form (with its own duplicate-warning check), it does
 // not silently create one here.
@@ -22,28 +26,52 @@ export default function BookingCustomerSection({
   bookingId: string; fullName: string | null; email: string | null; phone: string | null;
 }) {
   const [state, setState] = useState<State>({ status: 'loading' });
-  const q = email || phone;
+  const requestVersion = useRef(0);
+  const emailQuery = email?.trim() || '';
+  const phoneQuery = phone?.trim() || '';
 
-  function load() {
+  const load = useCallback(async () => {
+    const version = ++requestVersion.current;
+    const q = emailQuery || phoneQuery;
     if (!q) {
       setState({ status: 'success', data: { results: [], page: 1, pageSize: 0, totalCount: 0, hasMore: false } });
       return;
     }
     setState({ status: 'loading' });
-    authFetch<CustomerListResponse>(`/api/customers?q=${encodeURIComponent(q)}&pageSize=5`)
-      .then((data) => setState({ status: 'success', data }))
-      .catch((err) =>
-        setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not look up the linked customer.' }),
-      );
-  }
+    try {
+      let data = await authFetch<CustomerListResponse>(`/api/customers?q=${encodeURIComponent(q)}&pageSize=5`);
+      if (version !== requestVersion.current) return;
+      // A manual booking may add an email to an existing phone-only customer.
+      // Only exact phone matches are offered by this fallback; it never links records.
+      if (emailQuery && data.results.length === 0 && normalisePhone(phoneQuery)) {
+        const phoneData = await authFetch<CustomerListResponse>(`/api/customers?q=${encodeURIComponent(phoneQuery)}&pageSize=5`);
+        if (version !== requestVersion.current) return;
+        const results = phoneData.results.filter((customer) => normalisePhone(customer.phone) === normalisePhone(phoneQuery));
+        data = { ...phoneData, results, totalCount: results.length, hasMore: false };
+      }
+      setState({ status: 'success', data });
+    } catch (err) {
+      if (version === requestVersion.current) setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not look up customer matches.' });
+    }
+  }, [emailQuery, phoneQuery]);
 
-  useEffect(load, [q]);
+  useEffect(() => {
+    void load();
+    return () => { requestVersion.current += 1; };
+  }, [load]);
+
+  const possibleMatches = state.status === 'success' ? state.data.results : [];
+  const exactMatches = possibleMatches.filter((customer) =>
+    (email?.trim() && customer.email?.trim().toLowerCase() === email.trim().toLowerCase())
+    || (normalisePhone(phone) && normalisePhone(customer.phone) === normalisePhone(phone)),
+  );
+  const matches = exactMatches.length ? exactMatches : possibleMatches;
 
   const createHref = `/customers/new?fromBookingId=${bookingId}`;
 
   return (
     <section className="mb-4 rounded-xl border border-silver-300 bg-white p-4">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-500">Linked customer</h2>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-500">Possible customer matches</h2>
 
       {state.status === 'loading' && <p className="text-sm text-navy-500">Looking up customer record…</p>}
       {state.status === 'error' && <ErrorState message={state.message} onRetry={load} />}
@@ -61,8 +89,9 @@ export default function BookingCustomerSection({
       )}
 
       {state.status === 'success' && state.data.results.length > 0 && (
+        <><p className="mb-2 text-sm text-navy-500">Check the contact details before using a customer record. This search does not link or merge records.</p>
         <ul className="space-y-2">
-          {state.data.results.map((c) => (
+          {matches.map((c) => (
             <li key={c.id}>
               <Link to={`/customers/${c.id}`} className="text-sm font-medium text-navy-950 hover:text-sky-600">
                 {c.name}
@@ -70,7 +99,7 @@ export default function BookingCustomerSection({
               <span className="ml-2 text-sm text-navy-500">{c.email || c.phone}</span>
             </li>
           ))}
-        </ul>
+        </ul></>
       )}
     </section>
   );

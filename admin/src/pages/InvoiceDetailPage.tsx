@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { authFetch, authFetchBlob, ApiError } from '../lib/authFetch';
 import { openPdfBlob } from '../lib/pdf';
@@ -8,6 +8,7 @@ import type {
   ReceiptListResponse,
 } from '../types/invoice';
 import InvoiceItemsForm, { emptyFormValue } from '../components/InvoiceItemsForm';
+import BookingBalancePaymentNotice from '../components/BookingBalancePaymentNotice';
 import RecordPaymentModal from '../components/RecordPaymentModal';
 import VoidInvoiceModal from '../components/VoidInvoiceModal';
 import SendDocumentModal from '../components/SendDocumentModal';
@@ -38,6 +39,10 @@ type State =
 
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
+  return <InvoiceDetailContent key={id} id={id} />;
+}
+
+function InvoiceDetailContent({ id }: { id: string | undefined }) {
   const navigate = useNavigate();
   const { admin } = useAuth();
   const adminId = admin?.id;
@@ -46,18 +51,62 @@ export default function InvoiceDetailPage() {
   const [hasPendingPayment, setHasPendingPayment] = useState(false);
   const [state, setState] = useState<State>({ status: 'loading' });
   const [events, setEvents] = useState<InvoiceEvent[] | null>(null);
+  const [eventsError, setEventsError] = useState(false);
   const [receiptId, setReceiptId] = useState<string | null>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptError, setReceiptError] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState<null | 'payment' | 'void' | 'send' | 'remind' | 'revise' | 'correctDetails'>(null);
   const [pendingAction, setPendingAction] = useState<null | 'issue' | 'delete'>(null);
+  const requestVersion = useRef(0);
+  const receiptRequestVersion = useRef(0);
+  const historyRequestVersion = useRef(0);
 
-  function load() {
+  const loadReceipt = useCallback(async () => {
     if (!id) return;
+    const version = ++receiptRequestVersion.current;
+    setReceiptLoading(true);
+    setReceiptError(false);
+    try {
+      const result = await authFetch<ReceiptListResponse>(`/api/receipts?invoiceId=${id}&pageSize=1`);
+      if (version === receiptRequestVersion.current) setReceiptId(result.results[0]?.id || null);
+    } catch {
+      if (version === receiptRequestVersion.current) setReceiptError(true);
+    } finally {
+      if (version === receiptRequestVersion.current) setReceiptLoading(false);
+    }
+  }, [id]);
+
+  const loadHistory = useCallback(async () => {
+    if (!id) return;
+    const invoiceVersion = requestVersion.current;
+    const historyVersion = ++historyRequestVersion.current;
+    const current = () => invoiceVersion === requestVersion.current && historyVersion === historyRequestVersion.current;
+    setEvents(null);
+    setEventsError(false);
+    try {
+      const result = await authFetch<InvoiceEventsResponse>(`/api/invoices/${id}?action=events`);
+      if (current()) setEvents(result.results);
+    } catch {
+      if (current()) setEventsError(true);
+    }
+  }, [id]);
+
+  const load = useCallback(() => {
+    if (!id) return;
+    const version = ++requestVersion.current;
+    receiptRequestVersion.current += 1;
+    historyRequestVersion.current += 1;
+    setEventsError(false);
     setState({ status: 'loading' });
+    setEvents(null);
     setReceiptId(null);
+    setReceiptError(false);
+    setReceiptLoading(false);
     authFetch<InvoiceDetail>(`/api/invoices/${id}`)
       .then((data) => {
+        if (version !== requestVersion.current) return;
         if (data.documentStatus !== 'draft' && adminId) {
           clearInvoiceDraftRecovery({ userId: adminId, documentKey: 'invoice:' + data.id });
         }
@@ -65,25 +114,29 @@ export default function InvoiceDetailPage() {
         setDraftDirty(false);
         setDraftConflict(false);
         setState({ status: 'success', data });
-        authFetch<InvoiceEventsResponse>(`/api/invoices/${id}?action=events`)
-          .then((r) => setEvents(r.results))
-          .catch(() => setEvents([]));
+        void loadHistory();
         // Fully paid — the "send invoice" flow is retired in favour of the
         // receipt (see handleSend's paid-invoice block on the server); look
         // it up so the UI can link straight to it.
         if (data.paymentStatus === 'paid') {
-          authFetch<ReceiptListResponse>(`/api/receipts?invoiceId=${id}&pageSize=1`)
-            .then((r) => setReceiptId(r.results[0]?.id || null))
-            .catch(() => setReceiptId(null));
+          void loadReceipt();
         }
       })
       .catch((err) => {
+        if (version !== requestVersion.current) return;
         if (err instanceof ApiError && err.status === 404) setState({ status: 'not-found' });
         else setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load this invoice.' });
       });
-  }
+  }, [id, adminId, loadReceipt, loadHistory]);
 
-  useEffect(load, [id, adminId]);
+  useEffect(() => {
+    load();
+    return () => {
+      requestVersion.current += 1;
+      receiptRequestVersion.current += 1;
+      historyRequestVersion.current += 1;
+    };
+  }, [load]);
 
   async function handleSaveDraft(input: InvoiceDraftInput) {
     if (!id || busy || draftConflict || state.status !== 'success') return false;
@@ -371,6 +424,7 @@ export default function InvoiceDetailPage() {
             This is a draft — no formal number is allocated yet. Save your changes, then issue it when it&apos;s ready.
           </p>
         </div>
+        {inv.bookingId && <BookingBalancePaymentNotice bookingId={inv.bookingId} accountId={adminId} />}
         {isRevision && (
           <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
             <p className="font-semibold mb-1">Revised invoice draft</p>
@@ -574,13 +628,23 @@ export default function InvoiceDetailPage() {
               <ActionButton label="Download" onClick={() => void handleDownload()} disabled={busy} />
             {!isSuperseded && (
               inv.paymentStatus === 'paid' ? (
-                receiptId && (
+                receiptLoading ? <p role="status" className="text-sm text-navy-600">Looking up receipt…</p> : receiptError ? (
+                  <div className="w-full space-y-2">
+                    <p role="alert" className="text-sm text-red-700">Could not load the receipt. Your recorded payment has not changed.</p>
+                    <ActionButton label="Retry receipt lookup" onClick={() => void loadReceipt()} disabled={busy} />
+                  </div>
+                ) : receiptId ? (
                   <Link
                     to={`/receipts/${receiptId}`}
                     className="flex min-h-11 w-full items-center justify-center rounded-lg border border-silver-300 px-3.5 text-sm font-medium text-navy-900 hover:bg-silver-100 sm:w-auto"
                   >
                     View / send receipt
                   </Link>
+                ) : (
+                  <div className="w-full space-y-2">
+                    <p className="text-sm text-navy-600">No receipt is linked to this invoice yet.</p>
+                    <ActionButton label="Check for receipt" onClick={() => void loadReceipt()} disabled={busy} />
+                  </div>
                 )
               ) : (
                 <ActionButton label={inv.sentAt ? 'Resend' : 'Send'} onClick={() => setModal('send')} disabled={busy} />
@@ -671,7 +735,11 @@ export default function InvoiceDetailPage() {
       </Section>
 
       <Section title="History">
-        {events === null && <p className="text-sm text-navy-500">Loading…</p>}
+        {eventsError && <div role="alert" className="text-sm text-navy-700">
+          <p>Could not load invoice history. Saved invoice details are still shown above.</p>
+          <button type="button" onClick={() => void loadHistory()} className="mt-2 min-h-11 rounded-lg border border-silver-300 px-3 font-semibold">Retry history</button>
+        </div>}
+        {!eventsError && events === null && <p className="text-sm text-navy-500">Loading…</p>}
         {events !== null && events.length === 0 && <p className="text-sm text-navy-500">No history yet.</p>}
         {events !== null && events.length > 0 && (
           <ul className="space-y-1.5 text-sm">

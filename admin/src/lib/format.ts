@@ -72,6 +72,42 @@ export function paymentStatusBadge(status: string | null | undefined): Badge {
   return { label: 'Payment status unknown', className: 'bg-silver-200 text-navy-700' };
 }
 
+interface BookingPaymentSummary {
+  paymentPlan?: 'after_clean' | 'deposit_after_agreement';
+  paymentStatus?: string | null;
+  balanceStatus?: string | null;
+  journeyState?: string;
+  status?: string | null;
+}
+
+export function bookingPaymentBadge(booking: BookingPaymentSummary): Badge {
+  if (booking.paymentPlan === 'after_clean') {
+    return { label: 'No deposit required', className: 'bg-sky-100 text-sky-800' };
+  }
+  const badge = paymentStatusBadge(booking.paymentStatus);
+  return { ...badge, label: booking.paymentStatus === 'paid' ? 'Deposit paid'
+    : booking.paymentStatus === 'pending_payment' ? 'Deposit pending' : 'Deposit status unknown' };
+}
+
+export function bookingBalanceBadge(booking: BookingPaymentSummary): Badge {
+  if (booking.paymentPlan === 'after_clean' && booking.balanceStatus === 'not_due'
+      && ['confirmed', 'change_pending'].includes(booking.journeyState || '')) {
+    return { label: 'Due on cleaning day', className: 'bg-silver-200 text-navy-900' };
+  }
+  return balanceStatusBadge(booking.balanceStatus);
+}
+
+export function appointmentStatusBadge(booking: BookingPaymentSummary): Badge {
+  const labels: Record<string, string> = {
+    draft: 'Review details', offered: 'Awaiting deposit', change_pending: 'Changes awaiting approval',
+    expired: 'Offer expired', payment_review: 'Payment needs review',
+  };
+  if (booking.journeyState && labels[booking.journeyState]) {
+    return { label: labels[booking.journeyState], className: 'bg-amber-100 text-amber-900' };
+  }
+  return bookingStatusBadge(booking.journeyState || booking.status);
+}
+
 const BALANCE_STATUS: Record<string, Badge> = {
   not_due: { label: 'Not due', className: 'bg-silver-200 text-navy-900' },
   outstanding: { label: 'Outstanding', className: 'bg-amber-100 text-amber-800' },

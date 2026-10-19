@@ -10,6 +10,12 @@ export type AgreementText = {
   preparation: string;
 };
 
+export function initialBookingPaymentPlan(booking: Pick<BookingDetail, 'quoteConfig'> & { attribution?: { firstSource?: string | null } }): 'after_clean' | 'deposit_after_agreement' {
+  return booking.attribution?.firstSource === 'admin_manual' && booking.quoteConfig?.manualPaymentPlan === 'after_clean'
+    ? 'after_clean'
+    : 'deposit_after_agreement';
+}
+
 // Compact, editable summaries of the package inclusions already published in
 // EotQuoteWizard and EotProcessSection. An absent package never means Complete.
 function tenancyChecklist(config: Record<string, unknown>): string[] {

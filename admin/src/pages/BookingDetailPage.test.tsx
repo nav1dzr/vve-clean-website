@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, Link } from 'react-router-dom';
 import BookingDetailPage from './BookingDetailPage';
 import { ApiError } from '../lib/authFetch';
 import type { BookingDetail, InternalNote } from '../types/booking';
@@ -171,6 +171,28 @@ describe('BookingDetailPage', () => {
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
+  it('ignores a late detail response after navigating to a different booking', async () => {
+    setupAuthFetchMock();
+    const normalFetch = authFetchMock.getMockImplementation()!;
+    const second = { ...fullBooking, id: '223e4567-e89b-12d3-a456-426614174000', bookingRef: 'AUDIT-SECOND', fullName: 'Second audit customer' };
+    let finishFirst!: (value: BookingDetail) => void;
+    authFetchMock.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === `/api/bookings/${fullBooking.id}`) return new Promise<BookingDetail>(resolve => { finishFirst = resolve; });
+      if (path === `/api/bookings/${second.id}`) return Promise.resolve(second);
+      return normalFetch(path, init);
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={[`/bookings/${fullBooking.id}`]}>
+      <Link to={`/bookings/${second.id}`}>Open second audit booking</Link>
+      <Routes><Route path="/bookings/:id" element={<BookingDetailPage />} /></Routes>
+    </MemoryRouter>);
+    await user.click(screen.getByRole('link', { name: 'Open second audit booking' }));
+    await screen.findByText('AUDIT-SECOND');
+    await act(async () => finishFirst(fullBooking));
+    expect(screen.getByText('AUDIT-SECOND')).toBeInTheDocument();
+    expect(screen.queryByText(fullBooking.bookingRef!)).not.toBeInTheDocument();
+  });
+
   it('renders working call, WhatsApp, and email action links with normalised phone', async () => {
     setupAuthFetchMock();
     renderDetail();
@@ -200,8 +222,8 @@ describe('BookingDetailPage', () => {
     renderDetail();
 
     expect(await screen.findAllByText('Check availability')).not.toHaveLength(0);
-    expect(screen.getByText('Preferred-time request — no payment taken')).toBeInTheDocument();
-    expect(screen.getByText(/agree.*scope.*final price.*time/i)).toBeInTheDocument();
+    expect(screen.getByText('Booking details to review — no payment taken')).toBeInTheDocument();
+    expect(screen.getByText(/Review the payment arrangement before sending/)).toHaveTextContent('not a confirmed appointment yet');
   });
 
   it('shows "unavailable" action states instead of broken links when contact info is missing', async () => {
@@ -235,6 +257,38 @@ describe('BookingDetailPage', () => {
     expect(screen.queryByText(/Invalid Date/i)).not.toBeInTheDocument();
   });
 
+  it('uses the agreement workflow instead of conflicting legacy status and balance controls', async () => {
+    setupAuthFetchMock({ booking: { ...fullBooking, journeyState: 'confirmed' } });
+    renderDetail();
+    await screen.findByText(fullBooking.bookingRef!);
+    expect(screen.queryByLabelText('Update booking status')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Update balance status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save balance status' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Booking status and payments are managed in the booking workflow below/)).toBeInTheDocument();
+  });
+
+  it.each(['after_clean', 'deposit_after_agreement'])('uses the workflow immediately for a new manual %s booking before its first saved agreement', async (manualPaymentPlan) => {
+    setupAuthFetchMock({ booking: {
+      ...fullBooking, journeyState: undefined, status: 'new', depositAmount: 0, paymentStatus: 'pending_payment',
+      quoteConfig: { manualPaymentPlan }, attribution: { ...fullBooking.attribution, firstSource: 'admin_manual' },
+    } });
+    renderDetail();
+    await screen.findByText(fullBooking.bookingRef!);
+    expect(screen.queryByLabelText('Update booking status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save balance status' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Internal job status')).not.toBeInTheDocument();
+    expect(screen.queryByText('Internal balance record')).not.toBeInTheDocument();
+    expect(screen.getByText(/Booking status and payments are managed in the booking workflow below/)).toBeInTheDocument();
+  });
+
+  it('keeps historical manual records without an explicit arrangement on their existing controls', async () => {
+    setupAuthFetchMock({ booking: { ...fullBooking, attribution: { ...fullBooking.attribution, firstSource: 'admin_manual' } } });
+    renderDetail();
+    await screen.findByText(fullBooking.bookingRef!);
+    expect(screen.getByLabelText('Update booking status')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save balance status' })).toBeInTheDocument();
+  });
+
   it('never renders the confirmation token anywhere on the page', async () => {
     setupAuthFetchMock();
     const { container } = renderDetail();
@@ -249,6 +303,7 @@ describe('BookingDetailPage', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Withdraw measurement consent' }));
     expect(screen.getByText(/confirm the customer has asked/i)).toBeInTheDocument();
+    expect(screen.getByText(/original request source details will remain on this booking/i)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Confirm withdrawal' }));
 
     await waitFor(() => expect(authFetchMock).toHaveBeenCalledWith(
@@ -256,6 +311,9 @@ describe('BookingDetailPage', () => {
       { method: 'POST' },
     ));
     expect(await screen.findByText(/consent withdrawn/i)).toBeInTheDocument();
+    expect(screen.getByText(/advertising reporting is disabled for this booking/i)).toBeInTheDocument();
+    expect(screen.getByText(/original request source details remain on this booking/i)).toBeInTheDocument();
+    expect(screen.queryByText(/stored measurement identifiers were removed/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Withdraw measurement consent' })).not.toBeInTheDocument();
   });
 

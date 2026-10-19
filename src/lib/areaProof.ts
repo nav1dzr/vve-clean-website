@@ -14,7 +14,7 @@ import { collectAreaJobs } from '../components/gallery/RecentJobsByArea';
  */
 export function areaHasRealProof(area: AreaInfo): boolean {
   const hasReview = REVIEWS.some((r) => matchesNamedArea(r.location, area.name));
-  const hasJobItems = collectAreaJobs(area.name, area.postcodes).length > 0;
+  const hasJobItems = collectAreaJobs(area.name).length > 0;
   const hasNotes = (area.jobNotes ?? []).length > 0;
   return hasReview || hasJobItems || hasNotes;
 }

@@ -22,6 +22,7 @@ import {
   requireJourneyEnabled,
   deliverJourneyMessages,
   manageLink,
+  journeyAdminView,
 } from "../../../api/_lib/bookingJourney.js";
 
 const ID = "22222222-2222-4222-8222-222222222222";
@@ -1007,5 +1008,31 @@ describe("deposit after owner agreement", () => {
     const content = emailForMessage({ kind, name: "Test", reference: "TEST", journey: db.tables.booking_journeys[0] });
     expect(content.text).toContain("No payment is taken with your request");
     expect(content.html).not.toContain("Pay £30 deposit by card");
+  });
+});
+
+describe('terminal booking email previews', () => {
+  it.each([
+    ['cancelled', 'after_clean', 0, 'Your booking is cancelled'],
+    ['cancelled', 'deposit_after_agreement', 3000, 'Your booking is cancelled'],
+    ['completed', 'deposit_after_agreement', 3000, 'Your clean is completed — remaining balance'],
+    ['completed', 'after_clean', 27900, 'Payment received — thank you'],
+    ['payment_review', 'after_clean', 3000, 'Payment received — arrangements under review'],
+    ['payment_review', 'deposit_after_agreement', 3000, 'Payment received — arrangements under review'],
+  ])('previews the saved %s state for %s without inventing an offer', async (state, paymentPlan, paid, heading) => {
+    const agreed = { ...snapshot, paymentPlan };
+    const db = memoryDb({ state, snapshot: agreed, draft: { ...agreed, items: 'UNSENT DRAFT ITEM', totalPence: 99999 }, paid_pence: paid, hold_until: null });
+    const before = structuredClone(db.tables);
+    const view = await journeyAdminView(db, ID);
+    expect(view.preview.subject).toContain(heading);
+    expect(view.preview.html).toContain(heading);
+    expect(view.preview.text).toContain(heading);
+    expect(view.preview.text).toContain(agreed.items);
+    expect(view.preview.text).not.toContain('UNSENT DRAFT ITEM');
+    expect(view.preview.text).not.toContain('Your clean is booked');
+    expect(view.preview.html).not.toContain('Pay £30 deposit by card');
+    expect(view.previewHoldUntil).toBeNull();
+    expect(db.tables).toEqual(before);
+    expect(nodemailer.createTransport).not.toHaveBeenCalled();
   });
 });

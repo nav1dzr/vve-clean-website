@@ -10,6 +10,8 @@ import {
 import { authFetch } from "../lib/authFetch";
 
 import { uploadMediaFile } from "../lib/mediaUpload";
+import { mediaCaptionPresets, type MediaCaptionPreset } from "../lib/mediaCaptionPresets";
+import { WEBSITE_PHOTO_PAGE_KEYS } from "../../shared/mediaWebsitePositions.js";
 
 import type {
   BeforeAfter,
@@ -38,10 +40,20 @@ const categories: { value: MediaCategory; label: string }[] = [
   { value: "end-of-tenancy", label: "End of tenancy" },
 ];
 
+const positionTypes: { value: GallerySlot["kind"]; label: string }[] = [
+  { value: "before_after", label: "Before / after" },
+  { value: "photo", label: "Work photos" },
+  { value: "video", label: "Videos" },
+];
+
 const explain = (error: unknown) =>
   error instanceof Error
     ? error.message
     : "The request could not be completed. Please retry.";
+
+const usesPhotographsOnly = (usages: MediaUsage[]) => usages.some((usage) =>
+  WEBSITE_PHOTO_PAGE_KEYS.includes(usage.pageKey),
+);
 
 type Target = {
   type: "gallery" | "website";
@@ -71,7 +83,7 @@ type Progress = { name: string; percent: number; stage: string };
 export default function MediaManagerPage() {
   const [library, setLibrary] = useState<MediaLibrary | null>(null);
 
-  const [tab, setTab] = useState("gallery");
+  const [tab, setTab] = useState("uploads");
 
   const [topic, setTopic] = useState<MediaCategory>("carpet");
 
@@ -99,11 +111,17 @@ export default function MediaManagerPage() {
 
   const [filter, setFilter] = useState("all");
 
+  const [positionType, setPositionType] = useState<GallerySlot["kind"]>("before_after");
+
   const fileInput = useRef<HTMLInputElement>(null);
+  const editorContainer = useRef<HTMLDivElement>(null);
 
   const controller = useRef<AbortController | null>(null);
 
   const libraryRef = useRef<MediaLibrary | null>(null);
+  const loadVersion = useRef(0);
+  const targetVersion = useRef(0);
+  const selectionVersion = useRef(0);
 
   const inFlight = useRef(false);
   const editing = useRef(false);
@@ -119,9 +137,18 @@ export default function MediaManagerPage() {
 
     if (more && page == null) return;
 
-    const result = await authFetch<MediaLibrary>(
-      `${api}&category=${topicRef.current}&page=${page || 0}`,
-    );
+    const category = topicRef.current;
+    const version = ++loadVersion.current;
+    let result: MediaLibrary;
+    try {
+      result = await authFetch<MediaLibrary>(
+        `${api}&category=${category}&page=${page || 0}`,
+      );
+    } catch (err) {
+      if (version !== loadVersion.current || category !== topicRef.current) return;
+      throw err;
+    }
+    if (version !== loadVersion.current || category !== topicRef.current) return;
 
     setLibrary((previous) => {
       const next = {
@@ -146,9 +173,19 @@ export default function MediaManagerPage() {
 
   useEffect(() => {
     void load().catch((err) => setError(explain(err)));
+    return () => { loadVersion.current += 1; };
   }, [load, topic]);
 
-  useEffect(() => () => controller.current?.abort(), []);
+  useEffect(() => () => {
+    controller.current?.abort();
+    targetVersion.current += 1;
+    selectionVersion.current += 1;
+  }, []);
+  useEffect(() => {
+    if (!editor) return;
+    editorContainer.current?.querySelector<HTMLHeadingElement>("h2")?.focus({ preventScroll: true });
+    editorContainer.current?.scrollIntoView?.({ block: "start" });
+  }, [editor]);
 
   useEffect(() => {
     let running = false;
@@ -214,6 +251,8 @@ export default function MediaManagerPage() {
         slot.topicKey === (topic === "sofa-upholstery" ? "sofa" : topic),
     ) || [];
 
+  const targetUnavailable = target?.type === "website" && !usesPhotographsOnly(target.usages);
+
   const visible = (library?.assets || []).filter(
     (asset) =>
       filter === "all" ||
@@ -228,6 +267,7 @@ export default function MediaManagerPage() {
     inFlight.current = true;
     setBusy(true);
     setError("");
+    setNotice("");
 
     try {
       await work();
@@ -336,9 +376,19 @@ export default function MediaManagerPage() {
     });
   }
 
+  function clearTarget() {
+    targetVersion.current += 1;
+    selectionVersion.current += 1;
+    setTarget(null);
+    setReview(null);
+    setHistory([]);
+  }
+
   function chooseTarget(next: Target) {
+    const version = ++targetVersion.current;
+    selectionVersion.current += 1;
     setTarget(next);
-    setSelection([]);
+    setSelection(next.assignments.map((assignment) => ({ ...assignment })));
     setReview(null);
     setHistory([]);
     setTab("uploads");
@@ -358,30 +408,42 @@ export default function MediaManagerPage() {
           targetId: next.id,
         }),
       })
-        .then((result) => setHistory(result.history))
-        .catch((err) => setError(explain(err)));
+        .then((result) => {
+          if (version === targetVersion.current) setHistory(result.history);
+        })
+        .catch((err) => {
+          if (version === targetVersion.current) setError(explain(err));
+        });
   }
 
   async function preview(historyId?: string) {
     await run(async () => {
       if (!target) return;
+      const version = selectionVersion.current;
 
       const anchor = selection[0]?.assetId || target.assignments[0]?.assetId;
 
       if (!anchor)
         throw new Error("Choose media for every part of this position.");
 
-      const result = await authFetch<Review>(`${api}&id=${anchor}`, {
-        method: "POST",
-        body: JSON.stringify({
-          action: "assign",
-          targetType: target.type,
-          targetId: target.id,
-          assignments: selection,
-          historyId,
-          preview: true,
-        }),
-      });
+      let result: Review;
+      try {
+        result = await authFetch<Review>(`${api}&id=${anchor}`, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "assign",
+            targetType: target.type,
+            targetId: target.id,
+            assignments: selection,
+            historyId,
+            preview: true,
+          }),
+        });
+      } catch (err) {
+        if (version !== selectionVersion.current) return;
+        throw err;
+      }
+      if (version !== selectionVersion.current) return;
       setLibrary((previous) =>
         previous
           ? {
@@ -404,6 +466,7 @@ export default function MediaManagerPage() {
   async function publish() {
     await run(async () => {
       if (!target || !review) return;
+      const version = targetVersion.current;
 
       await authFetch(`${api}&id=${review.selections[0].assetId}`, {
         method: "POST",
@@ -417,10 +480,9 @@ export default function MediaManagerPage() {
         }),
       });
 
-      setTarget(null);
-      setReview(null);
+      if (version === targetVersion.current) clearTarget();
       setNotice(
-        "Position published. All listed pages now read the same selection. The previous version remains in position history.",
+        `${target.label} published. All listed pages now read the same selection. The previous version remains in position history.`,
       );
       await load();
     });
@@ -436,9 +498,24 @@ export default function MediaManagerPage() {
           Gallery & website media
         </h1>
         <p className="mt-2 max-w-3xl text-navy-700">
-          Upload once. Choose a service and position. Preview the affected
-          pages, then publish one update everywhere.
+          Add your photos or videos, give them a caption, then choose where
+          they appear on the website.
         </p>
+        <ol aria-label="How to publish your media" className="mt-5 grid gap-3 sm:grid-cols-3">
+          {[
+            ["1", "Upload", "Choose a service and cleaning stage, then add your files below."],
+            ["2", "Describe", "Open Edit caption & details. Use a suggestion or write your own."],
+            ["3", "Preview & publish", "Choose a shared gallery position, review the affected pages, then publish."],
+          ].map(([number, title, description]) => (
+            <li key={number} className="rounded-xl border border-silver-300 bg-white p-4">
+              <p className="flex items-center gap-2 font-semibold text-navy-950">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sm text-sky-800">{number}</span>
+                {title}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-navy-700">{description}</p>
+            </li>
+          ))}
+        </ol>
       </header>
 
       {error && (
@@ -464,9 +541,9 @@ export default function MediaManagerPage() {
 
       <nav aria-label="Media sections" className="mb-5 flex flex-wrap gap-2">
         {[
+          ["uploads", "Upload & library"],
           ["gallery", "Shared gallery positions"],
           ["website", "Other website positions"],
-          ["uploads", "Upload & library"],
         ].map(([key, label]) => (
           <button
             key={key}
@@ -484,9 +561,14 @@ export default function MediaManagerPage() {
         <select
           value={topic}
           onChange={(event) => {
-            setTopic(event.target.value as MediaCategory);
-            setTarget(null);
-            setReview(null);
+            const category = event.target.value as MediaCategory;
+            topicRef.current = category;
+            loadVersion.current += 1;
+            libraryRef.current = null;
+            setLibrary(null);
+            setError("");
+            setTopic(category);
+            clearTarget();
           }}
           className={field}
         >
@@ -508,12 +590,27 @@ export default function MediaManagerPage() {
                 Choose a shared position
               </h2>
               <p className="mb-5 mt-2 text-navy-700">
-                Five complete comparison sets, four videos and twenty work
-                photos per service. Positions 1–3 also feed the service page
-                where shown below.
+                Choose the type of media you want to publish. Each position
+                shows where it appears, including any connected service pages.
               </p>
+              <div role="group" aria-label="Position type" className="mb-5 flex flex-wrap gap-2">
+                {positionTypes.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={positionType === value}
+                    className={positionType === value ? primary : button}
+                    onClick={() => setPositionType(value)}
+                  >
+                    {label} ({gallerySlots.filter((slot) => slot.kind === value).length})
+                  </button>
+                ))}
+              </div>
+              {!gallerySlots.some((slot) => slot.kind === positionType) && (
+                <p className="text-sm text-navy-700">No positions of this type are set up for this service yet.</p>
+              )}
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {gallerySlots.map((slot) => (
+                {gallerySlots.filter((slot) => slot.kind === positionType).map((slot) => (
                   <SlotCard
                     key={slot.id}
                     slot={slot}
@@ -551,7 +648,7 @@ export default function MediaManagerPage() {
                         type: "website",
                         id: slot.id,
                         label: `${slot.pageLabel} · ${slot.purposeLabel}`,
-                        kind: "website",
+                        kind: usesPhotographsOnly(slot.usages) ? "photo" : "website",
                         assignments: slot.assignments,
                         usages: slot.usages,
                       })
@@ -574,7 +671,17 @@ export default function MediaManagerPage() {
                       ? "Choose both photographs from the same job. Both change together after publication."
                       : "Choose one ready item, then preview where it will appear."}
                   </p>
-                  <UsageList usages={target.usages} />
+                  <UsageList usages={target.usages} heading={targetUnavailable ? "Planned placement" : "Used on"} />
+                  {targetUnavailable && (
+                    <div className="mt-4 rounded-xl border border-amber-300 bg-white p-4 text-sm text-navy-800">
+                      <p className="font-semibold">This position is not connected to a website page yet.</p>
+                      <p className="mt-1">Your saved selection and history are kept here. Choose a shared gallery position to show your work on the website.</p>
+                      <button className={`${button} mt-3`} onClick={() => { clearTarget(); setTab("gallery"); }}>Go to shared gallery positions</button>
+                    </div>
+                  )}
+                  {target.assignments.length > 0 && !targetUnavailable && (
+                    <p className="mt-4 text-sm leading-6 text-navy-700">To change what appears, replace the selection below or use a previous version when available. Removing a published position without a replacement is not available yet.</p>
+                  )}
 
                   {(target.kind === "before_after"
                     ? ["before", "after"]
@@ -585,15 +692,18 @@ export default function MediaManagerPage() {
                       className="mt-4 block font-semibold capitalize text-navy-950"
                     >
                       {role === "primary"
-                        ? "Photo or video"
+                        ? target.kind === "photo" ? "Photograph" : "Photo or video"
                         : `${role} photograph`}
                       <select
+                        aria-label={role === "primary" ? target.kind === "photo" ? "Photograph" : "Photo or video" : `${role} photograph`}
+                        disabled={targetUnavailable}
                         className={field}
                         value={
                           selection.find((item) => item.role === role)
                             ?.assetId || ""
                         }
                         onChange={(event) => {
+                          selectionVersion.current += 1;
                           setSelection((previous) => [
                             ...previous.filter((item) => item.role !== role),
                             {
@@ -642,7 +752,7 @@ export default function MediaManagerPage() {
 
                   <div className="mt-4 flex flex-wrap gap-3">
                     <button
-                      disabled={busy}
+                      disabled={busy || targetUnavailable}
                       className={primary}
                       onClick={() => void preview()}
                     >
@@ -650,10 +760,7 @@ export default function MediaManagerPage() {
                     </button>
                     <button
                       className={button}
-                      onClick={() => {
-                        setTarget(null);
-                        setReview(null);
-                      }}
+                      onClick={clearTarget}
                     >
                       Close position
                     </button>
@@ -670,7 +777,7 @@ export default function MediaManagerPage() {
                         changes are checked before this version is saved.
                       </p>
                       <button
-                        disabled={busy}
+                        disabled={busy || targetUnavailable}
                         className={primary}
                         onClick={() => void publish()}
                       >
@@ -691,7 +798,7 @@ export default function MediaManagerPage() {
                             <li key={item.id}>
                               <button
                                 className={button}
-                                disabled={busy}
+                                disabled={busy || targetUnavailable}
                                 onClick={() => void preview(item.id)}
                               >
                                 Preview version before{" "}
@@ -716,8 +823,8 @@ export default function MediaManagerPage() {
                   {categories.find((item) => item.value === topic)?.label}
                 </h2>
                 <p className="mt-2 text-sm text-navy-700">
-                  Photos up to 40 MB; videos up to 500 MB. Uploads remain
-                  private until assigned. Interrupted files can be retried from
+                  Photos up to 40 MB; videos up to 500 MB. Files appear on
+                  website pages only after you choose a position and publish. Interrupted files can be retried from
                   the library after refresh.
                 </p>
                 <label className="mt-4 block font-semibold text-navy-950">
@@ -785,6 +892,7 @@ export default function MediaManagerPage() {
               </form>
 
               {editor && (
+                <div ref={editorContainer} className="scroll-mt-6">
                 <MetadataEditor
                   asset={editor}
                   busy={busy}
@@ -804,6 +912,7 @@ export default function MediaManagerPage() {
                     })
                   }
                 />
+                </div>
               )}
 
               <section>
@@ -929,6 +1038,9 @@ export default function MediaManagerPage() {
                                       }),
                                     });
                                     await load();
+                                    setNotice(asset.status === "archived"
+                                      ? "Media restored. It is ready to use again."
+                                      : "Media archived. You can restore it from the Archived filter.");
                                   })
                                 }
                               >
@@ -998,13 +1110,16 @@ function Preview({ asset, label }: { asset?: MediaAsset; label: string }) {
   );
 }
 
-function UsageList({ usages }: { usages: MediaUsage[] }) {
+function UsageList({ usages, heading = "Used on" }: { usages: MediaUsage[]; heading?: string }) {
+  const visibleUsages = [...new Map(usages.map((usage) => [
+    JSON.stringify([usage.pageLabel, usage.componentLabel]), usage,
+  ])).values()];
   return (
     <div className="mt-3">
-      <h3 className="text-sm font-semibold text-navy-950">Used on</h3>
+      <h3 className="text-sm font-semibold text-navy-950">{heading}</h3>
       {usages.length ? (
         <ul className="mt-1 list-disc pl-5 text-sm text-navy-700">
-          {usages.map((usage) => (
+          {visibleUsages.map((usage) => (
             <li key={usage.key}>
               {usage.pageLabel} · {usage.componentLabel}
             </li>
@@ -1077,9 +1192,11 @@ function WebsiteCard({
       </div>
       <Preview asset={asset} label={slot.purposeLabel} />
       <div className="p-4">
-        <UsageList usages={slot.usages} />
+        <UsageList usages={slot.usages} heading={usesPhotographsOnly(slot.usages) ? "Used on" : "Planned placement"} />
+        {!usesPhotographsOnly(slot.usages) && <p className="mt-3 text-sm font-medium text-amber-900">Not connected to a website page yet. You can view the saved selection, but publishing is unavailable.</p>}
+        {usesPhotographsOnly(slot.usages) && <p className="mt-3 text-sm text-navy-700">This position displays photographs only.</p>}
         <button className={`${button} mt-4`} onClick={onChoose}>
-          Choose / replace media
+          {usesPhotographsOnly(slot.usages) ? "Choose / replace media" : "View position"}
         </button>
       </div>
     </article>
@@ -1105,68 +1222,64 @@ function MetadataEditor({
     locationLabel: asset.locationLabel,
     pairKey: asset.pairKey,
   });
+  const [presetId, setPresetId] = useState<MediaCaptionPreset["id"]>("simple");
+  const [replacement, setReplacement] = useState<MediaCaptionPreset | null>(null);
+  const [captionNotice, setCaptionNotice] = useState("");
+  const suggestions = mediaCaptionPresets(values.category, values.beforeAfter, asset.mediaType);
+  const suggestion = suggestions.find((item) => item.id === presetId) || suggestions[0];
 
-  useEffect(
-    () =>
-      setValues({
-        title: asset.title,
-        altText: asset.altText,
-        category: asset.category,
-        beforeAfter: asset.beforeAfter,
-        locationLabel: asset.locationLabel,
-        pairKey: asset.pairKey,
-      }),
-    [asset],
-  );
+  useEffect(() => {
+    setValues({
+      title: asset.title,
+      altText: asset.altText,
+      category: asset.category,
+      beforeAfter: asset.beforeAfter,
+      locationLabel: asset.locationLabel,
+      pairKey: asset.pairKey,
+    });
+    setPresetId("simple");
+    setReplacement(null);
+    setCaptionNotice("");
+  }, [asset]);
+
+  function applySuggestion(preset: MediaCaptionPreset) {
+    setValues((previous) => ({ ...previous, title: preset.title, altText: preset.altText }));
+    setReplacement(null);
+    setCaptionNotice("Suggested wording added. You can edit it before saving.");
+  }
 
   return (
     <form
+      aria-label="Media caption and details"
       className="rounded-2xl border-2 border-sky-300 bg-sky-50 p-5"
       onSubmit={(event) => {
         event.preventDefault();
         onSave(values);
       }}
     >
-      <h2 className="text-xl font-semibold text-navy-950">
+      <h2 tabIndex={-1} className="text-xl font-semibold text-navy-950">
         Describe this media
       </h2>
       <p className="mt-2 text-sm text-navy-700">
         Describe only what the media shows. Add an area only when known and
         approved for publication. Caption edits update its published uses.
       </p>
-      {[
-        ["title", "Visible caption", 120],
-        ["altText", "Accessibility description", 300],
-        ["locationLabel", "Known area (optional)", 100],
-        ["pairKey", "Job / pair name (optional)", 64],
-      ].map(([key, label, max]) => (
-        <label key={key} className="mt-3 block font-semibold text-navy-950">
-          {label}
-          <input
-            className={field}
-            required={key === "title" || key === "altText"}
-            maxLength={Number(max)}
-            value={values[key as keyof typeof values]}
-            onChange={(event) =>
-              setValues((previous) => ({
-                ...previous,
-                [key]: event.target.value,
-              }))
-            }
-          />
-        </label>
-      ))}
+      <div className="mt-4 max-w-sm overflow-hidden rounded-xl">
+        <Preview asset={asset} label={asset.mediaType === "video" ? "Your video" : "Your photo"} />
+      </div>
       <label className="mt-3 block font-semibold text-navy-950">
         Service
         <select
           className={field}
           value={values.category}
-          onChange={(event) =>
+          onChange={(event) => {
             setValues((previous) => ({
               ...previous,
               category: event.target.value as MediaCategory,
-            }))
-          }
+            }));
+            setReplacement(null);
+            setCaptionNotice("");
+          }}
         >
           {categories.map((item) => (
             <option key={item.value} value={item.value}>
@@ -1180,12 +1293,14 @@ function MetadataEditor({
         <select
           className={field}
           value={values.beforeAfter}
-          onChange={(event) =>
+          onChange={(event) => {
             setValues((previous) => ({
               ...previous,
               beforeAfter: event.target.value as BeforeAfter,
-            }))
-          }
+            }));
+            setReplacement(null);
+            setCaptionNotice("");
+          }}
         >
           {[
             ["none", "General work photo / video"],
@@ -1199,6 +1314,75 @@ function MetadataEditor({
           ))}
         </select>
       </label>
+      <section aria-label="Suggested wording" className="mt-5 rounded-xl border border-sky-200 bg-white p-4">
+        <h3 className="font-semibold text-navy-950">Start with a suggestion</h3>
+        <p className="mt-1 text-sm leading-6 text-navy-700">
+          These use your chosen service, stage and file type. Check they match
+          this media, then add your own detail if you want. You can also write
+          directly in the fields below.
+        </p>
+        <label className="mt-3 block text-sm font-semibold text-navy-950">
+          Wording style
+          <select className={field} value={presetId} onChange={(event) => {
+            setPresetId(event.target.value as MediaCaptionPreset["id"]);
+            setReplacement(null);
+            setCaptionNotice("");
+          }}>
+            {suggestions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </select>
+        </label>
+        <div className="mt-3 rounded-lg bg-sky-50 p-3 text-sm text-navy-800">
+          <p className="font-semibold">{suggestion.title}</p>
+          <p className="mt-1">{suggestion.altText}</p>
+        </div>
+        <button type="button" disabled={busy} className={`${button} mt-3`} onClick={() => {
+          if (values.title.trim() || values.altText.trim()) setReplacement(suggestion);
+          else applySuggestion(suggestion);
+        }}>
+          Use this wording
+        </button>
+        {replacement && (
+          <div role="group" aria-label="Replace your current wording" className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
+            <p className="text-sm text-navy-950">You already have a caption or description. Replace both with this suggestion, or keep your wording.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" disabled={busy} className={button} onClick={() => { setReplacement(null); setCaptionNotice("Your wording has been kept."); }}>Keep my wording</button>
+              <button type="button" disabled={busy} className={button} onClick={() => applySuggestion(replacement)}>Replace title & description</button>
+            </div>
+          </div>
+        )}
+        {captionNotice && <p role="status" className="mt-3 text-sm text-navy-700">{captionNotice}</p>}
+      </section>
+      <label className="mt-4 block font-semibold text-navy-950">
+        Title shown on the website
+        <input className={field} required maxLength={120} value={values.title} onChange={(event) => {
+          setValues((previous) => ({ ...previous, title: event.target.value }));
+          setReplacement(null);
+          setCaptionNotice("");
+        }} />
+      </label>
+      <label className="mt-3 block font-semibold text-navy-950">
+        Photo or video description
+        <textarea className={`${field} min-h-24`} required maxLength={300} value={values.altText} onChange={(event) => {
+          setValues((previous) => ({ ...previous, altText: event.target.value }));
+          setReplacement(null);
+          setCaptionNotice("");
+        }} />
+        <span className="mt-1 block text-sm font-normal text-navy-700">Describes the photo or video for people using screen readers. Add any visible details you want to include.</span>
+      </label>
+      <details className="mt-4">
+        <summary className="cursor-pointer font-semibold text-navy-950">More details (optional)</summary>
+        {[
+          ["locationLabel", "Known area (optional)", 100],
+          ["pairKey", "Job / pair name (optional)", 64],
+        ].map(([key, label, max]) => (
+          <label key={key} className="mt-3 block font-semibold text-navy-950">
+            {label}
+            <input className={field} maxLength={Number(max)} value={values[key as keyof typeof values]} onChange={(event) =>
+              setValues((previous) => ({ ...previous, [key]: event.target.value }))
+            } />
+          </label>
+        ))}
+      </details>
       <div className="mt-4 flex gap-3">
         <button disabled={busy} className={primary}>
           Save details

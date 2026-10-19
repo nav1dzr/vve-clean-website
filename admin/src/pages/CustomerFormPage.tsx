@@ -10,6 +10,7 @@ import { customerTypeLabel } from '../lib/format';
 import ErrorState from '../components/ErrorState';
 import { CardListSkeleton } from '../components/Skeleton';
 import StructuredAddressFields from '../components/StructuredAddressFields';
+import { customerSourceChoice, customerSourceInput } from '../lib/customerSource';
 
 interface FormValue {
   name: string; email: string; phone: string; address: string; postcode: string;
@@ -20,7 +21,7 @@ function emptyValue(): FormValue {
   return { name: '', email: '', phone: '', address: '', postcode: '', customerType: 'individual', source: 'other', preferredContactMethod: '', notes: '' };
 }
 
-type LoadState = { status: 'ready' } | { status: 'loading' } | { status: 'error'; message: string };
+type LoadState = { key: string } & ({ status: 'ready' } | { status: 'loading' } | { status: 'error'; message: string });
 
 // /customers/new and /customers/:id/edit — the same form for both. Never
 // auto-merges a duplicate — a match found on save is shown as a dismissible
@@ -31,47 +32,59 @@ export default function CustomerFormPage() {
   const isEdit = Boolean(id);
   const [searchParams] = useSearchParams();
   const fromBookingId = !isEdit ? searchParams.get('fromBookingId') : null;
+  const loadKey = id ? `customer:${id}` : `booking:${fromBookingId || 'new'}`;
   const navigate = useNavigate();
   const [value, setValue] = useState<FormValue>(emptyValue());
-  const [load, setLoad] = useState<LoadState>({ status: isEdit || fromBookingId ? 'loading' : 'ready' });
+  const [load, setLoad] = useState<LoadState>({ key: loadKey, status: isEdit || fromBookingId ? 'loading' : 'ready' });
+  const [retry, setRetry] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<CustomerDuplicateWarning[]>([]);
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | undefined>();
+  const [conflict, setConflict] = useState(false);
 
   useEffect(() => {
-    if (!id) return;
-    authFetch<CustomerDetail>(`/api/customers/${id}`)
-      .then((c) => {
+    let active = true;
+    setError(null);
+    setWarnings([]);
+    setExpectedUpdatedAt(undefined);
+    setConflict(false);
+    setValue(emptyValue());
+    if (!id && !fromBookingId) {
+      setLoad({ key: loadKey, status: 'ready' });
+      return () => { active = false; };
+    }
+    setLoad({ key: loadKey, status: 'loading' });
+    // Ignore late responses after the route changes or a retry replaces a load.
+    const request = id
+      ? authFetch<CustomerDetail>(`/api/customers/${id}`).then((c) => {
+        if (!active) return;
+        setExpectedUpdatedAt(c.updatedAt);
         setValue({
           name: c.name, email: c.email || '', phone: c.phone || '', address: c.address || '', postcode: c.postcode || '',
-          customerType: c.customerType, source: c.source, preferredContactMethod: c.preferredContactMethod || '', notes: c.notes || '',
+          customerType: c.customerType, source: customerSourceChoice(c.source, c.notes), preferredContactMethod: c.preferredContactMethod || '', notes: c.notes || '',
         });
-        setLoad({ status: 'ready' });
       })
-      .catch((err) => setLoad({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load this customer.' }));
-  }, [id]);
-
-  // Prefill from a booking that has no linked customer record yet (see
-  // BookingCustomerSection's "+ Create customer" link) — a convenience
-  // only, source is set to 'website' since a prefilled booking always
-  // originated from the public booking flow; nothing is submitted until
-  // the admin reviews and saves the form themselves.
-  useEffect(() => {
-    if (!fromBookingId) return;
-    authFetch<BookingDetail>(`/api/bookings/${fromBookingId}`)
-      .then((b) => {
-        setValue((v) => ({
-          ...v,
-          name: b.fullName || v.name, email: b.email || v.email, phone: b.phone || v.phone,
-          address: b.address || v.address, postcode: b.postcode || v.postcode, source: 'website',
-        }));
-        setLoad({ status: 'ready' });
-      })
-      .catch((err) => setLoad({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load the booking to prefill from.' }));
-  }, [fromBookingId]);
+      : authFetch<BookingDetail>(`/api/bookings/${fromBookingId}`).then((b) => {
+        if (!active) return;
+        // Prefill is a draft only; nothing is saved until the owner reviews it.
+        setValue({
+          ...emptyValue(),
+          name: b.fullName || '', email: b.email || '', phone: b.phone || '',
+          address: b.address || '', postcode: b.postcode || '', source: 'website',
+        });
+      });
+    void request.then(() => {
+      if (active) setLoad({ key: loadKey, status: 'ready' });
+    }).catch((err) => {
+      if (active) setLoad({ key: loadKey, status: 'error', message: err instanceof ApiError ? err.message : id ? 'Could not load this customer.' : 'Could not load the booking to prefill from.' });
+    });
+    return () => { active = false; };
+  }, [id, fromBookingId, loadKey, retry]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submitting || conflict) return;
     if (!value.name.trim()) {
       setError('Name is required.');
       return;
@@ -79,21 +92,24 @@ export default function CustomerFormPage() {
     setSubmitting(true);
     setError(null);
 
+    const savedSource = customerSourceInput(value.source, value.notes);
     const input: CustomerDraftInput = {
+      ...(isEdit ? { expectedUpdatedAt } : {}),
       name: value.name.trim(),
       email: value.email.trim() || null,
       phone: value.phone.trim() || null,
       address: value.address.trim() || null,
       postcode: value.postcode.trim() || null,
       customerType: value.customerType as CustomerDraftInput['customerType'],
-      source: value.source as CustomerDraftInput['source'],
+      source: savedSource.source as CustomerDraftInput['source'],
       preferredContactMethod: (value.preferredContactMethod || null) as CustomerDraftInput['preferredContactMethod'],
-      notes: value.notes.trim() || null,
+      notes: savedSource.notes,
     };
 
     try {
       if (isEdit && id) {
         const result = await authFetch<CustomerUpdateResponse>(`/api/customers/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+        setExpectedUpdatedAt(result.updatedAt);
         if (result.duplicateWarnings.length > 0) {
           setWarnings(result.duplicateWarnings);
           setSubmitting(false);
@@ -103,27 +119,27 @@ export default function CustomerFormPage() {
       } else {
         const result = await authFetch<CustomerCreateResponse>('/api/customers', { method: 'POST', body: JSON.stringify(input) });
         if (result.duplicateWarnings.length > 0) {
-          setWarnings(result.duplicateWarnings);
           setSubmitting(false);
           // Still land on the new record — the admin can decide for
           // themselves whether it's genuinely a duplicate; the record
           // already exists and is never silently discarded or merged.
-          navigate(`/customers/${result.id}`);
+          navigate(`/customers/${result.id}`, { state: { duplicateWarnings: result.duplicateWarnings } });
           return;
         }
         navigate(`/customers/${result.id}`);
       }
     } catch (err) {
+      if (err instanceof ApiError && err.status === 409) setConflict(true);
       setError(err instanceof ApiError ? err.message : 'Could not save this customer.');
       setSubmitting(false);
     }
   }
 
-  if (load.status === 'loading') {
+  if (load.key !== loadKey || load.status === 'loading') {
     return <div className="px-4 py-6 sm:px-6"><CardListSkeleton count={1} /></div>;
   }
   if (load.status === 'error') {
-    return <div className="px-4 py-6 sm:px-6"><ErrorState message={load.message} onRetry={() => setLoad({ status: 'loading' })} /></div>;
+    return <div className="px-4 py-6 sm:px-6"><ErrorState message={load.message} onRetry={() => setRetry((attempt) => attempt + 1)} /></div>;
   }
 
   const inputClass = 'min-h-11 w-full rounded-lg border border-silver-300 bg-white px-3 text-base text-navy-950 outline-none focus:border-sky-500';
@@ -180,6 +196,7 @@ export default function CustomerFormPage() {
             <label>
               <span className={labelClass}>Source</span>
               <select value={value.source} onChange={(e) => setValue((v) => ({ ...v, source: e.target.value }))} className={inputClass}>
+                <option value="checkatrade">Checkatrade</option>
                 {CUSTOMER_SOURCE_VALUES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
               </select>
             </label>
@@ -198,8 +215,12 @@ export default function CustomerFormPage() {
         </section>
 
         {error && <p role="alert" className="mb-3 text-sm text-red-600">{error}</p>}
+        {conflict && <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-navy-900">
+          <p className="mb-2">Your edits are still here. Copy anything you want to keep before loading the latest saved customer.</p>
+          <button type="button" onClick={() => setRetry((attempt) => attempt + 1)} className="min-h-11 rounded-lg border border-amber-300 px-3 font-semibold">Discard edits and reload latest</button>
+        </div>}
 
-        <button type="submit" disabled={submitting} className="min-h-11 w-full rounded-lg bg-navy-950 px-4 text-sm font-semibold text-white transition-colors hover:bg-navy-900 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
+        <button type="submit" disabled={submitting || conflict} className="min-h-11 w-full rounded-lg bg-navy-950 px-4 text-sm font-semibold text-white transition-colors hover:bg-navy-900 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
           {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create customer'}
         </button>
       </form>

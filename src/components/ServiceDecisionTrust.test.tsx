@@ -35,7 +35,8 @@ describe('ServiceDecisionTrust — factual, contextual proof', () => {
     vi.mocked(useGoogleRating).mockReturnValue({ value: 4.7, count: 31, verifiedOn: '2026-10-01', live: true });
     render(<ServiceDecisionTrust service="sofa" />);
     expect(panel()).toHaveTextContent('4.7');
-    expect(panel()).toHaveTextContent('31 reviews');
+    expect(panel()).not.toHaveTextContent(/\d+\s+(?:Google\s+)?reviews/);
+    expect(within(panel()).getByRole('link', { name: /Read our Google reviews/ })).toHaveAccessibleName('VVE Clean is rated 4.7 out of 5 on Google. Updated 1 Oct 2026. Read our Google reviews (opens in a new tab)');
     expect(panel()).toHaveTextContent('Updated 1 Oct 2026');
     expect(panel()).not.toHaveTextContent('5.0');
   });

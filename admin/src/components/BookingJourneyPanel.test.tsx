@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import BookingJourneyPanel from "./BookingJourneyPanel";
 import type { BookingDetail } from "../types/booking";
@@ -18,8 +18,54 @@ const booking = {
   notifications: { emailCustomerSent: true, emailBusinessSent: true },
 } as BookingDetail;
 const empty = { enabled: true, journey: null, notifications: [], events: [] };
-beforeEach(() => authFetchMock.mockReset());
+beforeEach(() => { authFetchMock.mockReset(); });
 describe("CRM booking agreement controls", () => {
+  it('shows a neutral pending state until the saved workflow is known', async () => {
+    let resolveWorkflow!: (value: unknown) => void;
+    authFetchMock.mockReturnValue(new Promise((resolve) => { resolveWorkflow = resolve; }));
+    render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
+    expect(screen.getByText('Loading booking workflow…')).toBeInTheDocument();
+    expect(screen.queryByText('Draft agreement')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sending is disabled until/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No deposit for this booking/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save agreement and preview email' })).toBeDisabled();
+    resolveWorkflow(empty);
+    await screen.findByText('Draft agreement');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save agreement and preview email' })).toBeEnabled());
+  });
+  it('reports a load failure without claiming the booking is a draft or its integration is disabled', async () => {
+    let rejectWorkflow!: (reason: Error) => void;
+    authFetchMock.mockReturnValue(new Promise((_resolve, reject) => { rejectWorkflow = reject; }));
+    render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
+    await act(async () => { rejectWorkflow(new Error('TEST ONLY — workflow unavailable')); });
+    await screen.findByText('TEST ONLY — workflow unavailable');
+    expect(screen.getByText('Booking workflow unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('Draft agreement')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sending is disabled until/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save agreement and preview email' })).toBeDisabled();
+  });
+  it('saves the selected appointment date after a native date input change', async () => {
+    authFetchMock.mockResolvedValue(empty);
+    const user = userEvent.setup();
+    render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save agreement and preview email' })).toBeEnabled());
+    fireEvent.change(screen.getByLabelText('Appointment date'), { target: { value: '2026-10-25' } });
+    await user.tab();
+    await user.click(screen.getByRole('button', { name: 'Save agreement and preview email' }));
+    await waitFor(() => expect(authFetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(authFetchMock.mock.calls[1][1].body).agreement.date).toBe('2026-10-25');
+  });
+  it('restores the explicit manual no-deposit choice after reload without changing the public request default', async () => {
+    authFetchMock.mockResolvedValue(empty);
+    const { unmount } = render(<BookingJourneyPanel booking={{ ...booking, email: 'local@example.invalid', attribution: { firstSource: 'admin_manual' } as BookingDetail['attribution'], quoteConfig: { manualPaymentPlan: 'after_clean' } }} onChanged={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save agreement and preview email' })).toBeEnabled());
+    expect(screen.getByLabelText('Payment arrangement')).toHaveValue('after_clean');
+    expect(screen.getByText(/No deposit for this booking/)).toBeInTheDocument();
+    expect(screen.queryByText(/Their appointment is confirmed when the deposit is received/)).not.toBeInTheDocument();
+    unmount();
+    render(<BookingJourneyPanel booking={{ ...booking, quoteConfig: { manualPaymentPlan: 'after_clean' } }} onChanged={() => {}} />);
+    await waitFor(() => expect(screen.getByLabelText('Payment arrangement')).toHaveValue('deposit_after_agreement'));
+  });
   it("saves a new request without optional typing and never sends it automatically", async () => {
     const user = userEvent.setup();
     authFetchMock.mockResolvedValue(empty);
@@ -176,6 +222,23 @@ describe("CRM booking agreement controls", () => {
 describe("deposit operator controls", () => {
   const agreement = { service: "Carpet cleaning", items: "Two bedrooms", scope: "Extraction", exclusions: "", address: "Test address", postcode: "E1 1AA", date: "2026-10-10", time: "09:00–11:00", totalPence: 10000, changeReason: "Agreed by WhatsApp", preparation: "", paymentPlan: "deposit_after_agreement", paymentWindowHours: 48 };
   const offered = { ...empty, journey: { revision: 2, offer_version: 1, state: "offered", draft: agreement, snapshot: agreement, paid_pence: 0, refunded_pence: 0, customer_request: null, hold_until: "2099-01-01T00:00:00Z", reminder_sent_at: null } };
+  it('directs a cancellation request to the cancellation action and keeps refund handling separate', async () => {
+    authFetchMock.mockResolvedValue({ ...offered, journey: { ...offered.journey, state: 'confirmed', paid_pence: 3000, customer_request: { kind: 'cancel', reason: 'TEST ONLY — plans changed' } } });
+    render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
+    await screen.findByText('Customer request: cancel');
+    expect(screen.getByText(/Review the cancellation request with the customer/)).toHaveTextContent('Cancel appointment');
+    expect(screen.getByText(/Cancelling does not issue a refund/)).toBeInTheDocument();
+    expect(screen.queryByText(/Check availability, agree the change/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel appointment' })).toBeEnabled();
+    expect(authFetchMock).toHaveBeenCalledTimes(1);
+  });
+  it('keeps revised-date guidance for a rescheduling request', async () => {
+    authFetchMock.mockResolvedValue({ ...offered, journey: { ...offered.journey, customer_request: { kind: 'reschedule', date: '2026-10-25', time: '09:00–11:00', reason: 'TEST ONLY — new date' } } });
+    render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
+    await screen.findByText('Customer request: reschedule');
+    expect(screen.getByText(/Check availability, agree the change/)).toBeInTheDocument();
+    expect(screen.queryByText(/Review the cancellation request with the customer/)).not.toBeInTheDocument();
+  });
   it("defaults new agreements to £30 after agreement and keeps the public request free", async () => {
     authFetchMock.mockResolvedValue(empty);
     render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
@@ -197,14 +260,28 @@ describe("deposit operator controls", () => {
     expect(screen.queryByText("Refunded", { exact: true })).not.toBeInTheDocument();
     expect(JSON.parse(authFetchMock.mock.calls[authFetchMock.mock.calls.length - 1][1].body)).toMatchObject({ operation: "manual_deposit", amountPence: 3000, method: "bank_transfer", reference: "E11AA101026", receivedConfirmed: true });
   });
-  it("offers a reminder only until one is sent", async () => {
+  it("does not claim delivery when a requested reminder failed", async () => {
+    authFetchMock.mockResolvedValue({
+      ...offered,
+      journey: { ...offered.journey, revision: 3, reminder_sent_at: "2026-09-16T12:00:00Z" },
+      notifications: [{ id: "test-reminder", kind: "reminder", channel: "email", audience: "customer", status: "failed", attempts: 1, last_error: "TEST ONLY — mail delivery unavailable", sent_at: null, created_at: "2026-09-16T12:00:00Z" }],
+    });
+    render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
+    expect(await screen.findByRole("button", { name: "Reminder requested" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Deposit reminder sent" })).not.toBeInTheDocument();
+    expect(screen.getByText("failed", { exact: true })).toBeInTheDocument();
+    expect(screen.getByText("TEST ONLY — mail delivery unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry this delivery" })).toBeEnabled();
+    expect(authFetchMock).toHaveBeenCalledTimes(1);
+  });
+  it("offers a reminder only until one is requested", async () => {
     const user = userEvent.setup();
     authFetchMock.mockResolvedValueOnce(offered);
     render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
     const remind = await screen.findByRole("button", { name: "Send unpaid deposit reminder" });
     authFetchMock.mockResolvedValueOnce({ ...offered, journey: { ...offered.journey, revision: 3, reminder_sent_at: "2026-09-16T12:00:00Z" } });
     await user.click(remind);
-    expect(await screen.findByRole("button", { name: "Deposit reminder sent" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Reminder requested" })).toBeDisabled();
     expect(JSON.parse(authFetchMock.mock.calls[authFetchMock.mock.calls.length - 1][1].body)).toMatchObject({ operation: "remind", revision: 2 });
   });
 });

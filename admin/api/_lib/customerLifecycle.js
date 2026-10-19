@@ -19,7 +19,8 @@
 // Duplicate detection is warn-only, everywhere, by design (the original
 // feature spec is explicit: never auto-merge, never merge on name alone).
 
-import { isValidEmail } from './normalise.js';
+import { createHash } from 'node:crypto';
+import { isValidEmail, isValidUuid } from './normalise.js';
 import { CARD_SELECT as BOOKING_CARD_SELECT, toCard as toBookingCard } from './bookingFields.js';
 import {
   CUSTOMER_TYPE_VALUES, CUSTOMER_SOURCE_VALUES, CUSTOMER_CONTACT_METHOD_VALUES,
@@ -195,6 +196,9 @@ export async function updateCustomer(supabase, customerId, input, adminId) {
     .from('customers').select('id').eq('id', customerId).maybeSingle();
   if (fetchErr) return { ok: false, error: 'Failed to load customer' };
   if (!existing) return { ok: false, error: 'Customer not found', status: 404 };
+  if (typeof input?.expectedUpdatedAt !== 'string' || !Number.isFinite(Date.parse(input.expectedUpdatedAt))) {
+    return { ok: false, status: 400, error: 'Reload the customer before saving so the latest details can be checked.' };
+  }
 
   const check = validateCustomerInput(input);
   if (!check.ok) return { ok: false, error: check.error };
@@ -203,7 +207,7 @@ export async function updateCustomer(supabase, customerId, input, adminId) {
     email: input.email, phone: input.phone, postcode: input.postcode, name: input.name,
   }, customerId);
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('customers')
     .update({
       name: input.name.trim(),
@@ -219,16 +223,22 @@ export async function updateCustomer(supabase, customerId, input, adminId) {
       normalised_phone: normalisePhoneForDedup(input.phone),
       updated_at: nowIso(),
     })
-    .eq('id', customerId);
+    .eq('id', customerId)
+    .eq('updated_at', input.expectedUpdatedAt)
+    .select('updated_at')
+    .maybeSingle();
 
   if (error) {
     console.error('[admin/api] customer update failed:', error.code, error.message);
     return { ok: false, error: 'Failed to update customer' };
   }
+  if (!updated) {
+    return { ok: false, status: 409, error: 'This customer changed since you opened it. Copy your edits, then reload and review the latest details before saving.' };
+  }
 
   await logEvent(supabase, { documentId: customerId, eventType: 'updated', adminId });
 
-  return { ok: true, duplicateWarnings };
+  return { ok: true, duplicateWarnings, updatedAt: updated.updated_at };
 }
 
 // Customer detail + history. Balances/totals are only summed across
@@ -238,7 +248,7 @@ export async function updateCustomer(supabase, customerId, input, adminId) {
 export async function getCustomerDetail(supabase, customerId) {
   const { data: customer, error: customerErr } = await supabase
     .from('customers').select('*').eq('id', customerId).maybeSingle();
-  if (customerErr) return { ok: false, error: 'Failed to load customer' };
+  if (customerErr) return { ok: false, error: 'Failed to load customer', status: 503 };
   if (!customer) return { ok: false, error: 'Customer not found', status: 404 };
 
   const normalisedEmail = normaliseEmailForDedup(customer.email);
@@ -246,30 +256,42 @@ export async function getCustomerDetail(supabase, customerId) {
 
   let bookings = [];
   if (customer.email || customer.phone) {
-    let query = supabase.from('bookings').select(BOOKING_CARD_SELECT);
+    let query = supabase.from('bookings').select(`${BOOKING_CARD_SELECT}, email`);
     const filters = [];
-    if (customer.email) filters.push(`email.ilike.${customer.email}`);
+    // Match a literal address: SQL LIKE treats '_' and '%' as wildcards.
+    // Quote the PostgREST value as well so punctuation cannot become another filter.
+    if (normalisedEmail) filters.push(`email.ilike.${JSON.stringify(normalisedEmail.replace(/[\\%_]/g, '\\$&'))}`);
     for (const candidate of phoneMatchCandidates(customer.phone)) filters.push(`phone.eq.${candidate}`);
     if (filters.length) query = query.or(filters.join(','));
-    const { data } = await query.order('created_at', { ascending: false });
-    bookings = (data || []).map(toBookingCard);
+    const { data, error } = await query.order('created_at', { ascending: false });
+    if (error) return { ok: false, error: 'Could not load customer booking history. Please try again.', status: 503 };
+    // Identity is still inferred, never a persistent customer link. Check literal
+    // contact equality after the query, including unusual valid email punctuation.
+    const phones = phoneMatchCandidates(customer.phone).map(normalisePhoneForDedup);
+    bookings = (data || []).filter((row) =>
+      (normalisedEmail && normaliseEmailForDedup(row.email) === normalisedEmail)
+      || (phones.length && phones.includes(normalisePhoneForDedup(row.phone))),
+    ).map(toBookingCard);
   }
 
-  const { data: invoiceRows } = await supabase
+  const { data: invoiceRows, error: invoicesError } = await supabase
     .from('invoices')
     .select(INVOICE_CARD_SELECT)
     .or(`billing_customer_id.eq.${customerId},service_customer_id.eq.${customerId}`)
     .order('created_at', { ascending: false });
+  // A failed financial read is not an empty history or a zero balance.
+  if (invoicesError) return { ok: false, error: 'Could not load customer invoices and balances. Please try again.', status: 503 };
   const invoices = (invoiceRows || []).map(toInvoiceCard);
 
   const invoiceIds = invoices.map((i) => i.id);
   let receipts = [];
   if (invoiceIds.length) {
-    const { data: receiptRows } = await supabase
+    const { data: receiptRows, error: receiptsError } = await supabase
       .from('receipts')
       .select(RECEIPT_CARD_SELECT)
       .in('invoice_id', invoiceIds)
       .order('created_at', { ascending: false });
+    if (receiptsError) return { ok: false, error: 'Could not load customer receipts. Please try again.', status: 503 };
     receipts = (receiptRows || []).map(toReceiptCard);
   }
 
@@ -357,20 +379,60 @@ async function buildManualBookingRef(supabase, postcode, dateStr) {
 export async function createManualBooking(supabase, customerId, input, adminId) {
   const { data: customer, error: customerErr } = await supabase
     .from('customers').select('*').eq('id', customerId).maybeSingle();
-  if (customerErr) return { ok: false, error: 'Failed to load customer' };
+  if (customerErr) return { ok: false, status: 503, error: 'Could not load this customer. Retry the same booking request.' };
   if (!customer) return { ok: false, error: 'Customer not found', status: 404 };
 
   if (typeof input.service !== 'string' || !input.service.trim()) {
     return { ok: false, error: 'service is required' };
   }
+  if (input.paymentPlan !== undefined && !['deposit_after_agreement', 'after_clean'].includes(input.paymentPlan)) {
+    return { ok: false, error: 'Choose the £30 deposit or payment on the cleaning day.' };
+  }
+  if (input.email && !isValidEmail(input.email)) {
+    return { ok: false, error: 'Enter a valid email address for this booking.' };
+  }
+  const arrivalWindow = typeof input.arrivalWindow === 'string' ? input.arrivalWindow.trim() : '';
+  if (arrivalWindow) {
+    const times = arrivalWindow.match(/^([01]\d|2[0-3]):([0-5]\d)\s*[–-]\s*([01]\d|2[0-3]):([0-5]\d)$/);
+    if (!times || Number(times[1]) * 60 + Number(times[2]) >= Number(times[3]) * 60 + Number(times[4])) {
+      return { ok: false, error: 'Use an arrival window such as 09:00–11:00, with the end after the start.' };
+    }
+  }
   if (!customer.email && !customer.phone && !input.phone && !input.email) {
     return { ok: false, error: 'customer must have an email or phone on file to create a booking' };
+  }
+
+  if (input.requestId !== undefined && !isValidUuid(input.requestId)) {
+    return { ok: false, error: 'Invalid booking request identity' };
+  }
+  const requestId = input.requestId?.toLowerCase();
+  const fingerprint = createHash('sha256').update(JSON.stringify([
+    input.service.trim(), input.serviceDate || null, arrivalWindow || null,
+    typeof input.totalPrice === 'number' ? input.totalPrice : null,
+    input.paymentPlan || null, input.notes || null, input.email || null,
+    input.phone || null, input.address || null, input.postcode || null,
+  ])).digest('hex');
+  async function previousRequest() {
+    const { data: existing, error } = await supabase.from('bookings')
+      .select('id, booking_ref, quote_config').eq('id', requestId).maybeSingle();
+    if (error) return { ok: false, status: 503, error: 'Could not check this booking attempt. Retry the same request; do not start another booking.' };
+    if (!existing) return null;
+    const saved = existing.quote_config || {};
+    if (saved.manualCustomerId !== customerId || saved.manualAdminId !== adminId || saved.manualRequestFingerprint !== fingerprint) {
+      return { ok: false, status: 409, error: 'This booking request was already used with different details or another customer. Check the customer booking history before starting another.' };
+    }
+    return { ok: true, bookingId: existing.id, bookingRef: existing.booking_ref, alreadyExisted: true };
+  }
+  if (requestId) {
+    const previous = await previousRequest();
+    if (previous) return previous;
   }
 
   const postcode = input.postcode || customer.postcode || null;
   const bookingRef = await buildManualBookingRef(supabase, postcode, input.serviceDate);
 
   const bookingRow = {
+    ...(requestId ? { id: requestId } : {}),
     full_name: customer.name,
     email: input.email || customer.email || null,
     phone: input.phone || customer.phone || null,
@@ -379,6 +441,13 @@ export async function createManualBooking(supabase, customerId, input, adminId) 
     service: input.service.trim(),
     service_date: input.serviceDate || null,
     preferred_date: input.serviceDate || null,
+    ...(arrivalWindow ? { preferred_time: arrivalWindow } : {}),
+    // Keep the owner's explicit per-booking choice across refreshes. This is
+    // a draft preference, not payment received or an automatic confirmation.
+    ...(input.paymentPlan || requestId ? { quote_config: {
+      ...(input.paymentPlan ? { manualPaymentPlan: input.paymentPlan } : {}),
+      ...(requestId ? { manualCustomerId: customerId, manualAdminId: adminId, manualRequestFingerprint: fingerprint } : {}),
+    } } : {}),
     total_price: typeof input.totalPrice === 'number' ? input.totalPrice : null,
     deposit_amount: 0,
     notes: input.notes || null,
@@ -407,12 +476,19 @@ export async function createManualBooking(supabase, customerId, input, adminId) 
     error = insertErr;
     if (!insertErr) { row = data; break; }
     if (insertErr.code !== '23505') break;
+    if (requestId) {
+      const previous = await previousRequest();
+      if (previous) return previous;
+    }
     console.warn('[admin/api] manual booking_ref collision on', candidateRef, '— retrying with a new suffix (attempt', attempt + 1, ')');
   }
 
   if (error) {
     console.error('[admin/api] manual booking create failed:', error.code, error.message);
-    return { ok: false, error: 'Failed to create booking' };
+    // The database may have committed the insert before its response was lost.
+    // A validation (400) response would let the browser discard the request UUID
+    // and create another booking; preserve it for reconciliation on retry.
+    return { ok: false, status: 503, error: 'Could not confirm that this booking was saved. Retry the same booking request; do not start another booking.' };
   }
 
   const { error: noteErr } = await supabase.from('internal_notes').insert({

@@ -84,7 +84,7 @@ const SCHEMA = JSON.stringify({
 });
 
 function CarpetHeroPanel() {
-  return <ManagedServiceHeroPhoto service="carpet" fallback={{ src: '/images/carpet-cleaning-hero.webp', alt: 'Extraction equipment working on a blue carpet', caption: 'Carpet extraction in progress' }} detail="We inspect the fibre and condition before choosing a suitable treatment. Stain removal varies by carpet and mark." />;
+  return <ManagedServiceHeroPhoto service="carpet" fallback={{ src: '/images/carpet-cleaning-hero.webp', alt: 'Extraction equipment working on a blue carpet', caption: 'Carpet extraction in progress' }} detail={<a href="#results" className="inline-flex min-h-11 items-center font-semibold text-royal-700 underline underline-offset-4">See before &amp; after results</a>} />;
 }
 
 const DATA: ServiceLandingData = {
@@ -100,8 +100,6 @@ const DATA: ServiceLandingData = {
   heroTaxNoteCompact: true,
   heroAside: <CarpetHeroPanel />,
   heroAsideOnMobile: true,
-  // This slot now carries a different, existing benefit (see the "Fixed prices,
-  // no surprises" benefit card and the fixed price table further down).
   heroBadges: [
     'Hot-water extraction',
     'Typical drying: 2–4 hours',
@@ -116,7 +114,18 @@ const DATA: ServiceLandingData = {
   secondaryLabel: 'Ask us on WhatsApp',
   secondaryIsWa: true,
 
-  afterHeroSection: <QuoteCalculator mode="carpet" />,
+  afterHeroSection: <>
+    <QuoteCalculator mode="carpet" />
+    <section className="border-y border-sky-100 bg-sky-50/70 px-4 py-8" aria-labelledby="carpet-care-heading">
+      <div className="mx-auto grid max-w-6xl gap-5 sm:grid-cols-[1fr_1.7fr] sm:items-center">
+        <div>
+          <h2 id="carpet-care-heading" className="font-display text-xl font-bold text-navy-950">Before your carpet clean</h2>
+          <p className="mt-2 text-sm font-semibold text-royal-700">£5m public liability insurance</p>
+        </div>
+        <p className="text-sm leading-relaxed text-slate-700">We check the fibre and discuss any stains that may remain before treatment. Typical drying is 2–4 hours; fibre, ventilation and room conditions affect the time. <a href="#process" className="inline-flex min-h-11 items-center font-semibold text-royal-700 underline underline-offset-4">See how we clean your carpets</a></p>
+      </div>
+    </section>
+  </>,
 
   introH2: 'Cleaning suited to your carpet',
   introText:

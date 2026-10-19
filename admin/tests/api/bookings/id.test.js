@@ -50,10 +50,11 @@ function makeReq({ url, bodyObj, headers = { authorization: 'Bearer t' }, method
   };
 }
 
-function makeUpdateClient(result, managed = null) {
+function makeUpdateClient(result, managed = null, bookingResult = { data: { first_source: null, quote_config: null }, error: null }) {
   const updateCall = { payload: null };
   const client = {
     from: (table) => table === 'booking_journeys' ? { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: managed, error: null }) }) }) } : ({
+      select: () => ({ eq: () => ({ maybeSingle: async () => bookingResult }) }),
       update: (payload) => {
         updateCall.payload = payload;
         return {
@@ -149,6 +150,32 @@ describe('GET /api/bookings/:id', () => {
     expect(res.statusCode).toBe(500);
     expect(res.body).not.toContain('internal detail');
   });
+
+  it('includes the authoritative journey state on paid and completed booking details', async () => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: {} });
+    getServiceClientMock.mockReturnValue({ from: table => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({
+      data: table === 'booking_journeys' ? { state: 'completed' } : {
+        id: VALID_UUID, status: 'completed', payment_status: 'paid', deposit_amount: 30,
+      }, error: null,
+    }) }) }) }) });
+    const res = makeRes();
+    await handler({ method: 'GET', headers: {}, query: { id: VALID_UUID } }, res);
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).journeyState).toBe('completed');
+  });
+
+  it('does not expose legacy edit controls when agreement status cannot be checked', async () => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: {} });
+    getServiceClientMock.mockReturnValue({ from: table => ({ select: () => ({ eq: () => ({ maybeSingle: async () => (
+      table === 'booking_journeys'
+        ? { data: null, error: { code: '08006', message: 'private database detail' } }
+        : { data: { id: VALID_UUID, status: 'confirmed', payment_status: 'paid', deposit_amount: 30 }, error: null }
+    ) }) }) }) });
+    const res = makeRes();
+    await handler({ method: 'GET', headers: {}, query: { id: VALID_UUID } }, res);
+    expect(res.statusCode).toBe(503);
+    expect(res.body).not.toContain('private database detail');
+  });
 });
 
 describe('POST /api/bookings/:id?action=measurement-consent', () => {
@@ -227,6 +254,43 @@ describe('PATCH /api/bookings/:id?action=status', () => {
   beforeEach(() => {
     verifyAdminRequestMock.mockReset();
     getServiceClientMock.mockReset();
+  });
+
+  it.each(['after_clean', 'deposit_after_agreement'])('blocks legacy status writes on new manual %s bookings before the first agreement', async (manualPaymentPlan) => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: { id: 'admin-1' } });
+    const { client, updateCall } = makeUpdateClient({ data: { id: VALID_UUID, status: 'confirmed' }, error: null }, null,
+      { data: { first_source: 'admin_manual', quote_config: { manualPaymentPlan } }, error: null });
+    getServiceClientMock.mockReturnValue(client);
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/bookings/${VALID_UUID}?action=status`, bodyObj: { status: 'confirmed' } }), res);
+    expect(res.statusCode).toBe(409);
+    expect(updateCall.payload).toBeNull();
+    expect(JSON.parse(res.body).error).toMatch(/booking workflow|Arrange and confirm/i);
+  });
+
+  it.each([
+    { first_source: 'admin_manual', quote_config: {} },
+    { first_source: 'admin_manual', quote_config: { manualPaymentPlan: 'unknown' } },
+    { first_source: 'google', quote_config: { manualPaymentPlan: 'after_clean' } },
+  ])('preserves legacy status control without the explicit stored manual workflow marker: %#', async (row) => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: { id: 'admin-1' } });
+    const { client, updateCall } = makeUpdateClient({ data: { id: VALID_UUID, status: 'scheduled' }, error: null }, null, { data: row, error: null });
+    getServiceClientMock.mockReturnValue(client);
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/bookings/${VALID_UUID}?action=status`, bodyObj: { status: 'scheduled' } }), res);
+    expect(res.statusCode).toBe(200);
+    expect(updateCall.payload.status).toBe('scheduled');
+  });
+
+  it('does not allow a status write when the stored workflow marker cannot be checked', async () => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: { id: 'admin-1' } });
+    const { client, updateCall } = makeUpdateClient({ data: { id: VALID_UUID }, error: null }, null, { data: null, error: { code: '08006', message: 'private database detail' } });
+    getServiceClientMock.mockReturnValue(client);
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/bookings/${VALID_UUID}?action=status`, bodyObj: { status: 'confirmed' } }), res);
+    expect(res.statusCode).toBe(503);
+    expect(updateCall.payload).toBeNull();
+    expect(res.body).not.toContain('private database detail');
   });
 
   it('rejects non-PATCH methods', async () => {

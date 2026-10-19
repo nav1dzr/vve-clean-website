@@ -43,16 +43,19 @@ export default function CatalogueListPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [state, setState] = useState<ListState>({ status: 'loading' });
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   const [modalItem, setModalItem] = useState<CatalogueItem | null>(null); // null = create
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const newButtonRef = useRef<HTMLButtonElement>(null);
+  const mountedRef = useRef(true);
+  const modalVersionRef = useRef(0);
 
   const [archiveConfirmId, setArchiveConfirmId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const [seedConfirm, setSeedConfirm] = useState(false);
   const [seedBusy, setSeedBusy] = useState(false);
@@ -63,27 +66,38 @@ export default function CatalogueListPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  function load() {
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  // Mutations refresh the current filter, even if it changed while saving.
+  function load() { setReloadVersion((version) => version + 1); }
+
+  useEffect(() => {
+    let active = true;
     setState({ status: 'loading' });
     const params = new URLSearchParams({ status: statusFilter });
     if (debouncedSearch) params.set('q', debouncedSearch);
     authFetch<CatalogueListResponse>(`/api/catalogue?${params.toString()}`)
-      .then((data) => setState({ status: 'success', items: data.results }))
-      .catch((err) =>
-        setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load catalogue items.' }),
-      );
-  }
-
-  useEffect(load, [statusFilter, debouncedSearch]);
+      .then((data) => { if (active) setState({ status: 'success', items: data.results }); })
+      .catch((err) => {
+        if (active) setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load catalogue items.' });
+      });
+    return () => { active = false; };
+  }, [statusFilter, debouncedSearch, reloadVersion]);
 
   function openCreate() {
+    modalVersionRef.current += 1;
     setModalItem(null);
     setForm(emptyForm);
     setSubmitError(null);
+    setActionMessage(null);
     setModalOpen(true);
   }
 
   function openEdit(item: CatalogueItem) {
+    modalVersionRef.current += 1;
     setModalItem(item);
     setForm({
       name: item.name,
@@ -93,12 +107,13 @@ export default function CatalogueListPage() {
       description: item.description ?? '',
     });
     setSubmitError(null);
+    setActionMessage(null);
     setModalOpen(true);
   }
 
   function closeModal() {
+    modalVersionRef.current += 1;
     setModalOpen(false);
-    newButtonRef.current?.focus();
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -120,6 +135,7 @@ export default function CatalogueListPage() {
 
     setSubmitting(true);
     setSubmitError(null);
+    const modalVersion = modalVersionRef.current;
     try {
       const payload = {
         name,
@@ -139,26 +155,31 @@ export default function CatalogueListPage() {
           body: JSON.stringify(payload),
         });
       }
-      setModalOpen(false);
+      if (!mountedRef.current) return;
+      if (modalVersionRef.current === modalVersion) setModalOpen(false);
+      setActionMessage(`${name} saved.`);
       load();
     } catch (err) {
-      setSubmitError(err instanceof ApiError ? err.message : 'Could not save this item.');
+      if (mountedRef.current && modalVersionRef.current === modalVersion) setSubmitError(err instanceof ApiError ? err.message : 'Could not save this item.');
     } finally {
-      setSubmitting(false);
+      if (mountedRef.current) setSubmitting(false);
     }
   }
 
   async function setItemStatus(item: CatalogueItem, status: CatalogueStatus) {
     setActionError(null);
+    setActionMessage(null);
     setArchiveConfirmId(null);
     try {
       await authFetch<CatalogueItem>(`/api/catalogue?id=${encodeURIComponent(item.id)}`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       });
+      if (!mountedRef.current) return;
+      setActionMessage(`${item.name} ${status === 'archived' ? 'archived' : 'reactivated'}.`);
       load();
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : 'Could not update this item.');
+      if (mountedRef.current) setActionError(err instanceof ApiError ? err.message : 'Could not update this item.');
     }
   }
 
@@ -191,7 +212,6 @@ export default function CatalogueListPage() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold text-navy-950">Products &amp; Services</h1>
         <button
-          ref={newButtonRef}
           type="button"
           onClick={openCreate}
           className="min-h-11 rounded-lg bg-navy-950 px-4 text-sm font-semibold text-white transition-colors hover:bg-navy-900"
@@ -246,7 +266,7 @@ export default function CatalogueListPage() {
             <button
               key={s}
               type="button"
-              onClick={() => setStatusFilter(s)}
+              onClick={() => { setStatusFilter(s); setArchiveConfirmId(null); setActionError(null); setActionMessage(null); }}
               aria-pressed={statusFilter === s}
               className={`min-h-11 flex-1 px-4 text-sm font-medium capitalize transition-colors sm:flex-none ${
                 statusFilter === s ? 'bg-navy-950 text-white' : 'bg-white text-navy-700 hover:bg-silver-100'
@@ -263,6 +283,7 @@ export default function CatalogueListPage() {
           {actionError}
         </p>
       )}
+      {actionMessage && <p role="status" className="mb-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{actionMessage}</p>}
 
       {state.status === 'loading' && <p className="text-sm text-navy-500">Loading catalogue…</p>}
       {state.status === 'error' && <ErrorState message={state.message} onRetry={load} />}

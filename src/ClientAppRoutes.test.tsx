@@ -55,7 +55,7 @@ describe('split client routes', () => {
     // focus behaviour rather than the dynamic-import scheduler.
     await preloadClientRoute('/gallery');
     render(<MemoryRouter initialEntries={['/gallery']}><CookieConsentProvider><ScrollToTop /><ClientAppRoutes /></CookieConsentProvider></MemoryRouter>);
-    const heading = await screen.findByRole('heading', { level: 1, name: 'VVE Clean Gallery' });
+    const heading = await screen.findByRole('heading', { level: 1, name: 'See our cleaning work' });
     await waitFor(() => expect(heading).toHaveFocus());
     scroll.mockClear();
 

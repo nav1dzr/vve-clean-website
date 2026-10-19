@@ -157,6 +157,34 @@ function drawFlowSection(doc, fonts, y, heading, text) {
   return y + 12;
 }
 
+// Contact and document details normally share two columns. Measure every
+// wrapped row, rather than assuming one line. Oversized legacy/user-entered
+// fields use the existing paginated flow renderer so no text crosses a footer.
+function drawContactAndDetails(doc, fonts, y, contactHeading, contactLines, detailLines, gap = 18) {
+  const colWidth = (doc.page.width - PAGE_MARGIN * 2 - 20) / 2;
+  const detailsX = PAGE_MARGIN + colWidth + 20;
+  const textOptions = { width: colWidth, lineGap: 1.5 };
+  doc.font(fonts.regular).fontSize(9.5);
+  const contactHeight = doc.heightOfString(contactLines, textOptions);
+  const rowHeights = detailLines.map(([label, value]) => doc.heightOfString(`${label}: ${value}`, textOptions) + 4);
+  const detailsHeight = rowHeights.reduce((sum, height) => sum + height, 0);
+  if (y + 14 + Math.max(contactHeight, detailsHeight) + gap > SAFE_BOTTOM) {
+    y = drawFlowSection(doc, fonts, y, contactHeading, contactLines);
+    return drawFlowSection(doc, fonts, y, 'Details', detailLines.map(([label, value]) => `${label}: ${value}`).join('\n'));
+  }
+  doc.font(fonts.bold).fontSize(9).fillColor(NAVY).text(contactHeading, PAGE_MARGIN, y);
+  doc.font(fonts.regular).fontSize(9.5).fillColor(TEXT).text(contactLines, PAGE_MARGIN, y + 14, textOptions);
+  doc.font(fonts.bold).fontSize(9).fillColor(NAVY).text('Details', detailsX, y);
+  let detailY = y + 14;
+  doc.font(fonts.regular).fontSize(9.5);
+  detailLines.forEach(([label, value], index) => {
+    doc.fillColor(GREY).text(`${label}: `, detailsX, detailY, { ...textOptions, continued: true });
+    doc.fillColor(TEXT).text(String(value), textOptions);
+    detailY += rowHeights[index];
+  });
+  return Math.max(y + 14 + contactHeight, detailY) + gap;
+}
+
 function drawWordmark(doc, fonts, x, y) {
   const cleanText = 'CLEAN';
   const cleanSpacing = 2.5;
@@ -551,15 +579,9 @@ export async function generateInvoicePdfBuffer(invoice, items, settings, { isDra
 
   const colWidth = (doc.page.width - PAGE_MARGIN * 2 - 20) / 2;
   const billToX = PAGE_MARGIN;
-  const detailsX = PAGE_MARGIN + colWidth + 20;
-
-  doc.font(fonts.bold).fontSize(9).fillColor(NAVY).text('Bill to', billToX, y);
   const billLines = formatContactLines(
     invoice.customer_name, invoice.customer_address, invoice.customer_postcode, invoice.customer_email, invoice.customer_phone,
   );
-  doc.font(fonts.regular).fontSize(9.5).fillColor(TEXT).text(billLines, billToX, y + 14, { width: colWidth, lineGap: 1.5 });
-
-  doc.font(fonts.bold).fontSize(9).fillColor(NAVY).text('Details', detailsX, y);
   const detailLines = [
     ['Invoice Number', invoice.invoice_number || 'Not yet issued'],
     invoice.booking_ref_snapshot ? ['Booking Reference', invoice.booking_ref_snapshot] : null,
@@ -572,16 +594,7 @@ export async function generateInvoicePdfBuffer(invoice, items, settings, { isDra
         : invoice.revised_from_invoice_number]
       : null,
   ].filter(Boolean);
-  let detailY = y + 14;
-  doc.font(fonts.regular).fontSize(9.5);
-  for (const [label, value] of detailLines) {
-    doc.fillColor(GREY).text(`${label}: `, detailsX, detailY, { continued: true, width: colWidth });
-    doc.fillColor(TEXT).text(value, { width: colWidth });
-    detailY += 14;
-  }
-
-  const billHeight = doc.heightOfString(billLines, { width: colWidth, lineGap: 1.5 });
-  y = Math.max(y + 14 + billHeight, detailY) + 18;
+  y = drawContactAndDetails(doc, fonts, y, 'Bill to', billLines, detailLines);
 
   y = drawServiceAddressBlock(doc, fonts, invoice, billToX, y, colWidth);
 
@@ -634,17 +647,9 @@ export async function generateReceiptPdfBuffer(receipt, settings) {
   doc.font(fonts.regular).fontSize(9.5).fillColor(GREY).text(`Receipt ${receipt.receipt_number}`, PAGE_MARGIN, y);
   y += 30;
 
-  const colWidth = (doc.page.width - PAGE_MARGIN * 2 - 20) / 2;
-  const paidByX = PAGE_MARGIN;
-  const detailsX = PAGE_MARGIN + colWidth + 20;
-
-  doc.font(fonts.bold).fontSize(9).fillColor(NAVY).text('Paid by', paidByX, y);
   const paidByLines = formatContactLines(
     receipt.customer_name, receipt.customer_address, receipt.customer_postcode, receipt.customer_email, receipt.customer_phone,
   );
-  doc.font(fonts.regular).fontSize(9.5).fillColor(TEXT).text(paidByLines, paidByX, y + 14, { width: colWidth, lineGap: 1.5 });
-
-  doc.font(fonts.bold).fontSize(9).fillColor(NAVY).text('Details', detailsX, y);
   const isStandalone = receipt.source === 'standalone' || !receipt.invoice_id;
   const detailLines = [
     isStandalone
@@ -655,16 +660,7 @@ export async function generateReceiptPdfBuffer(receipt, settings) {
     ['Payment Method', formatPaymentMethod(receipt.payment_method)],
     receipt.payment_reference ? ['Payment Reference', receipt.payment_reference] : null,
   ].filter(Boolean);
-  let detailY = y + 14;
-  doc.font(fonts.regular).fontSize(9.5);
-  for (const [label, value] of detailLines) {
-    doc.fillColor(GREY).text(`${label}: `, detailsX, detailY, { continued: true, width: colWidth });
-    doc.fillColor(TEXT).text(value, { width: colWidth });
-    detailY += 14;
-  }
-
-  const paidByHeight = doc.heightOfString(paidByLines, { width: colWidth, lineGap: 1.5 });
-  y = Math.max(y + 14 + paidByHeight, detailY) + 20;
+  y = drawContactAndDetails(doc, fonts, y, 'Paid by', paidByLines, detailLines, 20);
 
   const depositApplied = Number(receipt.deposit_applied || 0);
   const invoiceTotal = Number(receipt.invoice_total || 0);
@@ -681,7 +677,7 @@ export async function generateReceiptPdfBuffer(receipt, settings) {
   const width = doc.page.width - PAGE_MARGIN * 2;
   const receiptEmphasis = ['Amount Received', money(settings, totalPaid)];
   const estHeight = estimateCardHeight(doc, fonts, { width, rows: summaryRows, emphasisRow: receiptEmphasis });
-  y = ensureSpace(doc, fonts, y, estHeight);
+  y = ensureSpace(doc, fonts, y, estHeight + 70);
   y = drawCard(doc, fonts, {
     x: PAGE_MARGIN, y, width, rows: summaryRows,
     emphasisRow: receiptEmphasis,

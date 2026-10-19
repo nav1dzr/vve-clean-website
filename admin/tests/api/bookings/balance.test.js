@@ -37,10 +37,11 @@ function makeReq({ url, bodyObj, headers = { authorization: 'Bearer t' }, method
   };
 }
 
-function makeUpdateClient(result, managed = null) {
+function makeUpdateClient(result, managed = null, bookingResult = { data: { first_source: null, quote_config: null }, error: null }) {
   const updateCall = { payload: null };
   const client = {
     from: (table) => table === 'booking_journeys' ? { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: managed, error: null }) }) }) } : ({
+      select: () => ({ eq: () => ({ maybeSingle: async () => bookingResult }) }),
       update: (payload) => {
         updateCall.payload = payload;
         return {
@@ -79,6 +80,39 @@ describe('PATCH /api/bookings/:id/balance', () => {
     await handler(makeReq({ url: `/api/bookings/${VALID_UUID}/balance`, bodyObj: { balanceStatus: 'paid' } }), res);
     expect(res.statusCode).toBe(409);
     expect(updateCall.payload).toBeNull();
+  });
+
+  it.each(['after_clean', 'deposit_after_agreement'])('blocks legacy balance writes on new manual %s bookings before the first agreement', async (manualPaymentPlan) => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: { id: 'admin-1' } });
+    const { client, updateCall } = makeUpdateClient({ data: { id: VALID_UUID, balance_status: 'paid' }, error: null }, null,
+      { data: { first_source: 'admin_manual', quote_config: { manualPaymentPlan } }, error: null });
+    getServiceClientMock.mockReturnValue(client);
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/bookings/${VALID_UUID}/balance`, bodyObj: { balanceStatus: 'paid' } }), res);
+    expect(res.statusCode).toBe(409);
+    expect(updateCall.payload).toBeNull();
+  });
+
+  it('preserves legacy balance control for historical manual bookings without an explicit arrangement', async () => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: { id: 'admin-1' } });
+    const { client, updateCall } = makeUpdateClient({ data: { id: VALID_UUID, balance_status: 'outstanding' }, error: null }, null,
+      { data: { first_source: 'admin_manual', quote_config: {} }, error: null });
+    getServiceClientMock.mockReturnValue(client);
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/bookings/${VALID_UUID}/balance`, bodyObj: { balanceStatus: 'outstanding' } }), res);
+    expect(res.statusCode).toBe(200);
+    expect(updateCall.payload.balance_status).toBe('outstanding');
+  });
+
+  it('does not allow a balance write when the stored workflow marker cannot be checked', async () => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true, admin: { id: 'admin-1' } });
+    const { client, updateCall } = makeUpdateClient({ data: { id: VALID_UUID }, error: null }, null, { data: null, error: { code: '08006', message: 'private database detail' } });
+    getServiceClientMock.mockReturnValue(client);
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/bookings/${VALID_UUID}/balance`, bodyObj: { balanceStatus: 'paid' } }), res);
+    expect(res.statusCode).toBe(503);
+    expect(updateCall.payload).toBeNull();
+    expect(res.body).not.toContain('private database detail');
   });
 
   it('returns 401 for a missing token', async () => {

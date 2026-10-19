@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
 import userEvent from '@testing-library/user-event';
 import Contact from './Contact';
 
@@ -124,5 +125,51 @@ describe('Contact details', () => {
     expect(
       screen.getAllByRole('link', { name: /whatsapp/i })[0].getAttribute('href'),
     ).toContain('wa.me/447845451111');
+  });
+});
+
+
+describe('Contact form entry checks', () => {
+  it('focuses a whitespace-only name without sending a request', async () => {
+    const user = userEvent.setup();
+    render(<Contact />);
+    await user.type(screen.getByLabelText(/full name/i), '   ');
+    await user.type(screen.getByLabelText(/email address/i), 'jane@example.com');
+    await user.type(screen.getByLabelText(/message/i), 'Three rooms.');
+    await user.click(submit());
+    expect(fetch).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/full name/i)).toHaveFocus();
+    expect(screen.getByRole('alert')).toHaveTextContent('Please enter your full name.');
+  });
+
+  it('keeps a short message for correction and does not send it', async () => {
+    const user = userEvent.setup();
+    render(<Contact />);
+    await user.type(screen.getByLabelText(/full name/i), 'Jane Smith');
+    await user.type(screen.getByLabelText(/email address/i), 'jane@example.com');
+    await user.type(screen.getByLabelText(/message/i), ' Hi ');
+    await user.click(submit());
+    expect(fetch).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/message/i)).toHaveValue(' Hi ');
+    expect(screen.getByLabelText(/message/i)).toHaveFocus();
+  });
+});
+
+describe('Contact startup protection', () => {
+  it('does not accept typing or a native submission before client handlers attach', () => {
+    const host = document.createElement('div');
+    host.innerHTML = renderToString(<Contact />);
+    expect(host.querySelector('#contact-name')).toBeDisabled();
+    expect(host.querySelector('button[type="submit"]')).toBeDisabled();
+    expect(host.querySelector('fieldset')).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('enables the form after mounting and opens the policy without leaving the draft', () => {
+    render(<Contact />);
+    expect(screen.getByLabelText(/full name/i)).toBeEnabled();
+    expect(submit()).toBeEnabled();
+    const policy = screen.getByRole('link', { name: /read our privacy policy.*opens in a new tab/i });
+    expect(policy).toHaveAttribute('target', '_blank');
+    expect(policy).toHaveAttribute('rel', 'noopener noreferrer');
   });
 });

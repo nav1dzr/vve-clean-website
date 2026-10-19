@@ -1,4 +1,5 @@
 import PriceTaxNote from '../components/PriceTaxNote';
+import { BUILDERS_GUIDE_HREF, BUILDERS_QUOTE_HREF } from '../../shared/afterBuildersGuide.js';
 import { BOOKING_REQUEST_NOTE } from '../data/businessPolicy';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -12,7 +13,7 @@ import {
  EOT_BASE_PRICES_P, EOT_TAILORED_START_PRICES_P, EOT_EXTRA_BATH_P, EOT_EXTRA_WC_P,
  MOVEIN_BASE_PRICES_P, MOVEIN_EXTRA_BATH_P, MOVEIN_EXTRA_WC_P,
  CARPET_ITEM_PRICES_P, CARPET_MIN_BOOKING_P, CARPET_BUNDLE_BANDS, STAIRS_FIRST_P, STAIRS_EXTRA_P,
- ADDON_PRICES_P, AFTER_BUILDERS_START_FROM_P, WINDOW_CLEANING_FROM_P, WINDOW_CLEANING_MIN_P,
+ ADDON_PRICES_P, WINDOW_CLEANING_FROM_P, WINDOW_CLEANING_MIN_P,
  WINDOW_CLEANING_SCOPE, GARDEN_SERVICES_FROM_P, GARDEN_SERVICES_MIN_P, PRESSURE_WASHING_FROM_P,
  EOT_CARPET_PACKAGE_MIN_QUALIFYING_AREAS, EOT_GUARANTEE_HOURS, calculateEotCarpetPackage, computeCarpetPrice,
 } from '../data/pricing';
@@ -131,12 +132,12 @@ export default function PricingPage() {
       <p className="mt-3 text-sm text-slate-600">Extra bathroom {money(MOVEIN_EXTRA_BATH_P)} · extra WC {money(MOVEIN_EXTRA_WC_P)}.</p>
       <h3 className="mt-8 font-display text-xl font-bold text-navy-950">Services quoted after a scope review</h3>
       <div className="mt-4 divide-y divide-slate-100">{[
-       ['After Builders Clean',`From ${money(AFTER_BUILDERS_START_FROM_P)}`,'Send photos of the work and dust so we can confirm the scope.'],
+       ['After Builders Clean','Assessed quote','Budget ranges are guidance only. Tell us the rooms, work completed and condition so we can agree your cleaning list and final price.'],
        ['Window Cleaning',`From ${money(WINDOW_CLEANING_FROM_P)}`,`${WINDOW_CLEANING_SCOPE} Minimum standalone visit ${money(WINDOW_CLEANING_MIN_P)}.`],
        ['Pressure Washing',`From ${money(PRESSURE_WASHING_FROM_P)}`,'Driveways, patios and paths.'],
        ['Garden Services',`From ${money(GARDEN_SERVICES_FROM_P)}`,`Clearance, tidy and maintenance. Minimum standalone visit ${money(GARDEN_SERVICES_MIN_P)}.`],
        ['Commercial & Communal','Written quote','Site, access and cleaning scope reviewed before agreement.'],
-      ].map(([title,price,description]) => <div key={title} className="py-4"><div className="flex flex-wrap justify-between gap-2"><h4 className="font-semibold text-navy-900">{title}</h4><p className="text-sm font-bold text-royal-800">{price}</p></div><p className="mt-1 text-sm leading-relaxed text-slate-600">{description}</p></div>)}</div>
+      ].map(([title,price,description]) => <div key={title} className="py-4"><div className="flex flex-wrap justify-between gap-2"><h4 className="font-semibold text-navy-900">{title}</h4><p className="text-sm font-bold text-royal-800">{price}</p></div><p className="mt-1 text-sm leading-relaxed text-slate-600">{description}</p>{title === 'After Builders Clean' && <div className="mt-2 flex flex-wrap gap-x-5"><Link to={BUILDERS_GUIDE_HREF} className="inline-flex min-h-[44px] items-center text-sm font-semibold text-royal-700 underline underline-offset-4">See the after-builders budget guide</Link><Link to={BUILDERS_QUOTE_HREF} className="inline-flex min-h-[44px] items-center text-sm font-semibold text-royal-700 underline underline-offset-4">Tell us about your project</Link></div>}</div>)}</div>
       <a href={WA} target="_blank" rel="noopener noreferrer" className="whatsapp-text-link mt-5 inline-flex min-h-[44px] items-center font-bold underline underline-offset-4">Ask about another clean</a>
      </div>
     </div>
@@ -146,7 +147,7 @@ export default function PricingPage() {
       {showCleaningExtras ? <>
        <p className="mb-2 text-sm leading-relaxed text-slate-600">{category === 'End of tenancy'
         ? 'Oven, hob and extractor cleaning are included in both end of tenancy packages. Complete also includes the listed appliance and storage interiors. Tailored appliance choices and their prices are shown in your quote.'
-        : 'These extras are available with relevant cleaning services. Your quote shows what is already included and what can be added; nothing is added automatically.'}</p>
+        : 'These listed extras apply to relevant move-in and end of tenancy services. After-builders additions are assessed separately, including glazing, residue treatment and appliance interiors; these are not fixed after-builders add-on fees.'}</p>
        <PriceRows rows={extraRows} />
       </> : <p className="mb-2 text-sm leading-relaxed text-slate-600">Add the carpet areas and furniture you need in the quote builder. Rugs need a photo assessment and can be added to a qualifying carpet or upholstery clean.</p>}
       <p className="mt-3 text-sm leading-relaxed text-slate-600">Parking and any applicable Congestion Charge are shown separately and agreed with you. Heavy soiling, mould, excessive rubbish, contamination or strong odours require photo review and an agreed scope before work starts.</p>

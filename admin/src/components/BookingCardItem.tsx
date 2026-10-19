@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import type { BookingCard } from '../types/booking';
 import {
-  bookingStatusBadge,
-  paymentStatusBadge,
-  balanceStatusBadge,
+  appointmentStatusBadge,
+  bookingPaymentBadge,
+  bookingBalanceBadge,
   formatCurrency,
   formatServiceDate,
   formatPreferred,
@@ -29,16 +29,16 @@ export default function BookingCardItem({ booking }: { booking: BookingCard }) {
           <p className="text-sm text-navy-700">{booking.postcode || 'Postcode not recorded'}</p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <StatusBadge {...bookingStatusBadge(booking.status)} />
+          <StatusBadge {...appointmentStatusBadge(booking)} />
           {booking.awaitingAvailabilityReview ? (
             <StatusBadge label="Check availability" className="bg-sky-100 text-sky-900" />
           ) : (
-            <StatusBadge {...paymentStatusBadge(booking.paymentStatus)} />
+            <StatusBadge {...bookingPaymentBadge(booking)} />
           )}
           {/* Only shown once balance data actually exists for this booking —
               omitted rather than showing "Balance unavailable" on every
               historical card (ADMIN_CRM_PLAN.md Phase 3 8). */}
-          {booking.balanceStatus && <StatusBadge {...balanceStatusBadge(booking.balanceStatus)} />}
+          {booking.balanceStatus && <StatusBadge {...bookingBalanceBadge(booking)} />}
           {booking.superseded && (
             <StatusBadge label="Superseded" className="bg-silver-200 text-navy-500" />
           )}

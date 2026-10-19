@@ -76,7 +76,7 @@ export function emptyFormValue(prefill?: Partial<InvoiceItemsFormValue>): Invoic
     depositApplied: 0,
     customerNotes: '',
     internalNotes: '',
-    paymentTerms: 'Payment is due after the clean.',
+    paymentTerms: 'Payment is due on the cleaning day.',
     paymentOption: 'bank_transfer',
     stripePaymentLinkUrl: '',
     serviceContact: emptyServiceContact,
@@ -312,6 +312,8 @@ export default function InvoiceItemsForm({
   }
 
   const totals = previewTotals(value);
+  const referencePostcode = serviceContactEnabled && value.serviceContact.postcode?.trim()
+    ? value.serviceContact.postcode : value.customer.postcode;
 
   // Prefills the booking reference once postcode + service date are both
   // available, in the same POSTCODE+DDMMYY style as buildManualBookingRef
@@ -321,10 +323,10 @@ export default function InvoiceItemsForm({
   // next_document_number() RPC, unrelated and untouched).
   useEffect(() => {
     if (refManuallyEdited) return;
-    if (!value.customer.postcode || !value.serviceDate) return;
-    const suggested = buildBookingRefBase(value.customer.postcode, value.serviceDate);
+    if (!referencePostcode || !value.serviceDate) return;
+    const suggested = buildBookingRefBase(referencePostcode, value.serviceDate);
     if (suggested) setValue((v) => ({ ...v, poReference: suggested }));
-  }, [value.customer.postcode, value.serviceDate, refManuallyEdited]);
+  }, [referencePostcode, value.serviceDate, refManuallyEdited]);
 
   function updateItem(key: string, patch: Partial<FormItem>) {
     setValue((v) => ({ ...v, items: v.items.map((i) => (i.key === key ? { ...i, ...patch } : i)) }));
@@ -563,12 +565,12 @@ export default function InvoiceItemsForm({
               <button
                 type="button"
                 onClick={() => {
-                  const suggested = buildBookingRefBase(value.customer.postcode, value.serviceDate);
+                  const suggested = buildBookingRefBase(referencePostcode, value.serviceDate);
                   if (suggested) setValue((v) => ({ ...v, poReference: suggested }));
                   setRefManuallyEdited(false);
                 }}
-                disabled={!value.customer.postcode || !value.serviceDate}
-                title={!value.customer.postcode || !value.serviceDate ? 'Set a postcode and service date first' : 'Fill in from postcode + service date'}
+                disabled={!referencePostcode || !value.serviceDate}
+                title={!referencePostcode || !value.serviceDate ? 'Set a postcode and service date first' : 'Fill in from service postcode + service date'}
                 className="shrink-0 rounded-lg border border-silver-300 px-3 text-sm font-medium text-navy-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Auto-fill

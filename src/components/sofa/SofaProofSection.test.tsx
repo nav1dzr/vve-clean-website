@@ -113,7 +113,7 @@ describe('the featured extraction clip', () => {
     ).toBeInTheDocument();
   });
 
-  it('is muted, looping, inline and autoplaying, with a poster', () => {
+  it('is muted, looping, inline and ready for viewport playback, with a poster', () => {
     const { container } = renderSection();
     const video = container.querySelector('video');
 
@@ -121,7 +121,8 @@ describe('the featured extraction clip', () => {
     expect(video).toHaveProperty('muted', true);
     expect(video).toHaveAttribute('loop');
     expect(video).toHaveAttribute('playsinline');
-    expect(video).toHaveAttribute('autoplay');
+    expect(video).not.toHaveAttribute('autoplay');
+      expect(video).toHaveAttribute('controls');
     expect(video).toHaveAttribute('poster', SOFA_FEATURE_VIDEO.poster);
   });
 

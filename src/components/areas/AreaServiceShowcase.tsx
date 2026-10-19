@@ -2,13 +2,17 @@ import { Link } from 'react-router-dom';
 import { Armchair, KeyRound, Waves, type LucideIcon } from 'lucide-react';
 import type { AreaInfo } from '../../data/areas';
 import { getAreaShowcaseVideos } from '../../data/areaShowcase';
-import { CARPET_MIN_BOOKING_P, EOT_BASE_PRICES_P } from '../../data/pricing';
+import { CARPET_ITEM_PRICES_P, CARPET_MIN_BOOKING_P, EOT_BASE_PRICES_P, penceToDisplay } from '../../data/pricing';
+import PriceTaxNote from '../PriceTaxNote';
+import LazyVideo from '../media/LazyVideo';
 
 type AreaServiceCard = {
   title: string;
   detail: string;
   price: string;
+  priceScope: string;
   href: string;
+  linkLabel: string;
   icon: LucideIcon;
   iconColour: string;
   iconBackground: string;
@@ -17,27 +21,33 @@ type AreaServiceCard = {
 const serviceCards: AreaServiceCard[] = [
   {
     title: 'End of tenancy cleaning',
-    detail: 'Vacant-property cleaning to a published scope, with oven cleaning included.',
-    price: `From £${EOT_BASE_PRICES_P.studio / 100}`,
+    detail: 'For a full move-out clean, with oven cleaning included. Tailored is also available if you only need selected tasks.',
+    price: `Complete from ${penceToDisplay(EOT_BASE_PRICES_P.studio)}`,
+    priceScope: 'Studio flat with one bathroom',
     href: '/end-of-tenancy-cleaning-london',
+    linkLabel: 'Compare tenancy packages',
     icon: KeyRound,
-    iconColour: 'text-amber-600',
+    iconColour: 'text-amber-700',
     iconBackground: 'bg-amber-50',
   },
   {
     title: 'Carpet cleaning',
-    detail: 'Hot-water extraction for suitable carpets, with the price built item by item.',
-    price: `£${CARPET_MIN_BOOKING_P / 100} minimum visit`,
+    detail: 'Choose bedrooms, living rooms, stairs and hallways. We check the fibre and condition before treatment.',
+    price: `Bedroom ${penceToDisplay(CARPET_ITEM_PRICES_P.bedroom)}`,
+    priceScope: `${penceToDisplay(CARPET_MIN_BOOKING_P)} minimum visit`,
     href: '/carpet-cleaning-london',
+    linkLabel: 'See carpet prices & methods',
     icon: Waves,
-    iconColour: 'text-blue-600',
+    iconColour: 'text-blue-700',
     iconBackground: 'bg-blue-50',
   },
   {
     title: 'Sofa & upholstery',
-    detail: 'Fabric suitability checked first, with photo assessment where the material needs it.',
-    price: `£${CARPET_MIN_BOOKING_P / 100} minimum visit`,
+    detail: 'Sofas, armchairs and mattresses, with the fabric checked before treatment. Send a photo if you are unsure of the material.',
+    price: `2-seater sofa ${penceToDisplay(CARPET_ITEM_PRICES_P.sofa_2)}`,
+    priceScope: `${penceToDisplay(CARPET_MIN_BOOKING_P)} minimum visit`,
     href: '/sofa-cleaning-london',
+    linkLabel: 'See sofa prices & fabric care',
     icon: Armchair,
     iconColour: 'text-emerald-700',
     iconBackground: 'bg-emerald-50',
@@ -48,57 +58,47 @@ export default function AreaServiceShowcase({ area }: { area: AreaInfo }) {
   const videos = getAreaShowcaseVideos(area.slug);
 
   return (
-    <section className="border-y border-slate-200 bg-slate-50 px-4 py-16" aria-labelledby={`${area.slug}-services-heading`}>
+    <section id="area-services" className="scroll-mt-28 border-y border-slate-200 bg-slate-50 px-4 py-12 sm:py-16" aria-labelledby={`${area.slug}-services-heading`}>
       <div className="mx-auto max-w-6xl">
-        <div className="mx-auto mb-10 max-w-3xl text-center">
-          <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-royal-700">Popular services</p>
+        <div className="mb-8 max-w-3xl">
           <h2 id={`${area.slug}-services-heading`} className="font-display text-3xl font-bold leading-tight text-navy-900 md:text-4xl">
-            Cleaning services in {area.name}
+            What would you like cleaned in {area.name}?
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-slate-600">
-            Choose a service to see its prices and cleaning method. The videos below show our work across London.
-          </p>
+          <p className="mt-3 text-base leading-relaxed text-slate-600">Compare the service and starting price, then add your property details for a quote.</p>
         </div>
 
         <div className="grid gap-5 md:grid-cols-3">
           {serviceCards.map((service) => {
             const Icon = service.icon;
             return (
-              <article key={service.title} className="flex min-h-[300px] flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-sky-300 hover:shadow-md motion-reduce:transform-none">
-                <span className={`mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl ${service.iconBackground} ${service.iconColour}`} aria-hidden="true">
-                  <Icon size={25} strokeWidth={1.8} />
-                </span>
-                <div className="flex flex-1 flex-col">
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-royal-700">{service.price}</p>
-                  <h3 className="mt-2 font-display text-xl font-bold text-navy-900">{service.title}</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-slate-600">{service.detail}</p>
-                  <Link to={service.href} className="mt-5 inline-flex min-h-[44px] items-center font-semibold text-royal-700 underline decoration-royal-300 underline-offset-4 hover:text-royal-900">
-                    See service details
-                  </Link>
+              <article key={service.title} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <span className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${service.iconBackground} ${service.iconColour}`} aria-hidden="true"><Icon size={22} strokeWidth={1.8} /></span>
+                  <h3 className="font-display text-xl font-bold text-navy-900">{service.title}</h3>
                 </div>
+                <p className="mt-5 text-lg font-bold text-navy-900">{service.price}</p>
+                <p className="mt-1 text-sm text-slate-600">{service.priceScope}</p>
+                <p className="mt-4 flex-1 text-sm leading-relaxed text-slate-600">{service.detail}</p>
+                <Link to={service.href} className="mt-5 inline-flex min-h-[44px] items-center font-semibold text-royal-700 underline decoration-royal-300 underline-offset-4 hover:text-royal-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">{service.linkLabel}</Link>
               </article>
             );
           })}
         </div>
+        <PriceTaxNote className="mt-4" compact />
 
         {videos.length > 0 && (
-          <div className="mt-12">
-            <div className="mb-6 flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+          <div className="mt-10 border-t border-slate-200 pt-8">
+            <div className="mb-5 flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-royal-700">Equipment in action</p>
-                <h3 className="mt-2 font-display text-2xl font-bold text-navy-900">See our team at work</h3>
+                <h3 className="font-display text-2xl font-bold text-navy-900">Watch the cleaning in progress</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">Clips from our work across London.</p>
               </div>
-              <Link to="/gallery" className="inline-flex min-h-[44px] items-center font-semibold text-royal-700 underline decoration-royal-300 underline-offset-4 hover:text-royal-900">
-                View the full gallery
-              </Link>
+              <Link to="/gallery" className="inline-flex min-h-[44px] items-center font-semibold text-royal-700 underline decoration-royal-300 underline-offset-4 hover:text-royal-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">View the full gallery</Link>
             </div>
             <div className="grid gap-5 sm:grid-cols-2">
               {videos.map((video) => (
                 <figure key={video.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  <video controls playsInline preload="metadata" poster={video.poster} className="aspect-video w-full bg-navy-950 object-cover" aria-label={video.description}>
-                    <source src={video.src} type="video/mp4" />
-                    Your browser does not support embedded video.
-                  </video>
+                  <LazyVideo video={{ src: video.src, poster: video.poster, description: video.description }} className="aspect-video w-full rounded-none" />
                   <figcaption className="p-4">
                     <span className="text-xs font-bold uppercase tracking-[0.14em] text-royal-700">{video.service}</span>
                     <span className="mt-1 block font-semibold text-navy-900">{video.label}</span>

@@ -261,6 +261,7 @@ export interface ReceiptListResponse {
 }
 
 export interface StandaloneReceiptInput {
+  requestId?: string;
   customer: InvoiceCustomer;
   serviceDescription: string;
   amount: number;

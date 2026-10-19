@@ -6,7 +6,7 @@ import { useReveal } from '../hooks/useReveal';
 import GoogleBadge from './GoogleBadge';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import MobileStickyFooter from './MobileStickyFooter';
+import MobileStickyFooter, { type MobileLandingAction } from './MobileStickyFooter';
 import Gallery from './Gallery';
 import Reviews from './Reviews';
 import ServiceHeroPhoto from './ServiceHeroPhoto';
@@ -94,6 +94,10 @@ export interface ServiceLandingData {
   secondaryHref: string;
   secondaryLabel: string;
   secondaryIsWa?: boolean;
+  // Optional first step for area pages without an inline quote calculator.
+  mobileLandingAction?: MobileLandingAction;
+  // Photo-quote pages can offer Call alongside WhatsApp instead of two WhatsApp links.
+  mobileSecondaryAction?: ReactNode;
 
   // Optional section rendered directly after the hero (before Intro) — used
   // for the compact, service-specific quote calculator so it sits as close
@@ -219,7 +223,7 @@ function CtaButton({
     : `${base} service-help-link`;
   const external = href.startsWith('http') || href.startsWith('tel:') || href.startsWith('mailto:');
 
-  return external ? (
+  return external || href.startsWith('#') ? (
     <a
       href={href}
       target={href.startsWith('http') ? '_blank' : undefined}
@@ -436,7 +440,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
           className={`transition-all duration-700 ${relatedReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
         >
           <h2 className="font-display text-xl font-bold text-navy-900 mb-5 text-center">
-            Other services
+            Explore services and advice
           </h2>
           <div className="flex flex-wrap justify-center gap-3">
             {data.relatedLinks.map((link) => {
@@ -447,7 +451,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
                   href={link.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 border border-slate-300 hover:border-royal-500 text-slate-700 hover:text-royal-600 text-sm font-medium px-4 py-2 rounded-full transition-all duration-200 bg-white hover:bg-royal-50"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 border border-slate-300 hover:border-royal-500 text-slate-700 hover:text-royal-600 text-sm font-medium px-4 py-2 rounded-full transition-all duration-200 bg-white hover:bg-royal-50"
                 >
                   {link.label}
                 </a>
@@ -455,7 +459,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
                 <Link
                   key={link.href}
                   to={link.href}
-                  className="inline-flex items-center gap-1.5 border border-slate-300 hover:border-royal-500 text-slate-700 hover:text-royal-600 text-sm font-medium px-4 py-2 rounded-full transition-all duration-200 bg-white hover:bg-royal-50"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 border border-slate-300 hover:border-royal-500 text-slate-700 hover:text-royal-600 text-sm font-medium px-4 py-2 rounded-full transition-all duration-200 bg-white hover:bg-royal-50"
                 >
                   {link.label}
                 </Link>
@@ -561,13 +565,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
                   {data.ctaPrimary.label}
                 </a>
               ) : (
-                <Link
-                  to={data.ctaPrimary.href}
-                  className="inline-flex items-center gap-2.5 bg-royal-500 hover:bg-royal-600 text-white font-bold px-7 py-3.5 min-h-[44px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg text-base w-full sm:w-auto justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                >
-                  {CAL_SVG}
-                  {data.ctaPrimary.label}
-                </Link>
+                <CtaButton href={data.ctaPrimary.href} label={data.ctaPrimary.label} />
               )}
               {data.ctaSecondary.isTel ? (
                 <a
@@ -592,7 +590,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
         <Footer />
       </div>
 
-      <MobileStickyFooter fallbackAction={{ href: data.primaryHref, label: data.primaryLabel, isWa: data.primaryIsWa }} />
+      <MobileStickyFooter landingAction={data.mobileLandingAction} fallbackAction={{ href: data.primaryHref, label: data.primaryLabel, isWa: data.primaryIsWa }} secondaryAction={data.mobileSecondaryAction} />
     </BookingProvider>
   );
 }

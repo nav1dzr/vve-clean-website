@@ -4,35 +4,37 @@ function prefersReducedMotion(): boolean {
   return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 }
 
+/** Content is readable in server HTML; motion is an optional enhancement. */
 export function useReveal() {
   const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
-    // Reduced motion: show content immediately instead of animating it in —
-    // this is the single guard point for nearly every scroll-reveal
-    // animation on the site (Hero, Gallery, Reviews, Services, Guarantee,
-    // OurKit, FAQ, Areas, QuoteCalculator all use this hook).
-    if (prefersReducedMotion()) {
-      setVisible(true);
-      return;
-    }
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.12 }
-    );
+    if (!el || prefersReducedMotion() || typeof IntersectionObserver === 'undefined' || !el.animate) return;
+    const motionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    let animation: Animation | undefined;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      if (prefersReducedMotion()) { observer.disconnect(); return; }
+      animation = el.animate(
+        [{ opacity: 0.9, transform: 'translateY(8px)' }, { opacity: 1, transform: 'translateY(0)' }],
+        { duration: 300, easing: 'ease-out' },
+      );
+      observer.disconnect();
+    }, { threshold: 0.08 });
+    const stopOnReducedMotion = () => {
+      if (motionQuery?.matches) { observer.disconnect(); animation?.cancel(); }
+    };
+    motionQuery?.addEventListener?.('change', stopOnReducedMotion);
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      animation?.cancel();
+      motionQuery?.removeEventListener?.('change', stopOnReducedMotion);
+    };
   }, []);
 
-  return { ref, visible };
+  return { ref, visible: true };
 }
 
 export function useCounter(target: number, duration = 2000, start = false) {

@@ -36,7 +36,7 @@ describe('createDraftInvoice', () => {
     expect(invoice.document_status).toBe('draft');
     expect(invoice.invoice_number).toBeUndefined();
     expect(invoice.total).toBe(150);
-    expect(invoice.payment_terms).toBe('Payment is due after the clean.');
+    expect(invoice.payment_terms).toBe('Payment is due on the cleaning day.');
 
     const items = supabase._tables.invoice_items.filter((i) => i.invoice_id === result.invoiceId);
     expect(items).toHaveLength(1);

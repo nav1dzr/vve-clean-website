@@ -117,7 +117,7 @@ describe('the three supporting clips', () => {
     expect(container.querySelectorAll('video')).toHaveLength(3);
   });
 
-  it('makes every one muted, looping, inline and autoplaying with a poster', () => {
+  it('makes every one muted, looping, inline and ready for viewport playback with a poster', () => {
     const { container } = render(<SofaGallerySection />);
 
     const videos = [...container.querySelectorAll('video')];
@@ -127,7 +127,8 @@ describe('the three supporting clips', () => {
       expect(video).toHaveProperty('muted', true);
       expect(video).toHaveAttribute('loop');
       expect(video).toHaveAttribute('playsinline');
-      expect(video).toHaveAttribute('autoplay');
+      expect(video).not.toHaveAttribute('autoplay');
+      expect(video).toHaveAttribute('controls');
       expect(video.getAttribute('poster')).toMatch(/-poster\.jpg$/);
       expect(video.getAttribute('aria-label')?.length ?? 0).toBeGreaterThan(20);
     }

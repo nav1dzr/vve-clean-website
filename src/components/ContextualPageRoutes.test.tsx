@@ -37,7 +37,7 @@ describe('real pages keep contextual navigation', () => {
   it.each([
     ['/commercial', <CommercialPage />, 'Request a site visit', 'commercial%20site%20visit'],
     ['/commercial-carpet-cleaning-london', <CommercialCarpetPage />, 'Request a site assessment', 'wa.me/447845451111'],
-    ['/after-builders-cleaning-london', <AfterBuildersPage />, 'WhatsApp a photo for a quote', 'after-builders%20clean%20quote'],
+    ['/after-builders-cleaning-london', <AfterBuildersPage />, 'Get my cleaning quote', '#builders-quote'],
   ] as const)('keeps %s on its existing enquiry route in the header and sticky bar', (path, page, label, hrefPart) => {
     const { container } = renderPage(page, path);
     const header = within(container.querySelector('header')!);

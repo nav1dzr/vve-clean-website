@@ -1,10 +1,12 @@
-import { useState, useEffect, type ReactNode } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
-import type { CustomerHistoryResponse } from '../types/customer';
+import type { CustomerHistoryResponse, CustomerDuplicateWarning } from '../types/customer';
 import type { ManualBookingInput, ManualBookingResponse } from '../types/customer';
 import { customerTypeLabel } from '../lib/format';
 import ManualBookingModal from '../components/ManualBookingModal';
+import { customerSourceChoice } from '../lib/customerSource';
+import { useAuth } from '../auth/useAuth';
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import { CardListSkeleton } from '../components/Skeleton';
@@ -14,11 +16,11 @@ import {
   bookingStatusBadge, invoiceDocumentStatusBadge, invoicePaymentStatusBadge,
 } from '../lib/format';
 
-type State =
+type State = { customerId?: string } & (
   | { status: 'loading' }
   | { status: 'not-found' }
   | { status: 'error'; message: string }
-  | { status: 'success'; data: CustomerHistoryResponse };
+  | { status: 'success'; data: CustomerHistoryResponse });
 
 // Customer detail + derived history. Bookings are matched by email/phone
 // (not a hard FK — see admin/api/_lib/customerLifecycle.js's header for
@@ -27,24 +29,35 @@ type State =
 // every list here comes from the same explicit-allowlist card mappers used
 // on the bookings/invoices/receipts list pages themselves.
 export default function CustomerDetailPage() {
+  const { admin } = useAuth();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const duplicateWarnings = (location.state as { duplicateWarnings?: CustomerDuplicateWarning[] } | null)?.duplicateWarnings || [];
+  const [dismissedWarningKey, setDismissedWarningKey] = useState<string | null>(null);
   const [state, setState] = useState<State>({ status: 'loading' });
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const activeCustomer = useRef(id);
+  activeCustomer.current = id;
 
-  function load() {
+  useEffect(() => {
+    let active = true;
     if (!id) return;
-    setState({ status: 'loading' });
+    activeCustomer.current = id;
+    setState({ customerId: id, status: 'loading' });
+    setShowBookingModal(false);
+    setActionError(null);
     authFetch<CustomerHistoryResponse>(`/api/customers/${id}`)
-      .then((data) => setState({ status: 'success', data }))
+      .then((data) => { if (active) setState({ customerId: id, status: 'success', data }); })
       .catch((err) => {
-        if (err instanceof ApiError && err.status === 404) setState({ status: 'not-found' });
-        else setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Could not load this customer.' });
+        if (!active) return;
+        if (err instanceof ApiError && err.status === 404) setState({ customerId: id, status: 'not-found' });
+        else setState({ customerId: id, status: 'error', message: err instanceof ApiError ? err.message : 'Could not load this customer.' });
       });
-  }
-
-  useEffect(load, [id]);
+    return () => { active = false; if (activeCustomer.current === id) activeCustomer.current = undefined; };
+  }, [id, retry]);
 
   async function handleCreateBooking(input: ManualBookingInput) {
     if (!id) return;
@@ -52,11 +65,12 @@ export default function CustomerDetailPage() {
       method: 'POST',
       body: JSON.stringify(input),
     });
+    if (activeCustomer.current !== id) return;
     setShowBookingModal(false);
     navigate(`/bookings/${result.bookingId}`);
   }
 
-  if (state.status === 'loading') {
+  if (state.customerId !== id || state.status === 'loading') {
     return <div className="px-4 py-6 sm:px-6"><CardListSkeleton count={1} /></div>;
   }
   if (state.status === 'not-found') {
@@ -67,7 +81,7 @@ export default function CustomerDetailPage() {
     );
   }
   if (state.status === 'error') {
-    return <div className="px-4 py-6 sm:px-6"><ErrorState message={state.message} onRetry={load} /></div>;
+    return <div className="px-4 py-6 sm:px-6"><ErrorState message={state.message} onRetry={() => setRetry((attempt) => attempt + 1)} /></div>;
   }
 
   const c = state.data;
@@ -91,6 +105,17 @@ export default function CustomerDetailPage() {
 
       {actionError && <p role="alert" className="mb-3 text-sm text-red-600">{actionError}</p>}
 
+      {duplicateWarnings.length > 0 && dismissedWarningKey !== location.key && (
+        <section role="alert" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <p className="font-semibold text-amber-950">Customer saved — possible duplicate</p>
+          <p className="mt-1 text-sm text-amber-900">Nothing was merged. Review these existing records before creating another booking or invoice.</p>
+          <ul className="mt-2 space-y-1 text-sm text-amber-950">
+            {duplicateWarnings.map((warning, index) => <li key={`${warning.customer.id}-${index}`}><Link className="font-semibold underline" to={`/customers/${warning.customer.id}`}>{warning.customer.name}</Link> · matches by {warning.type === 'postcode_name' ? 'postcode and a similar name' : warning.type}</li>)}
+          </ul>
+          <button type="button" onClick={() => setDismissedWarningKey(location.key)} className="mt-3 min-h-11 rounded-lg border border-amber-300 px-3 text-sm font-semibold text-amber-950">Dismiss duplicate warning</button>
+        </section>
+      )}
+
       <Section title="Quick actions">
         <div className="flex flex-wrap gap-2">
           <QuickAction label="Call" href={tel} disabled={!tel} />
@@ -110,7 +135,7 @@ export default function CustomerDetailPage() {
           <Row label="Email" value={c.email || 'Not recorded'} />
           <Row label="Phone" value={c.phone || 'Not recorded'} />
           <Row label="Address" value={[c.address, c.postcode].filter(Boolean).join(', ') || 'Not recorded'} />
-          <Row label="Source" value={c.source.replace('_', ' ')} />
+          <Row label="Source" value={customerSourceChoice(c.source, c.notes) === 'checkatrade' ? 'Checkatrade' : c.source.replace('_', ' ')} />
           <Row label="Preferred contact" value={c.preferredContactMethod || 'Not specified'} />
         </dl>
       </Section>
@@ -182,7 +207,7 @@ export default function CustomerDetailPage() {
 
       <p className="text-xs text-navy-500">Customer added {formatDateTime(c.createdAt)}</p>
 
-      {showBookingModal && <ManualBookingModal onClose={() => setShowBookingModal(false)} onCreate={handleCreateBooking} />}
+      {showBookingModal && <ManualBookingModal ownerId={admin?.id || ''} customerId={c.id} customerEmail={c.email} onClose={() => setShowBookingModal(false)} onCreate={handleCreateBooking} />}
     </div>
   );
 }

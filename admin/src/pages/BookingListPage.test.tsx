@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import BookingListPage from './BookingListPage';
@@ -48,6 +48,7 @@ describe('BookingListPage', () => {
     renderList();
 
     expect(await screen.findByText('No bookings match these filters')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /add booking/i })).toHaveAttribute('href', '/customers?createBooking=1');
   });
 
   it('shows a retryable error state on failure', async () => {
@@ -63,6 +64,15 @@ describe('BookingListPage', () => {
 
     const matches = await screen.findAllByText('Jasmine Carter');
     expect(matches.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('labels a confirmed no-deposit booking without claiming a deposit is pending or paid', async () => {
+    authFetchMock.mockResolvedValue({ results: [{ ...sampleRow, paymentStatus: 'pending_payment', paymentPlan: 'after_clean', journeyState: 'confirmed', balanceStatus: 'not_due' }], page: 1, pageSize: 20, totalCount: 1, hasMore: false });
+    renderList();
+    await screen.findAllByText('Jasmine Carter');
+    expect(screen.getAllByText('No deposit required')).toHaveLength(2);
+    expect(screen.getAllByText('Due on cleaning day')).toHaveLength(2);
+    expect(screen.queryByText('Deposit pending', { selector: 'span' })).not.toBeInTheDocument();
   });
 
   it('disables Previous on the first page and enables Next when more results exist', async () => {
@@ -112,5 +122,29 @@ describe('BookingListPage', () => {
       const lastCallUrl = calls[calls.length - 1]?.[0] as string;
       expect(lastCallUrl).toContain('status=confirmed');
     });
+  });
+
+  it('keeps deposit and balance filters distinct without changing the API value', async () => {
+    authFetchMock.mockResolvedValue({ results: [sampleRow], page: 1, pageSize: 20, totalCount: 1, hasMore: false });
+    const user = userEvent.setup();
+    renderList();
+    await screen.findAllByText('Jasmine Carter');
+    expect(screen.getAllByText('Deposit paid', { selector: 'span' })).toHaveLength(2);
+    expect(screen.getByText(/For no-deposit bookings, leave Deposit status on All/)).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Deposit status'), 'paid');
+    await waitFor(() => expect(authFetchMock.mock.calls[authFetchMock.mock.calls.length - 1]?.[0]).toContain('paymentStatus=paid'));
+  });
+
+  it('does not let an older unfiltered response replace the selected deposit results', async () => {
+    let resolveOld!: (value: unknown) => void;
+    authFetchMock.mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve; }));
+    authFetchMock.mockResolvedValue({ results: [sampleRow], page: 1, pageSize: 20, totalCount: 1, hasMore: false });
+    const user = userEvent.setup();
+    renderList();
+    await user.selectOptions(screen.getByLabelText('Deposit status'), 'paid');
+    await screen.findAllByText('Jasmine Carter');
+    await act(async () => resolveOld({ results: [{ ...sampleRow, id: 'unfiltered', fullName: 'Old unfiltered booking', paymentStatus: 'pending_payment' }], page: 1, pageSize: 20, totalCount: 21, hasMore: true }));
+    expect(screen.queryAllByText('Old unfiltered booking')).toHaveLength(0);
+    expect(screen.getAllByText('Jasmine Carter')).toHaveLength(2);
   });
 });

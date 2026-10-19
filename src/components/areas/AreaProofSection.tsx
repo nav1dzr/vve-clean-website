@@ -22,7 +22,7 @@ export default function AreaProofSection({ area }: { area: AreaInfo }) {
     <section className="max-w-4xl mx-auto px-4 py-16">
       <div className="text-center mb-10">
         <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 leading-tight">
-          Review from a customer in {area.name}
+          {review ? 'A customer review from ' + area.name : 'Our work in ' + area.name}
         </h2>
       </div>
 
@@ -51,7 +51,7 @@ export default function AreaProofSection({ area }: { area: AreaInfo }) {
         </ul>
       )}
 
-      <RecentJobsByArea areaName={area.name} postcodes={area.postcodes} />
+      <RecentJobsByArea areaName={area.name} />
     </section>
   );
 }

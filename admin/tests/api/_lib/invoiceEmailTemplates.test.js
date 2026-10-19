@@ -31,6 +31,16 @@ function receipt(overrides = {}) {
 }
 
 describe('invoiceEmail', () => {
+  it('preserves saved terms and the historical fallback rather than using the new invoice default', () => {
+    for (const terms of ['Payment due within 14 days.', null]) {
+      const expected = terms || 'Payment is due after the clean.';
+      const { html, text } = invoiceEmail(invoice({ payment_terms: terms }), settings);
+      expect(html).toContain(expected);
+      expect(text).toContain(expected);
+      expect(text).not.toContain('Payment is due on the cleaning day.');
+    }
+  });
+
   it('uses the current blue VVE Clean wordmark without changing the email body layout', () => {
     const { html } = invoiceEmail(invoice(), settings);
     expect(html).toContain('aria-label="VVE Clean"');

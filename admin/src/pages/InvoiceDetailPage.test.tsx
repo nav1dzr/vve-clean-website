@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, Link } from 'react-router-dom';
 import InvoiceDetailPage from './InvoiceDetailPage';
 import { ApiError } from '../lib/authFetch';
 import type { InvoiceDetail } from '../types/invoice';
@@ -93,6 +93,38 @@ describe('InvoiceDetailPage — draft', () => {
     expect(screen.getByDisplayValue('Deep clean')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /issue invoice/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /delete draft/i })).toBeInTheDocument();
+  });
+
+  it('retains the booking balance warning when a linked saved draft is reopened without changing its amounts', async () => {
+    const linkedDraft = { ...draftInvoice, bookingId: 'paid-booking' };
+    authFetchMock.mockImplementation((path: string) => {
+      if (path === '/api/bookings/paid-booking?action=journey') return Promise.resolve({ journey: { state: 'paid' }, payments: [{ kind: 'manual_balance', amount_pence: 10000 }] });
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      return Promise.resolve(linkedDraft);
+    });
+    const first = renderDetail();
+    expect(await screen.findByText('A balance payment is recorded on this booking')).toBeInTheDocument();
+    first.unmount();
+    renderDetail();
+    expect(await screen.findByText('A balance payment is recorded on this booking')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Review booking payments' })).toHaveAttribute('href', '/bookings/paid-booking');
+    expect(screen.getByRole('spinbutton', { name: /booking deposit received/i })).toHaveValue(0);
+    expect(screen.getByLabelText('Unit price (£)')).toHaveValue('100');
+    expect(screen.getByRole('button', { name: /issue invoice/i })).toBeEnabled();
+    expect(authFetchMock.mock.calls.every((call) => !call[1]?.method || call[1].method === 'GET')).toBe(true);
+  });
+
+  it('keeps a linked draft editable when booking balance history is unavailable without asserting a payment', async () => {
+    authFetchMock.mockImplementation((path: string) => {
+      if (path.includes('action=journey')) return Promise.reject(new ApiError(503, 'Unavailable'));
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      return Promise.resolve({ ...draftInvoice, bookingId: 'paid-booking' });
+    });
+    renderDetail();
+    expect(await screen.findByText('Could not check booking payments')).toBeInTheDocument();
+    expect(screen.queryByText('A balance payment is recorded on this booking')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Retry payment check' })).toBeEnabled();
   });
 
   it('issuing shows an inline confirmation before calling the API', async () => {
@@ -535,3 +567,137 @@ describe('InvoiceDetailPage — not found / error', () => {
     expect(await screen.findByRole('alert')).toBeInTheDocument();
   });
 });
+
+describe('InvoiceDetailPage — isolated loading and receipt recovery', () => {
+  beforeEach(() => {
+    authFetchMock.mockReset();
+    authFetchBlobMock.mockReset();
+  });
+
+  function renderWithNavigation() {
+    return render(
+      <MemoryRouter initialEntries={['/invoices/inv-1']}>
+        <Link to="/invoices/inv-2">Open second invoice</Link>
+        <Routes><Route path="/invoices/:id" element={<InvoiceDetailPage />} /></Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  it('ignores a late invoice response after navigating to another invoice', async () => {
+    let resolveFirst!: (value: InvoiceDetail) => void;
+    const second = { ...issuedInvoice, id: 'inv-2', invoiceNumber: 'INV-AUDIT-SECOND' };
+    authFetchMock.mockImplementation((path: string) => {
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      if (path === '/api/invoices/inv-1') return new Promise((resolve) => { resolveFirst = resolve; });
+      return Promise.resolve(second);
+    });
+    const user = userEvent.setup();
+    renderWithNavigation();
+    await user.click(screen.getByRole('link', { name: 'Open second invoice' }));
+    await screen.findByText(second.invoiceNumber);
+    await act(async () => { resolveFirst(issuedInvoice); });
+    expect(screen.getByText(second.invoiceNumber)).toBeInTheDocument();
+    expect(screen.queryByText(issuedInvoice.invoiceNumber)).not.toBeInTheDocument();
+  });
+
+  it('does not replace the current invoice receipt with a late previous lookup', async () => {
+    let resolveFirstReceipt!: (value: unknown) => void;
+    const paid = { ...issuedInvoice, paymentStatus: 'paid', amountPaid: 100, amountDue: 0 };
+    authFetchMock.mockImplementation((path: string) => {
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      if (path.startsWith('/api/receipts?invoiceId=inv-1')) return new Promise((resolve) => { resolveFirstReceipt = resolve; });
+      if (path.startsWith('/api/receipts?invoiceId=inv-2')) return Promise.resolve({ results: [{ id: 'receipt-second' }] });
+      if (path === '/api/invoices/inv-2') return Promise.resolve({ ...paid, id: 'inv-2', invoiceNumber: 'INV-AUDIT-SECOND' });
+      return Promise.resolve(paid);
+    });
+    const user = userEvent.setup();
+    renderWithNavigation();
+    await screen.findByText(issuedInvoice.invoiceNumber);
+    await user.click(screen.getByRole('link', { name: 'Open second invoice' }));
+    expect(await screen.findByRole('link', { name: 'View / send receipt' })).toHaveAttribute('href', '/receipts/receipt-second');
+    await act(async () => { resolveFirstReceipt({ results: [{ id: 'receipt-first' }] }); });
+    expect(screen.getByRole('link', { name: 'View / send receipt' })).toHaveAttribute('href', '/receipts/receipt-second');
+  });
+
+  it('shows a receipt lookup failure and retries only that read without recording another payment', async () => {
+    const paid = { ...issuedInvoice, paymentStatus: 'paid', amountPaid: 100, amountDue: 0 };
+    let receiptReads = 0;
+    authFetchMock.mockImplementation((path: string) => {
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      if (path.startsWith('/api/receipts')) {
+        receiptReads += 1;
+        return receiptReads === 1
+          ? Promise.reject(new ApiError(503, 'Temporary receipt lookup failure.'))
+          : Promise.resolve({ results: [{ id: 'receipt-recovered' }] });
+      }
+      return Promise.resolve(paid);
+    });
+    const user = userEvent.setup();
+    renderDetail();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the receipt');
+    await user.click(screen.getByRole('button', { name: 'Retry receipt lookup' }));
+    expect(await screen.findByRole('link', { name: 'View / send receipt' })).toHaveAttribute('href', '/receipts/receipt-recovered');
+    expect(screen.queryByRole('button', { name: 'Retry receipt lookup' })).not.toBeInTheDocument();
+    expect(authFetchMock.mock.calls.filter(([path]) => path === '/api/invoices/inv-1')).toHaveLength(1);
+    expect(authFetchMock.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true);
+  });
+
+  it('distinguishes a successful empty receipt lookup from a failure and lets the owner check again', async () => {
+    const paid = { ...issuedInvoice, paymentStatus: 'paid', amountPaid: 100, amountDue: 0 };
+    mockRouteBasedFetch(paid);
+    const user = userEvent.setup();
+    renderDetail();
+    expect(await screen.findByText('No receipt is linked to this invoice yet.')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    mockRouteBasedFetch(paid, [], [{ id: 'receipt-ready' }]);
+    await user.click(screen.getByRole('button', { name: 'Check for receipt' }));
+    expect(await screen.findByRole('link', { name: 'View / send receipt' })).toHaveAttribute('href', '/receipts/receipt-ready');
+  });
+});
+
+
+describe('InvoiceDetailPage — unavailable history', () => {
+  beforeEach(() => { authFetchMock.mockReset(); authFetchBlobMock.mockReset(); });
+
+  it('shows a retryable history error without inventing an empty history or reloading the invoice', async () => {
+    let historyCalls = 0;
+    authFetchMock.mockImplementation((path: string) => {
+      if (path.includes('action=events')) {
+        historyCalls += 1;
+        return historyCalls === 1 ? Promise.reject(new ApiError(503, 'Unavailable'))
+          : Promise.resolve({ results: [{ id: 'evt-sent', eventType: 'sent', createdAt: '2026-10-18T12:00:00Z' }] });
+      }
+      return Promise.resolve(issuedInvoice);
+    });
+    const user = userEvent.setup(); renderDetail();
+    expect(await screen.findByText(/could not load invoice history/i)).toBeInTheDocument();
+    expect(screen.queryByText('No history yet.')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'INV-2026-000001' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry history' }));
+    await waitFor(() => expect(screen.queryByText(/could not load invoice history/i)).not.toBeInTheDocument());
+    expect(historyCalls).toBe(2);
+    expect(authFetchMock.mock.calls.filter(([path]) => path === '/api/invoices/inv-1')).toHaveLength(1);
+    expect(screen.queryByText('No history yet.')).not.toBeInTheDocument();
+  });
+
+  it('ignores an old invoice history response after navigation', async () => {
+    let resolveOld!: (value: unknown) => void;
+    const oldHistory = new Promise(resolve => { resolveOld = resolve; });
+    authFetchMock.mockImplementation((path: string) => {
+      if (path === '/api/invoices/inv-1?action=events') return oldHistory;
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      return Promise.resolve(path.endsWith('inv-2')
+        ? { ...issuedInvoice, id: 'inv-2', invoiceNumber: 'INV-AUDIT-SECOND' } : issuedInvoice);
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={['/invoices/inv-1']}>
+      <Link to="/invoices/inv-2">Open second invoice</Link>
+      <Routes><Route path="/invoices/:id" element={<InvoiceDetailPage />} /></Routes>
+    </MemoryRouter>);
+    await screen.findByRole('heading', { name: 'INV-2026-000001' });
+    await user.click(screen.getByRole('link', { name: 'Open second invoice' }));
+    await screen.findByRole('heading', { name: 'INV-AUDIT-SECOND' });
+    await act(async () => resolveOld({ results: [{ id: 'old-sent', eventType: 'sent', createdAt: '2026-10-18T12:00:00Z' }] }));
+    expect(screen.getByText('No history yet.')).toBeInTheDocument();
+    expect(screen.queryByText('Sent')).not.toBeInTheDocument();
+  });});

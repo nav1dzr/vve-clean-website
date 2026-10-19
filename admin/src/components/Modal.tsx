@@ -9,11 +9,8 @@ interface ModalProps {
 }
 
 // Compact modal/drawer: bottom sheet on mobile, centred card on desktop.
-// Escape closes it; focus moves into the panel on open. Returning focus to
-// the element that opened the modal is the caller's responsibility (pass a
-// ref to the trigger and call .focus() on it inside onClose) — this keeps
-// the modal itself simple and reusable rather than assuming one trigger
-// shape.
+// Escape closes it; focus moves into the panel and returns to the opener
+// on close when that element is still present.
 export default function Modal({ titleId, title, onClose, children, wide = false }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   // Keep the latest onClose reachable from the mount-only effect below
@@ -25,6 +22,7 @@ export default function Modal({ titleId, title, onClose, children, wide = false 
   onCloseRef.current = onClose;
 
   useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         onCloseRef.current();
@@ -32,15 +30,19 @@ export default function Modal({ titleId, title, onClose, children, wide = false 
       }
       if (e.key !== 'Tab' || !panelRef.current) return;
       const focusableEls = panelRef.current.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])',
       );
       if (focusableEls.length === 0) return;
       const first = focusableEls[0];
       const last = focusableEls[focusableEls.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
+      const active = document.activeElement;
+      if (active === panelRef.current || !panelRef.current.contains(active)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      } else if (e.shiftKey && active === first) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
+      } else if (!e.shiftKey && active === last) {
         e.preventDefault();
         first.focus();
       }
@@ -53,11 +55,14 @@ export default function Modal({ titleId, title, onClose, children, wide = false 
     // is more useful. Falls back to the panel itself when there is no
     // input/textarea/select to focus.
     const focusable = panelRef.current?.querySelector<HTMLElement>(
-      'input, textarea, select, [tabindex]:not([tabindex="-1"])',
+      'input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])',
     );
     (focusable || panelRef.current)?.focus();
 
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      if (opener?.isConnected) opener.focus();
+    };
   }, []);
 
   return (
@@ -82,7 +87,7 @@ export default function Modal({ titleId, title, onClose, children, wide = false 
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-navy-700 hover:bg-silver-100"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-navy-700 hover:bg-silver-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
           >
             ✕
           </button>

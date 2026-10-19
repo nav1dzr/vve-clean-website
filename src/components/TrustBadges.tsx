@@ -1,7 +1,7 @@
 import { useGoogleRating } from '../hooks/useGoogleRating';
 import { Shield, CheckCircle, Star, Lock } from 'lucide-react';
 import { useReveal } from '../hooks/useReveal';
-import { GOOGLE_PROFILE_LINK } from './Reviews';
+import { GOOGLE_PROFILE_LINK } from './GoogleBrand';
 import { googleRatingSourceLabel } from '../lib/googleRatingDisplay';
 
 // Exactly four verified items per the design spec — this is the site's one
@@ -35,12 +35,12 @@ export default function TrustBadges() {
               <badge.icon className="text-royal-500 mb-2" size={22} aria-hidden="true" />
               <div className="text-navy-800 text-xs font-semibold mb-0.5">{badge.label}</div>
               {badge.icon === Star ? <>
-                <p className="text-slate-600 text-xs leading-relaxed">{rating ? `${rating.value.toFixed(1)} from ${rating.count} Google reviews` : badge.sub}</p>
+                <p className="text-slate-600 text-xs leading-relaxed">{rating ? `${rating.value.toFixed(1)} out of 5 on Google` : badge.sub}</p>
                 {rating && <p className="mt-1 text-xs leading-relaxed text-slate-600">{googleRatingSourceLabel(rating)}</p>}
                 <a href={GOOGLE_PROFILE_LINK} target="_blank" rel="noopener noreferrer"
                   aria-label="Read VVE Clean reviews on Google (opens in a new tab)"
                   className="mt-1 inline-flex min-h-[44px] max-w-full items-center justify-center text-xs font-semibold leading-relaxed text-royal-700 underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600">
-                  Read on Google
+                  <span translate="no" className="whitespace-nowrap font-normal not-italic tracking-normal text-[#5e5e5e]">Google Maps</span>
                 </a>
               </> : <div className="text-slate-500 text-[10px]">{badge.sub}</div>}
             </div>

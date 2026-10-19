@@ -28,6 +28,14 @@ export const SORT_VALUES = ['newest', 'oldest', 'service_date', 'highest_value']
 // the same way every other filter does.
 export const NOTIFICATION_FILTER_VALUES = ['failed'];
 
+// New manual bookings opt into the agreement/payment workflow at creation,
+// before a booking_journeys row exists. Older records without this explicit
+// saved choice keep their original internal-status controls.
+export function hasExplicitManualWorkflow(row) {
+  return row?.first_source === 'admin_manual'
+    && ['after_clean', 'deposit_after_agreement'].includes(row?.quote_config?.manualPaymentPlan);
+}
+
 // Card projection — used by dashboard-summary, search, and the booking list.
 // Deliberately excludes address/notes/Stripe IDs/attribution/tokens; those
 // are detail-only fields (§19).
@@ -180,11 +188,21 @@ export function toDetail(row) {
 // The legacy booking row cannot express the provisional offer state. Enrich
 // free-request cards from the optional journey table without adding a required
 // column to pre-migration SELECT lists. Missing migration keeps old CRM usable.
+export function journeyPaymentPlan(journey) {
+  const active = journey.state === 'change_pending'
+    ? journey.previous_snapshot
+    : journey.snapshot || (journey.state === 'draft' ? journey.draft : null);
+  return ['after_clean', 'deposit_after_agreement'].includes(active?.paymentPlan) ? active.paymentPlan : undefined;
+}
+
 export async function applyJourneyReadState(supabase, cards) {
-  const ids=cards.filter(c=>c.awaitingAvailabilityReview).map(c=>c.id);
+  const ids=[...new Set(cards.map(c=>c.id))];
   if(!ids.length) return cards;
-  const {data,error}=await supabase.from('booking_journeys').select('booking_id,state').in('booking_id',ids);
+  const {data,error}=await supabase.from('booking_journeys').select('booking_id,state,snapshot,previous_snapshot,draft').in('booking_id',ids);
   if(error) return cards;
-  const states=new Map((data||[]).map(j=>[j.booking_id,j.state]));
-  return cards.map(c=>states.has(c.id)?{...c,journeyState:states.get(c.id),awaitingAvailabilityReview:states.get(c.id)==='draft',superseded:false}:c);
+  const journeys=new Map((data||[]).map(j=>[j.booking_id,j]));
+  return cards.map(c=>{
+    const journey=journeys.get(c.id);
+    return journey ? {...c,journeyState:journey.state,paymentPlan:journeyPaymentPlan(journey),awaitingAvailabilityReview:journey.state==='draft',superseded:false} : c;
+  });
 }

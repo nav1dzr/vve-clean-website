@@ -91,14 +91,20 @@ export function createFakeSupabase(initialData = {}) {
       or(expr) {
         const clauses = expr.split(',').map((c) => {
           const [col, op, ...rest] = c.split('.');
-          return { col, op, value: rest.join('.') };
+          const raw = rest.join('.');
+          return { col, op, value: raw.startsWith('"') && raw.endsWith('"') ? JSON.parse(raw) : raw };
         });
         filters.push((r) => clauses.some(({ col, op, value }) => {
           const cell = r[col];
           if (op === 'eq') return String(cell) === value;
           if (op === 'ilike') {
             if (cell == null) return false;
-            const pattern = value.replace(/%/g, '.*');
+            let pattern = '';
+            for (let i = 0; i < value.length; i += 1) {
+              const escaped = value[i] === '\\' && i + 1 < value.length;
+              const char = escaped ? value[++i] : value[i];
+              pattern += !escaped && char === '%' ? '.*' : !escaped && char === '_' ? '.' : char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
             return new RegExp(`^${pattern}$`, 'i').test(String(cell));
           }
           return false;

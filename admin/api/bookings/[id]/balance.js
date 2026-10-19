@@ -4,7 +4,7 @@ import { getServiceClient } from '../../_lib/supabaseAdmin.js';
 import { isValidUuid, isValidIsoTimestamp } from '../../_lib/normalise.js';
 import { extractIdParam } from '../../_lib/routeParams.js';
 import { readJsonBody } from '../../_lib/body.js';
-import { BALANCE_STATUS_VALUES, BALANCE_PAYMENT_METHOD_VALUES } from '../../_lib/bookingFields.js';
+import { BALANCE_STATUS_VALUES, BALANCE_PAYMENT_METHOD_VALUES, hasExplicitManualWorkflow } from '../../_lib/bookingFields.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -94,6 +94,20 @@ export default async function handler(req, res) {
       return res.end(JSON.stringify({ error: 'Could not check the booking payment ledger. Please retry.' }));
     }
     if (managed?.booking_id) {
+      res.writeHead(409, headers);
+      return res.end(JSON.stringify({ error: 'Record this booking payment in Arrange and confirm this booking so the ledger and receipt stay consistent.' }));
+    }
+    const { data: booking, error: bookingError } = await supabase.from('bookings')
+      .select('first_source,quote_config').eq('id', bookingId).maybeSingle();
+    if (bookingError) {
+      res.writeHead(503, headers);
+      return res.end(JSON.stringify({ error: 'Could not check the booking workflow. Please retry.' }));
+    }
+    if (!booking) {
+      res.writeHead(404, headers);
+      return res.end(JSON.stringify({ error: 'Booking not found' }));
+    }
+    if (hasExplicitManualWorkflow(booking)) {
       res.writeHead(409, headers);
       return res.end(JSON.stringify({ error: 'Record this booking payment in Arrange and confirm this booking so the ledger and receipt stay consistent.' }));
     }

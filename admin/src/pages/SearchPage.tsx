@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
 import type { SearchResponse, BookingCard } from '../types/booking';
@@ -15,11 +15,13 @@ type State =
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialQ = searchParams.get('q') || '';
-  const [input, setInput] = useState(initialQ);
+  const query = (searchParams.get('q') || '').trim();
+  const [input, setInput] = useState(query);
   const [state, setState] = useState<State>({ status: 'idle' });
+  const requestVersion = useRef(0);
 
-  function runSearch(q: string) {
+  const runSearch = useCallback((q: string) => {
+    const version = ++requestVersion.current;
     const trimmed = q.trim();
     if (!trimmed) {
       setState({ status: 'idle' });
@@ -27,24 +29,29 @@ export default function SearchPage() {
     }
     setState({ status: 'loading' });
     authFetch<SearchResponse>('/api/search', { method: 'POST', body: JSON.stringify({ q: trimmed }) })
-      .then((data) => setState({ status: 'success', results: data.results, query: trimmed }))
-      .catch((err) =>
-        setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Search failed.' }),
-      );
-  }
+      .then((data) => {
+        if (version === requestVersion.current) setState({ status: 'success', results: data.results, query: trimmed });
+      })
+      .catch((err) => {
+        if (version === requestVersion.current) setState({ status: 'error', message: err instanceof ApiError ? err.message : 'Search failed.' });
+      });
+  }, []);
 
   useEffect(() => {
-    if (initialQ) runSearch(initialQ);
-    // Only run on mount for the query already in the URL — subsequent
-    // searches are submit-triggered, not on every keystroke or param change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setInput(query);
+    runSearch(query);
+    return () => { requestVersion.current += 1; };
+  }, [query, runSearch]);
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const trimmed = input.trim();
-    setSearchParams(trimmed ? { q: trimmed } : {});
-    runSearch(trimmed);
+    if (trimmed === query) {
+      runSearch(trimmed);
+    } else {
+      requestVersion.current += 1;
+      setSearchParams(trimmed ? { q: trimmed } : {});
+    }
   }
 
   return (
@@ -73,7 +80,7 @@ export default function SearchPage() {
         />
       )}
       {state.status === 'loading' && <CardListSkeleton count={4} />}
-      {state.status === 'error' && <ErrorState message={state.message} onRetry={() => runSearch(input)} />}
+      {state.status === 'error' && <ErrorState message={state.message} onRetry={() => runSearch(query)} />}
       {state.status === 'success' && state.results.length === 0 && (
         <EmptyState
           title="No matches"

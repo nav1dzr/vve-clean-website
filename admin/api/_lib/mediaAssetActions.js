@@ -22,6 +22,7 @@ import {
   MEDIA_REFERENCES_TABLE,
   MEDIA_WEBSITE_SLOTS_TABLE,
 } from "../_lib/mediaTables.js";
+import { WEBSITE_PHOTO_PAGE_KEYS } from "../../shared/mediaWebsitePositions.js";
 
 export const config = { api: { bodyParser: false } };
 const MAX_BODY_BYTES = 16 * 1024;
@@ -120,7 +121,20 @@ async function updateMetadata(res, headers, supabase, asset, body) {
     return reply(res, headers, 409, {
       error: "This media changed. Refresh before editing it.",
     });
-  const fields = normaliseMetadata(body);
+  const changingCategory = typeof body.category === "string" && body.category !== asset.category;
+  const fields = normaliseMetadata({
+    title: asset.title,
+    altText: asset.alt_text,
+    category: asset.category,
+    beforeAfter: asset.before_after,
+    pairKey: asset.pair_key,
+    locationLabel: asset.location_label,
+    // A caption-only PATCH must not replace the existing service with a default.
+    // When changing service, derive its matching defaults unless supplied.
+    placement: changingCategory ? undefined : asset.placement,
+    service: changingCategory ? undefined : asset.service,
+    ...body,
+  });
   if (!fields.title || !fields.altText)
     return reply(res, headers, 400, {
       error: "Add a visible caption and an accessibility description.",
@@ -147,6 +161,7 @@ async function updateMetadata(res, headers, supabase, asset, body) {
       alt_text: fields.altText,
       service: fields.service,
       category: fields.category,
+      placement: fields.placement,
       before_after: fields.beforeAfter,
       pair_key: fields.pairKey,
       location_label: fields.locationLabel,
@@ -589,6 +604,15 @@ async function assignMedia(res, headers, supabase, asset, body, adminId) {
     return reply(res, headers, 400, {
       error: "Check each file type and its before/after stage.",
     });
+  if (target.slot_kind === "before_after") {
+    const jobKeys = new Set(
+      chosen.map((row) => String(row.pair_key || "").trim().toLowerCase()).filter(Boolean),
+    );
+    if (jobKeys.size > 1)
+      return reply(res, headers, 409, {
+        error: "Choose before and after photographs from the same job. Their job / pair names are different; check the details before publishing.",
+      });
+  }
   const { data: references, error: referencesError } = await supabase
     .from(MEDIA_REFERENCES_TABLE)
     .select("reference_key,page_key,page_label,component_label")
@@ -596,6 +620,19 @@ async function assignMedia(res, headers, supabase, asset, body, adminId) {
     .eq("active", true)
     .order("sort_order");
   if (referencesError) throw referencesError;
+  const needsPhoto = references?.some((row) =>
+    WEBSITE_PHOTO_PAGE_KEYS.includes(row.page_key),
+  );
+  if (body.targetType === "website" && !needsPhoto)
+    return reply(res, headers, 409, {
+      error: "This position is not connected to a website page yet. Choose a shared gallery position or another connected position.",
+    });
+  // These public components render still images, so accepting a video here
+  // would report a successful publication while the page keeps its fallback.
+  if (body.targetType === "website" && needsPhoto && chosen.some((row) => row.media_type !== "image"))
+    return reply(res, headers, 400, {
+      error: "This website position displays photographs only. Choose a ready photo; videos belong in a gallery video position.",
+    });
   const expected = sortedAssignments(current || []);
   const impact = (references || []).map((row) => ({
     key: row.reference_key,

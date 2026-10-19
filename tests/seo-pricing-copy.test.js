@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { ROUTE_METADATA, NOT_FOUND_METADATA, metadataForPath } from '../src/lib/routeMetadata';
-import { EOT_BASE_PRICES_P, MOVEIN_BASE_PRICES_P, AFTER_BUILDERS_START_FROM_P,
+import { EOT_BASE_PRICES_P, MOVEIN_BASE_PRICES_P,
   CARPET_ITEM_PRICES_P, CARPET_MIN_BOOKING_P, penceToDisplay } from '../src/data/pricing';
 
 describe('shared search metadata prices', () => {
@@ -24,7 +24,13 @@ describe('shared search metadata prices', () => {
   });
   it('takes other starting examples from the same catalogue', () => {
     expect(metadataForPath('/pricing').ogDescription).toContain(`studio move-in from ${penceToDisplay(MOVEIN_BASE_PRICES_P.studio)}`);
-    expect(metadataForPath('/after-builders-cleaning-london').description).toContain(`from ${penceToDisplay(AFTER_BUILDERS_START_FROM_P)}`);
+  });
+  it('describes after-builders as assessed work rather than a whole-home starting tariff', () => {
+    const builders = metadataForPath('/after-builders-cleaning-london');
+    expect(builders.description).toContain('indicative budget ranges');
+    expect(builders.description).toContain('assessed written quote');
+    expect(builders.description).not.toMatch(/from £\d/);
+    expect(metadataForPath('/pricing').ogDescription).toContain('assessed after-builders quotes');
   });
 });
 

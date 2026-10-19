@@ -77,7 +77,10 @@ export default function Navbar({ primaryAction = DEFAULT_PRIMARY_ACTION }: Navba
             aria-label="VVE Clean home"
             className="flex flex-shrink-0 items-center rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-royal-600"
           >
-            <BrandLogo compact className="w-[82px] sm:w-[92px]" />
+            <span className="nav-brand-mark flex flex-col items-center">
+              <BrandLogo compact className="w-[82px] sm:w-[92px]" />
+              <span className="nav-brand-mobile mt-1 text-[10px] font-semibold leading-none text-navy-700">Property services</span>
+            </span>
 
             <span
               aria-hidden="true"
@@ -208,7 +211,7 @@ export default function Navbar({ primaryAction = DEFAULT_PRIMARY_ACTION }: Navba
 
       {/* Removing the closed menu from the DOM prevents invisible links from
           remaining in the keyboard tab order. */}
-      {menuOpen && <div id="mobile-nav-menu" className="xl:hidden overflow-hidden"
+      {menuOpen && <div id="mobile-nav-menu" className="mobile-nav-panel xl:hidden overflow-y-auto overscroll-contain"
         style={{ background: 'rgba(249,249,245,0.96)', backdropFilter: 'blur(10px)', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
         <div className="px-4 py-6 space-y-4">
           <div className="border-b border-slate-100 pb-2">
