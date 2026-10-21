@@ -237,6 +237,55 @@ describe("canonical Data Manager payload", () => {
   });
 });
 
+describe("Ads preview isolation", () => {
+  it.each([
+    { VERCEL_ENV: "preview" },
+    { VERCEL_ENV: "development" },
+    { VERCEL: "1", VERCEL_ENV: "" },
+  ])("blocks live preview delivery before claiming rows or authenticating: %j", async env => {
+    configure("live");
+    vi.stubEnv("VERCEL", "");
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("NODE_ENV", "production");
+    for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
+    const db = fakeDb(row({ status: "pending" }));
+    const fetchFn = vi.fn();
+    expect(await deliverBookingMeasurements(db, { fetchFn })).toMatchObject({ status: "disabled", processed: 0 });
+    expect(db.rpc).not.toHaveBeenCalled();
+    expect(db.updates).toEqual([]);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it("blocks direct adapter sends even if validate mode is overridden to live", async () => {
+    configure("validate");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    const fetchFn = vi.fn();
+    const adapter = createGoogleDataManagerAdapter({ fetchFn, validateOnly: false });
+    expect(adapter.configured).toBe(false);
+    await expect(adapter.send(row())).rejects.toThrow("measurement_preview_live_disabled");
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it("allows validation-only preview payloads without importing conversions", async () => {
+    configure("validate");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: "synthetic-token" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    const adapter = createGoogleDataManagerAdapter({ fetchFn });
+    expect(adapter.configured).toBe(true);
+    await adapter.send(row());
+    expect(JSON.parse(fetchFn.mock.calls[1][1].body).validateOnly).toBe(true);
+  });
+
+  it("keeps production delivery configured", () => {
+    configure("live");
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("VERCEL_ENV", "production");
+    expect(createGoogleDataManagerAdapter({ fetchFn: vi.fn() }).configured).toBe(true);
+  });
+});
+
 describe("durable Data Manager delivery", () => {
   it("fails closed for a missing or unknown delivery mode", async () => {
     configure("unexpected");

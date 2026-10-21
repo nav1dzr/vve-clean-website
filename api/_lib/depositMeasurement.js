@@ -1,3 +1,5 @@
+import { isHostedPreview } from './previewIsolation.js';
+
 const REQUIRED_COMMON_ENV = [
   "GOOGLE_ADS_CUSTOMER_ID",
   "GOOGLE_DATA_MANAGER_CLIENT_ID",
@@ -28,8 +30,9 @@ class MeasurementDeliveryError extends Error {
   }
 }
 
-function configured() {
+function configured(validateOnly) {
   return ["validate", "live"].includes(process.env.BOOKING_MEASUREMENT_MODE) &&
+    !(isHostedPreview() && !validateOnly) &&
     REQUIRED_COMMON_ENV.every((name) => Boolean(process.env[name])) &&
     Object.values(EVENT_ACTION_ENV).every((name) => Boolean(process.env[name]));
 }
@@ -280,9 +283,12 @@ export function createGoogleDataManagerAdapter({
   let preparedToken;
   return {
     provider: DATA_MANAGER_PROVIDER,
-    configured: configured(),
+    configured: configured(validateOnly),
     validateOnly,
     async prepare() {
+      // Fail closed even when a caller bypasses the runner or overrides validateOnly.
+      if (isHostedPreview() && !validateOnly)
+        throw new MeasurementDeliveryError("measurement_preview_live_disabled");
       if (!preparedToken) preparedToken = accessToken(fetchFn);
       return preparedToken;
     },
