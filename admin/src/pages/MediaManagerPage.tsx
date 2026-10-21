@@ -24,6 +24,24 @@ import type {
   WebsiteSlot,
 } from "../types/media";
 
+const PUBLIC_SITE = "https://www.vveclean.co.uk";
+const DEFAULT_PHOTOS: Record<string, { src: string; alt: string }> = {
+  "homepage-hero-image": { src: "/images/carpet-cleaning-hero.webp", alt: "Carpet extraction in progress" },
+  "carpet-main-results": { src: "/images/carpet-cleaning-hero.webp", alt: "Carpet extraction in progress" },
+  "sofa-main-results": { src: "/sofa_upholstery/web/gallery/sofa-gallery-01.webp", alt: "Upholstery cleaning in progress" },
+  "end-of-tenancy-main-results": { src: "/end_of_tenancy/before-after/kitchen1_after.jpg", alt: "Kitchen hob after cleaning" },
+  "homepage-equipment-image": { src: "/gallery/van-equipment.webp", alt: "VVE Clean van and cleaning equipment" },
+};
+const PAGE_PATHS: Record<string, string> = {
+  "homepage-hero-image": "/", "homepage-equipment-image": "/",
+  "carpet-main-results": "/carpet-cleaning-london#results",
+  "sofa-main-results": "/sofa-cleaning-london",
+  "end-of-tenancy-main-results": "/end-of-tenancy-cleaning-london",
+  "gallery-carpet": "/gallery?category=carpet",
+  "gallery-sofa": "/gallery?category=sofa-upholstery",
+  "gallery-end-of-tenancy": "/gallery?category=end-of-tenancy",
+};
+
 const api = "/api/search?resource=media";
 
 const field =
@@ -81,6 +99,8 @@ type History = {
 type Progress = { name: string; percent: number; stage: string };
 
 export default function MediaManagerPage() {
+  const [positionPage, setPositionPage] = useState("all");
+  const [showUnconnected, setShowUnconnected] = useState(false);
   const [library, setLibrary] = useState<MediaLibrary | null>(null);
 
   const [tab, setTab] = useState("uploads");
@@ -568,6 +588,7 @@ export default function MediaManagerPage() {
             setLibrary(null);
             setError("");
             setTopic(category);
+            setPositionPage("all");
             clearTarget();
           }}
           className={field}
@@ -590,9 +611,20 @@ export default function MediaManagerPage() {
                 Choose a shared position
               </h2>
               <p className="mb-5 mt-2 text-navy-700">
-                Choose the type of media you want to publish. Each position
-                shows where it appears, including any connected service pages.
+                Choose a page, then a position. New gallery positions add media ahead of the existing website gallery; they do not remove its built-in photos. Replacing an occupied position updates all its connected pages.
               </p>
+              <label className="mb-5 block max-w-sm font-semibold">Show positions used on
+                <select className={field} value={positionPage} onChange={(e) => setPositionPage(e.target.value)}>
+                  <option value="all">All connected pages</option>
+                  {[...new Map(gallerySlots.flatMap(slot => slot.usages).map(usage => [usage.pageKey, usage.pageLabel])).entries()].map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                </select>
+              </label>
+              <details className="mb-5 rounded-xl border border-silver-300 bg-white p-4">
+                <summary className="cursor-pointer font-semibold">How this changes the existing website photos</summary>
+                <p className="my-3 text-sm text-navy-700">The first published service result can also supply its opening photo. Sofa and end-of-tenancy opening photos are reused in the homepage carousel. A video is not used as a still hero photo. Built-in gallery items remain separate: these positions add to the gallery, rather than replacing a similarly numbered built-in item.</p>
+                <p className="mb-3 text-sm font-semibold">Built-in service opening photo (used when no suitable managed result is available)</p>
+                <div className="max-w-sm"><DefaultPhoto usages={[{key:"service-default",pageKey:topic === "carpet" ? "carpet-main-results" : topic === "sofa-upholstery" ? "sofa-main-results" : "end-of-tenancy-main-results",pageLabel:"Service page",componentLabel:"Opening photo"}]} /></div>
+              </details>
               <div role="group" aria-label="Position type" className="mb-5 flex flex-wrap gap-2">
                 {positionTypes.map(({ value, label }) => (
                   <button
@@ -610,7 +642,7 @@ export default function MediaManagerPage() {
                 <p className="text-sm text-navy-700">No positions of this type are set up for this service yet.</p>
               )}
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {gallerySlots.filter((slot) => slot.kind === positionType).map((slot) => (
+                {gallerySlots.filter((slot) => slot.kind === positionType && (positionPage === "all" || slot.usages.some(usage => usage.pageKey === positionPage))).map((slot) => (
                   <SlotCard
                     key={slot.id}
                     slot={slot}
@@ -637,8 +669,10 @@ export default function MediaManagerPage() {
               <h2 className="mb-5 text-xl font-semibold text-navy-950">
                 Standalone website positions
               </h2>
+              <p className="mb-4 text-navy-700">Compare the current website photo with your replacement. Built-in defaults stay in use until you publish.</p>
+              <label className="mb-5 flex items-center gap-2"><input type="checkbox" checked={showUnconnected} onChange={e => setShowUnconnected(e.target.checked)} />Show unconnected positions (not publishable)</label>
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {library.websiteSlots.map((slot) => (
+                {library.websiteSlots.filter(slot => showUnconnected || usesPhotographsOnly(slot.usages)).map((slot) => (
                   <WebsiteCard
                     key={slot.id}
                     slot={slot}
@@ -683,6 +717,12 @@ export default function MediaManagerPage() {
                     <p className="mt-4 text-sm leading-6 text-navy-700">To change what appears, replace the selection below or use a previous version when available. Removing a published position without a replacement is not available yet.</p>
                   )}
 
+                  <div className="mt-5 rounded-xl border border-silver-300 bg-white p-4">
+                    <h3 className="mb-3 font-semibold">Current published selection</h3>
+                    {target.assignments.length ? <div className="grid gap-3 sm:grid-cols-2">{target.assignments.map(assignment => <Preview key={assignment.role} asset={byId.get(assignment.assetId)} label={assignment.role} />)}</div> : target.type === "website" ? <DefaultPhoto usages={target.usages} /> : <p className="text-sm text-navy-700">This is an additional gallery position. Existing built-in gallery photos remain. Publishing may also change the leading service photo; review every connected page below.</p>}
+                    <UsageList usages={target.usages} heading="Check these pages" />
+                  </div>
+                  <h3 className="mt-5 font-semibold">Your proposed replacement or addition</h3>
                   {(target.kind === "before_after"
                     ? ["before", "after"]
                     : ["primary"]
@@ -1082,6 +1122,8 @@ export default function MediaManagerPage() {
 }
 
 function Preview({ asset, label }: { asset?: MediaAsset; label: string }) {
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const playing = Boolean(asset?.id && playingId === asset.id);
   const src =
     asset?.imageUrl ||
     (asset?.muxPlaybackId
@@ -1090,7 +1132,7 @@ function Preview({ asset, label }: { asset?: MediaAsset; label: string }) {
 
   return (
     <figure className="relative aspect-video bg-silver-100">
-      {src ? (
+      {playing && asset?.muxPlaybackId ? <iframe className="h-full w-full" src={`https://player.mux.com/${encodeURIComponent(asset.muxPlaybackId)}`} title={`Video preview: ${asset.title || label}`} allow="fullscreen" allowFullScreen /> : src ? (
         <img
           src={src}
           alt={asset?.altText || ""}
@@ -1103,11 +1145,17 @@ function Preview({ asset, label }: { asset?: MediaAsset; label: string }) {
           {asset ? asset.status : "No media assigned"}
         </div>
       )}
-      <figcaption className="absolute bottom-2 left-2 rounded bg-navy-950 px-2 py-1 text-xs capitalize text-white">
+      {asset?.muxPlaybackId && !playing && <button type="button" className="absolute inset-x-8 top-1/3 rounded-lg bg-white p-3 font-semibold text-navy-950 shadow" onClick={() => setPlayingId(asset.id)}>Play video</button>}
+      {!playing && <figcaption className="absolute bottom-2 left-2 rounded bg-navy-950 px-2 py-1 text-xs capitalize text-white">
         {label}
-      </figcaption>
+      </figcaption>}
     </figure>
   );
+}
+
+function DefaultPhoto({ usages }: { usages: MediaUsage[] }) {
+  const photo = usages.map(usage => DEFAULT_PHOTOS[usage.pageKey]).find(Boolean);
+  return photo ? <figure className="bg-silver-100 p-3"><img src={`${PUBLIC_SITE}${photo.src}`} alt={photo.alt} className="aspect-video w-full object-contain" /><figcaption className="mt-2 text-sm text-navy-700">Built-in website photo — used when no CRM photo is published. Open the website to check its current appearance.</figcaption></figure> : <p className="p-4 text-sm text-navy-700">No CRM media assigned. Check the linked page for existing built-in content.</p>;
 }
 
 function UsageList({ usages, heading = "Used on" }: { usages: MediaUsage[]; heading?: string }) {
@@ -1122,6 +1170,7 @@ function UsageList({ usages, heading = "Used on" }: { usages: MediaUsage[]; head
           {visibleUsages.map((usage) => (
             <li key={usage.key}>
               {usage.pageLabel} · {usage.componentLabel}
+              {PAGE_PATHS[usage.pageKey] && <a className="ml-2 inline-block underline" href={`${PUBLIC_SITE}${PAGE_PATHS[usage.pageKey]}`} target="_blank" rel="noopener noreferrer">View on website</a>}
             </li>
           ))}
         </ul>
@@ -1145,7 +1194,7 @@ function SlotCard({
     <article className="overflow-hidden rounded-2xl border border-silver-300 bg-white">
       <div className="p-4">
         <h3 className="font-semibold text-navy-950">{slot.label}</h3>
-        <p className="text-xs text-navy-700">{slot.code}</p>
+        <p className="text-xs text-navy-700">{slot.code} · {slot.assignments.length ? "Replace published media" : "Add to gallery"}</p>
       </div>
       <div
         className={slot.kind === "before_after" ? "grid grid-cols-2" : "block"}
@@ -1164,6 +1213,7 @@ function SlotCard({
         )}
       </div>
       <div className="p-4">
+        <p className="text-sm text-navy-700">{slot.assignments.length ? "Replacing this selection updates every connected page." : "Additional position: existing built-in gallery photos stay on the website."}</p>
         <UsageList usages={slot.usages} />
         <button className={`${button} mt-4`} onClick={onChoose}>
           {slot.kind === "before_after"
@@ -1190,7 +1240,7 @@ function WebsiteCard({
         <p className="text-sm text-sky-700">{slot.pageLabel}</p>
         <h3 className="font-semibold text-navy-950">{slot.purposeLabel}</h3>
       </div>
-      <Preview asset={asset} label={slot.purposeLabel} />
+      {asset ? <Preview asset={asset} label="Current published photo" /> : <DefaultPhoto usages={slot.usages} />}
       <div className="p-4">
         <UsageList usages={slot.usages} heading={usesPhotographsOnly(slot.usages) ? "Used on" : "Planned placement"} />
         {!usesPhotographsOnly(slot.usages) && <p className="mt-3 text-sm font-medium text-amber-900">Not connected to a website page yet. You can view the saved selection, but publishing is unavailable.</p>}
