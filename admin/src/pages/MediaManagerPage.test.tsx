@@ -280,6 +280,7 @@ describe("media position guidance", () => {
     render(<MediaManagerPage />);
     await screen.findByRole("heading", { name: "Upload to Carpet" });
     fireEvent.click(screen.getByRole("button", { name: "Other website positions" }));
+    fireEvent.click(screen.getByLabelText("Show unconnected positions (not publishable)"));
     expect(screen.getAllByText("Carpet cleaning · Featured comparison")).toHaveLength(1);
     expect(screen.getByText("Carpet cleaning · Work photos")).toBeInTheDocument();
   });
@@ -291,6 +292,8 @@ describe("media position guidance", () => {
     render(<MediaManagerPage />);
     await screen.findByRole("heading", { name: "Upload to Carpet" });
     fireEvent.click(screen.getByRole("button", { name: "Other website positions" }));
+    expect(screen.queryByText(/Not connected to a website page yet/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Show unconnected positions (not publishable)"));
     expect(screen.getByText(/Not connected to a website page yet/)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Planned placement" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Used on" })).not.toBeInTheDocument();
@@ -402,5 +405,30 @@ describe("media manager guidance and caption suggestions", () => {
     fireEvent.click(editor.getByRole("button", { name: "Use this wording" }));
     fireEvent.click(editor.getByRole("button", { name: "Replace title & description" }));
     expect(editor.getByLabelText("Title shown on the website")).toHaveValue("Carpet after cleaning");
+  });
+});
+
+
+describe("visual publication guidance", () => {
+  it("shows the built-in homepage image until a managed image is assigned", async () => {
+    mocks.fetch.mockResolvedValue({ ...library, websiteSlots: [{ id:"home-slot",key:"homepage-hero",pageLabel:"Homepage",purposeLabel:"First carousel photo",description:"",sortOrder:1, assignments: [], usages: [{key:"home", pageKey:"homepage-hero-image",pageLabel:"Homepage",componentLabel:"First carousel photo"}] }] });
+    render(<MediaManagerPage />);
+    await screen.findByRole("heading", { name: "Upload to Carpet" });
+    fireEvent.click(screen.getByRole("button", { name: "Other website positions" }));
+    expect(screen.getByRole("img", { name: "Carpet extraction in progress" })).toHaveAttribute("src", "https://www.vveclean.co.uk/images/carpet-cleaning-hero.webp");
+    expect(screen.getByRole("link", { name: "View on website" })).toHaveAttribute("href", "https://www.vveclean.co.uk/");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Choose / replace media" })));
+    expect(screen.getByRole("heading", { name: "Current published selection" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Your proposed replacement or addition" })).toBeInTheDocument();
+    expect(mocks.fetch.mock.calls.filter(([,init])=>init).every(([,init])=>JSON.parse(init.body).action === "history")).toBe(true);
+  });
+  it("loads the video player only after Play video, without publishing", async () => {
+    mocks.fetch.mockResolvedValue({ ...library, assets: [{ ...readyAsset, mediaType:"video",muxPlaybackId:"test-video",title:"Test clip" }] });
+    render(<MediaManagerPage />);
+    await screen.findByRole("heading", { name: "Upload to Carpet" });
+    expect(screen.queryByTitle(/Video preview/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:"Play video"}));
+    expect(screen.getByTitle("Video preview: Test clip")).toHaveAttribute("src","https://player.mux.com/test-video");
+    expect(mocks.fetch.mock.calls.every(([,init])=>!init)).toBe(true);
   });
 });
