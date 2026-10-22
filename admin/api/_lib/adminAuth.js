@@ -23,10 +23,16 @@ function extractBearerToken(req) {
 // The 500 branch never includes which env var is missing or any internal
 // detail in the response body — only a generic message. Details are logged
 // server-side only.
-export async function verifyAdminRequest(req) {
-  const isolation = previewIsolation();
-  if (!isolation.ok) return { ok: false, status: 403, error: isolation.error, code: 'PREVIEW_SETUP_REQUIRED' };
-  return verifyAdminRequestForTable(req, 'admin_users');
+export async function verifyAdminRequest(req, { redactErrors = false } = {}) {
+  const verify = async () => {
+    const isolation = previewIsolation();
+    if (!isolation.ok) return { ok: false, status: 403, error: isolation.error, code: 'PREVIEW_SETUP_REQUIRED' };
+    return verifyAdminRequestForTable(req, 'admin_users', redactErrors);
+  };
+  // Diagnostic-only opt-in: preserve existing callers' error/logging behaviour.
+  if (!redactErrors) return verify();
+  try { return await verify(); }
+  catch { return { ok: false, status: 500, error: 'Authorisation check failed' }; }
 }
 
 // Media is one protected CRM section, not a separate application. It uses the
@@ -37,7 +43,7 @@ export async function verifyMediaAdminRequest(req) {
   return verifyAdminRequest(req);
 }
 
-async function verifyAdminRequestForTable(req, adminTable) {
+async function verifyAdminRequestForTable(req, adminTable, redactErrors = false) {
   const supabase = getServiceClient();
   if (!supabase) {
     return { ok: false, status: 500, error: 'Server misconfiguration' };
@@ -62,7 +68,7 @@ async function verifyAdminRequestForTable(req, adminTable) {
     .maybeSingle();
 
   if (adminErr) {
-    console.error('[admin/api] admin allow-list lookup failed:', adminErr.code, adminErr.message);
+    if (!redactErrors) console.error('[admin/api] admin allow-list lookup failed:', adminErr.code, adminErr.message);
     return { ok: false, status: 500, error: 'Authorisation check failed' };
   }
 

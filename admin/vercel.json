@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/connection-check",
+      "destination": "/api/me?diagnostic=connection-check-v1"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
