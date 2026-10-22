@@ -1,10 +1,17 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname, relative } from 'node:path';
 
 const { verify } = vi.hoisted(() => ({ verify: vi.fn() }));
 vi.mock('../../api/_lib/adminAuth.js', () => ({ verifyAdminRequest: verify }));
-import handler from '../../api/me.js';
+let handler;
+let fetchFn;
+beforeEach(async () => {
+  vi.resetModules();
+  fetchFn = vi.fn();
+  vi.stubGlobal('fetch', fetchFn);
+  ({ default: handler } = await import('../../api/me.js'));
+});
 
 async function run(extra = {}) {
   const result = {};
@@ -23,7 +30,6 @@ describe('isolated diagnostic dispatch through me', () => {
     { url: '/api/me?diagnostic=connection-check-v1', query: { diagnostic: 'connection-check-v1' } },
   ])('blocks preview before auth or network for %j', async request => {
     vi.stubEnv('VERCEL_ENV', 'preview');
-    const fetchFn = vi.fn(); vi.stubGlobal('fetch', fetchFn);
     const result = await run(request);
     expect(result.status).toBe(403);
     expect(result.body).not.toHaveProperty('email');
