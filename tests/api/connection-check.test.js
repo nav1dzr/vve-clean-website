@@ -37,8 +37,8 @@ for (const [name, factory] of [['website', createWebsiteCheck], ['CRM', createCr
       const x = setup(factory, { env: { ...baseEnv, BOOKING_MEASUREMENT_MODE: mode } });
       expect((await run(x.handler)).body.status).toBe('reporting_not_disabled'); expect(x.fetchFn).not.toHaveBeenCalled();
     });
-    it('defaults to an unscheduled closed window', async () => {
-      const x = setup(factory, { window: CHECK_WINDOW }); expect((await run(x.handler)).status).toBe(503); expect(x.verify).not.toHaveBeenCalled();
+    it('rejects an explicitly unscheduled closed window', async () => {
+      const x = setup(factory, { window: { opensAt: null, closesAt: null } }); expect((await run(x.handler)).status).toBe(503); expect(x.verify).not.toHaveBeenCalled();
     });
     it.each([start - 1, start + 30 * 60_000])('blocks outside the absolute window', async time => {
       const x = setup(factory, { now: () => time }); expect((await run(x.handler)).status).toBeGreaterThanOrEqual(400); expect(x.fetchFn).not.toHaveBeenCalled();
@@ -112,6 +112,13 @@ for (const [name, factory] of [['website', createWebsiteCheck], ['CRM', createCr
   });
 }
 describe('strict provider and forwarding boundary', () => {
+  it('matches the approved absolute 30-minute window in server and UI', () => {
+    expect(CHECK_WINDOW).toEqual({ opensAt: '2026-10-25T00:15:00Z', closesAt: '2026-10-25T00:45:00Z' });
+    expect(Date.parse(CHECK_WINDOW.closesAt) - Date.parse(CHECK_WINDOW.opensAt)).toBe(1800000);
+    const ui = readFileSync('admin/src/pages/ConnectionCheckPage.tsx', 'utf8');
+    expect(ui).toContain(`const OPENS_AT: string | null = '${CHECK_WINDOW.opensAt}';`);
+    expect(ui).toContain(`const CLOSES_AT: string | null = '${CHECK_WINDOW.closesAt}';`);
+  });
   it('makes one token-only call with no redirects and 8-second timeout', async () => {
     const timeout = vi.spyOn(AbortSignal, 'timeout'); const x = setup(createWebsiteCheck);
     await run(x.handler); expect(x.fetchFn).toHaveBeenCalledTimes(1);

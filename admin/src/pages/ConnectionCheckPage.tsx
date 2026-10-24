@@ -20,9 +20,9 @@ function isResult(value: unknown): value is Result {
     typeof website.refreshSucceeded === 'boolean' && typeof website.scopeKnown === 'boolean' &&
     (!website.scopeKnown || typeof website.datamanagerScopePresent === 'boolean');
 }
-// CLOSED review placeholder. Coordinate these bounds with server CHECK_WINDOW.
-const OPENS_AT: string | null = null;
-const CLOSES_AT: string | null = null;
+// Approved absolute UTC bounds matching server CHECK_WINDOW. No auto extension.
+const OPENS_AT: string | null = '2026-10-25T00:15:00Z';
+const CLOSES_AT: string | null = '2026-10-25T00:45:00Z';
 export default function ConnectionCheckPage({ opensAt = OPENS_AT, closesAt = CLOSES_AT }:
   { opensAt?: string | null; closesAt?: string | null } = {}) {
   const attempted = useRef(false);

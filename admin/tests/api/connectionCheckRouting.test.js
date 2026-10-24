@@ -7,6 +7,8 @@ vi.mock('../../api/_lib/adminAuth.js', () => ({ verifyAdminRequest: verify }));
 let handler;
 let fetchFn;
 beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-25T00:14:59Z'));
   vi.resetModules();
   fetchFn = vi.fn();
   vi.stubGlobal('fetch', fetchFn);
@@ -21,7 +23,7 @@ async function run(extra = {}) {
   });
   return result;
 }
-afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 describe('isolated diagnostic dispatch through me', () => {
   it.each([
@@ -38,8 +40,15 @@ describe('isolated diagnostic dispatch through me', () => {
   it.each(['GET', 'POST', 'OPTIONS', 'DELETE'])('keeps production window closed for %s', async method => {
     vi.stubEnv('VERCEL_ENV', 'production'); vi.stubEnv('BOOKING_MEASUREMENT_MODE', 'disabled');
     const result = await run({ method, url: '/api/me?diagnostic=connection-check-v1' });
-    expect(result.status).toBe(503); expect(result.body.status).toBe('window_not_scheduled');
+    expect(result.status).toBe(403); expect(result.body.status).toBe('window_not_open');
     expect(verify).not.toHaveBeenCalled();
+  });
+  it.each(['2026-10-25T00:45:00Z', '2026-10-25T01:15:00Z'])('rejects expiry and the repeated GMT hour: %s', async time => {
+    vi.stubEnv('VERCEL_ENV', 'production'); vi.stubEnv('BOOKING_MEASUREMENT_MODE', 'disabled');
+    vi.setSystemTime(new Date(time));
+    const result = await run({ url: '/api/me?diagnostic=connection-check-v1' });
+    expect(result.status).toBe(410); expect(result.body.status).toBe('window_expired');
+    expect(verify).not.toHaveBeenCalled(); expect(fetchFn).not.toHaveBeenCalled();
   });
   it.each([
     { url: '/api/connection-check' },

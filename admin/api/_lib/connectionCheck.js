@@ -1,7 +1,6 @@
 // Temporary VVE-20261022-MEASUREMENT-CONNECTION-CHECK-V1 diagnostic only.
-// CLOSED during review. Set exact absolute UTC bounds in a reviewed follow-up
-// only when CI and the browser are ready; never derive them from startup time.
-export const CHECK_WINDOW = Object.freeze({ opensAt: null, closesAt: null });
+// Approved absolute UTC bounds, before the UK clock change. No auto extension.
+export const CHECK_WINDOW = Object.freeze({ opensAt: '2026-10-25T00:15:00Z', closesAt: '2026-10-25T00:45:00Z' });
 export const CRM_ORIGIN = 'https://admin.vveclean.co.uk';
 export const WEBSITE_CHECK_URL = 'https://www.vveclean.co.uk/api/connection-check';
 export const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
