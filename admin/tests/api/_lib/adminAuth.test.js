@@ -154,3 +154,34 @@ describe('verifyAdminRequest', () => {
     expect(fromMock).toHaveBeenCalledTimes(2);
   });
 });
+
+
+describe('diagnostic-only auth redaction', () => {
+  beforeEach(() => {
+    process.env.VERCEL_ENV = 'production';
+    process.env.VITE_SUPABASE_URL = 'https://example.supabase.co';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'synthetic-key';
+    getUserMock.mockReset(); maybeSingleMock.mockReset();
+    getUserMock.mockResolvedValue({ data: { user: { id: 'admin' } }, error: null });
+  });
+  afterEach(() => { process.env = { ...ORIGINAL_ENV }; vi.restoreAllMocks(); });
+  it('suppresses provider log detail only for opt-in diagnostics', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    maybeSingleMock.mockResolvedValue({ data: null, error: { code: 'SECRET', message: 'private bearer and email' } });
+    const out = await verifyAdminRequest(makeReq({ authorization: 'Bearer synthetic' }), { redactErrors: true });
+    expect(out.status).toBe(500); expect(log).not.toHaveBeenCalled(); expect(JSON.stringify(out)).not.toContain('private');
+    await verifyAdminRequest(makeReq({ authorization: 'Bearer synthetic' }));
+    expect(log).toHaveBeenCalledWith('[admin/api] admin allow-list lookup failed:', 'SECRET', 'private bearer and email');
+  });
+  it.each(['getUser', 'query', 'client'])('catches thrown %s errors without leaking or changing normal defaults', async where => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const sensitive = new Error('sensitive-provider-token-email');
+    if (where === 'getUser') getUserMock.mockRejectedValue(sensitive);
+    if (where === 'query') maybeSingleMock.mockRejectedValue(sensitive);
+    const { createClient } = await import('@supabase/supabase-js');
+    if (where === 'client') createClient.mockImplementationOnce(() => { throw sensitive; });
+    const out = await verifyAdminRequest(makeReq({ authorization: 'Bearer synthetic' }), { redactErrors: true });
+    expect(out).toEqual({ ok: false, status: 500, error: 'Authorisation check failed' }); expect(log).not.toHaveBeenCalled();
+    if (where !== 'client') await expect(verifyAdminRequest(makeReq({ authorization: 'Bearer synthetic' }))).rejects.toThrow(sensitive);
+  });
+});
