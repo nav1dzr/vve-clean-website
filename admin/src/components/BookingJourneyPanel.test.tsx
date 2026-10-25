@@ -20,6 +20,13 @@ const booking = {
 const empty = { enabled: true, journey: null, notifications: [], events: [] };
 beforeEach(() => { authFetchMock.mockReset(); });
 describe("CRM booking agreement controls", () => {
+  it.each(['completed', 'cancelled'])('explains a %s booking without inviting another deposit request', async (state) => {
+    authFetchMock.mockResolvedValue({ ...empty, journey: { revision: 2, offer_version: 1, state, draft: {}, snapshot: null, paid_pence: 3000, refunded_pence: 0, customer_request: null } });
+    render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);
+    expect(await screen.findByRole('heading', { name: state === 'completed' ? 'Completed booking' : 'Cancelled booking' })).toBeInTheDocument();
+    expect(screen.queryByText(/then send the £30 deposit request/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save agreement and preview email' })).toBeDisabled();
+  });
   it('shows a neutral pending state until the saved workflow is known', async () => {
     let resolveWorkflow!: (value: unknown) => void;
     authFetchMock.mockReturnValue(new Promise((resolve) => { resolveWorkflow = resolve; }));

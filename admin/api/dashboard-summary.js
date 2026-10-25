@@ -22,7 +22,7 @@ function todayIsoDate() {
 // `service_date` column, never by parsing the free-text `preferred_date` —
 // a booking with no `service_date` simply doesn't appear in either list,
 // and is counted separately as `unscheduledCount` instead of being guessed
-// at. Cancelled jobs are excluded from these operational queues only; recent
+// at. Completed and cancelled jobs are excluded from these operational queues only; recent
 // history and financial counts still include them. The service day is London
 // local time, including BST. `outstandingBalances.dataAvailable` distinguishes "zero outstanding
 // balances" from "no balance data has been recorded yet", since
@@ -70,6 +70,7 @@ export default async function handler(req, res) {
         .select(CARD_SELECT, { count: 'exact' })
         .eq('service_date', today)
         .neq('status', 'cancelled')
+        .neq('status', 'completed')
         .order('preferred_time', { ascending: true })
         .limit(PREVIEW_LIMIT),
       supabase
@@ -77,6 +78,7 @@ export default async function handler(req, res) {
         .select(CARD_SELECT, { count: 'exact' })
         .gt('service_date', today)
         .neq('status', 'cancelled')
+        .neq('status', 'completed')
         .order('service_date', { ascending: true })
         .limit(PREVIEW_LIMIT),
       supabase
@@ -87,7 +89,7 @@ export default async function handler(req, res) {
       supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('payment_status', 'paid'),
       supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('balance_status', 'outstanding'),
       supabase.from('bookings').select('id', { count: 'exact', head: true }).not('balance_status', 'is', null),
-      supabase.from('bookings').select('id', { count: 'exact', head: true }).is('service_date', null).neq('status', 'cancelled'),
+      supabase.from('bookings').select('id', { count: 'exact', head: true }).is('service_date', null).neq('status', 'cancelled').neq('status', 'completed'),
     ]);
 
     const results = [

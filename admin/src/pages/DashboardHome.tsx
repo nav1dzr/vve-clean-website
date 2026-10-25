@@ -39,6 +39,7 @@ export default function DashboardHome() {
       {state.status === 'error' && <ErrorState message={state.message} onRetry={load} />}
       {state.status === 'success' && (
         <div className="space-y-8">
+          <p className="text-sm text-navy-700">Today and Upcoming show open jobs. Completed and cancelled bookings remain in your history.</p>
           <Section title="Today" count={state.data.today.count} emptyLabel="No bookings today.">
             {state.data.today.bookings.map((b) => (
               <BookingCardItem key={b.id} booking={b} />
@@ -71,8 +72,8 @@ export default function DashboardHome() {
 
           {state.data.unscheduledCount > 0 && (
             <p className="text-sm text-navy-700">
-              {state.data.unscheduledCount} booking{state.data.unscheduledCount === 1 ? '' : 's'} without a
-              structured service date — not shown in Today/Upcoming.{' '}
+              {state.data.unscheduledCount} open booking{state.data.unscheduledCount === 1 ? '' : 's'} without a
+              service date — not shown in Today/Upcoming.{' '}
               <Link to="/bookings" className="text-sky-600 hover:text-sky-700">
                 View all bookings
               </Link>
