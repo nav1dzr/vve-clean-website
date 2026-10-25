@@ -36,6 +36,13 @@ describe('GET /api/me', () => {
 
     expect(res.statusCode).toBe(405);
   });
+  it.each(['/api/admin-ads-validation', '/api/me?resource=admin-ads-validation',
+    '/api/me?resource=admin-ads-validation&resource=other', '/api/admin-ads-validation#bad'])('private path %s is closed and cannot fall through into profile auth', async url => {
+    const res = makeRes();
+    await handler({ url, method: 'POST', headers: {} }, res);
+    expect(res.statusCode).toBe(403); expect(JSON.parse(res.body)).toEqual({ status: 'closed' });
+    expect(verifyAdminRequestMock).not.toHaveBeenCalled();
+  });
 
   it('returns 401 when verifyAdminRequest reports missing/invalid token', async () => {
     verifyAdminRequestMock.mockResolvedValue({ ok: false, status: 401, error: 'Missing bearer token' });
