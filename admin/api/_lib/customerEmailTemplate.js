@@ -1,4 +1,5 @@
 import { escHtml } from './escHtml.js';
+import { GOOGLE_REVIEW_BUTTON, GOOGLE_REVIEW_URL } from '../../../shared/googleReview.js';
 
 export const EMAIL_BODY_LIMIT = 20000;
 export function validateCustomerEmail(input) {
@@ -30,6 +31,11 @@ export function renderCustomerMessage(body) {
   for (let i = 0; i < lines.length;) {
     const line = lines[i].trim();
     if (!line) { i++; continue; }
+    // One fixed public destination, not arbitrary Markdown/HTML links.
+    if (line === GOOGLE_REVIEW_BUTTON) {
+      blocks.push('<p style="margin:22px 0"><a href="' + GOOGLE_REVIEW_URL + '" style="display:inline-block;background:#1268d9;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;line-height:24px;padding:13px 20px;border-radius:8px">Leave a Google review</a></p>');
+      i++; continue;
+    }
     if (line.startsWith('|') && i + 1 < lines.length && /^\|?\s*:?-{3,}/.test(lines[i + 1].trim())) {
       const headings = cells(line).slice(0, 6);
       const rows = [];
@@ -80,7 +86,7 @@ export function buildCustomerEmail(message, settings) {
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;margin:0 auto;background:white;border-collapse:separate;border-spacing:0;' + (branded ? 'border-top:4px solid #1268d9;border-radius:8px;' : '') + '"><tr><td style="padding:' + (branded ? '24px 18px' : '16px 8px') + ';font-size:15px;line-height:1.7">' +
     (branded ? brandedHeader() : '') +
     renderCustomerMessage(message.body) + footer + '</td></tr></table></div>';
-  const text = message.body.replace(/^#{1,3}\s+/gm, '').replace(/\*\*([^*\n]+)\*\*/g, '$1') +
+  const text = message.body.replaceAll(GOOGLE_REVIEW_BUTTON, 'Leave a Google review: ' + GOOGLE_REVIEW_URL).replace(/^#{1,3}\s+/gm, '').replace(/\*\*([^*\n]+)\*\*/g, '$1') +
     '\n\n' + settings.tradingName + ' | Cleaning & Property Services\ncontact@vveclean.co.uk | ' + settings.phone +
     '\nhttps://www.vveclean.co.uk/\n' + settings.legalName + ' | Company No. ' + settings.companyNumber +
     (settings.registeredAddress ? '\n' + settings.registeredAddress : '');

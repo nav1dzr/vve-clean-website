@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
 import type { CustomerListResponse } from '../types/customer';
 import ErrorState from './ErrorState';
+import CopyReviewLink from './CopyReviewLink';
 
 type State =
   | { status: 'loading' }
@@ -21,9 +22,9 @@ const normalisePhone = (value: string | null) => {
 // create-customer form (with its own duplicate-warning check), it does
 // not silently create one here.
 export default function BookingCustomerSection({
-  bookingId, fullName, email, phone,
+  bookingId, fullName, email, phone, completed = false,
 }: {
-  bookingId: string; fullName: string | null; email: string | null; phone: string | null;
+  bookingId: string; fullName: string | null; email: string | null; phone: string | null; completed?: boolean;
 }) {
   const [state, setState] = useState<State>({ status: 'loading' });
   const requestVersion = useRef(0);
@@ -97,10 +98,12 @@ export default function BookingCustomerSection({
                 {c.name}
               </Link>
               <span className="ml-2 text-sm text-navy-500">{c.email || c.phone}</span>
+              {completed && <Link to={`/customers/${c.id}/email?template=review`} aria-label={`Prepare review email for ${c.name}`} className="mt-2 flex min-h-11 w-fit items-center rounded-lg border border-silver-300 px-3 text-sm font-medium text-navy-900 hover:bg-silver-100">Prepare review email</Link>}
             </li>
           ))}
         </ul></>
       )}
+      {completed && <div className="mt-4 border-t border-silver-200 pt-4"><p className="mb-3 text-sm text-navy-700">For a review email, choose the correct customer record above after checking their details. You will confirm the completed work and preview the message before sending. You can also copy the public link without creating a customer record.</p><CopyReviewLink /></div>}
     </section>
   );
 }

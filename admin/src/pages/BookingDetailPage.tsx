@@ -244,7 +244,7 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
         />
       </Section>}
 
-      <BookingCustomerSection bookingId={b.id} fullName={b.fullName} email={b.email} phone={b.phone} />
+      <BookingCustomerSection bookingId={b.id} fullName={b.fullName} email={b.email} phone={b.phone} completed={b.status === 'completed'} />
 
       <BookingInvoicesSection bookingId={b.id} />
 

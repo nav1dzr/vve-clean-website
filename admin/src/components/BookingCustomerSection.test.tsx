@@ -11,6 +11,21 @@ const view = (email: string, phone: string | null = null) => <MemoryRouter><Book
 
 describe('BookingCustomerSection', () => {
   beforeEach(() => authFetchMock.mockReset());
+  it('offers an explicitly chosen customer review draft for completed work without linking or writing records', async () => {
+    authFetchMock.mockResolvedValue(data([card('Customer A', 'shared@example.invalid'), card('Customer B', 'shared@example.invalid')]));
+    render(<MemoryRouter><BookingCustomerSection bookingId="booking-a" fullName="Audit customer" email="shared@example.invalid" phone={null} completed /></MemoryRouter>);
+    expect(await screen.findByRole('link', { name: 'Prepare review email for Customer A' })).toHaveAttribute('href', '/customers/Customer A/email?template=review');
+    expect(screen.getByRole('link', { name: 'Prepare review email for Customer B' })).toHaveAttribute('href', '/customers/Customer B/email?template=review');
+    expect(screen.getByRole('button', { name: 'Copy Google review link' })).toBeInTheDocument();
+    expect(authFetchMock.mock.calls.every(([, init]) => !init)).toBe(true);
+  });
+  it('does not offer the shortcut for work that is not completed', async () => {
+    authFetchMock.mockResolvedValue(data([card('Customer A', 'client@example.invalid')]));
+    render(view('client@example.invalid'));
+    await screen.findByRole('link', { name: 'Customer A' });
+    expect(screen.queryByRole('link', { name: /Prepare review email/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy Google review link' })).not.toBeInTheDocument();
+  });
 
   it('prefers a literal case-insensitive email match over substring results', async () => {
     authFetchMock.mockResolvedValue(data([card('Substring decoy', 'prefixaudit_one@example.invalid'), card('Exact customer', 'AUDIT_ONE@example.invalid')]));

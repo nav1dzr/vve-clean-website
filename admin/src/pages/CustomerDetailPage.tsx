@@ -11,6 +11,7 @@ import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import { CardListSkeleton } from '../components/Skeleton';
 import StatusBadge from '../components/StatusBadge';
+import CopyReviewLink from '../components/CopyReviewLink';
 import {
   formatMoney, formatDateTime, telHref, whatsappHref, mailtoHref,
   bookingStatusBadge, invoiceDocumentStatusBadge, invoicePaymentStatusBadge,
@@ -129,6 +130,15 @@ export default function CustomerDetailPage() {
             Create invoice
           </Link>
         </div>
+      </Section>
+
+      <Section title="Ask for a review">
+        <p className="mb-3 text-sm text-navy-700">For work you have completed, prepare an editable email or copy the public Google review link. Nothing is sent automatically.</p>
+        <div className="flex flex-wrap items-start gap-2">
+          <Link to={`/customers/${c.id}/email?template=review`} className="min-h-11 flex items-center rounded-lg border border-silver-300 px-3.5 text-sm font-medium text-navy-900 hover:bg-silver-100">Prepare review email</Link>
+          <CopyReviewLink />
+        </div>
+        {!c.email && <p className="mt-2 text-sm text-navy-700">No email address is saved. Copy the link for your existing conversation, or enter a checked address in the email composer.</p>}
       </Section>
 
       <Section title="Contact details">

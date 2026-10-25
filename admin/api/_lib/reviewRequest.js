@@ -1,4 +1,5 @@
 import { emailWordmarkHtml, BRAND_BLUE } from './brandWordmark.js';
+import { GOOGLE_REVIEW_URL } from '../../../shared/googleReview.js';
 
 // Manual "Send review request" support.
 //
@@ -19,7 +20,7 @@ import { emailWordmarkHtml, BRAND_BLUE } from './brandWordmark.js';
 // With either step missing the endpoint returns 503 and sends nothing.
 
 /** The real, existing "write a review" URL — same one the public site uses. */
-export const GOOGLE_REVIEW_URL = 'https://g.page/r/CYDRQCaICK7vEAE/review';
+export { GOOGLE_REVIEW_URL };
 
 /**
  * Master switch. Off unless explicitly set to the string 'true'.

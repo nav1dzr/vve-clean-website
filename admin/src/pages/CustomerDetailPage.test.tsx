@@ -50,6 +50,14 @@ describe('CustomerDetailPage', () => {
     authFetchMock.mockReset();
     navigateMock.mockReset();
   });
+  it('offers a review draft shortcut and copy-link fallback without creating a draft on load', async () => {
+    authFetchMock.mockResolvedValue({ ...baseCustomer, email: null });
+    renderDetail();
+    expect(await screen.findByRole('link', { name: 'Prepare review email' })).toHaveAttribute('href', '/customers/cust-1/email?template=review');
+    expect(screen.getByRole('button', { name: 'Copy Google review link' })).toBeInTheDocument();
+    expect(screen.getByText(/No email address is saved/)).toBeInTheDocument();
+    expect(authFetchMock.mock.calls.every(([, init]) => !init)).toBe(true);
+  });
 
   it('shows a not-found state for a 404', async () => {
     authFetchMock.mockRejectedValue(new ApiError(404, 'Customer not found'));
