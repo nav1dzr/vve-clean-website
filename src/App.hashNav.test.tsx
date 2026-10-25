@@ -50,6 +50,12 @@ describe('hash navigation to #quote', () => {
     await waitFor(() => {
       expect(document.activeElement?.id).toBe('quote');
     });
+    // The visitor scrolls back to the hero while the URL already ends #quote.
+    // Clicking that same CTA again must navigate and focus, not silently stop.
+    heroCta.focus();
+    expect(document.activeElement).toBe(heroCta);
+    await user.click(heroCta);
+    await waitFor(() => expect(document.activeElement?.id).toBe('quote'));
   });
 
   it('lands on and focuses the quote section after a cross-page navigation carrying a hash', async () => {
