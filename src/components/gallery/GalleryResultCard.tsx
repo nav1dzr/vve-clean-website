@@ -1,5 +1,6 @@
 import { Maximize2 } from 'lucide-react';
 import BeforeAfterTile from './BeforeAfterTile';
+import GalleryPhoto from './GalleryPhoto';
 import ManagedVideo from '../media/ManagedVideo';
 import LazyVideo from '../media/LazyVideo';
 import type { GalleryCategory, GalleryItem, GalleryVideoItem } from '../../data/galleryMedia';
@@ -39,7 +40,7 @@ export default function GalleryResultCard({ item, category, onOpen, eager = fals
       <button type="button" onClick={(event) => onOpen(undefined, event.currentTarget)}
         aria-label={`View larger: ${item.alt}`}
         className="group relative block aspect-[4/3] w-full bg-navy-950 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-[-4px] focus-visible:outline-sky-400">
-        <img src={item.src} srcSet={item.srcSet}
+        <GalleryPhoto openable src={item.src} srcSet={item.srcSet}
           sizes={item.srcSet ? (eager
             ? '(min-width: 1152px) 650px, (min-width: 1024px) 58vw, calc(100vw - 64px)'
             : '(min-width: 1152px) 548px, (min-width: 640px) calc(50vw - 28px), calc(100vw - 32px)') : item.sizes}

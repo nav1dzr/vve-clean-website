@@ -1,4 +1,5 @@
 import { Maximize2 } from 'lucide-react';
+import GalleryPhoto from './GalleryPhoto';
 import type { GalleryBeforeAfterItem } from '../../data/galleryMedia';
 
 // Reusable before/after tile. Pass a manifest `entry` to render real photos
@@ -69,7 +70,8 @@ export default function BeforeAfterTile({
 
     const media = (
       <>
-        <img
+        <GalleryPhoto
+          openable={Boolean(onOpen)}
           src={src}
           alt={alt}
           width={400}
