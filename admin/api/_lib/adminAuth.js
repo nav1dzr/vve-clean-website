@@ -23,10 +23,10 @@ function extractBearerToken(req) {
 // The 500 branch never includes which env var is missing or any internal
 // detail in the response body — only a generic message. Details are logged
 // server-side only.
-export async function verifyAdminRequest(req, { redactErrors = false } = {}) {
+export async function verifyAdminRequest(req) {
   const isolation = previewIsolation();
   if (!isolation.ok) return { ok: false, status: 403, error: isolation.error, code: 'PREVIEW_SETUP_REQUIRED' };
-  return verifyAdminRequestForTable(req, 'admin_users', redactErrors);
+  return verifyAdminRequestForTable(req, 'admin_users');
 }
 
 // Media is one protected CRM section, not a separate application. It uses the
@@ -37,7 +37,7 @@ export async function verifyMediaAdminRequest(req) {
   return verifyAdminRequest(req);
 }
 
-async function verifyAdminRequestForTable(req, adminTable, redactErrors = false) {
+async function verifyAdminRequestForTable(req, adminTable) {
   const supabase = getServiceClient();
   if (!supabase) {
     return { ok: false, status: 500, error: 'Server misconfiguration' };
@@ -62,7 +62,7 @@ async function verifyAdminRequestForTable(req, adminTable, redactErrors = false)
     .maybeSingle();
 
   if (adminErr) {
-    if (!redactErrors) console.error('[admin/api] admin allow-list lookup failed:', adminErr.code, adminErr.message);
+    console.error('[admin/api] admin allow-list lookup failed:', adminErr.code, adminErr.message);
     return { ok: false, status: 500, error: 'Authorisation check failed' };
   }
 

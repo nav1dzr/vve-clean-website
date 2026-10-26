@@ -22,7 +22,6 @@ import CatalogueListPage from './pages/CatalogueListPage';
 import MediaManagerPage from './pages/MediaManagerPage';
 import EnquiriesPage from './pages/EnquiriesPage';
 import WebsitePricebookPage from './pages/WebsitePricebookPage';
-import AdsValidationPage from './pages/AdsValidationPage';
 
 export default function App() {
   return (
@@ -50,7 +49,6 @@ export default function App() {
             <Route path="/media" element={<MediaManagerPage />} />
             <Route path="/enquiries" element={<EnquiriesPage />} />
             <Route path="/website-prices" element={<WebsitePricebookPage />} />
-            <Route path="/private-ads-validation" element={<AdsValidationPage />} />
             <Route path="/receipts" element={<ReceiptListPage />} />
             <Route path="/receipts/new" element={<ReceiptEditorPage />} />
             <Route path="/receipts/:id" element={<ReceiptDetailPage />} />

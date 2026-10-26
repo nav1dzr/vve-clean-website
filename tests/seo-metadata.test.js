@@ -134,10 +134,7 @@ describe('indexing', () => {
 describe('404 handling', () => {
   it('no longer rewrites unmatched paths to the homepage', () => {
     // This single rule was the whole soft-404 bug.
-    // Only the exact protected API transport may rewrite; never page fallbacks.
-    expect(vercelJson.rewrites ?? []).toEqual([
-      { source: '/api/admin-ads-validation', destination: '/api/booking-management?resource=admin-ads-validation' },
-    ]);
+    expect(vercelJson.rewrites ?? []).toEqual([]);
     expect(JSON.stringify(vercelJson)).not.toContain('/index.html');
   });
 

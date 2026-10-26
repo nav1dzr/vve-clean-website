@@ -1,6 +1,4 @@
 import { rejectUnsafePreview } from './_lib/previewIsolation.js';
-import privateAdsValidation from './_lib/privateAdsValidation.js';
-import { validationDispatch } from '../admin/api/_lib/adsValidationPolicy.js';
 import { createClient } from "@supabase/supabase-js";
 import { timingSafeEqual } from "node:crypto";
 import {
@@ -43,7 +41,6 @@ function authorisedWorker(req) {
   );
 }
 export default async function handler(req, res) {
-  if (validationDispatch(req)) return privateAdsValidation(req, res);
   if (rejectUnsafePreview(res)) return;
   const headers = {
     "Content-Type": "application/json",
