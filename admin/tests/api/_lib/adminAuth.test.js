@@ -135,6 +135,16 @@ describe('verifyAdminRequest', () => {
 
     expect(JSON.stringify(result)).not.toContain('test-service-role-key');
   });
+  it('diagnostic opt-in redacts lookup logging without changing auth outcome', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
+    maybeSingleMock.mockResolvedValue({ data: null, error: { code: '500', message: 'PRIVATE' } });
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const result = await verifyAdminRequest(makeReq({ authorization: 'Bearer good-token' }), { redactErrors: true });
+      expect(result).toEqual({ ok: false, status: 500, error: 'Authorisation check failed' });
+      expect(log).not.toHaveBeenCalled();
+    } finally { log.mockRestore(); }
+  });
 
   it('uses the same authorised CRM user for Media and every existing CRM route', async () => {
     getUserMock.mockResolvedValue({

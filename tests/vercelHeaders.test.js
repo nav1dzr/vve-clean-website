@@ -93,7 +93,10 @@ describe('public site vercel.json — response headers (F3)', () => {
     // come back as HTML with a success status instead of an error.
     //
     // Removing it lets Vercel serve dist/404.html with a genuine 404 status.
-    expect(config.rewrites ?? []).toEqual([]);
+    // Only the exact protected API transport may rewrite; never page fallbacks.
+    expect(config.rewrites ?? []).toEqual([
+      { source: '/api/admin-ads-validation', destination: '/api/booking-management?resource=admin-ads-validation' },
+    ]);
     expect(JSON.stringify(config)).not.toContain('/index.html');
   });
 

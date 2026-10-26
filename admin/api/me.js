@@ -1,5 +1,7 @@
 import { verifyAdminRequest } from './_lib/adminAuth.js';
 import { corsHeaders } from './_lib/cors.js';
+import privateAdsValidationForward from './_lib/privateAdsValidationForward.js';
+import { validationDispatch } from './_lib/adsValidationPolicy.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -8,6 +10,7 @@ export const config = { api: { bodyParser: false } };
 // and never returns booking/customer data (there is no booking data path in
 // Phase 1 at all).
 export default async function handler(req, res) {
+  if (validationDispatch(req)) return privateAdsValidationForward(req, res);
   const origin = req.headers.origin || '';
   const headers = { ...corsHeaders(origin), 'Cache-Control': 'no-store', 'Content-Type': 'application/json' };
 
