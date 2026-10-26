@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { LightboxPhoto } from './useLightbox';
+import GalleryPhoto from './GalleryPhoto';
 
 // One shared, accessible lightbox for every real photograph on the site.
 //
@@ -143,7 +144,8 @@ export default function PhotoLightbox({
           {/* object-contain preserves the real aspect ratio; the max bounds
               keep the image inside the viewport at every size, so the page
               never scrolls sideways. */}
-          <img
+          <GalleryPhoto
+            retryable
             src={photo.src}
             alt={photo.alt}
             className="max-h-full max-w-full object-contain sm:max-h-[78vh]"

@@ -204,11 +204,15 @@ export default function BookingJourneyPanel({
             id="journey-heading"
             className="text-lg font-semibold text-navy-950"
           >
-            Arrange and confirm this booking
+            {j?.state === 'completed' ? 'Completed booking' : j?.state === 'cancelled' ? 'Cancelled booking' : 'Arrange and confirm this booking'}
           </h2>
           <p className="mt-1 text-sm text-navy-700">
             {!view
               ? 'Check the booking details once the workflow has loaded.'
+              : j?.state === 'completed'
+              ? 'The job is marked completed. You can review the agreed details and message history below.'
+              : j?.state === 'cancelled'
+              ? 'This appointment is cancelled. Its agreed details and message history remain available below.'
               : agreement.paymentPlan === 'deposit_after_agreement'
               ? 'Agree the details with the customer, then send the £30 deposit request. Their appointment is confirmed when the deposit is received.'
               : 'No deposit for this booking. Check the agreed details, then confirm the appointment directly. Payment is due on the cleaning day.'}

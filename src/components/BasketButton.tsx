@@ -1,7 +1,16 @@
-import { useRef, useId, type MouseEvent } from 'react';
+import { useRef, useId, type MouseEvent, type ReactNode } from 'react';
 import { ShoppingBag, X } from 'lucide-react';
+import { Link, useInRouterContext } from 'react-router-dom';
+import { scrollToHashTarget } from '../lib/scrollToHash';
 
-import { clearQuoteBasket, useQuoteBasket } from '../lib/quoteBasket';
+import { clearQuoteBasket, useQuoteBasket, QUOTE_BASKET_RESUME_EVENT } from '../lib/quoteBasket';
+
+function BasketQuoteLink({ href, onClick, children }: { href: string; onClick: (event: MouseEvent<HTMLAnchorElement>) => void; children: ReactNode }) {
+  const inRouter = useInRouterContext();
+  const className = 'block rounded-xl bg-royal-600 px-5 py-3 text-center font-bold text-white';
+  return inRouter ? <Link to={href} onClick={onClick} className={className}>{children}</Link>
+    : <a href={href} onClick={onClick} className={className}>{children}</a>;
+}
 
 export default function BasketButton() {
   const basket = useQuoteBasket();
@@ -12,13 +21,18 @@ export default function BasketButton() {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     dialog.current?.close();
     const destination = new URL(event.currentTarget.href);
-    if (destination.origin === window.location.origin && destination.pathname === window.location.pathname && destination.search === window.location.search) {
-      // A fragment-only navigation keeps the current calculator mounted. A
-      // fresh document is needed to restore the saved basket, or to clear an
-      // in-memory service choice after the basket has been removed.
+    if (destination.origin === window.location.origin && destination.pathname === window.location.pathname && (!destination.search || destination.search === window.location.search)) {
       event.preventDefault();
+      if (!destination.search) destination.search = window.location.search;
       window.history.replaceState(window.history.state, '', destination.href);
-      window.location.reload();
+      const resume = new Event(QUOTE_BASKET_RESUME_EVENT, { cancelable: true });
+      window.dispatchEvent(resume);
+      if (resume.defaultPrevented) {
+        window.requestAnimationFrame(() => scrollToHashTarget('#quote'));
+      } else {
+        // A page without a mounted calculator still supports the ordinary link.
+        window.location.reload();
+      }
     }
   }
 
@@ -32,10 +46,10 @@ export default function BasketButton() {
         <div className="flex items-center justify-between gap-4"><h2 id={titleId} className="font-display text-2xl font-bold text-navy-950">Your cleaning basket</h2><button type="button" onClick={() => dialog.current?.close()} aria-label="Close basket" className="p-3 rounded-lg hover:bg-slate-100"><X size={20} /></button></div>
         {basket ? <>
           <p className="mt-5 rounded-xl bg-sky-50 p-4 font-semibold text-navy-900">{basket.label}</p>
-          <p className="my-5 text-sm leading-relaxed text-slate-600">Your choices are saved on this browser for 14 days. Continue to review your selection and current price. No appointment is reserved yet.</p>
-          <a href={basket.href} onClick={openQuote} className="block rounded-xl bg-royal-600 px-5 py-3 text-center font-bold text-white">Continue my quote</a>
+          <p className="my-5 text-sm leading-relaxed text-slate-600">Continue to review your selection and current price. When browser storage is available, your choices are saved for up to 14 days. No appointment is reserved yet.</p>
+          <BasketQuoteLink href={basket.href} onClick={openQuote}>Continue my quote</BasketQuoteLink>
           <button type="button" onClick={() => { clearQuoteBasket(); dialog.current?.close(); }} className="mt-3 min-h-[44px] w-full text-sm text-slate-600 underline underline-offset-4">Remove saved basket</button>
-        </> : <><p className="my-5 text-slate-600">Choose a service and add your cleaning items. Your selections will stay here while you explore the website.</p><a href="/#quote" onClick={openQuote} className="block rounded-xl bg-royal-600 px-5 py-3 text-center font-bold text-white">Start my quote</a></>}
+        </> : <><p className="my-5 text-slate-600">Choose a service and add your cleaning items. Your selections will stay here while you explore the website.</p><BasketQuoteLink href="/#quote" onClick={openQuote}>Start my quote</BasketQuoteLink></>}
       </div>
     </dialog>
   </>;

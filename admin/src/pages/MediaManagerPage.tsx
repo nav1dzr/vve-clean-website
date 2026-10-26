@@ -42,6 +42,18 @@ const PAGE_PATHS: Record<string, string> = {
   "gallery-end-of-tenancy": "/gallery?category=end-of-tenancy",
 };
 
+// Older reference keys remain in publication history. Name them explicitly
+// instead of presenting two indistinguishable destinations to the owner.
+const POSITION_PAGE_LABELS: Record<string, string> = {
+  "carpet-main-results": "Carpet cleaning page",
+  "sofa-main-results": "Sofa & upholstery page",
+  "end-of-tenancy-main-results": "End of tenancy page",
+  "carpet-page": "Carpet — older page reference",
+  "sofa-page": "Sofa — older page reference",
+  "end-of-tenancy-page": "End of tenancy — older page reference",
+};
+const positionPageLabel = (usage: MediaUsage) => POSITION_PAGE_LABELS[usage.pageKey] || usage.pageLabel;
+
 const api = "/api/search?resource=media";
 
 const field =
@@ -128,6 +140,7 @@ export default function MediaManagerPage() {
   const [history, setHistory] = useState<History[]>([]);
 
   const [editor, setEditor] = useState<MediaAsset | null>(null);
+  const [editorDirty, setEditorDirty] = useState(false);
 
   const [filter, setFilter] = useState("all");
 
@@ -206,6 +219,24 @@ export default function MediaManagerPage() {
     editorContainer.current?.querySelector<HTMLHeadingElement>("h2")?.focus({ preventScroll: true });
     editorContainer.current?.scrollIntoView?.({ block: "start" });
   }, [editor]);
+
+  useEffect(() => {
+    if (!editorDirty) return;
+    const protectReload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", protectReload);
+    return () => window.removeEventListener("beforeunload", protectReload);
+  }, [editorDirty]);
+
+  function leaveEditor(action: () => void) {
+    if (editor && busy) return;
+    if (editorDirty && !window.confirm("Discard your unsaved media details? Choose Cancel to keep editing, or OK to discard them.")) return;
+    setEditorDirty(false);
+    setEditor(null);
+    action();
+  }
 
   useEffect(() => {
     let running = false;
@@ -569,7 +600,7 @@ export default function MediaManagerPage() {
             key={key}
             aria-current={tab === key ? "page" : undefined}
             className={tab === key ? primary : button}
-            onClick={() => setTab(key)}
+            onClick={() => { if (key !== tab) leaveEditor(() => setTab(key)); }}
           >
             {label}
           </button>
@@ -582,6 +613,7 @@ export default function MediaManagerPage() {
           value={topic}
           onChange={(event) => {
             const category = event.target.value as MediaCategory;
+            leaveEditor(() => {
             topicRef.current = category;
             loadVersion.current += 1;
             libraryRef.current = null;
@@ -590,6 +622,7 @@ export default function MediaManagerPage() {
             setTopic(category);
             setPositionPage("all");
             clearTarget();
+            });
           }}
           className={field}
         >
@@ -616,7 +649,7 @@ export default function MediaManagerPage() {
               <label className="mb-5 block max-w-sm font-semibold">Show positions used on
                 <select className={field} value={positionPage} onChange={(e) => setPositionPage(e.target.value)}>
                   <option value="all">All connected pages</option>
-                  {[...new Map(gallerySlots.flatMap(slot => slot.usages).map(usage => [usage.pageKey, usage.pageLabel])).entries()].map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                  {[...new Map(gallerySlots.flatMap(slot => slot.usages).map(usage => [usage.pageKey, positionPageLabel(usage)])).entries()].map(([key, label]) => <option key={key} value={key}>{label}</option>)}
                 </select>
               </label>
               <details className="mb-5 rounded-xl border border-silver-300 bg-white p-4">
@@ -934,9 +967,11 @@ export default function MediaManagerPage() {
               {editor && (
                 <div ref={editorContainer} className="scroll-mt-6">
                 <MetadataEditor
+                  key={editor.id}
                   asset={editor}
                   busy={busy}
-                  onClose={() => setEditor(null)}
+                  onDirtyChange={setEditorDirty}
+                  onClose={() => leaveEditor(() => {})}
                   onSave={(values) =>
                     void run(async () => {
                       await authFetch(`${api}&id=${editor.id}`, {
@@ -946,6 +981,7 @@ export default function MediaManagerPage() {
                           updatedAt: editor.updatedAt,
                         }),
                       });
+                      setEditorDirty(false);
                       setEditor(null);
                       setNotice("Caption and details saved.");
                       await load();
@@ -1016,7 +1052,7 @@ export default function MediaManagerPage() {
                           <button
                             className={button}
                             disabled={busy}
-                            onClick={() => setEditor(asset)}
+                            onClick={() => { if (asset.id !== editor?.id) leaveEditor(() => setEditor(asset)); }}
                           >
                             Edit caption & details
                           </button>
@@ -1160,7 +1196,7 @@ function DefaultPhoto({ usages }: { usages: MediaUsage[] }) {
 
 function UsageList({ usages, heading = "Used on" }: { usages: MediaUsage[]; heading?: string }) {
   const visibleUsages = [...new Map(usages.map((usage) => [
-    JSON.stringify([usage.pageLabel, usage.componentLabel]), usage,
+    JSON.stringify([positionPageLabel(usage), usage.componentLabel]), usage,
   ])).values()];
   return (
     <div className="mt-3">
@@ -1169,7 +1205,7 @@ function UsageList({ usages, heading = "Used on" }: { usages: MediaUsage[]; head
         <ul className="mt-1 list-disc pl-5 text-sm text-navy-700">
           {visibleUsages.map((usage) => (
             <li key={usage.key}>
-              {usage.pageLabel} · {usage.componentLabel}
+              {positionPageLabel(usage)} · {usage.componentLabel}
               {PAGE_PATHS[usage.pageKey] && <a className="ml-2 inline-block underline" href={`${PUBLIC_SITE}${PAGE_PATHS[usage.pageKey]}`} target="_blank" rel="noopener noreferrer">View on website</a>}
             </li>
           ))}
@@ -1258,11 +1294,13 @@ function MetadataEditor({
   busy,
   onClose,
   onSave,
+  onDirtyChange,
 }: {
   asset: MediaAsset;
   busy: boolean;
   onClose: () => void;
   onSave: (values: Record<string, string>) => void;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
   const [values, setValues] = useState({
     title: asset.title,
@@ -1277,6 +1315,8 @@ function MetadataEditor({
   const [captionNotice, setCaptionNotice] = useState("");
   const suggestions = mediaCaptionPresets(values.category, values.beforeAfter, asset.mediaType);
   const suggestion = suggestions.find((item) => item.id === presetId) || suggestions[0];
+  const dirty = Object.entries(values).some(([key, value]) => value !== asset[key as keyof typeof values]);
+  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
 
   useEffect(() => {
     setValues({
@@ -1437,7 +1477,7 @@ function MetadataEditor({
         <button disabled={busy} className={primary}>
           Save details
         </button>
-        <button type="button" className={button} onClick={onClose}>
+        <button type="button" disabled={busy} className={button} onClick={onClose}>
           Close editor
         </button>
       </div>

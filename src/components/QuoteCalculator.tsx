@@ -3,7 +3,7 @@ import { PROPERTY_CARPET_BUNDLE_SCOPE } from '../../shared/carpetBundleScope.js'
 import { BUILDERS_GUIDE_HREF, BUILDERS_QUOTE_HREF } from '../../shared/afterBuildersGuide.js';
 import GoogleBadge from './GoogleBadge';
 import ServiceDecisionTrust from './ServiceDecisionTrust';
-import { readQuoteBasket, saveQuoteBasket, clearQuoteBasket, restoreShape } from '../lib/quoteBasket';
+import { readQuoteBasket, saveQuoteBasket, clearQuoteBasket, restoreShape, QUOTE_BASKET_RESUME_EVENT } from '../lib/quoteBasket';
 import { useState, useCallback, useRef, useEffect, useId, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { trackBookingInitiated, trackFunnelStep, trackQuoteStepCompleted, type QuoteAnalyticsService } from '../lib/analytics';
@@ -215,7 +215,7 @@ interface Props {
   // service pages use. None of these change pricing or the booking payload.
   homepageMode?:            boolean;
   homepageService?:         HomepageQuoteService | null;
-  onHomepageServiceChange?: (service: HomepageQuoteService) => void;
+  onHomepageServiceChange?: (service: HomepageQuoteService | null) => void;
 }
 
 // ─── Shared counter widget ────────────────────────────────────────────────────
@@ -334,7 +334,27 @@ function getRestoreConfig(routeState: unknown): BookingSelection['quoteConfig'] 
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function QuoteCalculator({
+export default function QuoteCalculator(props: Props = {}) {
+  const { onHomepageServiceChange } = props;
+  const [resume, setResume] = useState(0);
+  useEffect(() => {
+    const restore = (event: Event) => {
+      event.preventDefault();
+      // Clear the parent's explicit choice too: otherwise clicking the same
+      // service card after resuming a different basket would not change its key.
+      onHomepageServiceChange?.(null);
+      setResume(previous => previous + 1);
+    };
+    window.addEventListener(QUOTE_BASKET_RESUME_EVENT, restore);
+    return () => window.removeEventListener(QUOTE_BASKET_RESUME_EVENT, restore);
+  }, [onHomepageServiceChange]);
+  // Remount just the calculator when the basket is deliberately resumed. A
+  // document reload would discard the only copy when browser storage is blocked.
+  return <QuoteCalculatorForm {...props} key={resume}
+    homepageService={resume ? null : props.homepageService} />;
+}
+
+function QuoteCalculatorForm({
   onBook,
   promoCode,
   aboveFold = false,

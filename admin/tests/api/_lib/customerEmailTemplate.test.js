@@ -1,8 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import { validateCustomerEmail, buildCustomerEmail } from '../../../api/_lib/customerEmailTemplate.js';
+import { GOOGLE_REVIEW_BUTTON, GOOGLE_REVIEW_URL } from '../../../../shared/googleReview.js';
 const settings = { tradingName: 'VVE Clean', legalName: 'VVE Limited', companyNumber: '17234391', phone: '020 8050 2233' };
 const input = { recipient: 'client@example.com', subject: 'Your quotation', body: 'Good morning,\n\nPlease find our quotation.\n\nKind regards,\nNavid', style: 'simple' };
 describe('customer correspondence templates', () => {
+  it('renders only the fixed Google review token as a branded button and readable text link', () => {
+    const email = buildCustomerEmail({ ...input, style: 'branded', body: `Hi P Munt,\n\nPlease share your honest feedback.\n\n${GOOGLE_REVIEW_BUTTON}` }, settings);
+    expect(email.html).toContain(`href="${GOOGLE_REVIEW_URL}"`);
+    expect(email.html).toContain('>Leave a Google review</a>');
+    expect(email.text).toContain(`Leave a Google review: ${GOOGLE_REVIEW_URL}`);
+    expect(email.text).not.toContain('[Leave a Google review]');
+    const hostile = buildCustomerEmail({ ...input, body: '[Leave a Google review](javascript:alert(1))\n\n[Leave a Google review](https://example.com/)' }, settings);
+    expect(hostile.html).not.toContain('href="javascript:');
+    expect(hostile.html).not.toContain('href="https://example.com/');
+  });
   it('keeps a personal email simple with a contact reply footer and text alternative', () => {
     const email = buildCustomerEmail(input, settings);
     expect(email.html).toContain('Good morning,');

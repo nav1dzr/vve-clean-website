@@ -16,6 +16,7 @@ const library = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.spyOn(window, "confirm").mockReturnValue(false);
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   mocks.fetch.mockImplementation(async (_url, init) =>
     init
@@ -339,6 +340,47 @@ async function openCaptionEditor(asset: MediaAsset = readyAsset) {
 }
 
 describe("media manager guidance and caption suggestions", () => {
+  it("keeps changed details on close, tab or service switch until discard is confirmed", async () => {
+    const editor = await openCaptionEditor({ ...readyAsset, title: "Saved title", altText: "Saved description" });
+    fireEvent.change(editor.getByLabelText("Title shown on the website"), { target: { value: "My unsaved title" } });
+    fireEvent.click(editor.getByRole("button", { name: "Close editor" }));
+    expect(editor.getByLabelText("Title shown on the website")).toHaveValue("My unsaved title");
+    fireEvent.click(screen.getByRole("button", { name: "Shared gallery positions" }));
+    expect(editor.getByLabelText("Title shown on the website")).toHaveValue("My unsaved title");
+    fireEvent.change(screen.getAllByLabelText("Service")[0], { target: { value: "sofa-upholstery" } });
+    expect(screen.getAllByLabelText("Service")[0]).toHaveValue("carpet");
+    expect(mocks.fetch.mock.calls.every(([, init]) => !init)).toBe(true);
+    vi.mocked(window.confirm).mockReturnValue(true);
+    fireEvent.click(editor.getByRole("button", { name: "Close editor" }));
+    expect(screen.queryByRole("form", { name: "Media caption and details" })).not.toBeInTheDocument();
+    expect(mocks.fetch.mock.calls.every(([, init]) => !init)).toBe(true);
+  });
+
+  it("warns before reload only while media details are changed", async () => {
+    const editor = await openCaptionEditor({ ...readyAsset, title: "Saved title" });
+    const cleanReload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(cleanReload);
+    expect(cleanReload.defaultPrevented).toBe(false);
+    fireEvent.change(editor.getByLabelText("Title shown on the website"), { target: { value: "Unsaved title" } });
+    const dirtyReload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(dirtyReload);
+    expect(dirtyReload.defaultPrevented).toBe(true);
+    fireEvent.change(editor.getByLabelText("Title shown on the website"), { target: { value: "Saved title" } });
+    fireEvent.click(editor.getByRole("button", { name: "Close editor" }));
+    expect(window.confirm).not.toHaveBeenCalled();
+  });
+
+  it("does not replace an unsaved editor with another photo without confirmation", async () => {
+    mocks.fetch.mockResolvedValue({ ...library, assets: [{ ...readyAsset, title: "First" }, { ...readyAsset, id: "second", title: "Second" }] });
+    render(<MediaManagerPage />);
+    fireEvent.click((await screen.findAllByRole("button", { name: "Edit caption & details" }))[0]);
+    fireEvent.change(screen.getByLabelText("Title shown on the website"), { target: { value: "First edit" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit caption & details" })[1]);
+    expect(screen.getByLabelText("Title shown on the website")).toHaveValue("First edit");
+    vi.mocked(window.confirm).mockReturnValue(true);
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit caption & details" })[1]);
+    expect(screen.getByLabelText("Title shown on the website")).toHaveValue("Second");
+  });
   it("starts with uploads and explains all three publishing steps", async () => {
     render(<MediaManagerPage />);
     await screen.findByRole("heading", { name: "Upload to Carpet" });
@@ -410,6 +452,22 @@ describe("media manager guidance and caption suggestions", () => {
 
 
 describe("visual publication guidance", () => {
+  it("distinguishes the current service page from its older stored reference", async () => {
+    const usages = [
+      { key: "old", pageKey: "carpet-page", pageLabel: "Carpet Service", componentLabel: "Results" },
+      { key: "current", pageKey: "carpet-main-results", pageLabel: "Carpet Service", componentLabel: "Results" },
+    ];
+    mocks.fetch.mockResolvedValue({ ...library, gallerySlots: [{ id: "pair", topicKey: "carpet", code: "BA01", kind: "before_after", label: "Pair 1", sortOrder: 1, assignments: [], usages }] });
+    render(<MediaManagerPage />);
+    await screen.findByRole("heading", { name: "Upload to Carpet" });
+    fireEvent.click(screen.getByRole("button", { name: "Shared gallery positions" }));
+    const filter = screen.getByLabelText("Show positions used on");
+    expect(within(filter).getByRole("option", { name: "Carpet cleaning page" })).toHaveValue("carpet-main-results");
+    expect(within(filter).getByRole("option", { name: "Carpet — older page reference" })).toHaveValue("carpet-page");
+    fireEvent.change(filter, { target: { value: "carpet-main-results" } });
+    expect(screen.getByRole("heading", { name: "Pair 1" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View on website" })).toHaveAttribute("href", "https://www.vveclean.co.uk/carpet-cleaning-london#results");
+  });
   it("shows the built-in homepage image until a managed image is assigned", async () => {
     mocks.fetch.mockResolvedValue({ ...library, websiteSlots: [{ id:"home-slot",key:"homepage-hero",pageLabel:"Homepage",purposeLabel:"First carousel photo",description:"",sortOrder:1, assignments: [], usages: [{key:"home", pageKey:"homepage-hero-image",pageLabel:"Homepage",componentLabel:"First carousel photo"}] }] });
     render(<MediaManagerPage />);

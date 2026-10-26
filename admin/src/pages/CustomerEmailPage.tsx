@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { authFetch } from '../lib/authFetch';
 import { useAuth } from '../auth/useAuth';
 import { clearCustomerEmailDraft, readCustomerEmailDraft, saveCustomerEmailDraft, type CustomerEmailDraft } from '../lib/customerEmailDraft';
 import { INVOICE_RECOVERY_CLEARED_EVENT } from '../lib/invoiceDraftRecovery';
+import { containsReviewLink, hasReviewRecipient, reviewRequestDraft } from '../lib/reviewRequestDraft';
+import CopyReviewLink from '../components/CopyReviewLink';
 
 interface EmailRecord extends CustomerEmailDraft { status: 'draft' | 'sending' | 'accepted' | 'uncertain'; created_at: string; accepted_at: string | null }
 interface EmailPreview { email: EmailRecord; html: string; text: string }
@@ -20,6 +22,7 @@ export default function CustomerEmailPage() {
   return <Composer key={admin.id + ':' + id} customerId={id} userId={admin.id} />;
 }
 function Composer({ customerId, userId }: { customerId: string; userId: string }) {
+  const [searchParams] = useSearchParams();
   const [draft, setDraft] = useState(() => readCustomerEmailDraft(userId, customerId) || blank());
   const [customer, setCustomer] = useState<{ name: string; email: string | null } | null>(null);
   const [history, setHistory] = useState<EmailRecord[]>([]);
@@ -32,12 +35,18 @@ function Composer({ customerId, userId }: { customerId: string; userId: string }
   const [storageWarning, setStorageWarning] = useState(false);
   const [result, setResult] = useState<EmailRecord | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [completedWork, setCompletedWork] = useState(false);
+  const [replaceDraft, setReplaceDraft] = useState(false);
   const active = useRef(true);
   const allowedToSave = useRef(true);
   const draftRef = useRef(draft);
   const busyRef = useRef(false);
   draftRef.current = draft;
   const endpoint = '/api/customers/' + customerId + '?action=emails';
+  const reviewEmail = containsReviewLink(draft.body);
+  const previousReview = history.find(row => row.id !== draft.id && containsReviewLink(row.body) && row.status !== 'draft');
+  const hasWorkingMessage = Boolean(draft.subject.trim() || draft.body.trim());
 
   useEffect(() => {
     active.current = true;
@@ -52,6 +61,7 @@ function Composer({ customerId, userId }: { customerId: string; userId: string }
     void authFetch<History>(endpoint).then(data => {
       if (!active.current) return;
       setHistory(data.emails); setConfigured(data.sendingConfigured);
+      setHistoryLoaded(true);
       const previous = data.emails.find(row => row.id === draftRef.current.id);
       if (previous && previous.status !== 'draft') {
         setResult(previous);
@@ -68,10 +78,15 @@ function Composer({ customerId, userId }: { customerId: string; userId: string }
 
   function edit(patch: Partial<CustomerEmailDraft>) {
     setDraft(value => ({ ...value, ...patch, id: crypto.randomUUID() }));
-    setPreview(null); setConfirm(false); setResult(null); setNotice('');
+    setPreview(null); setConfirm(false); setResult(null); setNotice(''); setReplaceDraft(false);
+  }
+  function startDraft(next: CustomerEmailDraft, message = '') {
+    setDraft(next); setPreview(null); setResult(null); setConfirm(false); setNotice(message);
+    // These approvals belong to the previous working draft, not the next one.
+    setReplaceDraft(false); setCompletedWork(false);
   }
   async function review() {
-    if (busyRef.current) return;
+    if (busyRef.current || (reviewEmail && !completedWork)) return;
     busyRef.current = true; setBusy(true); setError(''); setNotice('');
     const current = draftRef.current;
     try {
@@ -84,7 +99,7 @@ function Composer({ customerId, userId }: { customerId: string; userId: string }
     finally { busyRef.current = false; if (active.current) setBusy(false); }
   }
   async function send() {
-    if (!preview || !confirm || busyRef.current) return;
+    if (!preview || !confirm || busyRef.current || (reviewEmail && !completedWork)) return;
     busyRef.current = true; setBusy(true); setError(''); setNotice('');
     try {
       const data = await authFetch<{ email: EmailRecord; warning?: string }>(endpoint, { method: 'POST', body: JSON.stringify({ operation: 'send', id: preview.email.id, confirmedRecipient: preview.email.recipient }) });
@@ -104,6 +119,7 @@ function Composer({ customerId, userId }: { customerId: string; userId: string }
       const data = await authFetch<History>(endpoint);
       if (!active.current) return;
       setHistory(data.emails); setConfigured(data.sendingConfigured);
+      setHistoryLoaded(true);
       if (result) {
         const latest = data.emails.find(row => row.id === result.id);
         if (latest) {
@@ -122,6 +138,18 @@ function Composer({ customerId, userId }: { customerId: string; userId: string }
     {notice && <p role="status" className="mb-4 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-navy-800">{notice}</p>}
     {storageWarning && <p role="status" className="mb-4 text-sm text-amber-800">This browser cannot keep a working copy. Use Save draft & preview before leaving the page.</p>}
     {!configured && loaded && <p className="mb-4 text-sm text-amber-800">Sending is unavailable until email storage and the existing mail connection are ready. You can keep editing.</p>}
+    <details open={searchParams.get('template') === 'review' || reviewEmail} className="mb-5 rounded-xl border border-sky-200 bg-sky-50 p-4">
+      <summary className="cursor-pointer font-semibold text-navy-950">Prepare a Google review email</summary>
+      <p className="mt-3 text-sm text-navy-700">Use this for a real completed clean, including work arranged by phone. It asks for honest feedback, without requesting a particular rating. The template is editable and uses the usual preview and Send steps.</p>
+      <p className="mt-2 text-sm text-navy-700">Check previous correspondence before sending. This shortcut does not track all review requests across jobs, devices or other inboxes.</p>
+      <div className="mt-3"><CopyReviewLink /></div>
+      {!hasReviewRecipient(draft.recipient) && <p className="mt-3 text-sm text-navy-700">Enter a checked customer email in To below, or use Copy Google review link. An internal email address is not a substitute.</p>}
+      {!historyLoaded && <p className="mt-3 text-sm text-navy-700">Email history must load before preparing a review template.</p>}
+      {previousReview && <p role="status" className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">A previous review email appears in the recent history: {statusLabel[previousReview.status]}. Check its date and your Sent mail before preparing another request. This checks the latest 20 composer records only, not other inboxes or all past requests.</p>}
+      <label className="mt-3 flex items-start gap-3 text-sm text-navy-900"><input type="checkbox" className="mt-1" checked={completedWork} disabled={busy || !!result || !loaded} onChange={event => setCompletedWork(event.target.checked)} /><span>I have completed real cleaning work for this customer and checked that this is the right person to ask. This is not a test or cancelled job.</span></label>
+      {hasWorkingMessage && <label className="mt-3 flex items-start gap-3 text-sm text-navy-900"><input type="checkbox" className="mt-1" checked={replaceDraft} disabled={busy || !!result} onChange={event => setReplaceDraft(event.target.checked)} /><span>Replace my current subject and message with the review template. Saved previews stay in the history.</span></label>}
+      <button type="button" disabled={busy || !!result || !loaded || !historyLoaded || !completedWork || !hasReviewRecipient(draft.recipient) || (hasWorkingMessage && !replaceDraft)} onClick={() => { if (!customer) return; edit(reviewRequestDraft(customer.name)); setNotice('Review wording added to your working copy. Edit it if needed, then save and check the preview. Nothing has been sent.'); }} className="mt-4 min-h-11 rounded-lg border border-sky-700 px-4 py-2 text-sm font-semibold text-sky-800 disabled:opacity-50">Use review template</button>
+    </details>
     <div className="rounded-2xl border border-silver-200 bg-white p-4 sm:p-6">
       <fieldset disabled={busy || !!result || !loaded} className="space-y-4 disabled:opacity-70">
         <label className="block text-sm font-medium text-navy-900">To<input className={'mt-1 ' + fieldClass} type="email" autoComplete="off" value={draft.recipient} maxLength={254} onChange={event => edit({ recipient: event.target.value })} /></label>
@@ -131,16 +159,16 @@ function Composer({ customerId, userId }: { customerId: string; userId: string }
         <details className="text-sm text-navy-700"><summary className="cursor-pointer py-2 font-medium">Formatting help</summary><p className="mt-2">Normal paragraphs work as they are. Use **bold**, # for a heading, and - for a bullet point. Tables pasted from ChatGPT using | columns | also work. HTML code is shown as text. Your wording and prices are not rewritten automatically.</p></details>
       </fieldset>
       <p className="mt-3 text-xs text-navy-600">Your working copy stays in this browser session for up to 24 hours and is cleared on sign-out. Saved previews remain in this customer's email history.</p>
-      {!result && <button type="button" disabled={busy || !loaded || !draft.recipient.trim() || !draft.subject.trim() || !draft.body.trim()} onClick={() => void review()} className="mt-5 min-h-11 rounded-lg bg-navy-950 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">{busy ? 'Please wait…' : 'Save draft & preview'}</button>}
+      {!result && <button type="button" disabled={busy || !loaded || !draft.recipient.trim() || !draft.subject.trim() || !draft.body.trim() || (reviewEmail && !completedWork)} onClick={() => void review()} className="mt-5 min-h-11 rounded-lg bg-navy-950 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">{busy ? 'Please wait…' : 'Save draft & preview'}</button>}
     </div>
     {preview && <section aria-label="Email preview" className="mt-6">
       <h2 className="text-lg font-semibold text-navy-950">Customer preview</h2><p className="mt-1 text-sm text-navy-700">To: {preview.email.recipient}<br />Subject: {preview.email.subject}</p>
       <div className="mt-4 overflow-hidden rounded-xl border border-silver-300 bg-white" dangerouslySetInnerHTML={{ __html: preview.html }} />
-      {!result && <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4"><label className="flex items-start gap-3 text-sm text-navy-900"><input type="checkbox" className="mt-1" checked={confirm} disabled={busy} onChange={event => setConfirm(event.target.checked)} /><span>I have checked the recipient, wording, prices and terms. Send this email to <strong>{preview.email.recipient}</strong>.</span></label><button type="button" disabled={!confirm || busy || !configured} onClick={() => void send()} className="mt-4 min-h-11 rounded-lg bg-sky-700 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">{busy ? 'Sending…' : 'Send email'}</button></div>}
+      {!result && <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4"><label className="flex items-start gap-3 text-sm text-navy-900"><input type="checkbox" className="mt-1" checked={confirm} disabled={busy} onChange={event => setConfirm(event.target.checked)} /><span>I have checked the recipient, wording, prices and terms. Send this email to <strong>{preview.email.recipient}</strong>.</span></label><button type="button" disabled={!confirm || busy || !configured || (reviewEmail && !completedWork)} onClick={() => void send()} className="mt-4 min-h-11 rounded-lg bg-sky-700 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">{busy ? 'Sending…' : 'Send email'}</button></div>}
     </section>}
-    {result && <section role="status" className="mt-6 rounded-xl border border-silver-300 bg-white p-4"><h2 className="font-semibold text-navy-950">{statusLabel[result.status]}</h2><p className="mt-2 text-sm text-navy-700">{result.status === 'accepted' ? 'The mail provider accepted this message. This does not confirm delivery or that the customer has read it.' : 'Do not send another copy until you have checked the status and Sent mail. We will not automatically retry this message.'}</p><button className={'mt-3 ' + buttonClass} onClick={() => void refreshHistory()}>Check sending status</button>{result.status === 'accepted' && <button className={'ml-2 mt-3 ' + buttonClass} onClick={() => { setDraft({ ...blank(), recipient: customer?.email || '' }); setPreview(null); setResult(null); setConfirm(false); setNotice(''); }}>Write another email</button>}</section>}
+    {result && <section role="status" className="mt-6 rounded-xl border border-silver-300 bg-white p-4"><h2 className="font-semibold text-navy-950">{statusLabel[result.status]}</h2><p className="mt-2 text-sm text-navy-700">{result.status === 'accepted' ? 'The mail provider accepted this message. This does not confirm delivery or that the customer has read it.' : 'Do not send another copy until you have checked the status and Sent mail. We will not automatically retry this message.'}</p><button className={'mt-3 ' + buttonClass} onClick={() => void refreshHistory()}>Check sending status</button>{result.status === 'accepted' && <button className={'ml-2 mt-3 ' + buttonClass} onClick={() => startDraft({ ...blank(), recipient: customer?.email || '' })}>Write another email</button>}</section>}
     <section className="mt-8"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold text-navy-950">Email history</h2><button className={buttonClass} onClick={() => void refreshHistory()}>Refresh history</button></div><p className="mt-1 text-xs text-navy-600">The latest 20 drafts and sending attempts from this composer. Customer replies arrive in your contact inbox.</p>
-      <ul className="mt-4 space-y-3">{history.map(row => <li key={row.id} className="rounded-xl border border-silver-200 bg-white p-4"><p className="break-words font-semibold text-navy-950">{row.subject}</p><p className="mt-1 break-words text-sm text-navy-700">{row.recipient} · {statusLabel[row.status]}</p><p className="mt-1 text-xs text-navy-600">{new Date(row.created_at).toLocaleString('en-GB')}</p>{row.status === 'draft' && !result && <button className={'mt-3 ' + buttonClass} disabled={busy} onClick={() => { setDraft({ id: row.id, recipient: row.recipient, subject: row.subject, body: row.body, style: row.style }); setPreview(null); setConfirm(false); setNotice('Draft opened. Save draft & preview before sending.'); }}>Open draft</button>}</li>)}</ul>
+      <ul className="mt-4 space-y-3">{history.map(row => <li key={row.id} className="rounded-xl border border-silver-200 bg-white p-4"><p className="break-words font-semibold text-navy-950">{row.subject}</p><p className="mt-1 break-words text-sm text-navy-700">{row.recipient} · {statusLabel[row.status]}</p><p className="mt-1 text-xs text-navy-600">{new Date(row.created_at).toLocaleString('en-GB')}</p>{row.status === 'draft' && !result && <button className={'mt-3 ' + buttonClass} disabled={busy} onClick={() => startDraft({ id: row.id, recipient: row.recipient, subject: row.subject, body: row.body, style: row.style }, 'Draft opened. Save draft & preview before sending.')}>Open draft</button>}</li>)}</ul>
       {history.length === 0 && <p className="mt-4 text-sm text-navy-600">No saved emails from this composer yet.</p>}
     </section>
   </div>;

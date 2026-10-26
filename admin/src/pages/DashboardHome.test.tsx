@@ -112,6 +112,6 @@ describe('DashboardHome', () => {
     authFetchMock.mockResolvedValue({ ...emptySummary, unscheduledCount: 4 });
     renderDashboard();
 
-    expect(await screen.findByText(/4 bookings without a/)).toBeInTheDocument();
+    expect(await screen.findByText(/4 open bookings without a/)).toBeInTheDocument();
   });
 });

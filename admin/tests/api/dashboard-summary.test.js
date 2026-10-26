@@ -106,11 +106,11 @@ describe('GET /api/dashboard-summary', () => {
     expect(result.upcoming.bookings.map(row => row.id)).toEqual(['tomorrow']);
   });
 
-  it('excludes cancelled bookings only from operational queues, preserving history and financial counts', async () => {
+  it('excludes completed and cancelled bookings from operational queues, preserving history and financial counts', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-15T12:00:00.000Z'));
     verifyAdminRequestMock.mockResolvedValue({ ok: true });
-    const statuses = ['new', 'confirmed', 'scheduled', 'in_progress', 'completed', 'rescheduled', 'no_show', 'cancelled'];
+    const statuses = ['completed', 'cancelled', 'new', 'confirmed', 'scheduled', 'in_progress', 'rescheduled', 'no_show'];
     const rows = [null, '2026-10-15', '2026-10-16'].flatMap((date, index) => statuses.map(status => ({
       ...cardRow, id: `${index}-${status}`, service_date: date, status,
       balance_status: 'outstanding',
@@ -120,10 +120,12 @@ describe('GET /api/dashboard-summary', () => {
     await handler({ method: 'GET', headers: {} }, res);
     expect(res.statusCode).toBe(200);
     const result = JSON.parse(res.body);
-    expect(result.today.count).toBe(7);
-    expect(result.upcoming.count).toBe(7);
-    expect(result.unscheduledCount).toBe(7);
-    expect([...result.today.bookings, ...result.upcoming.bookings].every(row => row.status !== 'cancelled')).toBe(true);
+    expect(result.today.count).toBe(6);
+    expect(result.upcoming.count).toBe(6);
+    expect(result.unscheduledCount).toBe(6);
+    expect([...result.today.bookings, ...result.upcoming.bookings].every(row => !['cancelled', 'completed'].includes(row.status))).toBe(true);
+    expect(result.recent.bookings.map(row => row.status)).toContain('completed');
+    expect(result.recent.bookings.map(row => row.status)).toContain('cancelled');
     expect(result.recent.count).toBe(24);
     expect(result.depositsPaid.count).toBe(24);
     expect(result.outstandingBalances).toEqual({ count: 24, dataAvailable: true });

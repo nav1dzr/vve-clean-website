@@ -8,7 +8,8 @@ import { ROUTE_READY_EVENT } from '../lib/routeReady';
 // including a Link/navigate() to a same-page or cross-page "#quote" anchor,
 // which React Router intercepts and never lets the browser scroll natively.
 export default function ScrollToTop() {
-  const { pathname, hash } = useLocation();
+  const { pathname, hash, key } = useLocation();
+  const hashNavigationKey = hash ? key : null;
 
   useEffect(() => {
     applyRouteMetadata(pathname);
@@ -34,7 +35,9 @@ export default function ScrollToTop() {
       clearTimeout(timer);
       window.removeEventListener(ROUTE_READY_EVENT, focusDestination);
     };
-  }, [pathname, hash]);
+  // A repeated CTA may navigate to the same path and hash. Its new router key
+  // still represents a deliberate navigation and must scroll/focus again.
+  }, [pathname, hash, hashNavigationKey]);
 
   return null;
 }

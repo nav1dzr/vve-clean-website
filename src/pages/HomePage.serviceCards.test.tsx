@@ -121,16 +121,17 @@ describe('HomePage — fresh visit', () => {
     expect(q.queryByText(/Request booking/i)).not.toBeInTheDocument();
   });
 
-  it('shows three service photo cards and matching estimate destinations above the quote', () => {
+  it('shows four main services with real photos where available and matching quote destinations', () => {
     renderHome();
     const grid = cardGrid();
-    for (const title of ['Carpet cleaning', 'Sofa & upholstery cleaning', 'End of tenancy cleaning']) {
+    for (const title of ['Carpet cleaning', 'Sofa & upholstery cleaning', 'End of tenancy cleaning', 'After builders cleaning']) {
       expect(grid.getByText(title)).toBeInTheDocument();
     }
-    expect(grid.getAllByRole('article')).toHaveLength(3);
+    expect(grid.getAllByRole('article')).toHaveLength(4);
     expect(grid.queryByText('Most booked')).not.toBeInTheDocument();
     expect(document.getElementById('services')?.querySelectorAll('img')).toHaveLength(3);
     expect(grid.getAllByRole('link', { name: 'Build my estimate →' }).map((link) => link.getAttribute('href'))).toEqual(['/carpet-cleaning-london#quote', '/sofa-cleaning-london#quote', '/end-of-tenancy-cleaning-london#quote']);
+    expect(grid.getByRole('link', { name: 'Get my cleaning quote →' })).toHaveAttribute('href', '/after-builders-cleaning-london#builders-quote');
 
     // Cards come first in the document, the quote below them.
     const cards = document.getElementById('services') as HTMLElement;

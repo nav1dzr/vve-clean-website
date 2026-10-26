@@ -1,4 +1,4 @@
-// Shared checked Google rating. Public profile observed 8 September 2026: 5.0, 26 reviews.
+// Shared checked Google rating. Public profile observed 26 October 2026: 4.9, 32 reviews.
 // Runtime badges can refresh through the official Places API; never label a snapshot as live.
 export interface VerifiedGoogleRating {
   /** The star rating shown on the live Google Business Profile. */
@@ -24,7 +24,7 @@ export interface VerifiedGoogleRating {
  * the code that restores the number once it is verified.
  */
 function readVerifiedRating(): VerifiedGoogleRating | null {
-  return { value: 5.0, count: 26, verifiedOn: '2026-09-08' };
+  return { value: 4.9, count: 32, verifiedOn: '2026-10-26' };
 }
 
 export const VERIFIED_GOOGLE_RATING: VerifiedGoogleRating | null = readVerifiedRating();

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { beforeAll, beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import BasketButton from './BasketButton';
 import QuoteCalculator from './QuoteCalculator';
 import { BookingProvider } from '../context/BookingContext';
@@ -17,7 +17,7 @@ beforeEach(() => {
   window.history.replaceState({ marker: 'keep router state' }, '', '/#quote');
   clearQuoteBasket();
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); clearQuoteBasket(); });
 
 function observeReload() {
   const browser = window;
@@ -52,10 +52,10 @@ async function openBasket(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('BasketButton — deliberate quote restoration and reset', () => {
-  it('reloads a same-page resume and restores saved carpet items after a different service was chosen', async () => {
+  it('resumes saved carpet items after a different service was chosen without reloading the page', async () => {
     const user = userEvent.setup();
     const reload = observeReload();
-    const first = render(<HomeQuote />);
+    render(<HomeQuote />);
     await user.selectOptions(screen.getByRole('combobox'), 'carpet');
     await user.click(screen.getByRole('button', { name: 'Increase Bedroom quantity' }));
     expect(readQuoteBasket()?.config.carpetCounts).toMatchObject({ bedroom: 1 });
@@ -64,20 +64,21 @@ describe('BasketButton — deliberate quote restoration and reset', () => {
     expect(readQuoteBasket()?.config.deepService).toBe('carpet_upholstery');
     const basket = await openBasket(user);
     await user.click(basket.getByRole('link', { name: 'Continue my quote' }));
-    expect(reload).toHaveBeenCalledOnce();
+    expect(reload).not.toHaveBeenCalled();
     expect(window.history.state).toEqual({ marker: 'keep router state' });
     expect(window.location.href).toMatch(/\/#quote$/);
-    // Model the fresh document after the verified reload boundary.
-    first.unmount();
-    render(<HomeQuote />);
     expect(screen.getByRole('button', { name: 'Decrease Bedroom quantity' })).toBeEnabled();
     expect(screen.getAllByText('£85').length).toBeGreaterThan(0);
+    // Actual HomePage pattern: its external Services choice must not stay stale.
+    await user.click(screen.getByRole('button', { name: 'Choose a new Move-in clean' }));
+    expect(screen.getByRole('button', { name: '2 Bed' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Decrease Bedroom quantity' })).not.toBeInTheDocument();
   });
 
-  it('removes the saved basket and reloads Start into a fresh chooser, clearing the old in-memory service', async () => {
+  it('removes the saved basket and starts a fresh chooser without a document reload', async () => {
     const user = userEvent.setup();
     const reload = observeReload();
-    const first = render(<HomeQuote />);
+    render(<HomeQuote />);
     await user.selectOptions(screen.getByRole('combobox'), 'carpet');
     await user.click(screen.getByRole('button', { name: 'Increase Bedroom quantity' }));
     await user.click(screen.getByRole('button', { name: 'Choose a new Move-in clean' }));
@@ -86,11 +87,59 @@ describe('BasketButton — deliberate quote restoration and reset', () => {
     expect(readQuoteBasket()).toBeNull();
     basket = await openBasket(user);
     await user.click(basket.getByRole('link', { name: 'Start my quote' }));
-    expect(reload).toHaveBeenCalledOnce();
-    first.unmount();
-    render(<HomeQuote />);
+    expect(reload).not.toHaveBeenCalled();
     expect(screen.getByRole('combobox')).toHaveValue('');
     expect(screen.queryByRole('button', { name: 'Increase Bedroom quantity' })).not.toBeInTheDocument();
+  });
+
+  it('keeps a quote usable when saves fail but reads still work, including resume and a new service choice', async () => {
+    const user = userEvent.setup();
+    const reload = observeReload();
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('Full', 'QuotaExceededError'); });
+    render(<HomeQuote />);
+    await user.selectOptions(screen.getByRole('combobox'), 'carpet');
+    await user.click(screen.getByRole('button', { name: 'Increase Bedroom quantity' }));
+    expect(readQuoteBasket()?.config.carpetCounts).toMatchObject({ bedroom: 1 });
+    await user.click(screen.getByRole('button', { name: 'Choose a new Move-in clean' }));
+    await user.click((await openBasket(user)).getByRole('link', { name: 'Continue my quote' }));
+    expect(reload).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Decrease Bedroom quantity' })).toBeEnabled();
+    expect(screen.getAllByText('£85').length).toBeGreaterThan(0);
+    await user.click((await openBasket(user)).getByRole('button', { name: 'Remove saved basket' }));
+    await user.click((await openBasket(user)).getByRole('link', { name: 'Start my quote' }));
+    // The old parent selection was Move-in. Selecting it again must still work.
+    await user.selectOptions(screen.getByRole('combobox'), 'move_in');
+    expect(screen.getByRole('button', { name: '2 Bed' })).toBeInTheDocument();
+  });
+
+  it('keeps campaign query parameters when resuming on the same page', async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, '', '/?utm_source=test#quote');
+    const reload = observeReload();
+    render(<HomeQuote />);
+    await user.selectOptions(screen.getByRole('combobox'), 'carpet');
+    await user.click(screen.getByRole('button', { name: 'Increase Bedroom quantity' }));
+    await user.click((await openBasket(user)).getByRole('link', { name: 'Continue my quote' }));
+    expect(window.location.search).toBe('?utm_source=test');
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('returns to the saved service through client navigation when the basket exists only in memory', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Blocked'); });
+    window.history.replaceState({}, '', '/carpet-cleaning-london');
+    saveQuoteBasket({ kind: 'standard', label: 'Carpet clean', href: '', config: { service: 'deep', deepService: 'carpet_upholstery', carpetCounts: { bedroom: 2 } } });
+    window.history.replaceState({}, '', '/gallery');
+    const reload = observeReload();
+    render(<MemoryRouter initialEntries={['/gallery']}><BookingProvider><BasketButton /><Routes>
+      <Route path="/gallery" element={<p>Exploring the gallery</p>} />
+      <Route path="/carpet-cleaning-london" element={<QuoteCalculator mode="carpet" />} />
+    </Routes></BookingProvider></MemoryRouter>);
+    await user.click((await openBasket(user)).getByRole('link', { name: 'Continue my quote' }));
+    expect(screen.queryByText('Exploring the gallery')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Decrease Bedroom quantity' })).toBeEnabled();
+    expect(screen.getAllByText('£100').length).toBeGreaterThan(0);
+    expect(reload).not.toHaveBeenCalled();
   });
 
   it('sets the quote hash before reloading when the current same-page URL has no fragment', async () => {
