@@ -1,9 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": false,
-  "rewrites": [
-    { "source": "/api/admin-ads-validation", "destination": "/api/booking-management?resource=admin-ads-validation" }
-  ],
   "trailingSlash": false,
   "redirects": [
     {
