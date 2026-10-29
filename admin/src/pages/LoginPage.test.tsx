@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import LoginPage from './LoginPage';
 
 const signInWithPasswordMock = vi.fn();
@@ -19,12 +19,18 @@ vi.mock('../auth/useAuth', () => ({
   useAuth: () => useAuthMock(),
 }));
 
-function renderLoginPage() {
+function Destination() {
+  const location = useLocation();
+  return <div>Returned to {location.pathname}{location.search}{location.hash}</div>;
+}
+
+function renderLoginPage(state?: unknown) {
   return render(
-    <MemoryRouter initialEntries={['/login']}>
+    <MemoryRouter initialEntries={[{ pathname: '/login', state }]}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<div>Dashboard Home</div>} />
+        <Route path="/bookings/:id" element={<Destination />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -34,6 +40,38 @@ describe('LoginPage', () => {
   beforeEach(() => {
     signInWithPasswordMock.mockReset();
     useAuthMock.mockReturnValue({ status: 'unauthenticated' });
+  });
+
+  it.each(['authenticated', 'unauthenticated'])('restores the original page and filters after %s sign-in', async (status) => {
+    useAuthMock.mockReturnValue({ status });
+    signInWithPasswordMock.mockResolvedValue({ error: null });
+    renderLoginPage({ from: { pathname: '/bookings/test-booking', search: '?view=details', hash: '#delivery' } });
+    if (status === 'unauthenticated') {
+      const user = userEvent.setup();
+      await user.type(screen.getByLabelText(/email/i), 'owner@example.com');
+      await user.type(screen.getByLabelText(/password/i), 'test-password');
+      await user.click(screen.getByRole('button', { name: /sign in/i }));
+    }
+    expect(await screen.findByText('Returned to /bookings/test-booking?view=details#delivery')).toBeInTheDocument();
+  });
+
+  it.each(['https://example.com', '//example.com', '/login', '/login/', '/\\example.com', 42])('rejects unsafe return path %s', (pathname) => {
+    useAuthMock.mockReturnValue({ status: 'authenticated' });
+    renderLoginPage({ from: { pathname } });
+    expect(screen.getByText('Dashboard Home')).toBeInTheDocument();
+  });
+
+  it('allows retry after a network failure', async () => {
+    signInWithPasswordMock.mockRejectedValueOnce(new Error('Network failed')).mockResolvedValueOnce({ error: null });
+    const user = userEvent.setup();
+    renderLoginPage();
+    await user.type(screen.getByLabelText(/email/i), 'owner@example.com');
+    await user.type(screen.getByLabelText(/password/i), 'test-password');
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not connect');
+    expect(screen.getByRole('button', { name: /sign in/i })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
+    expect(await screen.findByText('Dashboard Home')).toBeInTheDocument();
   });
 
   it('renders accessible email and password fields and no sign-up link', () => {

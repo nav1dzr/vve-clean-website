@@ -177,7 +177,7 @@ function notificationJob(claim, transport, preview, testInbox) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               chat_id: process.env.TELEGRAM_CHAT_ID,
-              text: `New booking request\n${data.bookingRef}\n${data.fullName} · ${data.phone}\n${data.service}\n${data.date} · ${data.time}\nEstimated total: £${data.totalPrice}\nNo payment was taken. Review and agree the job details, then email the deposit instructions. The booking is confirmed once the deposit is paid.`,
+              text: `New booking request\n${data.bookingRef}\n${data.fullName} · ${data.phone}\n${data.service}\nAddress: ${data.address || "—"}\nPostcode: ${data.postcode || "—"}\n${data.date} · ${data.time}\nEstimated total: £${data.totalPrice}\nNo payment was taken. Review and agree the job details, then email the deposit instructions. The booking is confirmed once the deposit is paid.`,
             }),
           },
         );

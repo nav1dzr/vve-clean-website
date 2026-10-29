@@ -847,6 +847,8 @@ describe("POST /api/create-booking-request", () => {
     const telegramBody = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(telegramBody.chat_id).toBe("test-chat-id");
     expect(telegramBody.text).toMatch(/New booking request/);
+    expect(telegramBody.text).toContain("Address: 12 High Street");
+    expect(telegramBody.text).toContain("Postcode: E8 1AA");
     expect(telegramBody.text).toMatch(
       /No payment was taken.*booking is confirmed once the deposit is paid/s,
     );

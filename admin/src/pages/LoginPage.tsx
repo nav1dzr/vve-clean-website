@@ -7,10 +7,21 @@ import { useAuth } from '../auth/useAuth';
 // whether the failure was a bad password vs. an unknown account.
 const GENERIC_ERROR = 'Invalid email or password.';
 
+function returnAfterSignIn(state: unknown): string {
+  const from = (state as { from?: { pathname?: unknown; search?: unknown; hash?: unknown } } | null)?.from;
+  const pathname = from?.pathname;
+  // Only local CRM paths: never allow an external destination or a login loop.
+  if (!from || typeof pathname !== 'string' || !/^\/(?:[A-Za-z0-9_-]+\/?)*$/.test(pathname) || /^\/login\/?$/.test(pathname)) return '/';
+  const search = typeof from.search === 'string' && /^\?[^#\r\n\\]*$/.test(from.search) ? from.search : '';
+  const hash = typeof from.hash === 'string' && /^#[^\r\n\\]*$/.test(from.hash) ? from.hash : '';
+  return pathname + search + hash;
+}
+
 export default function LoginPage() {
   const { status } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const returnTo = returnAfterSignIn(location.state);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,8 +29,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   if (status === 'authenticated') {
-    const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname || '/';
-    return <Navigate to={from} replace />;
+    return <Navigate to={returnTo} replace />;
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -39,19 +49,21 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: trimmedEmail,
-      password,
-    });
-
-    setSubmitting(false);
-
-    if (signInError) {
-      setError(GENERIC_ERROR);
-      return;
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      });
+      if (signInError) {
+        setError(GENERIC_ERROR);
+        return;
+      }
+      navigate(returnTo, { replace: true });
+    } catch {
+      setError('Could not connect. Please try signing in again.');
+    } finally {
+      setSubmitting(false);
     }
-
-    navigate('/', { replace: true });
   }
 
   return (
