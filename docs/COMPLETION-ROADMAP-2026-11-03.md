@@ -36,11 +36,13 @@ Deliver:
 
 Acceptance: mocked deposit/balance/refund/failed-read/stale-response tests; issued-invoice regression; CRM types/lint/build/full suite; mobile/desktop synthetic component review.
 Files: admin/src/components/BookingBalancePaymentNotice.tsx; admin/src/lib/bookingPaymentReview.ts; admin/src/pages/InvoiceDetailPage.tsx; related tests.
-Status: implemented and validated locally; not pushed, merged or deployed.
+Status: released through approved PR #63, merge 7264263. Both production deployments verified Ready on that source; CRM live bundle contains the new review panel.
 
 Validation: 107 focused tests passed, then the full CRM suite passed with 1,317 tests and zero failures. TypeScript/lint/build passed; one existing Fast Refresh warning and the existing bundle-size warning remain. Synthetic component browser checks verified desktop, 390px layout, full refund and unavailable/retry states. No production provider or customer action was performed. The complete payment allocation/correction workflow remains Phase 1B.
 
-### 1B: Explicit allocation and correction — design before implementation
+### 1B: Explicit allocation and correction — in progress
+
+A read-only preview policy and its synthetic regression matrix are implemented locally. The write transaction, API/UI apply action, receipt reconciliation and manual-bank correction remain unimplemented. See BOOKING-INVOICE-ALLOCATION-DESIGN-2026-11-03.md for the source-provenance, retry, locking, audit and isolated-database gates. No financial production exception is being requested yet.
 
 Owner journey: open payment review > choose an existing payment and its linked invoice > see money already allocated/refunded and proposed resulting totals > explicitly confirm. This links evidence of received money; it never charges the customer or records another receipt of funds.
 
