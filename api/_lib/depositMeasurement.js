@@ -30,11 +30,43 @@ class MeasurementDeliveryError extends Error {
   }
 }
 
+// Unset preserves the existing integration. This release is activated only with
+// request_only plus an explicit cutoff; unknown/partial configuration fails closed.
+export function bookingMeasurementSelection(env = process.env) {
+  const scope = env.BOOKING_MEASUREMENT_SCOPE;
+  const cutoff = env.BOOKING_MEASUREMENT_REQUEST_SINCE;
+  if (!scope && !cutoff) return { scope: 'legacy' };
+  if (scope !== 'request_only' || typeof cutoff !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(cutoff)) return null;
+  const instant = new Date(cutoff);
+  if (!Number.isFinite(instant.getTime()) || instant.toISOString() !== cutoff) return null;
+  return { scope, cutoff };
+}
+
+function inSelection(row, selection) {
+  if (!selection) return false;
+  if (selection.scope === 'legacy') return true;
+  return row.event_name === 'booking_request_submitted' && row.is_test === false &&
+    row.provider === DATA_MANAGER_PROVIDER &&
+    Number.isFinite(Date.parse(row.occurred_at)) && Number.isFinite(Date.parse(row.created_at)) &&
+    Date.parse(row.occurred_at) >= Date.parse(selection.cutoff) &&
+    Date.parse(row.created_at) >= Date.parse(selection.cutoff);
+}
+
+function requireSelected(row) {
+  if (!inSelection(row, bookingMeasurementSelection()))
+    throw new MeasurementDeliveryError('measurement_selection_rejected');
+}
+
 function configured(validateOnly) {
+  const selection = bookingMeasurementSelection();
+  if (!selection) return false;
+  const actionNames = selection.scope === 'request_only'
+    ? [EVENT_ACTION_ENV.booking_request_submitted] : Object.values(EVENT_ACTION_ENV);
   return ["validate", "live"].includes(process.env.BOOKING_MEASUREMENT_MODE) &&
     !(isHostedPreview() && !validateOnly) &&
     REQUIRED_COMMON_ENV.every((name) => Boolean(process.env[name])) &&
-    Object.values(EVENT_ACTION_ENV).every((name) => Boolean(process.env[name]));
+    actionNames.every((name) => Boolean(process.env[name]));
 }
 
 function validationMode() {
@@ -197,6 +229,7 @@ function compatibleMeasurementRow(row) {
 
 export function dataManagerMeasurementPayload(row, { validateOnly = false } = {}) {
   row = compatibleMeasurementRow(row);
+  requireSelected(row);
   if (!Object.hasOwn(EVENT_ACTION_ENV, row.event_name) || row.is_test || row.status !== "sending")
     throw new MeasurementDeliveryError("measurement_record_not_eligible");
   const click = safeAttribution(row.attribution);
@@ -286,6 +319,9 @@ export function createGoogleDataManagerAdapter({
     configured: configured(validateOnly),
     validateOnly,
     async prepare() {
+      if (bookingMeasurementSelection()?.scope === 'request_only' &&
+          (!configured(validateOnly) || (validationMode() && !validateOnly)))
+        throw new MeasurementDeliveryError('measurement_request_mode_disabled');
       // Fail closed even when a caller bypasses the runner or overrides validateOnly.
       if (isHostedPreview() && !validateOnly)
         throw new MeasurementDeliveryError("measurement_preview_live_disabled");
@@ -293,6 +329,7 @@ export function createGoogleDataManagerAdapter({
       return preparedToken;
     },
     async send(row) {
+      requireSelected(row);
       const token = await this.prepare();
       const payload = dataManagerMeasurementPayload(row, { validateOnly });
       const headers = {
@@ -319,6 +356,7 @@ export function createGoogleDataManagerAdapter({
       };
     },
     async check(row) {
+      requireSelected(row);
       const token = await this.prepare();
       const receipt = parseDataManagerAcknowledgement(row.provider_acknowledgement);
       let response;
@@ -431,13 +469,17 @@ export async function deliverBookingMeasurements(db, {
   adapters,
   now = () => new Date(),
 } = {}) {
+  const selection = bookingMeasurementSelection();
+  if (!selection) return { status: 'disabled', processed: 0, submitted: 0, validated: 0, delivered: 0, failed: 0, suppressed: 0 };
   const providers = adapters || {
     [DATA_MANAGER_PROVIDER]: createGoogleDataManagerAdapter({ fetchFn }),
   };
   const available = Object.values(providers).some((adapter) => adapter.configured !== false);
   if (!available) return { status: "disabled", processed: 0, submitted: 0, validated: 0, delivered: 0, failed: 0, suppressed: 0 };
 
-  const { data: rows, error } = await db.rpc("claim_booking_measurements", { p_limit: 10 });
+  const { data: rows, error } = selection.scope === 'request_only'
+    ? await db.rpc('claim_booking_request_measurements', { p_since: selection.cutoff, p_limit: 10 })
+    : await db.rpc('claim_booking_measurements', { p_limit: 10 });
   if (error) throw new MeasurementDeliveryError("measurement_outbox_claim_failed");
   if (!rows?.length) return { status: "idle", processed: 0, submitted: 0, validated: 0, delivered: 0, failed: 0, suppressed: 0 };
 
@@ -447,6 +489,9 @@ export async function deliverBookingMeasurements(db, {
   let failed = 0;
   let suppressed = 0;
   for (const row of rows) {
+    // Defence against a stale/wrong RPC definition: do not send OR mutate an
+    // unrelated row. Filtering belongs in the atomic SQL claim, not here alone.
+    if (!inSelection(row, selection)) throw new MeasurementDeliveryError('measurement_claim_scope_mismatch');
     const deliveryRow = compatibleMeasurementRow(row);
     const adapter = providers[deliveryRow.provider];
     if (!adapter || adapter.configured === false) {
@@ -485,13 +530,13 @@ export async function deliverBookingMeasurements(db, {
           delivered++;
         } else if (result.state === "failed") {
           await mark(db, row, {
-            status: "failed",
+            status: selection.scope === 'request_only' ? 'suppressed' : 'failed',
             claimed_at: null,
-            next_attempt_at: futureAttempt(checkedAt, row.attempts, 15),
+            next_attempt_at: selection.scope === 'request_only' ? null : futureAttempt(checkedAt, row.attempts, 15),
             provider_acknowledgement: String(result.acknowledgement).slice(0, 500),
             last_error: SAFE_ERROR.test(result.error || "") ? result.error : "measurement_processing_failed",
           });
-          failed++;
+          if (selection.scope === 'request_only') suppressed++; else failed++;
         } else {
           await mark(db, row, {
             status: "submitted",
@@ -517,6 +562,7 @@ export async function deliverBookingMeasurements(db, {
       continue;
     }
 
+    let requestDispatchAttempted = false;
     try {
       const beforePrepare = await currentEligibility(db, row);
       if (!beforePrepare.eligible) {
@@ -537,6 +583,7 @@ export async function deliverBookingMeasurements(db, {
         continue;
       }
 
+      requestDispatchAttempted = selection.scope === 'request_only';
       const receipt = await adapter.send(deliveryRow);
       try {
         const sentAt = new Date(typeof now === "function" ? now() : now);
@@ -556,7 +603,8 @@ export async function deliverBookingMeasurements(db, {
         });
       } catch (saveError) {
         // The provider accepted the upload. Leave the record in `sending` so
-        // stale-claim recovery can reconcile it using the same orderId; never
+        // request-only claims quarantine stale sending rows for manual review;
+        // the legacy flow retains its previous recovery behavior. Never
         // overwrite it as a definite provider failure.
         throw saveError;
       }
@@ -568,12 +616,15 @@ export async function deliverBookingMeasurements(db, {
       if (code === "measurement_state_save_failed") throw deliveryError;
       const failedAt = new Date(typeof now === "function" ? now() : now);
       await mark(db, row, {
-        status: "failed",
+        // The provider may have accepted a request even when its response was
+        // lost. Reuse terminal suppressed + an explicit reason (no schema-wide
+        // status change). An operator must reconcile; never auto-replay.
+        status: requestDispatchAttempted ? 'suppressed' : 'failed',
         claimed_at: null,
-        next_attempt_at: futureAttempt(failedAt, row.attempts, 5),
-        last_error: code,
+        next_attempt_at: requestDispatchAttempted ? null : futureAttempt(failedAt, row.attempts, 5),
+        last_error: requestDispatchAttempted ? 'request_send_outcome_unknown' : code,
       });
-      failed++;
+      if (requestDispatchAttempted) suppressed++; else failed++;
     }
   }
   return { status: "processed", processed: rows.length, submitted, validated, delivered, failed, suppressed };
