@@ -16,6 +16,7 @@ const request = (extra = {}) => ({
 function configure() {
   for (const [key, value] of Object.entries({
     BOOKING_MEASUREMENT_SCOPE: 'request_only', BOOKING_MEASUREMENT_REQUEST_SINCE: cutoff,
+    BOOKING_MEASUREMENT_MATCHING: 'click_id_only',
     BOOKING_MEASUREMENT_MODE: 'live', GOOGLE_ADS_CUSTOMER_ID: '1234567890',
     GOOGLE_DATA_MANAGER_CLIENT_ID: 'fixture', GOOGLE_DATA_MANAGER_CLIENT_SECRET: 'fixture',
     GOOGLE_DATA_MANAGER_REFRESH_TOKEN: 'fixture',
@@ -56,14 +57,14 @@ function deliveryDb({ saveFails = false } = {}) {
 describe('request-only reporting boundary', () => {
   it('accepts the exact ISO activation cutoff', () => {
     configure();
-    expect(bookingMeasurementSelection()).toEqual({ scope: 'request_only', cutoff });
+    expect(bookingMeasurementSelection()).toEqual({ scope: 'request_only', cutoff, matching: 'click_id_only' });
   });
   it('preserves unconfigured legacy behavior but rejects partial and unknown selection', () => {
     expect(bookingMeasurementSelection({})).toEqual({ scope: 'legacy' });
     for (const env of [
       { BOOKING_MEASUREMENT_SCOPE: 'all' }, { BOOKING_MEASUREMENT_SCOPE: 'request_only' },
       { BOOKING_MEASUREMENT_REQUEST_SINCE: cutoff },
-      { BOOKING_MEASUREMENT_SCOPE: 'request_only', BOOKING_MEASUREMENT_REQUEST_SINCE: '2026-02-30T00:00:00.000Z' },
+      { BOOKING_MEASUREMENT_SCOPE: 'request_only', BOOKING_MEASUREMENT_MATCHING: 'click_id_only', BOOKING_MEASUREMENT_REQUEST_SINCE: '2026-02-30T00:00:00.000Z' },
     ]) expect(bookingMeasurementSelection(env)).toBeNull();
   });
   it('requires only request action binding and still obeys disabled mode', () => {
@@ -215,5 +216,106 @@ describe('request-only reporting boundary', () => {
     expect((await deliverBookingMeasurements(db, { adapters: { google_data_manager: adapter } })).suppressed).toBe(1);
     expect(db.stored).toMatchObject({ status: 'suppressed', next_attempt_at: null, last_error: 'processing_failed' });
     expect(adapter.send).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('approved click-ID-only request amendment', () => {
+  const hashes = { email_sha256: 'a'.repeat(64), phone_sha256: 'b'.repeat(64) };
+  it.each(['', 'hashes', 'CLICK_ID_ONLY'])('fails closed for missing or unsupported matching %j before claiming', async (matching) => {
+    configure(); vi.stubEnv('BOOKING_MEASUREMENT_MATCHING', matching);
+    const db = { rpc: vi.fn() }; const fetchFn = vi.fn();
+    expect(bookingMeasurementSelection()).toBeNull();
+    expect(createGoogleDataManagerAdapter({ fetchFn }).configured).toBe(false);
+    expect((await deliverBookingMeasurements(db, { fetchFn })).status).toBe('disabled');
+    await expect(createGoogleDataManagerAdapter({ fetchFn }).send(request())).rejects.toThrow('measurement_selection_rejected');
+    expect(db.rpc).not.toHaveBeenCalled(); expect(fetchFn).not.toHaveBeenCalled();
+  });
+  it('does not treat a lone matching flag as legacy configuration', () => {
+    expect(bookingMeasurementSelection({ BOOKING_MEASUREMENT_MATCHING: 'click_id_only' })).toBeNull();
+  });
+  it.each([
+    [{ gclid: 'fixture.g', gbraid: 'fixture.b', wbraid: 'fixture.w' }, { gclid: 'fixture.g' }],
+    [{ gclid: 'invalid space', gbraid: 'fixture.b', wbraid: 'fixture.w' }, { gbraid: 'fixture.b' }],
+    [{ wbraid: 'fixture.w' }, { wbraid: 'fixture.w' }],
+  ])('sends one valid click identifier without hashes or monetary value: %j', (attribution, expected) => {
+    configure();
+    const payload = dataManagerMeasurementPayload(request({ attribution, match_data: hashes }));
+    expect(payload).not.toHaveProperty('encoding');
+    expect(payload.events).toEqual([{
+      adIdentifiers: expected, eventTimestamp: cutoff,
+      transactionId: request().event_key, eventSource: 'WEB',
+    }]);
+    expect(payload.destinations[0].productDestinationId).toBe('111111111');
+    expect(payload.consent).toEqual({ adUserData: 'CONSENT_GRANTED', adPersonalization: 'CONSENT_GRANTED' });
+    expect(JSON.stringify(payload)).not.toContain(hashes.email_sha256);
+    expect(JSON.stringify(payload)).not.toContain(hashes.phone_sha256);
+  });
+  it.each([{}, { gclid: '' }, { gclid: 'bad space' }, { gclid: 'x'.repeat(201) }])('suppresses unmatched request %j before OAuth or ingestion, with a known exclusion reason', async (attribution) => {
+    configure(); const db = deliveryDb(); const fetchFn = vi.fn();
+    Object.assign(db.stored, { attribution, match_data: hashes });
+    expect((await deliverBookingMeasurements(db, { fetchFn })).suppressed).toBe(1);
+    expect(db.stored).toMatchObject({ status: 'suppressed', last_error: 'request_click_id_unavailable', next_attempt_at: null, claimed_at: null });
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(() => dataManagerMeasurementPayload(request({ attribution, match_data: hashes }))).toThrow('request_click_id_unavailable');
+    await expect(createGoogleDataManagerAdapter({ fetchFn }).send(request({ attribution, match_data: hashes }))).rejects.toThrow('request_click_id_unavailable');
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+  it('does not quarantine a known unsent exclusion as an ambiguous upload if its save fails', async () => {
+    configure(); const db = deliveryDb({ saveFails: true }); const fetchFn = vi.fn();
+    db.stored.attribution = {};
+    await expect(deliverBookingMeasurements(db, { fetchFn })).rejects.toThrow('measurement_state_save_failed');
+    expect(fetchFn).not.toHaveBeenCalled(); expect(db.updates).toEqual([]);
+  });
+  it('still polls an already submitted receipt without click data, without uploading it again', async () => {
+    configure(); const db = deliveryDb(); Object.assign(db.stored, { status: 'submitted', attribution: {}, match_data: hashes });
+    const adapter = { prepare: vi.fn(), send: vi.fn(), check: vi.fn().mockResolvedValue({ state: 'delivered', acknowledgement: 'fixture' }) };
+    expect((await deliverBookingMeasurements(db, { adapters: { google_data_manager: adapter } })).delivered).toBe(1);
+    expect(adapter.check).toHaveBeenCalledTimes(1); expect(adapter.send).not.toHaveBeenCalled();
+  });
+  it('keeps matching data in legacy payloads when request-only configuration is absent', () => {
+    configure();
+    for (const key of ['BOOKING_MEASUREMENT_SCOPE', 'BOOKING_MEASUREMENT_REQUEST_SINCE', 'BOOKING_MEASUREMENT_MATCHING']) vi.stubEnv(key, '');
+    const payload = dataManagerMeasurementPayload(request({ attribution: {}, match_data: hashes }));
+    expect(payload.encoding).toBe('HEX');
+    expect(payload.events[0].userData.userIdentifiers).toEqual([{ emailAddress: hashes.email_sha256 }, { phoneNumber: hashes.phone_sha256 }]);
+  });
+  it('validates and ingests the identical click-only payload once even when stored hashes exist', async () => {
+    configure();
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'fixture-token' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ requestId: 'fixture-receipt' }) });
+    await createGoogleDataManagerAdapter({ fetchFn }).send(request({ match_data: hashes }), { beforeLive: vi.fn() });
+    const validation = JSON.parse(fetchFn.mock.calls[1][1].body);
+    const live = JSON.parse(fetchFn.mock.calls[2][1].body);
+    expect(validation).toEqual({ ...live, validateOnly: true });
+    expect(live.events[0]).not.toHaveProperty('userData'); expect(live).not.toHaveProperty('encoding');
+    expect(live.events[0].transactionId).toBe(request().event_key);
+    expect(fetchFn).toHaveBeenCalledTimes(3);
+  });
+  it.each(['matching', 'scope_removed', 'mode', 'cutoff'])('stops live ingest if %s changes during validation', async (change) => {
+    configure();
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'fixture-token' }) })
+      .mockImplementationOnce(async () => {
+        if (change === 'matching') vi.stubEnv('BOOKING_MEASUREMENT_MATCHING', 'hashes');
+        if (change === 'mode') vi.stubEnv('BOOKING_MEASUREMENT_MODE', 'disabled');
+        if (change === 'cutoff') vi.stubEnv('BOOKING_MEASUREMENT_REQUEST_SINCE', '2026-11-01T00:00:00.000Z');
+        if (change === 'scope_removed') for (const key of ['BOOKING_MEASUREMENT_SCOPE', 'BOOKING_MEASUREMENT_REQUEST_SINCE', 'BOOKING_MEASUREMENT_MATCHING']) vi.stubEnv(key, '');
+        return { ok: true, json: async () => ({}) };
+      });
+    await expect(createGoogleDataManagerAdapter({ fetchFn }).send(request(), { beforeLive: vi.fn() })).rejects.toThrow(/measurement_selection_rejected|request_preflight_mode_changed/);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+  it('rechecks matching after the asynchronous final eligibility guard', async () => {
+    configure();
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'fixture-token' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    await expect(createGoogleDataManagerAdapter({ fetchFn }).send(request(), {
+      beforeLive: async () => vi.stubEnv('BOOKING_MEASUREMENT_MATCHING', ''),
+    })).rejects.toThrow('request_preflight_mode_changed');
+    expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 });
