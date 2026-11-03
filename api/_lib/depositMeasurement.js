@@ -35,12 +35,13 @@ class MeasurementDeliveryError extends Error {
 export function bookingMeasurementSelection(env = process.env) {
   const scope = env.BOOKING_MEASUREMENT_SCOPE;
   const cutoff = env.BOOKING_MEASUREMENT_REQUEST_SINCE;
-  if (!scope && !cutoff) return { scope: 'legacy' };
-  if (scope !== 'request_only' || typeof cutoff !== 'string' ||
+  const matching = env.BOOKING_MEASUREMENT_MATCHING;
+  if (!scope && !cutoff && !matching) return { scope: 'legacy' };
+  if (scope !== 'request_only' || matching !== 'click_id_only' || typeof cutoff !== 'string' ||
       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(cutoff)) return null;
   const instant = new Date(cutoff);
   if (!Number.isFinite(instant.getTime()) || instant.toISOString() !== cutoff) return null;
-  return { scope, cutoff };
+  return { scope, cutoff, matching };
 }
 
 function inSelection(row, selection) {
@@ -233,7 +234,10 @@ export function dataManagerMeasurementPayload(row, { validateOnly = false } = {}
   if (!Object.hasOwn(EVENT_ACTION_ENV, row.event_name) || row.is_test || row.status !== "sending")
     throw new MeasurementDeliveryError("measurement_record_not_eligible");
   const click = safeAttribution(row.attribution);
-  const userData = safeUserData(row.match_data);
+  const clickOnly = bookingMeasurementSelection()?.scope === 'request_only';
+  const userData = clickOnly ? null : safeUserData(row.match_data);
+  if (clickOnly && Object.keys(click).length !== 1)
+    throw new MeasurementDeliveryError('request_click_id_unavailable');
   if (Object.keys(click).length !== 1 && !userData)
     throw new MeasurementDeliveryError("measurement_matching_identifier_unavailable");
   if (row.consent?.advertising !== true || row.consent?.withdrawn_at ||
@@ -319,6 +323,8 @@ export function createGoogleDataManagerAdapter({
     configured: configured(validateOnly),
     validateOnly,
     async prepare() {
+      if (!bookingMeasurementSelection())
+        throw new MeasurementDeliveryError('measurement_selection_rejected');
       if (bookingMeasurementSelection()?.scope === 'request_only' &&
           (!configured(validateOnly) || (validationMode() && !validateOnly)))
         throw new MeasurementDeliveryError('measurement_request_mode_disabled');
@@ -330,8 +336,19 @@ export function createGoogleDataManagerAdapter({
     },
     async send(row, { beforeLive } = {}) {
       requireSelected(row);
-      const token = await this.prepare();
+      const selection = bookingMeasurementSelection();
+      // Reject unmatched requests before even preparing OAuth credentials.
       const payload = dataManagerMeasurementPayload(row, { validateOnly });
+      const token = await this.prepare();
+      const recheckRequestConfiguration = () => {
+        if (selection.scope !== 'request_only') return;
+        const current = bookingMeasurementSelection();
+        if (current?.scope !== selection.scope || current?.cutoff !== selection.cutoff ||
+            current?.matching !== selection.matching || !configured(validateOnly) ||
+            (validationMode() && !validateOnly))
+          throw new MeasurementDeliveryError('request_preflight_mode_changed');
+      };
+      recheckRequestConfiguration();
       const headers = {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -339,7 +356,7 @@ export function createGoogleDataManagerAdapter({
       // The existing secure worker validates the same consented request before
       // live ingestion. No diagnostic endpoint, synthetic conversion or secret
       // export is needed. Rejection/unknown validation must never reach live.
-      if (bookingMeasurementSelection()?.scope === 'request_only' && !validateOnly) {
+      if (selection.scope === 'request_only' && !validateOnly) {
         let validation;
         try {
           validation = await fetchFn('https://datamanager.googleapis.com/v1/events:ingest', {
@@ -356,11 +373,11 @@ export function createGoogleDataManagerAdapter({
               (!Array.isArray(body.fieldWarnings) || body.fieldWarnings.length > 0)))
           throw new MeasurementDeliveryError('request_preflight_rejected');
         requireSelected(row);
-        if (!configured(false) || validationMode())
-          throw new MeasurementDeliveryError('request_preflight_mode_changed');
+        recheckRequestConfiguration();
         if (typeof beforeLive !== 'function')
           throw new MeasurementDeliveryError('request_preflight_eligibility_guard_missing');
         await beforeLive();
+        recheckRequestConfiguration();
       }
       let response;
       try {
@@ -593,6 +610,16 @@ export async function deliverBookingMeasurements(db, {
       const beforePrepare = await currentEligibility(db, row);
       if (!beforePrepare.eligible) {
         await suppressIfNeeded(db, row, beforePrepare);
+        suppressed++;
+        continue;
+      }
+
+      if (selection.scope === 'request_only' &&
+          Object.keys(safeAttribution(deliveryRow.attribution)).length !== 1) {
+        await mark(db, row, {
+          status: 'suppressed', claimed_at: null, next_attempt_at: null,
+          last_error: 'request_click_id_unavailable',
+        });
         suppressed++;
         continue;
       }
