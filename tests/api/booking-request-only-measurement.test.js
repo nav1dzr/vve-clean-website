@@ -80,6 +80,64 @@ describe('request-only reporting boundary', () => {
     await expect(createGoogleDataManagerAdapter({ fetchFn, validateOnly: false }).send(request())).rejects.toThrow('measurement_request_mode_disabled');
     expect(fetchFn).not.toHaveBeenCalled();
   });
+  it('validates the identical genuine-shaped fixture before its single mocked live ingest', async () => {
+    configure();
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'fixture-token' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ requestId: 'fixture-receipt' }) });
+    const beforeLive = vi.fn();
+    const result = await createGoogleDataManagerAdapter({ fetchFn }).send(request(), { beforeLive });
+    const preflight = JSON.parse(fetchFn.mock.calls[1][1].body);
+    const live = JSON.parse(fetchFn.mock.calls[2][1].body);
+    expect(preflight).toEqual({ ...live, validateOnly: true });
+    expect(live.validateOnly).toBe(false); expect(beforeLive).toHaveBeenCalledTimes(1);
+    expect(result.state).toBe('submitted');
+    expect(fetchFn).toHaveBeenCalledTimes(3);
+  });
+  it.each(['reject', 'warning', 'timeout', 'invalid_json'])('never ingests live after preflight %s', async (kind) => {
+    configure();
+    const fetchFn = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'fixture-token' }) });
+    if (kind === 'timeout') fetchFn.mockRejectedValueOnce(new Error('timeout'));
+    else fetchFn.mockResolvedValueOnce({ ok: kind !== 'reject', json: async () => {
+      if (kind === 'invalid_json') throw Error('parse');
+      return kind === 'warning' ? { fieldWarnings: [{ reason: 'fixture_warning' }] } : {};
+    } });
+    await expect(createGoogleDataManagerAdapter({ fetchFn }).send(request())).rejects.toThrow('request_preflight_');
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+  it('rechecks eligibility after preflight and stops before live when consent changes', async () => {
+    configure();
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'fixture-token' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    await expect(createGoogleDataManagerAdapter({ fetchFn }).send(request(), {
+      beforeLive: async () => { throw Error('consent changed'); },
+    })).rejects.toThrow('consent changed');
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+  it('worker re-reads persisted consent after mocked preflight and suppresses a withdrawn request', async () => {
+    configure(); const db = deliveryDb();
+    let withdrawn = false;
+    const originalFrom = db.from;
+    db.from = (table) => {
+      const query = originalFrom(table);
+      const originalRead = query.maybeSingle;
+      query.maybeSingle = async () => {
+        const result = await originalRead();
+        if (table === 'bookings' && withdrawn) result.data.measurement_consent_withdrawn_at = cutoff;
+        return result;
+      };
+      return query;
+    };
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'fixture-token' }) })
+      .mockImplementationOnce(async () => { withdrawn = true; return { ok: true, json: async () => ({}) }; });
+    const result = await deliverBookingMeasurements(db, { fetchFn });
+    expect(result.suppressed).toBe(1);
+    expect(db.stored.last_error).toBe('request_preflight_eligibility_changed');
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
   it('selects the atomic request RPC with the exact cutoff', async () => {
     configure();
     const db = { rpc: vi.fn().mockResolvedValue({ data: [], error: null }) };

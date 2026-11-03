@@ -328,7 +328,7 @@ export function createGoogleDataManagerAdapter({
       if (!preparedToken) preparedToken = accessToken(fetchFn);
       return preparedToken;
     },
-    async send(row) {
+    async send(row, { beforeLive } = {}) {
       requireSelected(row);
       const token = await this.prepare();
       const payload = dataManagerMeasurementPayload(row, { validateOnly });
@@ -336,6 +336,32 @@ export function createGoogleDataManagerAdapter({
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       };
+      // The existing secure worker validates the same consented request before
+      // live ingestion. No diagnostic endpoint, synthetic conversion or secret
+      // export is needed. Rejection/unknown validation must never reach live.
+      if (bookingMeasurementSelection()?.scope === 'request_only' && !validateOnly) {
+        let validation;
+        try {
+          validation = await fetchFn('https://datamanager.googleapis.com/v1/events:ingest', {
+            method: 'POST', headers,
+            body: JSON.stringify({ ...payload, validateOnly: true }),
+            signal: AbortSignal.timeout(20000),
+          });
+        } catch {
+          throw new MeasurementDeliveryError('request_preflight_outcome_unknown');
+        }
+        const body = await validation.json().catch(() => null);
+        if (!validation.ok || !body || typeof body !== 'object' || Array.isArray(body) ||
+            body.error || (body.fieldWarnings !== undefined &&
+              (!Array.isArray(body.fieldWarnings) || body.fieldWarnings.length > 0)))
+          throw new MeasurementDeliveryError('request_preflight_rejected');
+        requireSelected(row);
+        if (!configured(false) || validationMode())
+          throw new MeasurementDeliveryError('request_preflight_mode_changed');
+        if (typeof beforeLive !== 'function')
+          throw new MeasurementDeliveryError('request_preflight_eligibility_guard_missing');
+        await beforeLive();
+      }
       let response;
       try {
         response = await fetchFn("https://datamanager.googleapis.com/v1/events:ingest", {
@@ -584,7 +610,13 @@ export async function deliverBookingMeasurements(db, {
       }
 
       requestDispatchAttempted = selection.scope === 'request_only';
-      const receipt = await adapter.send(deliveryRow);
+      const receipt = await adapter.send(deliveryRow, selection.scope === 'request_only' ? {
+        beforeLive: async () => {
+          const eligibility = await currentEligibility(db, row);
+          if (!eligibility.eligible)
+            throw new MeasurementDeliveryError('request_preflight_eligibility_changed');
+        },
+      } : undefined);
       try {
         const sentAt = new Date(typeof now === "function" ? now() : now);
         const nextStatus = ["validated", "delivered"].includes(receipt.state)
@@ -622,7 +654,8 @@ export async function deliverBookingMeasurements(db, {
         status: requestDispatchAttempted ? 'suppressed' : 'failed',
         claimed_at: null,
         next_attempt_at: requestDispatchAttempted ? null : futureAttempt(failedAt, row.attempts, 5),
-        last_error: requestDispatchAttempted ? 'request_send_outcome_unknown' : code,
+        last_error: requestDispatchAttempted
+          ? (code.startsWith('request_preflight_') ? code : 'request_send_outcome_unknown') : code,
       });
       if (requestDispatchAttempted) suppressed++; else failed++;
     }
