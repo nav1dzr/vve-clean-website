@@ -701,3 +701,23 @@ describe('InvoiceDetailPage — unavailable history', () => {
     expect(screen.getByText('No history yet.')).toBeInTheDocument();
     expect(screen.queryByText('Sent')).not.toBeInTheDocument();
   });});
+
+
+describe('InvoiceDetailPage — issued booking payment review', () => {
+  it('keeps the booking payment review visible after issue without recording a second payment', async () => {
+    authFetchMock.mockReset();
+    authFetchBlobMock.mockReset();
+    authFetchMock.mockImplementation((path: string) => {
+      if (path.includes('action=journey')) return Promise.resolve({ journey: { paid_pence: 10000, refunded_pence: 0 }, payments: [{ kind: 'manual_balance', amount_pence: 10000 }] });
+      if (path.includes('action=events')) return Promise.resolve({ results: [] });
+      if (path.startsWith('/api/receipts')) return Promise.resolve({ results: [] });
+      return Promise.resolve({ ...issuedInvoice, bookingId: 'fixture-linked-booking' });
+    });
+    renderDetail();
+    expect(await screen.findByText('Booking payment record')).toBeInTheDocument();
+    expect(screen.getByText('Invoice payment record')).toBeInTheDocument();
+    expect(screen.getByText('Invoice amount due').nextElementSibling).toHaveTextContent('£100.00');
+    expect(screen.getByRole('link', { name: 'Review booking payments' })).toHaveAttribute('href', '/bookings/fixture-linked-booking');
+    expect(authFetchMock.mock.calls.every((call) => !call[1]?.method || call[1].method === 'GET')).toBe(true);
+  });
+});
