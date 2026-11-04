@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Modal from './Modal';
+import StructuredAddressFields from './StructuredAddressFields';
 import { MANUAL_BOOKING_SOURCES, type ManualBookingSource } from '../lib/manualBookingSource';
-import type { ManualBookingInput } from '../types/customer';
+import type { BookingContactRoles, ManualBookingInput } from '../types/customer';
 import { ApiError, authFetch } from '../lib/authFetch';
 import type { BookingDetail } from '../types/booking';
 import { INVOICE_RECOVERY_CLEARED_EVENT } from '../lib/invoiceDraftRecovery';
@@ -13,25 +14,29 @@ interface Props {
   customerEmail?: string | null;
   ownerId: string;
   customerId: string;
+  enquiry?: { id: string; updatedAt: string; service?: string; contactRoles: BookingContactRoles; contactSummary?: string };
 }
 
 // For work arranged by phone/WhatsApp/email that never goes through the
 // public quote/checkout flow — always a manual record, never touches
 // Stripe (see admin/api/_lib/customerLifecycle.js's createManualBooking).
 export default function ManualBookingModal(props: Props) {
-  return <ManualBookingForm key={`${props.ownerId}:${props.customerId}`} {...props} />;
+  return <ManualBookingForm key={`${props.ownerId}:${props.customerId}:${props.enquiry?.id || ''}`} {...props} />;
 }
 
-function ManualBookingForm({ onClose, onCreate, customerEmail, ownerId, customerId }: Props) {
-  const [recovery, setRecovery] = useState(() => readPendingManualBooking(ownerId, customerId));
+function ManualBookingForm({ onClose, onCreate, customerEmail, ownerId, customerId, enquiry }: Props) {
+  const recoveryScope = enquiry ? customerId + ':' + enquiry.id : customerId;
+  const [recovery, setRecovery] = useState(() => readPendingManualBooking(ownerId, recoveryScope));
   const recovered = recovery.status === 'pending' ? recovery.input : null;
   const [source, setSource] = useState<ManualBookingSource | ''>(recovered?.source || '');
-  const [service, setService] = useState(recovered?.service || '');
+  const [service, setService] = useState(recovered?.service || enquiry?.service || '');
   const [serviceDate, setServiceDate] = useState(recovered?.serviceDate || '');
   const [totalPrice, setTotalPrice] = useState(recovered?.totalPrice == null ? '' : String(recovered.totalPrice));
   const [notes, setNotes] = useState(recovered?.notes || '');
   const [arrivalWindow, setArrivalWindow] = useState(recovered?.arrivalWindow || '');
   const [paymentPlan, setPaymentPlan] = useState<ManualBookingInput['paymentPlan'] | ''>(recovered?.paymentPlan || '');
+  const [address, setAddress] = useState(recovered?.address || '');
+  const [postcode, setPostcode] = useState(recovered?.postcode || '');
   const [email, setEmail] = useState(recovered?.email || '');
   const [submitting, setSubmitting] = useState(false);
   const [reviewed, setReviewed] = useState(false);
@@ -72,15 +77,19 @@ function ManualBookingForm({ onClose, onCreate, customerEmail, ownerId, customer
       return;
     }
     const input: ManualBookingInput = pending.current || {
-      requestId: crypto.randomUUID(),
-      ...(source ? { source } : {}),
+      requestId: enquiry?.id || crypto.randomUUID(),
+      ...(enquiry ? {
+        enquiryId: enquiry.id, expectedEnquiryUpdatedAt: enquiry.updatedAt, contactRoles: enquiry.contactRoles,
+        address: address.trim() || null, postcode: postcode.trim().toUpperCase() || null,
+      }
+        : source ? { source } : {}),
       service: service.trim(), serviceDate: serviceDate || null,
       totalPrice: totalPrice ? Number(totalPrice) : null, notes: notes.trim() || null,
       paymentPlan, arrivalWindow: arrivalWindow.trim() || null,
       ...(!customerEmail && email.trim() ? { email: email.trim() } : {}),
     };
-    if (!rememberPendingManualBooking(ownerId, customerId, input)) {
-      setRecovery(readPendingManualBooking(ownerId, customerId));
+    if (!rememberPendingManualBooking(ownerId, recoveryScope, input)) {
+      setRecovery(readPendingManualBooking(ownerId, recoveryScope));
       setError('This browser could not safely keep this booking for recovery. No request was sent. Allow session storage, then check the customer booking history before trying again.');
       return;
     }
@@ -90,11 +99,11 @@ function ManualBookingForm({ onClose, onCreate, customerEmail, ownerId, customer
     setError(null);
     try {
       await onCreate(input);
-      if (!revokedRef.current) clearPendingManualBooking(ownerId, customerId, input.requestId);
+      if (!revokedRef.current) clearPendingManualBooking(ownerId, recoveryScope, input.requestId);
     } catch (err) {
       if (revokedRef.current) return;
       setError(err instanceof Error ? err.message : 'Could not create this booking.');
-      if (err instanceof ApiError && err.status === 400 && clearPendingManualBooking(ownerId, customerId, input.requestId)) {
+      if (err instanceof ApiError && (err.status === 400 || (enquiry && err.status === 412)) && clearPendingManualBooking(ownerId, recoveryScope, input.requestId)) {
         pending.current = null;
         setRecovery({ status: 'none' });
       }
@@ -107,7 +116,7 @@ function ManualBookingForm({ onClose, onCreate, customerEmail, ownerId, customer
   function clearReviewed() {
     if (!reviewed || submittingRef.current || revokedRef.current
       || !window.confirm('Clear this recovery request after checking the customer booking history? Any saved booking will stay unchanged. Creating a booking afterwards starts a different booking, not a retry.')) return;
-    if (!clearPendingManualBooking(ownerId, customerId)) return setError('Could not clear this recovery record. Check browser storage before continuing.');
+    if (!clearPendingManualBooking(ownerId, recoveryScope)) return setError('Could not clear this recovery record. Check browser storage before continuing.');
     pending.current = null;
     setRecovery({ status: 'none' });
     setReviewed(false);
@@ -116,7 +125,7 @@ function ManualBookingForm({ onClose, onCreate, customerEmail, ownerId, customer
 
   function startDifferentBooking() {
     if (!savedBooking || submittingRef.current || revokedRef.current) return;
-    if (!clearPendingManualBooking(ownerId, customerId, savedBooking.id)) return setError('Could not clear this recovery record. Reopen the form before continuing.');
+    if (!clearPendingManualBooking(ownerId, recoveryScope, savedBooking.id)) return setError('Could not clear this recovery record. Reopen the form before continuing.');
     pending.current = null;
     setSavedBooking(null);
     setRecovery({ status: 'none' });
@@ -138,7 +147,7 @@ function ManualBookingForm({ onClose, onCreate, customerEmail, ownerId, customer
           <a href={`/customers/${encodeURIComponent(customerId)}`} target="_blank" rel="noreferrer" className="mt-2 inline-block font-semibold underline">Check customer booking history</a>
           {savedBooking && <div className="mt-3 rounded-lg bg-white p-3">
             <p>The earlier booking was saved. Open it to continue; there is no need to create it again.</p>
-            <a href={`/bookings/${savedBooking.id}`} onClick={() => { if (!revokedRef.current) clearPendingManualBooking(ownerId, customerId, savedBooking.id); }} className="mt-2 block font-semibold underline">Open saved booking {savedBooking.reference}</a>
+            <a href={`/bookings/${savedBooking.id}`} onClick={() => { if (!revokedRef.current) clearPendingManualBooking(ownerId, recoveryScope, savedBooking.id); }} className="mt-2 block font-semibold underline">Open saved booking {savedBooking.reference}</a>
             <button type="button" onClick={startDifferentBooking} disabled={submitting || revoked} className="mt-2 min-h-11 rounded-lg border border-amber-600 px-3 font-semibold">Start a different booking</button>
           </div>}
           <label className="mt-2 flex items-start gap-2"><input type="checkbox" checked={reviewed} onChange={(e) => setReviewed(e.target.checked)} disabled={submitting || revoked} />I checked the booking history and have accounted for any earlier booking.</label>
@@ -147,13 +156,16 @@ function ManualBookingForm({ onClose, onCreate, customerEmail, ownerId, customer
         {recovery.status === 'unavailable' && <p role="alert" className="mb-3 text-sm text-red-700">Session storage is unavailable. Allow it and reopen this form so a lost response cannot create duplicate bookings.</p>}
         {revoked && <p role="alert" className="mb-3 text-sm text-red-700">Your account access changed. Sign in again before creating a booking.</p>}
         <fieldset disabled={submitting || !!pending.current || blocked} className="min-w-0">
-        <label className="mb-3 block">
+        {enquiry && <p className="mb-3 rounded-lg bg-sky-50 p-3 text-sm text-navy-800">
+          Website enquiry · {enquiry.contactSummary}. The original message stays with the enquiry.
+        </p>}
+        {!enquiry && <label className="mb-3 block">
           <span className={labelClass}>How did this booking come in?</span>
           <select value={source} onChange={(event) => setSource(event.target.value as ManualBookingSource | '')} className={inputClass}>
             <option value="">Source not specified</option>
             {MANUAL_BOOKING_SOURCES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
           </select>
-        </label>
+        </label>}
         <label className="mb-3 block">
           <span className={labelClass}>Service *</span>
           <input type="text" list="manual-booking-services" value={service} onChange={(e) => setService(e.target.value)} placeholder="Choose or type a service" className={inputClass} />
@@ -161,6 +173,11 @@ function ManualBookingForm({ onClose, onCreate, customerEmail, ownerId, customer
             {['Carpet cleaning', 'Sofa & upholstery cleaning', 'End of tenancy cleaning', 'After builders cleaning', 'Window cleaning', 'Gutter cleaning', 'Office cleaning'].map((name) => <option key={name} value={name} />)}
           </datalist>
         </label>
+        {enquiry && <div className="mb-3">
+          <StructuredAddressFields idPrefix="enquiry-job" legend="Cleaning address (optional for the draft)"
+            address={address} postcode={postcode} onAddressChange={setAddress} onPostcodeChange={setPostcode} />
+          <p className="mt-1 text-xs text-navy-600">Enter the property to be cleaned. You can also add it before sending the agreement.</p>
+        </div>}
         <label className="mb-3 block">
           <span className={labelClass}>Service date</span>
           <input type="date" value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} className={inputClass} />

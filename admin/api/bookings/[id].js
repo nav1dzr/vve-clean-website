@@ -124,6 +124,19 @@ export default async function handler(req, res) {
       detail.paymentPlan = journeyPaymentPlan(journey);
       detail.awaitingAvailabilityReview = journey.state === 'draft';
     }
+    if (isValidUuid(detail.quoteConfig?.sourceEnquiryId)) {
+      const roles = detail.quoteConfig.bookingContactRoles;
+      const contactIds = [...new Set([
+        detail.quoteConfig.manualCustomerId, roles?.tenant, roles?.payer, roles?.agent,
+      ].filter(isValidUuid))];
+      if (contactIds.length) {
+        const { data: contacts, error: contactError } = await supabase.from('customers')
+          .select('id,name').in('id', contactIds);
+        if (!contactError) detail.linkedContactNames = Object.fromEntries(
+          (contacts || []).map(({ id: contactId, name }) => [contactId, name]),
+        );
+      }
+    }
     res.writeHead(200, headers);
     res.end(JSON.stringify(detail));
   } catch {

@@ -3,6 +3,7 @@ import { verifyAdminRequest } from './adminAuth.js';
 import { corsHeaders } from './cors.js';
 import { readJsonBody } from './body.js';
 import { getServiceClient } from './supabaseAdmin.js';
+import { readEnquiryBooking } from './enquiryBooking.js';
 import { deliverEnquiry } from './enquiryNotifications.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -65,6 +66,18 @@ export async function enquiriesHandler(req, res) {
   try {
     const params = new URL(req.url, 'https://admin.local').searchParams;
     if (req.method === 'GET') {
+      const id = params.get('enquiryId');
+      if (id !== null) {
+        if (!UUID.test(id)) return send(400, { error: 'A valid enquiry is required.' });
+        const { data, error } = await db.from('contact_enquiries')
+          .select('id,full_name,email,phone,service,message,status,delivery,notes,created_at,updated_at')
+          .eq('id', id).maybeSingle();
+        if (error) return send(503, { error: 'Could not load this enquiry.' });
+        if (!data) return send(404, { error: 'Enquiry not found.' });
+        const linked = await readEnquiryBooking(db, id);
+        if (!linked.ok) return send(linked.status, { error: linked.error });
+        return send(200, { enquiry: data, booking: linked.booking });
+      }
       const offset = Math.floor(Math.max(0, Math.min(100000, Number(params.get('offset')) || 0)));
       let query = db.from('contact_enquiries').select('id,full_name,email,phone,service,message,source_page,status,delivery,notes,created_at,updated_at', { count: 'exact' }).order('created_at', { ascending: false }).order('id', { ascending: false }).range(offset, offset + 29);
       if (STATUSES.includes(params.get('status'))) query = query.eq('status', params.get('status'));

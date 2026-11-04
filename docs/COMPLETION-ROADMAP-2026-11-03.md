@@ -58,7 +58,11 @@ Browser preview uses synthetic fixtures. Component and route regressions cover s
 
 ### 2B — Enquiry handoff and booking contacts
 
-Next increment. Open a booking draft from a saved enquiry, preserve the enquiry link and original message, and require an explicit existing or new customer choice before saving. Handle stale edits and cross-tab retries before enabling conversion. Keep tenant, payer and agent links deliberate and review any required schema change separately. Validate phone-only, Checkatrade, website and company scenarios without automatic merges or messages.
+Implemented locally. Start a draft from a saved enquiry, then choose an existing customer or open a prefilled new-customer form. Tenant, payer and agent are optional links picked by staff. The booking and enquiry link back to each other. The original enquiry and message are preserved, and the cleaning address is entered separately from the selected contact's address.
+
+Each enquiry uses one booking identity. Stale revisions are rejected before the create attempt, and concurrent requests reopen the winning booking. No new database migration is required. Role links are captured at conversion and shown in booking details. Existing email and invoice recipient review stays separate. Editing or backfilling contact-role links on saved bookings is outside this increment.
+
+Owner review is deferred until the planned phases are ready. Continue local testing and keep each release gate explicit.
 
 ## Phase 3 — Media management completion
 

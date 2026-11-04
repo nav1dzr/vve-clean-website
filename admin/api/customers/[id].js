@@ -6,6 +6,7 @@ import { readJsonBody } from '../_lib/body.js';
 import { extractIdParam } from '../_lib/routeParams.js';
 import { isValidUuid } from '../_lib/normalise.js';
 import { toCustomerDetail } from '../_lib/customerFields.js';
+import { createBookingFromEnquiry } from '../_lib/enquiryBooking.js';
 import { updateCustomer, getCustomerDetail, createManualBooking } from '../_lib/customerLifecycle.js';
 import { toInvoiceEvent } from '../_lib/invoiceFields.js';
 
@@ -155,14 +156,16 @@ async function handleCreateBooking(req, res, headers, supabase, customerId, auth
     return res.end(JSON.stringify({ error: err.message || 'Invalid request body' }));
   }
 
-  const result = await createManualBooking(supabase, customerId, body, auth.admin.id);
+  const result = body?.enquiryId !== undefined
+    ? await createBookingFromEnquiry(supabase, customerId, body, auth.admin.id)
+    : await createManualBooking(supabase, customerId, body, auth.admin.id);
   if (!result.ok) {
     res.writeHead(result.status || 400, headers);
     return res.end(JSON.stringify({ error: result.error }));
   }
 
   res.writeHead(201, headers);
-  return res.end(JSON.stringify({ ok: true, bookingId: result.bookingId, bookingRef: result.bookingRef }));
+  return res.end(JSON.stringify({ ok: true, bookingId: result.bookingId, bookingRef: result.bookingRef, ...(result.alreadyExisted ? { alreadyExisted: true } : {}) }));
 }
 
 async function handleEmails(req, res, headers, db, customerId, auth) {

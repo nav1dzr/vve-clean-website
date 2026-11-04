@@ -78,6 +78,7 @@ export interface BookingDetail {
   postcode: string | null;
   service: string | null;
   quoteConfig: Record<string, unknown> | null;
+  linkedContactNames?: Record<string, string>;
   isTest?: boolean;
   preferredDate: string | null;
   preferredTime: string | null;

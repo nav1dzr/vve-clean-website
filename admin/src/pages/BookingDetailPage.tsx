@@ -1,6 +1,6 @@
 import { manualBookingSourceLabel } from '../lib/manualBookingSource';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useLocation, Link } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
 import type { BookingDetail, BalanceUpdateResponse } from '../types/booking';
 import EmptyState from '../components/EmptyState';
@@ -37,6 +37,7 @@ export default function BookingDetailPage() {
 }
 
 function BookingDetailContent({ id }: { id: string | undefined }) {
+  const location = useLocation();
   const [state, setState] = useState<State>({ status: 'loading' });
   const requestVersion = useRef(0);
   const [copied, setCopied] = useState<'address' | 'ref' | null>(null);
@@ -132,6 +133,9 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
   const wa = whatsappHref(b.phone);
   const mail = mailtoHref(b.email);
   const addressLine = [b.address, b.postcode].filter(Boolean).join(', ');
+  const enquiryId = b.quoteConfig?.sourceEnquiryId;
+  const primaryContact = b.quoteConfig?.manualCustomerId;
+  const roles = b.quoteConfig?.bookingContactRoles as Record<string, unknown> | undefined;
 
   async function handleCopy(kind: 'address' | 'ref', text: string) {
     const ok = await copyToClipboard(text);
@@ -170,7 +174,7 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
         <div className="min-w-0">
           <h1 className="truncate font-semibold text-xl text-navy-950">{b.bookingRef || 'Reference not recorded'}</h1>
           {b.attribution.firstSource === 'admin_manual' && <p className="text-sm text-navy-700">
-            Booking source · {manualBookingSourceLabel(b.quoteConfig?.manualBookingSource)}
+            Booking source · {typeof enquiryId === 'string' ? 'Website enquiry' : manualBookingSourceLabel(b.quoteConfig?.manualBookingSource)}
           </p>}
           <p className="truncate text-xs text-navy-500">Internal ID: {b.id}</p>
         </div>
@@ -180,6 +184,8 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
           <StatusBadge {...bookingPaymentBadge(b)} />
         )}
       </div>
+
+      {location.state?.reopenedEnquiryDraft && <p role="status" className="mb-4 rounded-lg bg-sky-50 p-3 text-sm">This enquiry already had a booking. You’re viewing the saved record.</p>}
 
       {b.isTest && <p className="mb-4 rounded-xl bg-amber-50 p-4 text-sm font-semibold text-amber-950">Test record · keep separate from customer work.</p>}
 
@@ -202,6 +208,17 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
           <StatusControl bookingId={b.id} status={b.status} onUpdated={handleStatusUpdated} />
         </Section>
       )}
+
+      {typeof enquiryId === 'string' && <Section title="Enquiry and linked contacts">
+        <Link to={'/enquiries?enquiry=' + encodeURIComponent(enquiryId)} className="text-sm font-semibold text-sky-700 underline">Open original enquiry</Link>
+        <dl className="mt-3 space-y-2 text-sm">
+          {([['Booking contact', primaryContact], ['Tenant', roles?.tenant], ['Payer', roles?.payer], ['Agent', roles?.agent]] as const)
+            .filter(([, contact]) => typeof contact === 'string').map(([label, contact]) => (
+              <div key={label} className="flex flex-wrap items-baseline gap-x-3"><dt className="font-medium">{label}</dt>
+                <dd><Link to={'/customers/' + encodeURIComponent(String(contact))} aria-label={'Open ' + label.toLowerCase() + ' customer record'} className="text-sky-700 underline">{b.linkedContactNames?.[String(contact)] || "Open customer record"}</Link></dd></div>
+            ))}
+        </dl>
+      </Section>}
 
       <BookingJourneyPanel booking={b} onChanged={load} />
 

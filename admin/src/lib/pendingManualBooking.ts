@@ -11,6 +11,11 @@ function validInput(value: unknown): value is PendingInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const data = value as Record<string, unknown>;
   return validId(data.requestId) && typeof data.service === 'string' && !!data.service.trim()
+    && (data.enquiryId === undefined || (validId(data.enquiryId) && data.enquiryId === data.requestId
+      && typeof data.expectedEnquiryUpdatedAt === 'string' && Number.isFinite(Date.parse(data.expectedEnquiryUpdatedAt))))
+    && (data.contactRoles === undefined || (data.contactRoles !== null && typeof data.contactRoles === 'object'
+      && !Array.isArray(data.contactRoles) && Object.entries(data.contactRoles).every(([role, id]) =>
+        ['tenant', 'payer', 'agent'].includes(role) && validId(id))))
     && (data.source === undefined || MANUAL_BOOKING_SOURCES.some(({ value }) => value === data.source))
     && ['after_clean', 'deposit_after_agreement'].includes(String(data.paymentPlan))
     && ['serviceDate', 'arrivalWindow', 'notes', 'email', 'phone', 'address', 'postcode'].every((key) => data[key] == null || typeof data[key] === 'string')

@@ -97,7 +97,13 @@ export interface CustomerUpdateResponse {
   updatedAt: string;
 }
 
+export type BookingContactRole = 'tenant' | 'payer' | 'agent';
+export type BookingContactRoles = Partial<Record<BookingContactRole, string>>;
+
 export interface ManualBookingInput {
+  enquiryId?: string;
+  expectedEnquiryUpdatedAt?: string;
+  contactRoles?: BookingContactRoles;
   source?: ManualBookingSource;
   requestId?: string;
   service: string;
@@ -114,6 +120,7 @@ export interface ManualBookingInput {
 
 export interface ManualBookingResponse {
   ok: true;
+  alreadyExisted?: boolean;
   bookingId: string;
   bookingRef: string | null;
 }

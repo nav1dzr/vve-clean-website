@@ -4,6 +4,7 @@ import { authFetch, ApiError } from '../lib/authFetch';
 import type {
   CustomerDetail, CustomerDraftInput, CustomerCreateResponse, CustomerUpdateResponse, CustomerDuplicateWarning,
 } from '../types/customer';
+import { enquiryDetailsPath, type EnquiryBookingContext } from '../types/enquiry';
 import type { BookingDetail } from '../types/booking';
 import { CUSTOMER_TYPE_VALUES, CUSTOMER_SOURCE_VALUES, CUSTOMER_CONTACT_METHOD_VALUES } from '../types/customer';
 import { customerTypeLabel } from '../lib/format';
@@ -37,10 +38,11 @@ export default function CustomerFormPage() {
   const isEdit = Boolean(id);
   const [searchParams] = useSearchParams();
   const fromBookingId = !isEdit ? searchParams.get('fromBookingId') : null;
-  const loadKey = id ? `customer:${id}` : `booking:${fromBookingId || 'new'}`;
+  const fromEnquiryId = !isEdit && !fromBookingId ? searchParams.get('fromEnquiryId') : null;
+  const loadKey = id ? 'customer:' + id : fromEnquiryId ? 'enquiry:' + fromEnquiryId : 'booking:' + (fromBookingId || 'new');
   const navigate = useNavigate();
   const [value, setValue] = useState<FormValue>(emptyValue());
-  const [load, setLoad] = useState<LoadState>({ key: loadKey, status: isEdit || fromBookingId ? 'loading' : 'ready' });
+  const [load, setLoad] = useState<LoadState>({ key: loadKey, status: isEdit || fromBookingId || fromEnquiryId ? 'loading' : 'ready' });
   const [retry, setRetry] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export default function CustomerFormPage() {
     setExpectedUpdatedAt(undefined);
     setConflict(false);
     setValue(emptyValue());
-    if (!id && !fromBookingId) {
+    if (!id && !fromBookingId && !fromEnquiryId) {
       setLoad({ key: loadKey, status: 'ready' });
       return () => { active = false; };
     }
@@ -77,7 +79,12 @@ export default function CustomerFormPage() {
           customerType: c.customerType, source: customerSourceChoice(c.source, c.notes), preferredContactMethod: c.preferredContactMethod || '', notes: c.notes || '',
         });
       })
-      : authFetch<BookingDetail>(`/api/bookings/${fromBookingId}`).then((b) => {
+      : fromEnquiryId
+        ? authFetch<EnquiryBookingContext>(enquiryDetailsPath(fromEnquiryId)).then(({ enquiry }) => {
+          if (!active) return;
+          setValue({ ...emptyValue(), name: enquiry.full_name, email: enquiry.email || '', phone: enquiry.phone || '', source: 'website' });
+        })
+        : authFetch<BookingDetail>(`/api/bookings/${fromBookingId}`).then((b) => {
         if (!active) return;
         // Prefill is a draft only; nothing is saved until the owner reviews it.
         setValue({
@@ -89,10 +96,10 @@ export default function CustomerFormPage() {
     void request.then(() => {
       if (active) setLoad({ key: loadKey, status: 'ready' });
     }).catch((err) => {
-      if (active) setLoad({ key: loadKey, status: 'error', message: err instanceof ApiError ? err.message : id ? 'Could not load this customer.' : 'Could not load the booking to prefill from.' });
+      if (active) setLoad({ key: loadKey, status: 'error', message: err instanceof ApiError ? err.message : id ? 'Could not load this customer.' : 'Could not load the source details.' });
     });
     return () => { active = false; };
-  }, [id, fromBookingId, loadKey, retry]);
+  }, [id, fromBookingId, fromEnquiryId, loadKey, retry]);
 
   const email = value.email.trim();
   const phone = value.phone.trim();

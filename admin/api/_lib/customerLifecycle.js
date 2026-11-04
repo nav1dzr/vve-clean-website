@@ -378,7 +378,7 @@ async function buildManualBookingRef(supabase, postcode, dateStr) {
 // session, webhook, or public booking flow — a manual booking is
 // structurally indistinguishable from any other CRM-created row except by
 // its first_source/last_source value.
-export async function createManualBooking(supabase, customerId, input, adminId) {
+export async function createManualBooking(supabase, customerId, input, adminId, enquiryContext) {
   const { data: customer, error: customerErr } = await supabase
     .from('customers').select('*').eq('id', customerId).maybeSingle();
   if (customerErr) return { ok: false, status: 503, error: 'Could not load this customer. Retry the same booking request.' };
@@ -417,6 +417,7 @@ export async function createManualBooking(supabase, customerId, input, adminId) 
     input.paymentPlan || null, input.notes || null, input.email || null,
     input.phone || null, input.address || null, input.postcode || null,
     ...(input.source ? [input.source] : []),
+    ...(enquiryContext ? [enquiryContext.id, enquiryContext.contactRoles] : []),
   ])).digest('hex');
   async function previousRequest() {
     const { data: existing, error } = await supabase.from('bookings')
@@ -434,7 +435,7 @@ export async function createManualBooking(supabase, customerId, input, adminId) 
     if (previous) return previous;
   }
 
-  const postcode = input.postcode || customer.postcode || null;
+  const postcode = input.postcode || (enquiryContext ? null : customer.postcode) || null;
   const bookingRef = await buildManualBookingRef(supabase, postcode, input.serviceDate);
 
   const bookingRow = {
@@ -442,7 +443,7 @@ export async function createManualBooking(supabase, customerId, input, adminId) 
     full_name: customer.name,
     email: input.email || customer.email || null,
     phone: input.phone || customer.phone || null,
-    address: input.address || customer.address || null,
+    address: input.address || (enquiryContext ? null : customer.address) || null,
     postcode,
     service: input.service.trim(),
     service_date: input.serviceDate || null,
@@ -452,6 +453,10 @@ export async function createManualBooking(supabase, customerId, input, adminId) 
     // a draft preference, not payment received or an automatic confirmation.
     ...(input.paymentPlan || requestId || input.source ? { quote_config: {
       ...(input.source ? { manualBookingSource: input.source } : {}),
+      ...(enquiryContext ? {
+        sourceEnquiryId: enquiryContext.id,
+        bookingContactRoles: enquiryContext.contactRoles,
+      } : {}),
       ...(input.paymentPlan ? { manualPaymentPlan: input.paymentPlan } : {}),
       ...(requestId ? { manualCustomerId: customerId, manualAdminId: adminId, manualRequestFingerprint: fingerprint } : {}),
     } } : {}),
