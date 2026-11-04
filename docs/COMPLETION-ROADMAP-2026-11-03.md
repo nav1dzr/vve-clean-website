@@ -40,24 +40,11 @@ Status: released through approved PR #63, merge 7264263. Both production deploym
 
 Validation: 107 focused tests passed, then the full CRM suite passed with 1,317 tests and zero failures. TypeScript/lint/build passed; one existing Fast Refresh warning and the existing bundle-size warning remain. Synthetic component browser checks verified desktop, 390px layout, full refund and unavailable/retry states. No production provider or customer action was performed. The complete payment allocation/correction workflow remains Phase 1B.
 
-### 1B: Explicit allocation and correction — in progress
+### 1B: Apply a recorded booking balance
 
-A read-only preview policy and its synthetic regression matrix are implemented locally. The write transaction, API/UI apply action, receipt reconciliation and manual-bank correction remain unimplemented. See BOOKING-INVOICE-ALLOCATION-DESIGN-2026-11-03.md for the source-provenance, retry, locking, audit and isolated-database gates. No financial production exception is being requested yet.
+The CRM review and transaction are implemented locally. The owner can apply a single recorded balance payment to settle its linked invoice and create its paid receipt. The workflow checks prior credits and requires confirmation of the original references. See BOOKING-INVOICE-ALLOCATION-DESIGN-2026-11-03.md for eligibility, validation and the release gate.
 
-Owner journey: open payment review > choose an existing payment and its linked invoice > see money already allocated/refunded and proposed resulting totals > explicitly confirm. This links evidence of received money; it never charges the customer or records another receipt of funds.
-
-Required design:
-- Immutable booking source-payment identity, explicit invoice linkage and bounded GBP pence amounts.
-- Database transaction locks + server-enforced uniqueness/idempotency to prevent concurrent or repeated allocation.
-- Treat an invoice's existing depositApplied and other payments as potentially representing existing funds. Block ambiguous historic matches for deliberate review; do not auto-match.
-- Multiple linked invoices, partial payments, revisions, voids, refunds and overpayments need explicit outcomes.
-- Preserve original bank-entry/payment rows. Corrections append attributed reasons and compensating records rather than deleting history.
-- Invoice receipt/PDF policy: keep issued historical documents, generate a new version only through the approved lifecycle, reconcile uncertain storage/email outcomes.
-- Stripe refunds and checkout behavior stay outside this work.
-- No automatic replay, historic migration or bulk allocation.
-
-Acceptance: disposable database transaction/concurrency tests, partial/refund/revision scenarios, no duplicate money or receipt, API authorization and owner preview. Review exact migration and write scope before any production exception.
-Decision checkpoint: approve the proposed correction/allocation behavior and specific release after review.
+Partial and split payments, manual bank-entry correction and refund reconciliation remain separate work. Production release requires specific written approval and an exception for the additive migration.
 
 ## Phase 2 — Daily CRM workflow
 
@@ -99,4 +86,4 @@ A/B testing, richer case studies and possible restrained motion follow reliable 
 
 ## Owner review and release sequence
 
-Finish 1A locally and present the diff + validation. Review 1B design next, then implement in isolation. Release small phases using normal required checks and explicit approval. No additional sign-ins or production actions are needed merely to prepare the current phase.
+Phase 1A is live. Review the isolated Phase 1B allocation preview and exact migration before approving its release. Continue daily CRM workflow improvements in Phase 2.

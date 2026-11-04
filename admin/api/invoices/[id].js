@@ -1,4 +1,5 @@
 import { verifyAdminRequest } from '../_lib/adminAuth.js';
+import { bookingInvoiceAllocationEnabled, getBookingInvoiceAllocationReview, lookupBookingInvoiceAllocation, applyExistingBookingPayment } from '../_lib/bookingInvoiceAllocation.js';
 import { corsHeaders } from '../_lib/cors.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
 import { readJsonBody } from '../_lib/body.js';
@@ -128,6 +129,7 @@ export default async function handler(req, res) {
       console.log('[invoices route debug] dispatch=root id=%s', invoiceId);
       return await handleRoot(req, res, headers, supabase, invoiceId, auth);
     }
+    if (action === 'bookingPaymentAllocation') return await handleBookingPaymentAllocation(req, res, headers, supabase, invoiceId, auth, params.get('operationId'));
     if (action === 'issue') {
       console.log('[invoices route debug] dispatch=issue id=%s', invoiceId);
       return await handleIssue(req, res, headers, supabase, invoiceId, auth);
@@ -192,12 +194,23 @@ async function handleRoot(req, res, headers, supabase, invoiceId, auth) {
       return res.end(JSON.stringify({ error: 'Could not load the complete invoice. Please retry.' }));
     }
 
+    let allocationByPayment = new Map();
+    const allocationEnabled = Boolean(invoice.booking_id) && bookingInvoiceAllocationEnabled();
+    if (allocationEnabled) {
+      const { data, error } = await supabase.from('invoice_booking_payment_allocations').select('id,invoice_payment_id,source_payment_external_id').eq('invoice_id', invoiceId);
+      if (error) { res.writeHead(503, headers); return res.end(JSON.stringify({ error: 'Could not check the complete invoice payment links. Please retry.' })); }
+      allocationByPayment = new Map((data || []).map((a) => [a.invoice_payment_id, { id: a.id, sourcePaymentId: a.source_payment_external_id }]));
+    }
     res.writeHead(200, headers);
     return res.end(JSON.stringify({
       ...toInvoiceDetail(invoice),
+<<<<<<< HEAD
       paymentInstructions: resolveInvoicePaymentInstructions(invoice, invoice.document_status === 'draft' ? getBusinessSettings() : undefined),
+=======
+      ...(allocationEnabled ? { bookingPaymentAllocationEnabled: true } : {}),
+>>>>>>> 1accd38 (Apply existing booking balances to linked CRM invoices)
       items: (itemsResult.data || []).map(toInvoiceItem),
-      payments: (paymentsResult.data || []).map(toInvoicePayment),
+      payments: (paymentsResult.data || []).map((p) => ({ ...toInvoicePayment(p), ...(allocationByPayment.has(p.id) ? { bookingAllocation: allocationByPayment.get(p.id) } : {}) })),
     }));
   }
 
@@ -869,4 +882,27 @@ async function handlePaymentAck(req, res, headers, supabase, invoiceId, auth) {
 
   res.writeHead(200, headers);
   return res.end(JSON.stringify({ ok: true, to: recipient }));
+}
+
+async function handleBookingPaymentAllocation(req, res, headers, supabase, invoiceId, auth, operationId) {
+  if (!['GET', 'POST'].includes(req.method)) { res.writeHead(405, headers); return res.end(JSON.stringify({ error: 'Method not allowed' })); }
+  if (!bookingInvoiceAllocationEnabled()) { res.writeHead(503, headers); return res.end(JSON.stringify({ error: 'Booking payment linking is not available yet.' })); }
+  if (req.method === 'GET') {
+    if (operationId !== null) {
+      const result = await lookupBookingInvoiceAllocation(supabase, invoiceId, operationId, auth.admin.id);
+      res.writeHead(200, headers);
+      return res.end(JSON.stringify(result));
+    }
+    const result = await getBookingInvoiceAllocationReview(supabase, invoiceId, auth.admin.id);
+    res.writeHead(result.ok ? 200 : 503, headers);
+    return res.end(JSON.stringify(result.ok ? result : { error: result.error }));
+  }
+  let body;
+  try { body = await readJsonBody(req, 8000); }
+  catch { res.writeHead(400, headers); return res.end(JSON.stringify({ error: 'Invalid allocation request' })); }
+  const result = await applyExistingBookingPayment(supabase, invoiceId, body, auth.admin.id);
+  // Domain outcomes are explicit: only not_applied permits discarding the
+  // pending attempt. Unknown network/database outcomes retain the same UUID.
+  res.writeHead(200, headers);
+  return res.end(JSON.stringify(result));
 }

@@ -7,7 +7,7 @@ function fixture() {
     superseded_by_invoice_id: null, currency: 'GBP', total: '150.00', deposit_applied: '30.00',
     amount_paid: '0.00', amount_due: '120.00', updated_at: '2026-11-03T22:00:00Z' };
   return {
-    invoice, journey: { booking_id: bookingId, revision: 7, paid_pence: 15000, refunded_pence: 0 },
+    invoice, journey: { booking_id: bookingId, state: 'completed', revision: 7, agreed_total_pence: 15000, paid_pence: 15000, refunded_pence: 0 },
     payments: [
       { external_id: 'fixture-deposit', booking_id: bookingId, kind: 'manual_deposit', amount_pence: 3000, currency: 'gbp' },
       { external_id: 'fixture-balance', booking_id: bookingId, kind: 'manual_balance', amount_pence: 12000, currency: 'gbp' },
@@ -40,9 +40,9 @@ describe('booking/invoice allocation preview — read-only policy', () => {
     x.depositReviewed = false;
     expect(preview(x)).toMatchObject({ state: 'review_ready', allocationPence: 15000, depositReviewed: false });
   });
-  it('can preview a smaller full source payment without inventing a full settlement', () => {
+  it('holds a smaller source payment for a separate review', () => {
     const x = fixture(); x.payments[1].amount_pence = 6000; x.journey.paid_pence = 9000;
-    expect(preview(x)).toMatchObject({ state: 'review_ready', invoiceDueAfterPence: 6000 });
+    expect(preview(x)).toEqual({ state: 'needs_review', code: 'amount_requires_review' });
   });
   it.each(['payments', 'invoicePayments', 'relatedInvoices', 'allocations'])('rejects incomplete %s history', (key) => {
     const x = fixture(); x.complete[key] = false;

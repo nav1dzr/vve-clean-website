@@ -33,7 +33,8 @@ async function financialMutation(supabase, action, invoiceId, payload, adminId) 
     const status = error.code === 'P0002' ? 404
       : ['40001', '23505'].includes(error.code) ? 409
       : error.code === '22023' ? 400 : 503;
-    const message = ['P0002', '40001', '22023'].includes(error.code) ? error.message
+    const message = error.message === 'allocation_correction_requires_review' ? 'This credit comes from an existing booking payment. Review the linked booking before correcting it.'
+      : ['P0002', '40001', '22023'].includes(error.code) ? error.message
       : status === 409 ? 'This request conflicts with another saved change. Reload the invoice.'
       : 'The financial update could not be confirmed. Keep this form and retry the same request.';
     console.error('[admin/api] financial transaction failed:', action, error.code);

@@ -42,6 +42,7 @@ export interface PaymentInstructionsSnapshot {
 }
 
 export interface InvoiceDetail {
+  bookingPaymentAllocationEnabled?: boolean;
   id: string;
   bookingId: string | null;
   invoiceNumber: string | null;
@@ -103,6 +104,7 @@ export interface InvoiceItem {
 }
 
 export interface InvoicePayment {
+  bookingAllocation?: { id: string; sourcePaymentId: string };
   id: string;
   amount: number;
   paymentDate: string;

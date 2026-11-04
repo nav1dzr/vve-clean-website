@@ -1,3 +1,4 @@
+import { clearPendingBookingAllocations } from './pendingBookingAllocation';
 import { clearCustomerEmailDrafts } from './customerEmailDraft';
 import { clearPendingInvoicePayments } from './pendingInvoicePayment';
 import { clearPendingStandaloneReceipts } from './pendingStandaloneReceipt';
@@ -150,6 +151,7 @@ export function clearInvoiceDraftRecoveries(): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new Event(INVOICE_RECOVERY_CLEARED_EVENT));
   clearPendingInvoicePayments();
+  clearPendingBookingAllocations();
   clearPendingStandaloneReceipts();
   clearStandaloneReceiptDrafts();
   clearPendingManualBookings();
