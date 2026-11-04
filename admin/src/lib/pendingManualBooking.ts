@@ -1,4 +1,5 @@
 import type { ManualBookingInput } from '../types/customer';
+import { MANUAL_BOOKING_SOURCES } from './manualBookingSource';
 
 const PREFIX = 'vve-pending-manual-booking:v1:';
 const TTL = 24 * 60 * 60 * 1000;
@@ -10,6 +11,7 @@ function validInput(value: unknown): value is PendingInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const data = value as Record<string, unknown>;
   return validId(data.requestId) && typeof data.service === 'string' && !!data.service.trim()
+    && (data.source === undefined || MANUAL_BOOKING_SOURCES.some(({ value }) => value === data.source))
     && ['after_clean', 'deposit_after_agreement'].includes(String(data.paymentPlan))
     && ['serviceDate', 'arrivalWindow', 'notes', 'email', 'phone', 'address', 'postcode'].every((key) => data[key] == null || typeof data[key] === 'string')
     && (data.totalPrice == null || typeof data.totalPrice === 'number' && Number.isFinite(data.totalPrice));

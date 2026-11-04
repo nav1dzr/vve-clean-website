@@ -264,7 +264,7 @@ describe('BookingDetailPage', () => {
     expect(screen.queryByLabelText('Update booking status')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Update balance status')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Save balance status' })).not.toBeInTheDocument();
-    expect(screen.getByText(/Booking status and payments are managed in the booking workflow below/)).toBeInTheDocument();
+    expect(screen.getByText(/Use the booking workflow below to manage the customer agreement/)).toBeInTheDocument();
   });
 
   it.each(['after_clean', 'deposit_after_agreement'])('uses the workflow immediately for a new manual %s booking before its first saved agreement', async (manualPaymentPlan) => {
@@ -278,7 +278,7 @@ describe('BookingDetailPage', () => {
     expect(screen.queryByRole('button', { name: 'Save balance status' })).not.toBeInTheDocument();
     expect(screen.queryByText('Internal job status')).not.toBeInTheDocument();
     expect(screen.queryByText('Internal balance record')).not.toBeInTheDocument();
-    expect(screen.getByText(/Booking status and payments are managed in the booking workflow below/)).toBeInTheDocument();
+    expect(screen.getByText(/Use the booking workflow below to manage the customer agreement/)).toBeInTheDocument();
   });
 
   it('keeps historical manual records without an explicit arrangement on their existing controls', async () => {

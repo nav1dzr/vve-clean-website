@@ -18,6 +18,7 @@ export interface BookingCard {
   totalPrice: number | null;
   awaitingAvailabilityReview?: boolean;
   isFreeRequest?: boolean;
+  isTest?: boolean;
   journeyState?: string;
   paymentPlan?: 'after_clean' | 'deposit_after_agreement';
   createdAt: string;
@@ -77,6 +78,7 @@ export interface BookingDetail {
   postcode: string | null;
   service: string | null;
   quoteConfig: Record<string, unknown> | null;
+  isTest?: boolean;
   preferredDate: string | null;
   preferredTime: string | null;
   serviceDate: string | null;

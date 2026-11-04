@@ -1,6 +1,8 @@
 // Mirrors admin/api/_lib/customerFields.js's toCustomerCard/toCustomerDetail
 // and admin/api/customers/index.js + [id].js's response shapes.
 
+import type { ManualBookingSource } from '../lib/manualBookingSource';
+
 export const CUSTOMER_TYPE_VALUES = ['individual', 'landlord', 'letting_agent', 'agency', 'business'] as const;
 export type CustomerTypeValue = (typeof CUSTOMER_TYPE_VALUES)[number];
 
@@ -96,6 +98,7 @@ export interface CustomerUpdateResponse {
 }
 
 export interface ManualBookingInput {
+  source?: ManualBookingSource;
   requestId?: string;
   service: string;
   paymentPlan?: 'deposit_after_agreement' | 'after_clean';

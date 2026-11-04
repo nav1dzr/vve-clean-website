@@ -121,7 +121,7 @@ export function validateCustomerInput(input) {
 // Never auto-merges — always returns a list of *warnings* for the caller
 // (route layer) to surface to the admin. `excludeId` omits the record
 // itself when checking during an update.
-export async function findDuplicateWarnings(supabase, { email, phone, postcode, name }, excludeId = null) {
+export async function findDuplicateWarnings(supabase, { email, phone, postcode, name }, excludeId = null, { requireComplete = false } = {}) {
   const warnings = [];
   const normalisedEmail = normaliseEmailForDedup(email);
   const normalisedPhone = normalisePhoneForDedup(phone);
@@ -129,14 +129,16 @@ export async function findDuplicateWarnings(supabase, { email, phone, postcode, 
   if (normalisedEmail) {
     let query = supabase.from('customers').select('id, name, email, phone, postcode').eq('normalised_email', normalisedEmail);
     if (excludeId) query = query.neq('id', excludeId);
-    const { data } = await query;
+    const { data, error } = await query;
+    if (error && requireComplete) throw new Error('Duplicate contact lookup failed');
     for (const row of data || []) warnings.push({ type: 'email', customer: toDuplicateWarningCustomer(row) });
   }
 
   if (normalisedPhone) {
     let query = supabase.from('customers').select('id, name, email, phone, postcode').eq('normalised_phone', normalisedPhone);
     if (excludeId) query = query.neq('id', excludeId);
-    const { data } = await query;
+    const { data, error } = await query;
+    if (error && requireComplete) throw new Error('Duplicate contact lookup failed');
     for (const row of data || []) warnings.push({ type: 'phone', customer: toDuplicateWarningCustomer(row) });
   }
 
@@ -388,6 +390,9 @@ export async function createManualBooking(supabase, customerId, input, adminId) 
   if (input.paymentPlan !== undefined && !['deposit_after_agreement', 'after_clean'].includes(input.paymentPlan)) {
     return { ok: false, error: 'Choose the £30 deposit or payment on the cleaning day.' };
   }
+  if (input.source !== undefined && !['phone', 'whatsapp', 'email', 'checkatrade', 'other'].includes(input.source)) {
+    return { ok: false, error: 'Choose a valid booking source.' };
+  }
   if (input.email && !isValidEmail(input.email)) {
     return { ok: false, error: 'Enter a valid email address for this booking.' };
   }
@@ -411,6 +416,7 @@ export async function createManualBooking(supabase, customerId, input, adminId) 
     typeof input.totalPrice === 'number' ? input.totalPrice : null,
     input.paymentPlan || null, input.notes || null, input.email || null,
     input.phone || null, input.address || null, input.postcode || null,
+    ...(input.source ? [input.source] : []),
   ])).digest('hex');
   async function previousRequest() {
     const { data: existing, error } = await supabase.from('bookings')
@@ -444,7 +450,8 @@ export async function createManualBooking(supabase, customerId, input, adminId) 
     ...(arrivalWindow ? { preferred_time: arrivalWindow } : {}),
     // Keep the owner's explicit per-booking choice across refreshes. This is
     // a draft preference, not payment received or an automatic confirmation.
-    ...(input.paymentPlan || requestId ? { quote_config: {
+    ...(input.paymentPlan || requestId || input.source ? { quote_config: {
+      ...(input.source ? { manualBookingSource: input.source } : {}),
       ...(input.paymentPlan ? { manualPaymentPlan: input.paymentPlan } : {}),
       ...(requestId ? { manualCustomerId: customerId, manualAdminId: adminId, manualRequestFingerprint: fingerprint } : {}),
     } } : {}),

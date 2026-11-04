@@ -1,3 +1,4 @@
+import { manualBookingSourceLabel } from '../lib/manualBookingSource';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
@@ -168,6 +169,9 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <h1 className="truncate font-semibold text-xl text-navy-950">{b.bookingRef || 'Reference not recorded'}</h1>
+          {b.attribution.firstSource === 'admin_manual' && <p className="text-sm text-navy-700">
+            Booking source · {manualBookingSourceLabel(b.quoteConfig?.manualBookingSource)}
+          </p>}
           <p className="truncate text-xs text-navy-500">Internal ID: {b.id}</p>
         </div>
         {b.awaitingAvailabilityReview ? (
@@ -176,6 +180,8 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
           <StatusBadge {...bookingPaymentBadge(b)} />
         )}
       </div>
+
+      {b.isTest && <p className="mb-4 rounded-xl bg-amber-50 p-4 text-sm font-semibold text-amber-950">Test record · keep separate from customer work.</p>}
 
       {b.awaitingAvailabilityReview && (
         <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-relaxed text-navy-900">
@@ -188,7 +194,7 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
 
       {workflowManaged ? (
         <p className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-navy-800">
-          Booking status and payments are managed in the booking workflow below. Use its actions to send updates, record payments or finish the job.
+          Use the booking workflow below to manage the customer agreement and finish the job. Deposit and balance each have their own payment status.
         </p>
       ) : (
         <Section title="Internal job status">

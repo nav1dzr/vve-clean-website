@@ -74,6 +74,20 @@ describe('CustomerFormPage — create', () => {
     expect(JSON.parse(authFetchMock.mock.calls[0][1].body)).toMatchObject({ source: 'other', notes: 'Customer source: Checkatrade.\nKeys held by concierge.' });
   });
 
+  it('shows a possible existing contact before creating a record, then clears the suggestion when details change', async () => {
+    const user = userEvent.setup();
+    authFetchMock.mockResolvedValue({ warnings: [{ type: 'email', customer: { id: 'existing', name: 'Sample contact' } }] });
+    renderNew();
+    await user.type(screen.getByLabelText('Email'), 'existing@example.invalid');
+    await user.click(screen.getByRole('button', { name: 'Check for an existing customer' }));
+    const match = await screen.findByRole('link', { name: 'Sample contact' });
+    expect(match).toHaveAttribute('href', '/customers/existing');
+    expect(match).toHaveAttribute('target', '_blank');
+    expect(authFetchMock.mock.calls.map(([path]) => path)).toEqual(['/api/customers?action=check-duplicates']);
+    await user.clear(screen.getByLabelText('Email'));
+    expect(screen.queryByRole('link', { name: 'Sample contact' })).not.toBeInTheDocument();
+  });
+
   it('requires a name before submitting', async () => {
     const user = userEvent.setup();
     renderNew();

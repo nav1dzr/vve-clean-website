@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Modal from './Modal';
+import { MANUAL_BOOKING_SOURCES, type ManualBookingSource } from '../lib/manualBookingSource';
 import type { ManualBookingInput } from '../types/customer';
 import { ApiError, authFetch } from '../lib/authFetch';
 import type { BookingDetail } from '../types/booking';
@@ -24,6 +25,7 @@ export default function ManualBookingModal(props: Props) {
 function ManualBookingForm({ onClose, onCreate, customerEmail, ownerId, customerId }: Props) {
   const [recovery, setRecovery] = useState(() => readPendingManualBooking(ownerId, customerId));
   const recovered = recovery.status === 'pending' ? recovery.input : null;
+  const [source, setSource] = useState<ManualBookingSource | ''>(recovered?.source || '');
   const [service, setService] = useState(recovered?.service || '');
   const [serviceDate, setServiceDate] = useState(recovered?.serviceDate || '');
   const [totalPrice, setTotalPrice] = useState(recovered?.totalPrice == null ? '' : String(recovered.totalPrice));
@@ -71,6 +73,7 @@ function ManualBookingForm({ onClose, onCreate, customerEmail, ownerId, customer
     }
     const input: ManualBookingInput = pending.current || {
       requestId: crypto.randomUUID(),
+      ...(source ? { source } : {}),
       service: service.trim(), serviceDate: serviceDate || null,
       totalPrice: totalPrice ? Number(totalPrice) : null, notes: notes.trim() || null,
       paymentPlan, arrivalWindow: arrivalWindow.trim() || null,
@@ -125,10 +128,10 @@ function ManualBookingForm({ onClose, onCreate, customerEmail, ownerId, customer
   const labelClass = 'mb-1 block text-sm font-medium text-navy-900';
 
   return (
-    <Modal titleId="manual-booking-title" title="Create manual booking" onClose={() => { if (!submittingRef.current) onClose(); }}>
+    <Modal titleId="manual-booking-title" title="Create booking draft" onClose={() => { if (!submittingRef.current) onClose(); }}>
       <form onSubmit={handleSubmit}>
         <p className="mb-3 text-sm text-navy-700">
-          Add work agreed by phone, message or Checkatrade. Review the details and email on the next screen before sending anything.
+          Save the job details first. You can review the appointment and choose whether to send an email on the next screen.
         </p>
         {(pending.current || recovery.status === 'review') && <section className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
           <p>{recovery.status === 'review' ? 'An earlier request could not be safely restored. It may already be saved.' : 'Your original request is kept for a safe retry, including after refreshing. Retry checks the same booking instead of creating another.'}</p>
@@ -144,6 +147,13 @@ function ManualBookingForm({ onClose, onCreate, customerEmail, ownerId, customer
         {recovery.status === 'unavailable' && <p role="alert" className="mb-3 text-sm text-red-700">Session storage is unavailable. Allow it and reopen this form so a lost response cannot create duplicate bookings.</p>}
         {revoked && <p role="alert" className="mb-3 text-sm text-red-700">Your account access changed. Sign in again before creating a booking.</p>}
         <fieldset disabled={submitting || !!pending.current || blocked} className="min-w-0">
+        <label className="mb-3 block">
+          <span className={labelClass}>How did this booking come in?</span>
+          <select value={source} onChange={(event) => setSource(event.target.value as ManualBookingSource | '')} className={inputClass}>
+            <option value="">Source not specified</option>
+            {MANUAL_BOOKING_SOURCES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </label>
         <label className="mb-3 block">
           <span className={labelClass}>Service *</span>
           <input type="text" list="manual-booking-services" value={service} onChange={(e) => setService(e.target.value)} placeholder="Choose or type a service" className={inputClass} />

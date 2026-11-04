@@ -48,10 +48,17 @@ Partial and split payments, manual bank-entry correction and refund reconciliati
 
 ## Phase 2 — Daily CRM workflow
 
-Deliver enquiry-to-booking draft conversion (retaining the source enquiry); normalized service filters; operational/agreement status explanations; consistent phone/Checkatrade source; deliberate tenant/payer/agent links; earlier duplicate-contact advisory; defined test-record filtering.
-Keep per-booking deposit/no-deposit choice.
-Acceptance: phone-only, Checkatrade, website and company scenarios; back/refresh/retry; stale edits; no automatic customer merge or message.
-Likely files: EnquiriesPage, BookingListPage, customer/booking APIs, customer relationship UI. Relationships may need a separately reviewed migration.
+### 2A — Booking list and customer intake
+
+Local implementation for review. Booking filters group current quote types and known older labels, with an exact-match fallback for saved filter links. The Bookings list defaults to customer records and offers a separate view for explicitly marked tests. The appointment column and internal job filter now explain their distinct meanings.
+
+Manual booking drafts retain the chosen contact channel (including phone and Checkatrade) separately from marketing attribution and keep the owner's explicit payment choice. Older manual records with no channel keep a generic label. The New Customer form can check an exact email or phone before saving and open possible matches in a separate tab. The owner chooses the customer record.
+
+Browser preview uses synthetic fixtures. Component and route regressions cover source recovery, filter validation, and contact checks that perform no writes. This increment uses existing database fields and has no migration.
+
+### 2B — Enquiry handoff and booking contacts
+
+Next increment. Open a booking draft from a saved enquiry, preserve the enquiry link and original message, and require an explicit existing or new customer choice before saving. Handle stale edits and cross-tab retries before enabling conversion. Keep tenant, payer and agent links deliberate and review any required schema change separately. Validate phone-only, Checkatrade, website and company scenarios without automatic merges or messages.
 
 ## Phase 3 — Media management completion
 

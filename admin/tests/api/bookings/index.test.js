@@ -24,10 +24,11 @@ function makeRes() {
   return res;
 }
 
-function makeChainableClient(result) {
+function makeChainableClient(result, calls = []) {
   const builder = {
     select: () => builder,
-    eq: () => builder,
+    eq: (...args) => { calls.push(['eq', ...args]); return builder; },
+    or: (clause) => { calls.push(['or', clause]); return builder; },
     ilike: () => builder,
     gte: () => builder,
     lte: () => builder,
@@ -78,6 +79,27 @@ describe('GET /api/bookings', () => {
   beforeEach(() => {
     verifyAdminRequestMock.mockReset();
     getServiceClientMock.mockReset();
+  });
+
+  it('applies service grouping, test records and booking origin before pagination', async () => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true });
+    const calls = [];
+    getServiceClientMock.mockReturnValue(makeChainableClient({ data: [], count: 0, error: null }, calls));
+    const res = makeRes();
+    await handler(makeReq('/api/bookings?serviceGroup=carpet_upholstery&records=test&bookingOrigin=checkatrade'), res);
+    expect(res.statusCode).toBe(200);
+    expect(calls).toContainEqual(['or', expect.stringContaining('quote_config->>deepService.eq.carpet_upholstery')]);
+    expect(calls).toContainEqual(['eq', 'measurement_is_test', true]);
+    expect(calls).toContainEqual(['eq', 'first_source', 'admin_manual']);
+    expect(calls).toContainEqual(['eq', 'quote_config->>manualBookingSource', 'checkatrade']);
+  });
+
+  it.each(['serviceGroup=unknown', 'records=everything', 'bookingOrigin=google'])('rejects invalid filter %s', async (query) => {
+    verifyAdminRequestMock.mockResolvedValue({ ok: true });
+    const res = makeRes();
+    await handler(makeReq('/api/bookings?' + query), res);
+    expect(res.statusCode).toBe(400);
+    expect(getServiceClientMock).not.toHaveBeenCalled();
   });
 
   it('rejects non-GET methods', async () => {

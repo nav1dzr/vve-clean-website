@@ -292,6 +292,21 @@ describe('createManualBooking', () => {
     expect(notes[0].author_admin_id).toBe('admin-1');
   });
 
+  it('keeps Checkatrade provenance separate from attribution and deposit choice', async () => {
+    const supabase = createFakeSupabase({ customers: [{ id: 'company', name: 'Synthetic letting agent', phone: '02000000000' }] });
+    const requestId = '123e4567-e89b-42d3-a456-426614174222';
+    const input = { service: 'End of tenancy cleaning', source: 'checkatrade', paymentPlan: 'after_clean', requestId };
+    expect((await createManualBooking(supabase, 'company', input, 'admin-1')).ok).toBe(true);
+    expect(supabase._tables.bookings[0]).toMatchObject({
+      id: requestId, deposit_amount: 0, first_source: 'admin_manual', last_source: 'admin_manual',
+      quote_config: { manualBookingSource: 'checkatrade', manualPaymentPlan: 'after_clean' },
+    });
+    expect(await createManualBooking(supabase, 'company', input, 'admin-1')).toMatchObject({ ok: true, alreadyExisted: true });
+    expect(await createManualBooking(supabase, 'company', { ...input, source: 'phone' }, 'admin-1')).toMatchObject({ ok: false, status: 409 });
+    expect(supabase._tables.bookings).toHaveLength(1);
+    expect((await createManualBooking(supabase, 'company', { ...input, source: 'google' }, 'admin-1')).ok).toBe(false);
+  });
+
   it('rejects when service is missing', async () => {
     const supabase = createFakeSupabase({
       customers: [{ id: 'c-1', name: 'Jane Doe', email: 'jane@example.com' }],

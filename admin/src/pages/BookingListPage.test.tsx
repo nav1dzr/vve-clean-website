@@ -107,6 +107,23 @@ describe('BookingListPage', () => {
     expect(await screen.findAllByText(/Natalie Ashton/)).not.toHaveLength(0);
   });
 
+  it('selects a service group, hides marked tests by default and can show just tests', async () => {
+    authFetchMock.mockResolvedValue({ results: [], page: 1, pageSize: 20, totalCount: 0, hasMore: false });
+    const user = userEvent.setup();
+    renderList(['/bookings?service=old&sort=oldest']);
+    await screen.findByText('No bookings match these filters');
+    expect(authFetchMock.mock.calls[0][0]).toContain('records=live');
+    await user.selectOptions(screen.getByLabelText('Service'), 'carpet_upholstery');
+    await user.selectOptions(screen.getByLabelText('Manual booking source'), 'checkatrade');
+    await user.selectOptions(screen.getByLabelText('Records'), 'test');
+    const params = new URL(authFetchMock.mock.lastCall?.[0], 'https://example.invalid').searchParams;
+    expect(params.get('serviceGroup')).toBe('carpet_upholstery');
+    expect(params.get('bookingOrigin')).toBe('checkatrade');
+    expect(params.get('records')).toBe('test');
+    expect(params.get('service')).toBeNull();
+    expect(params.get('sort')).toBe('oldest');
+  });
+
   it('sends the selected status filter to the API', async () => {
     authFetchMock.mockResolvedValue({ results: [], page: 1, pageSize: 20, totalCount: 0, hasMore: false });
     const user = userEvent.setup();
@@ -115,7 +132,7 @@ describe('BookingListPage', () => {
     await waitFor(() => expect(authFetchMock).toHaveBeenCalledTimes(1));
 
     await user.click(screen.getByRole('button', { name: /filters/i }));
-    await user.selectOptions(screen.getByLabelText('Status'), 'confirmed');
+    await user.selectOptions(screen.getByLabelText('Internal job status'), 'confirmed');
 
     await waitFor(() => {
       const calls = authFetchMock.mock.calls;
@@ -130,7 +147,7 @@ describe('BookingListPage', () => {
     renderList();
     await screen.findAllByText('Jasmine Carter');
     expect(screen.getAllByText('Deposit paid', { selector: 'span' })).toHaveLength(2);
-    expect(screen.getByText(/For no-deposit bookings, leave Deposit status on All/)).toBeInTheDocument();
+    expect(screen.getByText(/Use Balance status to see what remains to be paid/)).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText('Deposit status'), 'paid');
     await waitFor(() => expect(authFetchMock.mock.calls[authFetchMock.mock.calls.length - 1]?.[0]).toContain('paymentStatus=paid'));
   });

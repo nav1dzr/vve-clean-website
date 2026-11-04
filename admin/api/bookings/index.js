@@ -13,6 +13,20 @@ export const config = { api: { bodyParser: false } };
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 
+// Match current website quote data and the historical/manual display labels.
+// These clauses are fixed strings. User input only selects an allowlisted key.
+const SERVICE_GROUPS = {
+  end_of_tenancy: 'quote_config->>deepService.eq.end_of_tenancy,service.eq.end_of_tenancy,service.ilike.end of tenancy*,service.ilike.end-of-tenancy*',
+  carpet_upholstery: 'quote_config->>deepService.eq.carpet_upholstery,service.eq.carpet_upholstery,service.ilike.carpet*,service.ilike.sofa*,service.ilike.upholstery*',
+  after_builders: 'quote_config->>deepService.eq.after_builders,service.eq.after_builders,service.ilike.after builders*,service.ilike.after-builders*',
+  move_in: 'quote_config->>deepService.eq.move_in,service.eq.move_in,service.ilike.move-in*,service.ilike.move in*',
+  window: 'quote_config->>service.eq.window,service.ilike.window*',
+  gutter: 'quote_config->>service.eq.gutter,service.ilike.gutter*',
+  office: 'quote_config->>service.eq.office,service.ilike.office*',
+};
+const MANUAL_ORIGINS = ['phone', 'whatsapp', 'email', 'checkatrade', 'other'];
+const RECORD_FILTERS = ['live', 'test', 'all'];
+
 function parsePositiveInt(value, fallback) {
   const n = Number.parseInt(value, 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
@@ -25,12 +39,19 @@ function parsePositiveInt(value, fallback) {
 // when a customer's postcode format is uncertain; use this filter when
 // narrowing an already-known area (e.g. "N15").
 function buildQuery(supabase, filters) {
-  let query = supabase.from('bookings').select(CARD_SELECT, { count: 'exact' });
+  let query = supabase.from('bookings').select(CARD_SELECT + ', measurement_is_test', { count: 'exact' });
 
   if (filters.status) query = query.eq('status', filters.status);
   if (filters.paymentStatus) query = query.eq('payment_status', filters.paymentStatus);
   if (filters.balanceStatus) query = query.eq('balance_status', filters.balanceStatus);
-  if (filters.service) query = query.eq('service', filters.service);
+  if (filters.serviceGroup) query = query.or(SERVICE_GROUPS[filters.serviceGroup]);
+  else if (filters.service) query = query.eq('service', filters.service);
+  if (filters.bookingOrigin) {
+    query = query.eq('first_source', 'admin_manual').eq('quote_config->>manualBookingSource', filters.bookingOrigin);
+  }
+  if (filters.records && filters.records !== 'all') {
+    query = query.eq('measurement_is_test', filters.records === 'test');
+  }
   if (filters.source) query = query.eq('last_source', filters.source);
   if (filters.postcode) query = query.ilike('postcode', `%${filters.postcode}%`);
   if (filters.dateFrom) query = query.gte('service_date', filters.dateFrom);
@@ -121,7 +142,7 @@ function serviceCategoryKey(value) {
 }
 
 async function markSupersededPendingBookings(supabase, cards) {
-  const pendingIds = cards.filter((c) => c.paymentStatus === 'pending_payment' && !c.isFreeRequest && !c.journeyState).map((c) => c.id);
+  const pendingIds = cards.filter((c) => !c.isTest && c.paymentStatus === 'pending_payment' && !c.isFreeRequest && !c.journeyState).map((c) => c.id);
   if (pendingIds.length === 0) return cards.map((c) => ({ ...c, superseded: false }));
 
   const DETAIL_COLUMNS = 'id, phone, email, postcode, preferred_date, service, created_at';
@@ -148,6 +169,7 @@ async function markSupersededPendingBookings(supabase, cards) {
     .from('bookings')
     .select(DETAIL_COLUMNS)
     .eq('payment_status', 'paid')
+    .eq('measurement_is_test', false)
     .or(orClauses.join(','));
 
   if (paidErr || !paidCandidates) {
@@ -237,6 +259,20 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: `balanceStatus must be one of: ${BALANCE_STATUS_VALUES.join(', ')}` }));
   }
 
+  const serviceGroup = params.get('serviceGroup');
+  const bookingOrigin = params.get('bookingOrigin');
+  const records = params.get('records');
+  for (const [key, value, allowed] of [
+    ['serviceGroup', serviceGroup, Object.keys(SERVICE_GROUPS)],
+    ['bookingOrigin', bookingOrigin, MANUAL_ORIGINS],
+    ['records', records, RECORD_FILTERS],
+  ]) {
+    if (value !== null && !allowed.includes(value)) {
+      res.writeHead(400, headers);
+      return res.end(JSON.stringify({ error: key + ' filter is invalid' }));
+    }
+  }
+
   const rawService = params.get('service');
   const service = rawService ? sanitiseFreeTextFilter(rawService) : null;
   if (rawService && !service) {
@@ -289,7 +325,7 @@ export default async function handler(req, res) {
     const to = from + pageSize - 1;
 
     const query = buildQuery(supabase, {
-      status, paymentStatus, balanceStatus, service, source, postcode, dateFrom, dateTo, sort,
+      status, paymentStatus, balanceStatus, service, serviceGroup, source, bookingOrigin, records, postcode, dateFrom, dateTo, sort,
       notifications,
     }).range(from, to);
 
@@ -302,7 +338,7 @@ export default async function handler(req, res) {
     }
 
     const totalCount = count ?? 0;
-    const results = await markSupersededPendingBookings(supabase, await applyJourneyReadState(supabase, (data || []).map(toCard)));
+    const results = await markSupersededPendingBookings(supabase, await applyJourneyReadState(supabase, (data || []).map((row) => ({ ...toCard(row), ...(row.measurement_is_test === true ? { isTest: true } : {}) }))));
 
     res.writeHead(200, headers);
     res.end(
