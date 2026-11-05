@@ -168,6 +168,7 @@ async function listMedia(req, res, headers, supabase) {
   res.writeHead(200, headers);
   return res.end(
     JSON.stringify({
+      unpublishEnabled: process.env.MEDIA_POSITION_UNPUBLISH_ENABLED === 'true',
       assets: pageAssets.map((asset) =>
         toMediaSummary(asset, usagesByAsset.get(asset.id) || []),
       ),

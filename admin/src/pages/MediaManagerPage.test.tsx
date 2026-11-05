@@ -1,7 +1,9 @@
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MediaManagerPage from "./MediaManagerPage";
 import type { GallerySlot, MediaAsset, MediaLibrary } from "../types/media";
+vi.mock("../auth/useAuth", () => ({ useAuth: () => ({ admin: { id: "media-test-owner" } }) }));
 const mocks = vi.hoisted(() => ({ fetch: vi.fn(), upload: vi.fn() }));
 vi.mock("../lib/authFetch", () => ({ authFetch: mocks.fetch }));
 vi.mock("../lib/mediaUpload", () => ({ uploadMediaFile: mocks.upload }));
@@ -15,6 +17,7 @@ const library = {
   nextPage: null,
 };
 beforeEach(() => {
+  sessionStorage.clear();
   vi.clearAllMocks();
   vi.spyOn(window, "confirm").mockReturnValue(false);
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
@@ -157,6 +160,7 @@ describe("media position guidance", () => {
   };
 
   it("ignores a late preview after switching to another position", async () => {
+    vi.mocked(window.confirm).mockReturnValue(true);
     let resolvePreview!: (value: unknown) => void;
     const pending = new Promise((resolve) => { resolvePreview = resolve; });
     const slots: GallerySlot[] = [1, 2].map((number) => ({ id: `photo-${number}`, topicKey: "carpet", code: `PHOTO0${number}`, kind: "photo", label: `Work photo ${number}`, sortOrder: number, assignments: [], usages: [] }));
@@ -217,12 +221,14 @@ describe("media position guidance", () => {
   });
 
   it("keeps a new position open when a previously reviewed publication finishes", async () => {
+    vi.mocked(window.confirm).mockReturnValue(true);
     let resolvePublish!: (value: unknown) => void;
     const pending = new Promise((resolve) => { resolvePublish = resolve; });
     const slots: GallerySlot[] = [1, 2].map((number) => ({ id: `photo-${number}`, topicKey: "carpet", code: `PHOTO0${number}`, kind: "photo", label: `Work photo ${number}`, sortOrder: number, assignments: [], usages: [] }));
     mocks.fetch.mockImplementation(async (_url, init) => {
       if (!init) return { ...library, assets: [{ ...readyAsset, title: "Saved photo", altText: "Saved description" }], gallerySlots: slots };
       const body = JSON.parse(init.body);
+      if (body.action === "history") return { history: [] };
       if (body.confirm) return pending;
       return { expected: [], selections: body.assignments, impact: [], assets: [readyAsset] };
     });
@@ -328,7 +334,7 @@ describe("media position guidance", () => {
     expect(within(selection).getByRole("option", { name: /Current photo/ })).toBeInTheDocument();
     expect(within(selection).queryByRole("option", { name: /Gallery video/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Preview affected pages" })).toBeEnabled();
-    expect(screen.getByText(/Removing a published position without a replacement is not available yet/)).toBeInTheDocument();
+     expect(screen.queryByRole("button", { name: "Remove this position from the website" })).not.toBeInTheDocument();
   });
 });
 
@@ -488,5 +494,48 @@ describe("visual publication guidance", () => {
     fireEvent.click(screen.getByRole("button",{name:"Play video"}));
     expect(screen.getByTitle("Video preview: Test clip")).toHaveAttribute("src","https://player.mux.com/test-video");
     expect(mocks.fetch.mock.calls.every(([,init])=>!init)).toBe(true);
+  });
+});
+
+
+describe("media caption recovery across navigation", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("blocks browser Back, keeps the edit on cancel and restores it after returning", async () => {
+    mocks.fetch.mockResolvedValue({ ...library, assets: [{ ...readyAsset, title: "Original", altText: "Original description" }] });
+    // Node Request rejects jsdom AbortSignal. These routes have no loaders.
+    const NodeRequest = globalThis.Request;
+    vi.stubGlobal("Request", class extends NodeRequest {
+      constructor(input: RequestInfo | URL, init?: RequestInit) { super(input, { ...init, signal: undefined }); }
+    });
+    const router = createMemoryRouter([
+      { path: "/bookings", element: <h1>Booking list</h1> },
+      { path: "/media", element: <MediaManagerPage /> },
+    ], { initialEntries: ["/bookings", "/media"], initialIndex: 1 });
+    render(<RouterProvider router={router} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit caption & details" }));
+    fireEvent.change(screen.getByLabelText("Title shown on the website"), { target: { value: "Unsent wording" } });
+    await act(async () => { await router.navigate(-1); });
+    expect(await screen.findByRole("dialog", { name: "Leave the media manager?" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Keep working" }));
+    expect(screen.getByLabelText("Title shown on the website")).toHaveValue("Unsent wording");
+    await act(async () => { await router.navigate(-1); });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Leave media manager" })); });
+    expect(router.state.location.pathname).toBe("/bookings");
+    await screen.findByRole("heading", { name: "Booking list" });
+    await act(async () => { await router.navigate("/media"); });
+    await screen.findByText("Unsaved media details on this browser");
+    fireEvent.click(await screen.findByRole("button", { name: "Edit caption & details" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore wording for review" }));
+    expect(screen.getByLabelText("Title shown on the website")).toHaveValue("Unsent wording");
+    expect(mocks.fetch.mock.calls.filter(([, init]) => init?.method === "PATCH")).toHaveLength(0);
+  });
+
+  it("warns when recovery storage is unavailable without losing the current edit", async () => {
+    const editor = await openCaptionEditor();
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Blocked"); });
+    fireEvent.change(editor.getByLabelText("Title shown on the website"), { target: { value: "Keep this" } });
+    expect(await screen.findByRole("alert")).toHaveTextContent("could not keep a recovery copy");
+    expect(editor.getByLabelText("Title shown on the website")).toHaveValue("Keep this");
+    vi.restoreAllMocks();
   });
 });

@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { createBrowserRouter, createRoutesFromElements, Navigate, Outlet, Route, RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthProvider';
 import RequireAuth from './auth/RequireAuth';
 import ProtectedShell from './components/ProtectedShell';
@@ -23,45 +23,43 @@ import MediaManagerPage from './pages/MediaManagerPage';
 import EnquiriesPage from './pages/EnquiriesPage';
 import WebsitePricebookPage from './pages/WebsitePricebookPage';
 
+const router = createBrowserRouter(createRoutesFromElements(
+  <Route element={<AuthProvider><Outlet /></AuthProvider>}>
+    <Route path="/login" element={<LoginPage />} />
+    <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+    <Route
+      element={
+        <RequireAuth>
+          <ProtectedShell />
+        </RequireAuth>
+      }
+    >
+      <Route path="/" element={<DashboardHome />} />
+      <Route path="/bookings" element={<BookingListPage />} />
+      <Route path="/bookings/:id" element={<BookingDetailPage />} />
+      <Route path="/search" element={<SearchPage />} />
+      <Route path="/invoices" element={<InvoiceListPage />} />
+      <Route path="/invoices/new" element={<InvoiceEditorPage />} />
+      <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
+      <Route path="/catalogue" element={<CatalogueListPage />} />
+      <Route path="/media" element={<MediaManagerPage />} />
+      <Route path="/enquiries" element={<EnquiriesPage />} />
+      <Route path="/website-prices" element={<WebsitePricebookPage />} />
+      <Route path="/receipts" element={<ReceiptListPage />} />
+      <Route path="/receipts/new" element={<ReceiptEditorPage />} />
+      <Route path="/receipts/:id" element={<ReceiptDetailPage />} />
+      <Route path="/customers" element={<CustomerListPage />} />
+      <Route path="/customers/new" element={<CustomerFormPage />} />
+      <Route path="/customers/:id" element={<CustomerDetailPage />} />
+      <Route path="/customers/:id/email" element={<CustomerEmailPage />} />
+      <Route path="/customers/:id/edit" element={<CustomerFormPage />} />
+    </Route>
+
+    <Route path="*" element={<Navigate to="/" replace />} />
+  </Route>
+));
+
 export default function App() {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-
-          <Route
-            element={
-              <RequireAuth>
-                <ProtectedShell />
-              </RequireAuth>
-            }
-          >
-            <Route path="/" element={<DashboardHome />} />
-            <Route path="/bookings" element={<BookingListPage />} />
-            <Route path="/bookings/:id" element={<BookingDetailPage />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/invoices" element={<InvoiceListPage />} />
-            <Route path="/invoices/new" element={<InvoiceEditorPage />} />
-            <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
-            <Route path="/catalogue" element={<CatalogueListPage />} />
-            <Route path="/media" element={<MediaManagerPage />} />
-            <Route path="/enquiries" element={<EnquiriesPage />} />
-            <Route path="/website-prices" element={<WebsitePricebookPage />} />
-            <Route path="/receipts" element={<ReceiptListPage />} />
-            <Route path="/receipts/new" element={<ReceiptEditorPage />} />
-            <Route path="/receipts/:id" element={<ReceiptDetailPage />} />
-            <Route path="/customers" element={<CustomerListPage />} />
-            <Route path="/customers/new" element={<CustomerFormPage />} />
-            <Route path="/customers/:id" element={<CustomerDetailPage />} />
-            <Route path="/customers/:id/email" element={<CustomerEmailPage />} />
-            <Route path="/customers/:id/edit" element={<CustomerFormPage />} />
-          </Route>
-
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
-  );
+  return <RouterProvider router={router} />;
 }

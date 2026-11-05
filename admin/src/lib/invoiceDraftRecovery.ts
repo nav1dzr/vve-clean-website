@@ -1,3 +1,4 @@
+import { clearMediaDetailsDrafts } from './mediaDraftRecovery';
 import { clearPendingBookingAllocations } from './pendingBookingAllocation';
 import { clearCustomerEmailDrafts } from './customerEmailDraft';
 import { clearPendingInvoicePayments } from './pendingInvoicePayment';
@@ -156,6 +157,7 @@ export function clearInvoiceDraftRecoveries(): void {
   clearStandaloneReceiptDrafts();
   clearPendingManualBookings();
   clearCustomerEmailDrafts();
+  clearMediaDetailsDrafts();
   try {
     const storage = window.sessionStorage;
     for (let index = storage.length - 1; index >= 0; index -= 1) {

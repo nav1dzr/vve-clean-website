@@ -1,6 +1,6 @@
 # VVE website and CRM completion roadmap
 
-Updated 3 November 2026. This reconciles the October website PDF, website HTML audit, advertising handoff and CRM audit with releases through PR #62. Historical "not released" labels in older plans are not current status.
+Updated 5 November 2026. This reconciles the October website PDF, website HTML audit, advertising handoff and CRM audit with releases through PR #62. Historical "not released" labels in older plans are not current status.
 
 ## Delivery rules
 
@@ -66,10 +66,23 @@ Owner review is deferred until the planned phases are ready. Continue local test
 
 ## Phase 3 — Media management completion
 
-Deliver cross-route/back unsaved-edit protection and recovery; true unpublish with affected-pages preview and history; bulk captions/categories; understandable treatment of built-in versus managed media.
-Verify an approved real photo and video upload/replacement through cloud processing and public mobile playback; preserve previous publication on failures.
-Acceptance: cancel/discard/navigation/reload, failed upload/retry, before/after pair, replacement/unpublish/restore and exact affected pages. Real publication requires specific approval.
-Likely files: MediaManagerPage and media APIs, shared media mapping, gallery components.
+### 3A — Editing and publication controls implemented locally
+
+Cross-route links, browser Back and reload now protect unsaved media edits and running actions. A single-item caption draft is saved in account-scoped session storage for up to 24 hours, offered for explicit review on return, and cleared on sign-out. Blocked storage leaves editing available and shows a recovery warning. Bulk edits, position selections and file selections have navigation protection but are not restored after leaving.
+
+Staff can edit captions, descriptions and categories for up to ten ready items together. Suggested wording preserves existing writing unless replacement is explicitly selected. Each row reports its result; retries skip confirmed saves and reconcile a lost acknowledgement before retrying. Published service/stage changes retain the existing server-side restriction.
+
+A position can be removed after reviewing the exact affected pages, with concurrency checks and atomic publication history. The original media and other uses remain. Empty positions can restore a prior published selection. Built-in gallery photos remain; a service page may fall back to another published result or its built-in image.
+
+Validation on 5 November: CRM TypeScript, lint and build passed; 1,403 CRM tests passed with zero failures. Six isolated real PostgreSQL checks passed: role restrictions, target-only removal, concurrent/retried removal, stale-selection rejection, transactional rollback and history restoration. Synthetic browser checks covered Back/link cancellation and recovery, bulk saves, removal/restoration and the normal application shell. Existing Fast Refresh and bundle-size warnings remain.
+
+Files: admin/src/App.tsx; admin/src/pages/MediaManagerPage.tsx; admin/src/components/MediaNavigationGuard.tsx; admin/src/components/BulkMediaEditor.tsx; admin/src/lib/mediaDraftRecovery.ts; admin/src/lib/invoiceDraftRecovery.ts; admin/api/_lib/mediaAssetActions.js; admin/api/_lib/mediaCollectionActions.js; related types and tests; scripts/validate-media-unpublish-db.mjs.
+
+Release gate: additive migration supabase/migrations/20261105120000_media_position_unpublish.sql and server flag MEDIA_POSITION_UNPUBLISH_ENABLED=true require the explicit production database exception and specific release approval. The flag remains disabled by default. No production database, hosting configuration, public media or provider setting was changed.
+
+### 3B — Provider and live verification still pending
+
+Verify an approved real photo and video upload/replacement through cloud processing and public mobile playback after the approved release. Check before/after pairs, failed upload/retry, exact affected pages and preservation of previous publication on failure. Local fixtures do not establish current cloud-provider acceptance.
 
 ## Phase 4 — Remaining website conversion improvements
 
@@ -97,4 +110,4 @@ A/B testing, richer case studies and possible restrained motion follow reliable 
 
 ## Owner review and release sequence
 
-Phase 1A is live. Review the isolated Phase 1B allocation preview and exact migration before approving its release. Continue daily CRM workflow improvements in Phase 2.
+Phase 1A is live. Phases 1B, 2A, 2B and 3A are implemented locally; preserve the separate database and release gates. Owner review is deferred until the planned work is ready. Remaining work includes Phase 1B partial/split/refund and correction workflows, Phase 3B provider verification, Phase 4 website refinements and Phase 5 operational additions.

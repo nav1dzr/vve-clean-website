@@ -66,6 +66,12 @@ export async function mediaAssetHandler(req, res) {
     );
   }
   try {
+    if (req.method === "POST" && body.action === "history")
+      return await positionHistory(res, headers, supabase, body);
+    if (req.method === "POST" && body.action === "unpublish")
+      return await unpublishPosition(res, headers, supabase, body, auth.admin.id);
+    if (req.method === "POST" && body.action === "assign" && body.historyId)
+      return await assignMedia(res, headers, supabase, null, body, auth.admin.id);
     const { data: asset, error } = await supabase
       .from(MEDIA_ASSETS_TABLE)
       .select("*")
@@ -75,6 +81,8 @@ export async function mediaAssetHandler(req, res) {
       res.writeHead(404, headers);
       return res.end(JSON.stringify({ error: "Media item not found." }));
     }
+    if (body.action === "details" && req.method === "POST")
+      return reply(res, headers, 200, { asset: toMediaSummary(asset, []) });
     if (req.method === "PATCH")
       return await updateMetadata(res, headers, supabase, asset, body);
     if (body.action === "complete")
@@ -94,8 +102,6 @@ export async function mediaAssetHandler(req, res) {
         body,
         auth.admin.id,
       );
-    if (body.action === "history")
-      return await positionHistory(res, headers, supabase, body);
     if (body.action === "assign")
       return await assignMedia(
         res,
@@ -254,7 +260,7 @@ async function positionHistory(res, headers, supabase, body) {
     return reply(res, headers, 400, { error: "Choose a valid position." });
   const { data, error } = await supabase
     .from("media_publication_history")
-    .select("id, previous_assignments, created_at")
+    .select("id, previous_assignments, published_assignments, created_at")
     .eq("target_type", body.targetType)
     .eq("target_id", body.targetId)
     .order("created_at", { ascending: false })
@@ -680,4 +686,43 @@ async function markFailed(supabase, assetId, message) {
     .eq("id", assetId);
   if (error)
     console.error("[admin/media] failed status write failed:", error.code);
+}
+
+async function unpublishPosition(res, headers, db, body, adminId) {
+  if (process.env.MEDIA_POSITION_UNPUBLISH_ENABLED !== 'true') {
+    return reply(res, headers, 503, { error: 'Removing published positions is not available yet.' });
+  }
+  if (!['gallery', 'website'].includes(body.targetType) || !validMediaUuid(body.targetId)) {
+    return reply(res, headers, 400, { error: 'Choose a valid position.' });
+  }
+  const column = body.targetType === 'gallery' ? 'gallery_slot_id' : 'website_slot_id';
+  const table = body.targetType === 'gallery' ? MEDIA_GALLERY_SLOTS_TABLE : MEDIA_WEBSITE_SLOTS_TABLE;
+  const target = await db.from(table).select('id').eq('id', body.targetId).maybeSingle();
+  if (target.error) throw target.error;
+  if (!target.data) return reply(res, headers, 404, { error: 'Position not found.' });
+  const [current, references] = await Promise.all([
+    db.from(MEDIA_ASSIGNMENTS_TABLE).select('asset_id,media_role').eq(column, body.targetId),
+    db.from(MEDIA_REFERENCES_TABLE).select('reference_key,page_key,page_label,component_label')
+      .eq(column, body.targetId).eq('active', true).order('sort_order'),
+  ]);
+  if (current.error || references.error) throw current.error || references.error;
+  const expected = sortedAssignments(current.data || []);
+  const impact = (references.data || []).map((row) => ({
+    key: row.reference_key, pageKey: row.page_key, pageLabel: row.page_label, componentLabel: row.component_label,
+  }));
+  if (body.preview === true) return reply(res, headers, 200, { expected, impact });
+  if (body.confirm !== true || !Array.isArray(body.expected) || body.expected.length > 2
+    || body.expected.some((row) => !validMediaUuid(row?.assetId) || !['before', 'after', 'primary'].includes(row?.role))) {
+    return reply(res, headers, 409, { error: 'Preview the affected pages before removing this position.' });
+  }
+  const result = await db.rpc('unpublish_media_position', {
+    p_target_type: body.targetType, p_target_id: body.targetId,
+    p_expected: sortedAssignments(body.expected), p_admin_id: adminId,
+  });
+  if (result.error) return reply(res, headers, result.error.code === '40001' ? 409 : 503, {
+    error: result.error.code === '40001'
+      ? 'This position changed. Review it again before removing it.'
+      : 'Could not confirm removal. Refresh this position and check its history before trying again.',
+  });
+  return reply(res, headers, 200, { ...result.data, impact });
 }

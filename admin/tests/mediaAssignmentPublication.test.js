@@ -66,6 +66,7 @@ async function call(body, method = "POST", id = A) {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("MEDIA_POSITION_UNPUBLISH_ENABLED", "false");
   mocks.auth.mockResolvedValue({ ok: true, admin: { id: A } });
   db = createFakeSupabase({
     media_assets: [asset(A), asset(B, "after")],
@@ -313,5 +314,39 @@ describe("authenticated atomic media publication", () => {
     expect((await call({ action: "fail" })).statusCode).toBe(200);
     expect(db._tables.media_assets[0].status).toBe("failed");
     expect(db._tables.media_assets[0].processing_error).toContain("retry");
+  });
+});
+
+
+describe("removing a published position", () => {
+  it("is disabled until its migration is approved and activated", async () => {
+    expect((await call({ action: "unpublish", targetType: "gallery", targetId: T, preview: true })).statusCode).toBe(503);
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it("previews every affected page without writing and requires deliberate confirmation", async () => {
+    vi.stubEnv("MEDIA_POSITION_UNPUBLISH_ENABLED", "true");
+    db._tables.media_assignments = [{ asset_id: A, gallery_slot_id: T, media_role: "before" },
+      { asset_id: B, gallery_slot_id: T, media_role: "after" }];
+    const preview = await call({ action: "unpublish", targetType: "gallery", targetId: T, preview: true });
+    expect(preview.statusCode).toBe(200);
+    expect(preview.body.expected).toHaveLength(2);
+    expect(preview.body.impact).toHaveLength(1);
+    expect(db.rpc).not.toHaveBeenCalled();
+    expect((await call({ action: "unpublish", targetType: "gallery", targetId: T })).statusCode).toBe(409);
+    const applied = await call({ action: "unpublish", targetType: "gallery", targetId: T,
+      expected: preview.body.expected, confirm: true });
+    expect(applied.statusCode).toBe(200);
+    expect(db.rpc).toHaveBeenCalledWith("unpublish_media_position", expect.objectContaining({
+      p_target_id: T, p_expected: preview.body.expected, p_admin_id: A,
+    }));
+  });
+
+  it("reports stale reviewed selections and lets history load without an assigned asset", async () => {
+    vi.stubEnv("MEDIA_POSITION_UNPUBLISH_ENABLED", "true");
+    db.rpc.mockResolvedValueOnce({ error: { code: "40001" } });
+    expect((await call({ action: "unpublish", targetType: "gallery", targetId: T,
+      expected: [{ assetId: A, role: "primary" }], confirm: true })).statusCode).toBe(409);
+    expect((await call({ action: "history", targetType: "gallery", targetId: T }, "POST", T)).statusCode).toBe(200);
   });
 });
