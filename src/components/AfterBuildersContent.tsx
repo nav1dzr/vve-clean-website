@@ -3,7 +3,8 @@ import AfterBuildersPhoto from './AfterBuildersPhoto';
 import { ArrowRight, Camera, Check, ChevronDown, ClipboardCheck, MapPin, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BUILDERS_FAQS, BUILDERS_BUDGET_GUIDE, BUILDERS_LEVELS, formatBuildersRange, BUILDERS_ROOMS, BUILDERS_WHATSAPP } from '../data/afterBuildersContent';
-import { AFTER_BUILDERS_START_FROM_P, DEPOSIT_P, PRESSURE_WASHING_FROM_P, GARDEN_SERVICES_FROM_P, GARDEN_SERVICES_MIN_P, WINDOW_CLEANING_FROM_P, WINDOW_CLEANING_MIN_P, penceToDisplay } from '../data/pricing';
+import { CONDITIONAL_DEPOSIT_NOTE } from '../data/businessPolicy';
+import { AFTER_BUILDERS_START_FROM_P, PRESSURE_WASHING_FROM_P, GARDEN_SERVICES_FROM_P, GARDEN_SERVICES_MIN_P, WINDOW_CLEANING_FROM_P, WINDOW_CLEANING_MIN_P, penceToDisplay } from '../data/pricing';
 import { AREAS } from '../data/areas';
 import PriceTaxNote from './PriceTaxNote';
 
@@ -76,7 +77,7 @@ function Process() {
     ['Send your enquiry', 'Share the postcode, size, building work, photos and preferred date. No payment is needed to enquire.'],
     ['We assess the job', 'We review dust, residue, finishes and access. Larger or complex projects may need plans or a site visit.'],
     ['Agree a fixed quote', 'Review the cleaning list, price, access costs and timing. Additional work needs your agreement before it is charged.'],
-    ['Confirm the appointment', `We email the agreed details and payment options. Your ${penceToDisplay(DEPOSIT_P)} deposit secures the booking and comes off the total.`],
+    ['Confirm the appointment', `${CONDITIONAL_DEPOSIT_NOTE} We’ll email your appointment confirmation.`],
     ['We clean the agreed areas', 'The team brings the products and equipment for the quoted tasks. Let us know if the site has changed since assessment.'],
     ['Check the completed work', 'We check against the agreed list. The balance is due on the cleaning day under your booking terms. Ask about a receipt and record of the work.'],
   ];
@@ -101,7 +102,7 @@ function ClientsAndAreas() {
 function QuestionsAndQuote() {
   return <>
     <section id="builders-faq" className="builders-section bg-white" aria-labelledby="builders-faq-title"><div className="builders-wrap builders-split"><div><span className="builders-kicker">Before you book</span><h2 id="builders-faq-title">The practical questions</h2><p className="builders-lead">If your project has an unusual finish or access requirement, include it in your enquiry. It is easier to plan for it before the visit.</p><a className="builders-link mt-4" href="tel:02080502233">Call 020 8050 2233</a></div><div>{BUILDERS_FAQS.map((faq) => <details className="builders-accordion" key={faq.q}><summary><span className="faq-question">{faq.q}</span><ChevronDown size={19} aria-hidden="true" /></summary><p className="faq-answer builders-accordion-body text-sm text-slate-600">{faq.a}</p></details>)}</div></div></section>
-    <section id="builders-quote" className="builders-section builders-soft" aria-labelledby="builders-quote-title"><div className="builders-wrap builders-enquiry-layout"><div><span className="builders-kicker">Your project</span><h2 id="builders-quote-title">Tell us what needs cleaning.</h2><p className="builders-lead">A few choices help us understand the job. You can leave anything you’re unsure about and send photos later.</p><div className="builders-note mt-6"><strong>A quote request, not a booking.</strong><p className="mt-2 text-sm">We’ll review the details and agree the work, price and date with you before requesting the {penceToDisplay(DEPOSIT_P)} deposit.</p></div><div className="mt-5"><PhotoQuoteLink location="after_builders_enquiry_photos" children="Send photos on WhatsApp" /><p className="mt-3 text-sm text-slate-600">Send views of the affected rooms and close-ups of residue. Leave people and personal documents out of photos.</p></div></div><AfterBuildersEnquiry /></div></section>
+    <section id="builders-quote" className="builders-section builders-soft" aria-labelledby="builders-quote-title"><div className="builders-wrap builders-enquiry-layout"><div><span className="builders-kicker">Your project</span><h2 id="builders-quote-title">Tell us what needs cleaning.</h2><p className="builders-lead">A few choices help us understand the job. You can leave anything you’re unsure about and send photos later.</p><div className="builders-note mt-6"><strong>A quote request, not a booking.</strong><p className="mt-2 text-sm">We’ll check the work, price and date with you. {CONDITIONAL_DEPOSIT_NOTE}</p></div><div className="mt-5"><PhotoQuoteLink location="after_builders_enquiry_photos" children="Send photos on WhatsApp" /><p className="mt-3 text-sm text-slate-600">Send views of the affected rooms and close-ups of residue. Leave people and personal documents out of photos.</p></div></div><AfterBuildersEnquiry /></div></section>
   </>;
 }
 

@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react';
-import { DEPOSIT_P, penceToDisplay } from '../data/pricing';
+import { CONDITIONAL_DEPOSIT_NOTE } from '../data/businessPolicy';
 import GoogleBadge from './GoogleBadge';
 import HomepagePhotoCarousel from './HomepagePhotoCarousel';
 
@@ -19,7 +19,7 @@ export default function Hero() {
             Get my price <ArrowRight size={18} aria-hidden="true" />
           </a>
           <p className="mt-3 max-w-lg text-sm leading-relaxed text-slate-600">
-            No payment to send your request. Once we agree the details, your {penceToDisplay(DEPOSIT_P)} deposit secures the booking and comes off your total.
+            No payment to send your request. {CONDITIONAL_DEPOSIT_NOTE}
           </p>
           <div className="mt-4"><GoogleBadge /></div>
         </div>

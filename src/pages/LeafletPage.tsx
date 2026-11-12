@@ -183,8 +183,8 @@ export default function LeafletPage() {
                 { label: 'Leaflet discount 20%',   value: '−' + formatPrice((example.bundle.preDiscount - example.finalTotal) * 100),  green: true },
                 { label: 'Total after discount',   value: formatPrice(example.finalTotal * 100),  bold: true },
                 { label: 'To request a time',      value: '£0' },
-                { label: 'Deposit after we agree the details', value: formatPrice(examplePayment.depositP) },
-                { label: 'Balance on cleaning day after deposit', value: formatPrice(examplePayment.balanceP) },
+                { label: 'Deposit if required for this visit', value: formatPrice(examplePayment.depositP) },
+                { label: 'Balance if that deposit is paid', value: formatPrice(examplePayment.balanceP) },
               ].map(({ label, value, muted, green, bold }) => (
                 <div key={label} className={`flex justify-between items-center ${bold ? 'border-t border-[#E3E7EE] pt-1.5 mt-1' : ''}`}>
                   <span className={muted ? 'text-silver-500' : green ? 'text-green-700 font-semibold' : bold ? 'text-navy-900 font-bold' : 'text-navy-800'}>

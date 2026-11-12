@@ -869,9 +869,7 @@ export default function BookingPage() {
               Your request is with our team
             </h1>
             <p className="mt-3 text-base leading-relaxed text-silver-700">
-              No payment is required to submit a booking request. After we review
-              and confirm the job details, we’ll email your deposit payment instructions.
-              Your booking is confirmed once the deposit is paid.
+              No payment has been taken. Your preferred time is still a request. We’ll contact you to confirm the price and availability.
             </p>
             {requestComplete.kind === 'submitted' ? <>
             <div className="mt-5 rounded-2xl bg-silver-100 px-4 py-3">
@@ -904,8 +902,7 @@ export default function BookingPage() {
               us if you need help.
             </p>}
             <p className="mt-5 text-sm leading-relaxed text-silver-600">
-              We’ll agree the service, final price and time with you before sending
-              the secure payment instructions. Nothing is charged with this request.
+              If your job needs a deposit, we’ll tell you before you agree and email you the payment details. You’ll receive a separate email confirming your appointment.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <a

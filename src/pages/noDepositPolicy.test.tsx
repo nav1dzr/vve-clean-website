@@ -37,7 +37,7 @@ describe('the current public booking policy on every published route', () => {
     // Include FAQ structured data as well as visible copy; tenancy-deposit
     // advice and genuine £30 service prices remain valid public content.
     const text = (container.textContent ?? '').replace(/\s+/g, ' ');
-    expect(text).not.toMatch(/No deposit or advance payment is required|we confirm your appointment directly|Pay £30 deposit by card/i);
+    expect(text).not.toMatch(/No deposit or advance payment is required|Once we agree the details, (?:your|a) £30 deposit secures|Your booking is confirmed once the deposit is paid|we’ll send your booking details and £30 deposit payment options|Pay £30 deposit by card/i);
     expect(container.querySelector('a[href*="checkout.stripe.com"]')).toBeNull();
     unmount();
   });
@@ -46,7 +46,7 @@ describe('the current public booking policy on every published route', () => {
     '/', '/pricing', '/contact', '/about', '/faq',
     '/carpet-cleaning-london', '/sofa-cleaning-london', '/end-of-tenancy-cleaning-london',
     '/how-we-clean-carpets', '/how-we-clean-sofas-upholstery', '/how-we-clean-end-of-tenancy',
-  ])('%s explains a free request followed by deposit options after agreement', (path) => {
+  ])('%s explains a free request and discloses any deposit before agreement', (path) => {
     const { container, unmount } = renderPage(path);
     expect(container.textContent).toContain(BOOKING_REQUEST_NOTE);
     unmount();

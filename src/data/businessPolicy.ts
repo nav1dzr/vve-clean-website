@@ -1,3 +1,5 @@
+import { DEPOSIT_P, penceToDisplay } from './pricing';
+
 // Business facts confirmed by Navid on 13 September 2026.
 // Presentation only: no price, payment, refund or booking-state calculation.
 export const VAT_SHORT_NOTE = 'No VAT is added.';
@@ -8,5 +10,5 @@ export const LATE_CHANGE_NOTICE = 'For shorter notice, contact us as soon as pos
 export const CANCELLATION_RIGHTS = 'This notice policy does not limit your statutory cancellation rights. Any refund is reviewed separately under the agreed terms and applicable law.';
 export const CANCELLATION_SUMMARY = [CANCELLATION_NOTICE, RESCHEDULING_NOTICE, LATE_CHANGE_NOTICE, CANCELLATION_RIGHTS].join(' ');
 export const COMMERCIAL_PAYMENT_NOTE = 'Commercial payment is due after the clean, unless a different arrangement has been agreed in writing in advance.';
-// Booking policy confirmed by Navid on 14 September 2026.
-export const BOOKING_REQUEST_NOTE = "Send your request with no payment. Once we agree the service, final price and time, we’ll send your booking details and £30 deposit payment options. Your appointment is confirmed once the deposit is received. The deposit comes off your total.";
+export const CONDITIONAL_DEPOSIT_NOTE = `If your job needs a ${penceToDisplay(DEPOSIT_P)} deposit, we’ll tell you before you agree.`;
+export const BOOKING_REQUEST_NOTE = `Send your request without paying. We’ll check availability and confirm the price with you. ${CONDITIONAL_DEPOSIT_NOTE} We’ll email you when your appointment is confirmed.`;
