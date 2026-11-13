@@ -44,7 +44,14 @@ Every invoice has its own **payment options** setting — **Bank transfer**
   marks the invoice paid on its own** — it's just a link. Once the money
   actually arrives, you still record it yourself via **Record payment**,
   exactly as with a bank transfer.
-- **Both** shows both blocks.
+- **Both (bank transfer and card)** lets the customer choose either method.
+  Save the draft and check **Payment instructions on saved draft**. It
+  shows the account name, sort code, account number and your Stripe link.
+  Once issued, the invoice number is the customer's bank transfer reference.
+  The invoice PDF, email and payment reminder show these same instructions.
+  If a required detail is missing, the invoice stays in draft. For an older
+  unpaid invoice issued with incomplete instructions, open **Make a change**
+  and select **Adjust services or price**. Review the new draft before sending it.
 
 Whatever is chosen is frozen onto the invoice the moment you **Issue** it —
 if the bank details or an admin's usual Stripe link change later, already-

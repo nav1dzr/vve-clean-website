@@ -138,6 +138,28 @@ describe('/api/invoices/:id[?action=] dispatcher', () => {
     expect(body.payments).toHaveLength(0);
   });
 
+  it('GET detail returns the customer payment instructions saved on the issued invoice without exposing the business snapshot', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedDraft(supabase);
+    const issuedInstructions = {
+      paymentOption: 'both',
+      bankDetails: { accountName: 'Example Cleaning', sortCode: '00-00-00', accountNumber: '00000000', referenceInstructions: null },
+      stripePaymentLinkUrl: 'https://buy.stripe.com/test_invoice',
+    };
+    Object.assign(supabase._tables.invoices.find((row) => row.id === invoiceId), {
+      invoice_number: 'INV-EXAMPLE', document_status: 'issued', payment_option: 'both',
+      business_snapshot: { internalField: 'private-metadata' },
+      payment_instructions_snapshot: issuedInstructions,
+    });
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}` }), res);
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).paymentInstructions).toEqual(issuedInstructions);
+    expect(res.body).not.toContain('private-metadata');
+    expect(res.body).not.toContain('payment_instructions_snapshot');
+  });
+
   it.each(['invoice_items', 'invoice_payments'])('GET detail fails safely when %s cannot be read and succeeds on retry', async (failedTable) => {
     const supabase = createFakeSupabase();
     getServiceClientMock.mockReturnValue(supabase);
@@ -441,6 +463,61 @@ describe('/api/invoices/:id[?action=] dispatcher', () => {
 
     const events = supabase._tables.invoice_events.filter((e) => e.document_id === invoiceId);
     expect(events.map((e) => e.event_type)).toContain('sent');
+  });
+
+  it('previews, issues and emails the same two methods, and retains them when sending a reminder', async () => {
+    vi.stubEnv('INVOICE_BANK_ACCOUNT_NAME', 'Example Test Account');
+    vi.stubEnv('INVOICE_BANK_SORT_CODE', '00-00-00');
+    vi.stubEnv('INVOICE_BANK_ACCOUNT_NUMBER', '');
+    try {
+      const db = createFakeSupabase();
+      getServiceClientMock.mockReturnValue(db);
+      const card = 'https://buy.stripe.com/test_invoice';
+      const id = await seedDraft(db, { paymentOption: 'both', stripePaymentLinkUrl: card });
+      async function request(action, method) {
+        const res = makeRes();
+        await handler(makeReq({ url: `/api/invoices/${id}?action=${action}`, method, bodyObj: method === 'POST' ? {} : undefined }), res);
+        return res;
+      }
+      expect((await request('preview', 'GET')).statusCode).toBe(422);
+      expect((await request('issue', 'POST')).statusCode).toBe(422);
+      vi.stubEnv('INVOICE_BANK_ACCOUNT_NUMBER', '00000000');
+      const preview = await request('preview', 'GET');
+      expect(preview.headers['Content-Type']).toBe('application/pdf');
+      const issued = await request('issue', 'POST');
+      expect(issued.statusCode).toBe(200);
+      const { invoiceNumber } = JSON.parse(issued.body);
+      vi.stubEnv('INVOICE_BANK_ACCOUNT_NUMBER', '99999999');
+      for (const action of ['send', 'remind']) {
+        expect((await request(action, 'POST')).statusCode).toBe(200);
+        const { html, text, attachments } = sendMailMock.mock.lastCall[0];
+        for (const content of [html, text]) {
+          for (const part of [card, 'Example Test Account', '00-00-00', '00000000', invoiceNumber]) expect(content).toContain(part);
+          expect(content).not.toContain('99999999');
+        }
+        expect(attachments[0].filename).toBe(`${invoiceNumber}.pdf`);
+        expect(attachments[0].content.subarray(0, 5).toString()).toBe('%PDF-');
+      }
+      expect(sendMailMock.mock.calls[0][0].attachments[0].content).toEqual(sendMailMock.mock.calls[1][0].attachments[0].content);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it.each(['send', 'resend', 'remind'])('prevents %s of an older unpaid Both invoice missing transfer details', async (action) => {
+    const db = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(db);
+    const id = await seedDraft(db);
+    await issueInvoice(db, id, 'admin-1');
+    const row = db._tables.invoices.find(i => i.id === id);
+    row.payment_option = 'both';
+    row.payment_instructions_snapshot = { paymentOption: 'both', bankDetails: null, stripePaymentLinkUrl: 'https://buy.stripe.com/test_invoice' };
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${id}?action=${action}`, method: 'POST', bodyObj: {} }), res);
+    expect(res.statusCode).toBe(409);
+    expect(JSON.parse(res.body).error).toContain('Adjust services or price');
+    expect(sendMailMock).not.toHaveBeenCalled();
+    expect(row.payment_instructions_snapshot.bankDetails).toBeNull();
   });
 
   it('POST ?action=send allows overriding the recipient via body.to without changing the stored customer_email', async () => {

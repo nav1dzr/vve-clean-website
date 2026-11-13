@@ -18,7 +18,7 @@ import {
 const PAYMENT_OPTION_LABELS: Record<PaymentOptionValue, string> = {
   bank_transfer: 'Bank transfer',
   stripe_payment_link: 'Stripe payment link',
-  both: 'Both',
+  both: 'Both (bank transfer and card)',
 };
 
 const MAX_ITEMS = 100;
@@ -673,7 +673,7 @@ export default function InvoiceItemsForm({
 
       <section className="mb-4 rounded-xl border border-silver-300 bg-white p-4">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-navy-500">Payment options</h2>
-        <p className="mb-3 text-sm text-navy-700">How should the customer pay? Shown on the PDF and in the invoice email.</p>
+        <p className="mb-3 text-sm text-navy-700">Choose how the customer can pay. You can check the payment instructions on the saved draft before issuing it.</p>
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:gap-4">
           {PAYMENT_OPTION_VALUES.map((option) => (
             <label key={option} className="flex items-center gap-2 text-sm text-navy-900">

@@ -20,8 +20,7 @@
 import PDFDocument from 'pdfkit';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildPaymentInstructionsSnapshot } from './paymentOptions.js';
-import { hasBankDetails } from './businessSettings.js';
+import { resolveInvoicePaymentInstructions } from './paymentOptions.js';
 import { smartTitleCase, formatPostcodeDisplay, formatEmailDisplay } from './textFormat.js';
 import { bookingContent } from '../../shared/bookingPresentation.js';
 
@@ -407,22 +406,6 @@ function drawItemsTable(doc, fonts, items, settings, startY) {
   return y + 14;
 }
 
-// An issued invoice carries its own frozen payment_instructions_snapshot
-// (set at issue time — see the migration file header); a draft preview (or
-// any older issued row from before this field existed) has none yet, so
-// it's computed on the fly from the invoice's own payment_option/
-// stripe_payment_link_url plus the settings already passed in — the same
-// "live for a draft, frozen for issued" split every other field in this
-// renderer already follows.
-function resolvePaymentInstructions(invoice, settings) {
-  if (invoice.payment_instructions_snapshot) return invoice.payment_instructions_snapshot;
-  return buildPaymentInstructionsSnapshot({
-    paymentOption: invoice.payment_option || 'bank_transfer',
-    stripePaymentLinkUrl: invoice.stripe_payment_link_url,
-    settings,
-    hasBankDetails: hasBankDetails(settings),
-  });
-}
 
 function drawServiceAddressBlock(doc, fonts, invoice, x, y, width) {
   const hasServiceInfo = invoice.service_contact_name || invoice.service_address
@@ -517,35 +500,42 @@ function buildTotalsRows(settings, invoice) {
   ].filter(Boolean);
 }
 
-function buildPaymentDetailsRows(instructions, invoiceNumber) {
-  const rows = [];
-  if (instructions.bankDetails) {
-    rows.push(['Method', 'Bank transfer']);
-    rows.push(['Account name', instructions.bankDetails.accountName]);
-    rows.push(['Sort code', instructions.bankDetails.sortCode]);
-    rows.push(['Account number', instructions.bankDetails.accountNumber]);
-    rows.push(['Reference', invoiceNumber || 'your invoice number once issued']);
-    if (instructions.bankDetails.referenceInstructions) {
-      rows.push(['Note', instructions.bankDetails.referenceInstructions]);
-    }
-  }
-  if (instructions.stripePaymentLinkUrl) {
-    rows.push([instructions.bankDetails ? 'Card' : 'Method', 'Pay securely by Stripe', instructions.stripePaymentLinkUrl]);
-  }
-  return rows;
-}
-
 function drawPaymentDetailsBox(doc, fonts, invoice, settings, startY) {
-  const instructions = resolvePaymentInstructions(invoice, settings);
-  const rows = buildPaymentDetailsRows(instructions, invoice.invoice_number);
-  if (rows.length === 0) return startY;
+  const { bankDetails, stripePaymentLinkUrl } = resolveInvoicePaymentInstructions(invoice, settings);
+  if (!bankDetails && !stripePaymentLinkUrl) return startY;
 
   const width = doc.page.width - PAGE_MARGIN * 2;
-  const estimatedHeight = estimateCardHeight(doc, fonts, { width, title: 'Payment details', rows });
-  const y = ensureSpace(doc, fonts, startY, estimatedHeight);
+  const both = bankDetails && stripePaymentLinkUrl;
+  const gap = 12;
+  const bankWidth = both ? Math.floor(width * 0.60) : width;
+  const title = both ? 'Payment details — choose either method' : 'Payment details';
+  const bankRows = bankDetails ? [
+    ['Account name', bankDetails.accountName],
+    ['Sort code', bankDetails.sortCode],
+    ['Account number', bankDetails.accountNumber],
+    ['Payment reference', invoice.invoice_number || 'Your invoice number once issued'],
+  ] : [];
+  if (bankDetails?.referenceInstructions) bankRows.push(['Note', bankDetails.referenceInstructions]);
 
-  const bottomY = drawCard(doc, fonts, { x: PAGE_MARGIN, y, width, title: 'Payment details', rows });
-  return bottomY + 10;
+  const bankCard = { width: bankWidth, title: 'Bank transfer', rows: bankRows };
+  const cardWidth = both ? width - bankWidth - gap : width;
+  const linkLabel = 'Pay securely by Stripe';
+  const cardHeight = 58;
+  const bankHeight = bankDetails ? estimateCardHeight(doc, fonts, bankCard) : 0;
+  const height = Math.max(bankHeight, stripePaymentLinkUrl ? cardHeight : 0);
+  const y = ensureSpace(doc, fonts, startY, height + 20);
+  doc.font(fonts.bold).fontSize(10).fillColor(NAVY).text(title, PAGE_MARGIN, y, { width });
+  const top = y + 18;
+  if (bankDetails) drawCard(doc, fonts, { ...bankCard, x: PAGE_MARGIN, y: top });
+  if (stripePaymentLinkUrl) {
+    const x = both ? PAGE_MARGIN + bankWidth + gap : PAGE_MARGIN;
+    doc.roundedRect(x, top, cardWidth, cardHeight, 4).fillAndStroke('#eff5fc', BORDER);
+    doc.font(fonts.bold).fontSize(9.5).fillColor(NAVY).text('Pay by card', x + 14, top + 14);
+    doc.font(fonts.medium).fillColor('#105591').text(linkLabel, x + 14, top + 32, {
+      width: cardWidth - 28, link: stripePaymentLinkUrl, underline: true,
+    });
+  }
+  return top + height + 10;
 }
 
 // Generates a draft preview or issued invoice PDF. `invoice` and `items`

@@ -61,5 +61,7 @@ export function getBusinessSettings() {
 }
 
 export function hasBankDetails(settings) {
-  return Boolean(settings.bankAccountName && settings.bankSortCode && settings.bankAccountNumber);
+  return typeof settings?.bankAccountName === 'string' && Boolean(settings.bankAccountName.trim())
+    && typeof settings.bankSortCode === 'string' && /^\d{6}$/.test(settings.bankSortCode.replace(/[ -]/g, ''))
+    && typeof settings.bankAccountNumber === 'string' && /^\d{8}$/.test(settings.bankAccountNumber.replace(/ /g, ''));
 }

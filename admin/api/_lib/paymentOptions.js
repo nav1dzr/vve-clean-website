@@ -5,6 +5,8 @@
 // never silently alter an already-issued document (mirrors
 // businessSettings.js's business_snapshot pattern).
 
+import { hasBankDetails as bankDetailsConfigured } from './businessSettings.js';
+
 export const PAYMENT_OPTION_VALUES = ['bank_transfer', 'stripe_payment_link', 'both'];
 export const DEFAULT_PAYMENT_OPTION = 'bank_transfer';
 
@@ -74,20 +76,56 @@ export function validatePaymentOptionInput(paymentOption, stripePaymentLinkUrl) 
 // "bank_transfer" before bank details were configured simply freezes a
 // null bankDetails block, same "omit, never show blank" rule used
 // everywhere else in this feature.
-export function buildPaymentInstructionsSnapshot({ paymentOption, stripePaymentLinkUrl, settings, hasBankDetails }) {
+export function buildPaymentInstructionsSnapshot({ paymentOption, stripePaymentLinkUrl, settings, hasBankDetails = bankDetailsConfigured(settings) }) {
   const showBank = paymentOption === 'bank_transfer' || paymentOption === 'both';
   const showStripe = paymentOption === 'stripe_payment_link' || paymentOption === 'both';
+  const card = showStripe ? validateStripePaymentLinkUrl(stripePaymentLinkUrl) : null;
 
   return {
     paymentOption,
     bankDetails: showBank && hasBankDetails
       ? {
-        accountName: settings.bankAccountName,
-        sortCode: settings.bankSortCode,
-        accountNumber: settings.bankAccountNumber,
+        accountName: settings.bankAccountName.trim(),
+        sortCode: settings.bankSortCode.replace(/[ -]/g, '').match(/../g).join('-'),
+        accountNumber: settings.bankAccountNumber.replace(/ /g, ''),
         referenceInstructions: settings.bankReferenceInstructions || null,
       }
       : null,
-    stripePaymentLinkUrl: showStripe && stripePaymentLinkUrl ? stripePaymentLinkUrl : null,
+    stripePaymentLinkUrl: card?.ok ? card.url : null,
   };
+}
+
+// Issued payment details belong to the original document. In particular, a
+// missing historical account must never be filled with today's bank account.
+export function resolveInvoicePaymentInstructions(invoice, settings) {
+  const frozen = invoice.payment_instructions_snapshot;
+  const draft = !invoice.document_status || invoice.document_status === 'draft';
+  const bank = frozen?.bankDetails;
+  const source = frozen ? {
+    bankAccountName: bank?.accountName,
+    bankSortCode: bank?.sortCode,
+    bankAccountNumber: bank?.accountNumber,
+    bankReferenceInstructions: bank?.referenceInstructions,
+  } : (draft ? settings : invoice.business_snapshot);
+  return buildPaymentInstructionsSnapshot({
+    paymentOption: frozen?.paymentOption ?? invoice.payment_option ?? DEFAULT_PAYMENT_OPTION,
+    stripePaymentLinkUrl: frozen ? frozen.stripePaymentLinkUrl : invoice.stripe_payment_link_url,
+    settings: source,
+  });
+}
+
+export function missingCombinedPaymentMethod(instructions) {
+  if (instructions.paymentOption !== 'both') return null;
+  if (!instructions.bankDetails) return 'bank transfer details';
+  if (!instructions.stripePaymentLinkUrl) return 'a valid Stripe payment link';
+  return null;
+}
+
+export function draftPaymentInstructionsError(instructions) {
+  const missing = missingCombinedPaymentMethod(instructions);
+  if (!missing) return null;
+  const action = !instructions.bankDetails
+    ? 'Check the CRM bank account name, six-digit sort code and eight-digit account number.'
+    : 'Edit the draft and enter the Stripe payment link.';
+  return `Both payment methods are selected, but this invoice needs ${missing}. ${action} Your invoice is still a draft.`;
 }

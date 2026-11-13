@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   PAYMENT_OPTION_VALUES, validateStripePaymentLinkUrl, validatePaymentOptionInput, buildPaymentInstructionsSnapshot,
+  resolveInvoicePaymentInstructions, missingCombinedPaymentMethod,
 } from '../../../api/_lib/paymentOptions.js';
 
 describe('validateStripePaymentLinkUrl', () => {
@@ -107,5 +108,41 @@ describe('buildPaymentInstructionsSnapshot', () => {
     });
     expect(snap.bankDetails).not.toBeNull();
     expect(snap.stripePaymentLinkUrl).toBe('https://buy.stripe.com/x');
+  });
+});
+
+describe('resolving the invoice payment methods', () => {
+  const example = { bankAccountName: '  Example Account  ', bankSortCode: '00 00 00', bankAccountNumber: '0000 0000' };
+  const card = 'https://buy.stripe.com/test_invoice';
+  const both = { payment_option: 'both', stripe_payment_link_url: card };
+
+  it('uses the configured details for drafts and preserves leading zeros', () => {
+    expect(resolveInvoicePaymentInstructions({ ...both, document_status: 'draft' }, example)).toMatchObject({
+      paymentOption: 'both', bankDetails: { accountName: 'Example Account', sortCode: '00-00-00', accountNumber: '00000000' },
+      stripePaymentLinkUrl: card,
+    });
+  });
+
+  it.each([{ bankSortCode: '00AA00' }, { bankAccountNumber: '123' }, { bankAccountName: ' ' }])(
+    'identifies an unusable account before issue', (badField) => {
+      const resolved = resolveInvoicePaymentInstructions(both, { ...example, ...badField });
+      expect(resolved.bankDetails).toBeNull();
+      expect(missingCombinedPaymentMethod(resolved)).toBe('bank transfer details');
+    },
+  );
+
+  it('reads legacy issued details from that document and never borrows a current account or card link', () => {
+    const historic = { ...both, document_status: 'issued', business_snapshot: { ...example, bankAccountName: 'Original Account' } };
+    expect(resolveInvoicePaymentInstructions(historic, example).bankDetails.accountName).toBe('Original Account');
+    expect(resolveInvoicePaymentInstructions({ ...historic, business_snapshot: null }, example).bankDetails).toBeNull();
+    const frozen = { paymentOption: 'both', bankDetails: null, stripePaymentLinkUrl: null };
+    expect(resolveInvoicePaymentInstructions({ ...historic, payment_instructions_snapshot: frozen }, example)).toEqual(frozen);
+  });
+
+  it('never includes unselected methods or an invalid historical card link', () => {
+    expect(resolveInvoicePaymentInstructions({ ...both, payment_option: 'stripe_payment_link' }, example).bankDetails).toBeNull();
+    expect(resolveInvoicePaymentInstructions({ ...both, payment_option: 'bank_transfer' }, example).stripePaymentLinkUrl).toBeNull();
+    const badCard = resolveInvoicePaymentInstructions({ ...both, stripe_payment_link_url: 'https://example.invalid/test' }, example);
+    expect(missingCombinedPaymentMethod(badCard)).toBe('a valid Stripe payment link');
   });
 });

@@ -13,8 +13,8 @@ import {
   calculateInvoiceTotals,
   validateNewPaymentAmount,
 } from './invoiceCalculations.js';
-import { getBusinessSettings, hasBankDetails } from './businessSettings.js';
-import { validatePaymentOptionInput, buildPaymentInstructionsSnapshot } from './paymentOptions.js';
+import { getBusinessSettings } from './businessSettings.js';
+import { validatePaymentOptionInput, buildPaymentInstructionsSnapshot, draftPaymentInstructionsError } from './paymentOptions.js';
 import { isValidEmail, isValidUuid, isValidDateString } from './normalise.js';
 
 const MAX_ITEMS_PER_INVOICE = 100;
@@ -332,8 +332,10 @@ export async function issueInvoice(supabase, invoiceId, adminId, { generateAndSt
   const businessSnapshot = getBusinessSettings();
   const paymentInstructionsSnapshot = buildPaymentInstructionsSnapshot({
     paymentOption: invoice.payment_option || 'bank_transfer', stripePaymentLinkUrl: invoice.stripe_payment_link_url,
-    settings: businessSnapshot, hasBankDetails: hasBankDetails(businessSnapshot),
+    settings: businessSnapshot,
   });
+  const instructionsError = draftPaymentInstructionsError(paymentInstructionsSnapshot);
+  if (invoice.document_status === 'draft' && instructionsError) return { ok: false, status: 422, error: instructionsError };
   const result = await financialMutation(supabase, 'issue', invoiceId, {
     expected_updated_at: expectedUpdatedAt ?? invoice.updated_at,
     business_snapshot: businessSnapshot, payment_instructions_snapshot: paymentInstructionsSnapshot,

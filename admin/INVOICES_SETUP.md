@@ -108,9 +108,10 @@ VAT row, VAT number, or VAT-related wording unless this flag is explicitly
 `"true"` — this was a hard requirement from the original feature spec, not
 a default that can be silently overridden by another setting.
 
-The bank-details block on a PDF/email is simply omitted (not shown as
-blank/"—") until all three `INVOICE_BANK_*` variables are set — see
-`hasBankDetails()` in `businessSettings.js`.
+For **Both**, the CRM checks the account name, six-digit sort code, eight-digit
+account number and Stripe link before issuing the invoice. If either method
+is unavailable, the invoice stays in draft. Historical invoices retain
+their saved payment instructions.
 
 ## 3. Configure the mailer
 

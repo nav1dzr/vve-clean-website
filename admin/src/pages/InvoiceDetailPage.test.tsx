@@ -55,6 +55,7 @@ const draftInvoice: InvoiceDetail = {
   revisedFromInvoiceId: null, revisedFromInvoiceNumber: null, revisedFromIssueDate: null,
   supersededByInvoiceId: null, supersededAt: null,
   paymentOption: 'bank_transfer', stripePaymentLinkUrl: null, serviceContact: null,
+  paymentInstructions: { paymentOption: 'bank_transfer', bankDetails: null, stripePaymentLinkUrl: null },
   invoiceRecipientEmail: null, receiptRecipientEmail: null, billingCustomerId: null, serviceCustomerId: null,
   createdAt: '2026-07-16T00:00:00.000Z', updatedAt: '2026-07-16T00:00:00.000Z',
   issuedAt: null, sentAt: null, paidAt: null, voidAt: null,
@@ -69,6 +70,12 @@ const issuedInvoice = {
   issueDate: '2026-07-16',
   dueDate: '2026-07-30',
   issuedAt: '2026-07-16T00:00:00.000Z',
+};
+
+const bothInstructions = {
+  paymentOption: 'both' as const,
+  bankDetails: { accountName: 'Example Cleaning', sortCode: '00-00-00', accountNumber: '00000000', referenceInstructions: 'Use the full invoice reference.' },
+  stripePaymentLinkUrl: 'https://buy.stripe.com/test_invoice',
 };
 
 function mockRouteBasedFetch(invoice: typeof draftInvoice, events: unknown[] = [], receipts: Array<Record<string, unknown>> = []) {
@@ -93,6 +100,16 @@ describe('InvoiceDetailPage — draft', () => {
     expect(screen.getByDisplayValue('Deep clean')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /issue invoice/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /delete draft/i })).toBeInTheDocument();
+  });
+
+  it('shows the saved draft payment details and hides them while the payment choice is being edited', async () => {
+    mockRouteBasedFetch({ ...draftInvoice, paymentOption: 'both', stripePaymentLinkUrl: bothInstructions.stripePaymentLinkUrl, paymentInstructions: bothInstructions });
+    renderDetail();
+    await screen.findByText('Invoice number assigned on issue');
+    expect(screen.getByText('Example Cleaning')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open Stripe payment link' })).toHaveAttribute('href', bothInstructions.stripePaymentLinkUrl);
+    await userEvent.click(screen.getByRole('radio', { name: 'Bank transfer' }));
+    expect(screen.queryByRole('heading', { name: 'Payment instructions on saved draft' })).not.toBeInTheDocument();
   });
 
   it('retains the booking balance warning when a linked saved draft is reopened without changing its amounts', async () => {
@@ -239,6 +256,38 @@ describe('InvoiceDetailPage — issued', () => {
     authFetchBlobMock.mockReset();
   });
 
+  it('shows both customer methods with the bank account and invoice reference from the saved instructions', async () => {
+    mockRouteBasedFetch({ ...issuedInvoice, paymentOption: 'both', stripePaymentLinkUrl: 'https://buy.stripe.com/test_stale', paymentInstructions: bothInstructions });
+    renderDetail();
+    const panel = (await screen.findByRole('heading', { name: 'Payment instructions' })).closest('section')!;
+    for (const text of ['Bank transfer', 'Example Cleaning', '00-00-00', '00000000', issuedInvoice.invoiceNumber, 'Use the full invoice reference.']) {
+      expect(within(panel).getByText(text)).toBeInTheDocument();
+    }
+    expect(within(panel).getByRole('link', { name: 'Open Stripe payment link' })).toHaveAttribute('href', bothInstructions.stripePaymentLinkUrl);
+  });
+
+  it.each(['bank_transfer', 'stripe_payment_link'] as const)('shows only the selected method for %s', async (paymentOption) => {
+    mockRouteBasedFetch({ ...issuedInvoice, paymentInstructions: { ...bothInstructions, paymentOption } });
+    renderDetail();
+    const panel = (await screen.findByRole('heading', { name: 'Payment instructions' })).closest('section')!;
+    expect(Boolean(within(panel).queryByText('Account number'))).toBe(paymentOption === 'bank_transfer');
+    expect(Boolean(within(panel).queryByRole('link', { name: 'Open Stripe payment link' }))).toBe(paymentOption === 'stripe_payment_link');
+  });
+
+  it('explains incomplete historical bank details while identifying the saved card method', async () => {
+    mockRouteBasedFetch({ ...issuedInvoice, paymentInstructions: { ...bothInstructions, bankDetails: null } });
+    renderDetail();
+    expect(await screen.findByText(/no complete bank details on record/i)).toBeInTheDocument();
+    expect(screen.queryByText('Account number')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open Stripe payment link' })).toHaveAttribute('href', bothInstructions.stripePaymentLinkUrl);
+  });
+
+  it('shows a settled invoice as closed for card collection', async () => {
+    mockRouteBasedFetch({ ...issuedInvoice, paymentStatus: 'paid', amountDue: 0, paymentInstructions: bothInstructions });
+    renderDetail();
+    await screen.findByText(/closed for collection/i);
+    expect(screen.queryByRole('link', { name: 'Open Stripe payment link' })).not.toBeInTheDocument();
+  });
   it('renders a read-only view with the invoice number and action buttons', async () => {
     mockRouteBasedFetch(issuedInvoice, [{ id: 'e1', eventType: 'issued', adminId: 'admin-1', metadata: null, createdAt: '2026-07-16T00:00:00.000Z' }]);
     renderDetail();

@@ -25,12 +25,6 @@ import {
   formatMoney, formatDateTime, isInvoiceOverdue,
 } from '../lib/format';
 
-const PAYMENT_OPTION_LABELS: Record<string, string> = {
-  bank_transfer: 'Bank transfer',
-  stripe_payment_link: 'Stripe payment link',
-  both: 'Bank transfer and Stripe payment link',
-};
-
 type State =
   | { status: 'loading' }
   | { status: 'not-found' }
@@ -179,9 +173,9 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
       load();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Could not issue this invoice.');
+      setPendingAction(null);
       if (err instanceof ApiError && err.status === 409) {
         setDraftConflict(true);
-        setPendingAction(null);
       }
     } finally {
       setBusy(false);
@@ -456,6 +450,7 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
         {draftDirty && (
           <p className="mb-3 text-sm font-medium text-amber-900">Save your changes before previewing or issuing this invoice.</p>
         )}
+        {!draftDirty && !draftConflict && <InvoicePaymentInstructions invoice={inv} />}
         {draftConflict && (
           <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
             <p>This invoice changed elsewhere. Your edits are still in this form. Copy any changes you need, then reload and review the saved invoice before continuing.</p>
@@ -595,17 +590,7 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
         </Section>
       )}
 
-      <Section title="Payment instructions">
-        <Row label="Payment option" value={PAYMENT_OPTION_LABELS[inv.paymentOption] || inv.paymentOption} />
-        {inv.stripePaymentLinkUrl && (
-          <p className="mt-2 text-sm">
-            <a href={inv.stripePaymentLinkUrl} target="_blank" rel="noopener noreferrer" className="text-sky-600 hover:text-sky-700">
-              Open Stripe payment link ↗
-            </a>
-          </p>
-        )}
-        <p className="mt-2 text-xs text-navy-500">Bank details (if configured) appear on the PDF and in the email — not repeated here.</p>
-      </Section>
+      <InvoicePaymentInstructions invoice={inv} />
 
       <Section title="Line items">
         <div className="space-y-2">
@@ -805,6 +790,58 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
         />
       )}
     </div>
+  );
+}
+
+function InvoicePaymentInstructions({ invoice }: { invoice: InvoiceDetail }) {
+  const draft = invoice.documentStatus === 'draft';
+  const title = draft ? 'Payment instructions on saved draft' : 'Payment instructions';
+  if (!invoice.paymentInstructions) {
+    return <Section title={title}><p className="text-sm text-amber-900">Reload the invoice to view its payment instructions.</p></Section>;
+  }
+  const { bankDetails, paymentOption, stripePaymentLinkUrl } = invoice.paymentInstructions;
+  const open = invoice.documentStatus === 'issued' && !invoice.supersededByInvoiceId
+    && invoice.paymentStatus !== 'paid' && invoice.amountDue > 0;
+  return (
+    <Section title={title}>
+      <div className="grid gap-4 text-sm text-navy-700 md:grid-cols-2">
+        {(paymentOption === 'bank_transfer' || paymentOption === 'both') && (
+          <div>
+            <h3 className="mb-1 font-semibold text-navy-950">Bank transfer</h3>
+            {bankDetails ? (
+              <>
+                <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1">
+                  <dt>Account name</dt><dd className="break-words font-medium text-navy-950">{bankDetails.accountName}</dd>
+                  <dt>Sort code</dt><dd className="tabular-nums text-navy-950">{bankDetails.sortCode}</dd>
+                  <dt>Account number</dt><dd className="tabular-nums text-navy-950">{bankDetails.accountNumber}</dd>
+                  <dt>Payment reference</dt><dd className="break-words font-medium text-navy-950">{invoice.invoiceNumber || (draft ? 'Invoice number assigned on issue' : 'Invoice number unavailable')}</dd>
+                </dl>
+                {bankDetails.referenceInstructions && <p className="mt-2 whitespace-pre-line break-words">{bankDetails.referenceInstructions}</p>}
+              </>
+            ) : (
+              <p className="text-amber-900">{draft
+                ? 'Bank details are incomplete. Set up the invoice bank account or select card only before issuing.'
+                : 'This invoice has no complete bank details on record.'}
+                {!draft && open && invoice.paymentStatus === 'unpaid' && ' Under Make a change, choose “Adjust services or price” to prepare a revised invoice.'}</p>
+            )}
+          </div>
+        )}
+        {(paymentOption === 'stripe_payment_link' || paymentOption === 'both') && (
+          <div className={paymentOption === 'both' ? 'border-t border-silver-200 pt-3 md:border-l md:border-t-0 md:pl-5 md:pt-0' : undefined}>
+            <h3 className="mb-1 font-semibold text-navy-950">Card payment</h3>
+            {stripePaymentLinkUrl && (draft || open) ? (
+              <a href={stripePaymentLinkUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-lg border border-sky-300 px-3 font-medium text-sky-700 hover:bg-sky-50">
+                Open Stripe payment link
+              </a>
+            ) : stripePaymentLinkUrl ? (
+              <p>Stripe payment link on record. This invoice is closed for collection.</p>
+            ) : (
+              <p className="text-amber-900">{draft ? 'Add a valid Stripe payment link before issuing.' : 'No valid card payment link was saved with this invoice.'}</p>
+            )}
+          </div>
+        )}
+      </div>
+    </Section>
   );
 }
 
