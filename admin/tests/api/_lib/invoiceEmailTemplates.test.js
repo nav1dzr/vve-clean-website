@@ -31,6 +31,17 @@ function receipt(overrides = {}) {
 }
 
 describe('invoiceEmail', () => {
+  it('displays pasted payment terms cleanly in HTML and plain text without changing the agreement', () => {
+    const original = '**Payment Terms:**\r\nPayment due in 14 days.\r\nUse reference A**B & C.';
+    const input = invoice({ payment_terms: original });
+    const { html, text } = invoiceEmail(input, settings);
+    expect(html).toContain('Payment due in 14 days.<br/>Use reference A**B &amp; C.');
+    expect(text).toContain('Payment due in 14 days.\r\nUse reference A**B & C.');
+    expect(html).not.toContain('**Payment Terms');
+    expect(text).not.toContain('**Payment Terms');
+    expect(input.payment_terms).toBe(original);
+  });
+
   it.each([
     ['invoice', invoiceEmail],
     ['reminder', paymentReminderEmail],
