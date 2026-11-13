@@ -326,6 +326,9 @@ details[open] > .faq-summary .faq-icon {
   .nav-brand-mark { min-width: 96px; }
 }
 .home-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
   background: radial-gradient(ellipse at 100% 0%, #d4eaf5 0%, transparent 58%), linear-gradient(140deg, #f8fbfd 25%, #eaf3f8 100%);
 }
 .home-hero::before {

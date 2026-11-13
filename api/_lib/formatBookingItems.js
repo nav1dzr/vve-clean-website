@@ -25,6 +25,13 @@ const ADDON_LABELS = {
   sofa:          'Sofa (2–3 seats)',
   mattress:      'Mattress',
   staircase:     'Flights of stairs',
+  // Upholstery/mattress extras on a move-in clean — same wording the customer
+  // chose in the calculator, never the raw key.
+  eot_sofa_2:          '2-seater sofa steam clean',
+  eot_sofa_3:          '3-seater sofa steam clean',
+  eot_sofa_corner:     'Corner / L-shaped sofa steam clean',
+  eot_mattress_single: 'Single mattress steam clean',
+  eot_mattress_double: 'Double mattress steam clean',
 };
 
 const DEEP_SERVICE_LABELS = {

@@ -15,6 +15,19 @@ describe('authoritative free-request totals', () => {
     expect(priceBookingRequest({ service: 'window', deepService: 'after_builders', windowSize: 'medium', parkingAvailable: 'yes', congestionZone: 'no' })).toMatchObject({ total: 85 });
   });
 
+  // The move-in calculator offers these extras at the standalone upholstery
+  // price. They were priced at £0 here, so the saved request was £45–£130
+  // below the total the customer had been shown.
+  it.each([
+    ['eot_sofa_2', 70], ['eot_sofa_3', 95], ['eot_sofa_corner', 130],
+    ['eot_mattress_single', 45], ['eot_mattress_double', 55],
+  ])('adds the move-in upholstery extra %s (£%i) to the saved total', (key, pounds) => {
+    const moveIn = { service: 'deep', deepService: 'move_in', deepSize: 'bed2', deepBaths: 1, parkingAvailable: 'yes', congestionZone: 'no' };
+    const base = priceBookingRequest({ ...moveIn, addOnCounts: {} }).total;
+    expect(priceBookingRequest({ ...moveIn, addOnCounts: { [key]: 1 } }).total).toBe(base + pounds);
+    expect(priceBookingRequest({ ...moveIn, addOnCounts: { [key]: 2, oven: 1 } }).total).toBe(base + 2 * pounds + 35);
+  });
+
   it('saves the advertised leaflet basket and adds access after the service offer', () => {
     expect(priceBookingRequest(basket({ sofa_2: 1, sofa_3: 1 }), 'LEAFLET20')).toMatchObject({ total: 132, standard_total: 165, discount_amount: 33, final_total_after_discount: 132 });
     const withAccess = priceBookingRequest(basket({ sofa_2: 1, sofa_3: 1 }, { parkingAvailable: 'no' }), 'LEAFLET20');

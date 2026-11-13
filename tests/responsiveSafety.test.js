@@ -30,6 +30,19 @@ describe('global overflow guards', () => {
     expect(read('src/index.css')).toMatch(/overflow-x:\s*hidden/);
   });
 
+  // The homepage hero draws a decorative ring that deliberately hangs past
+  // the right edge (right: -14%). Unless the hero is the ring's containing
+  // block AND clips it, the whole document becomes 14% wider than the screen:
+  // on a phone the fixed header stretches with it and the menu button ends up
+  // off-screen. body { overflow-x: hidden } does not prevent that.
+  it('contains and clips the homepage hero decoration', () => {
+    const css = read('src/index.css');
+    expect(css).toMatch(/\.home-hero::before\s*\{[^}]*position:\s*absolute/);
+    const heroRules = [...css.matchAll(/(?:^|\})\s*\.home-hero\s*\{([^}]*)\}/g)].map((m) => m[1]).join(' ');
+    expect(heroRules).toMatch(/position:\s*relative/);
+    expect(heroRules).toMatch(/overflow:\s*(clip|hidden)/);
+  });
+
   it('honours prefers-reduced-motion', () => {
     const css = read('src/index.css');
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
