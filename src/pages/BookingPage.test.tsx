@@ -195,7 +195,7 @@ describe("BookingPage — booking request wording", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: 'Before you send your request' }))
-      .toHaveTextContent('Your booking is confirmed once the deposit is paid.');
+      .toHaveTextContent('If your job needs a £30 deposit, we’ll tell you before you agree.');
   });
 
   it("shows the required supporting text near the date fields", () => {
@@ -584,8 +584,8 @@ describe("BookingPage — no-payment request submission", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("VVE-TEST123")).toBeInTheDocument();
-    expect(screen.getByText(/No payment is required to submit a booking request/i)).toBeInTheDocument();
-    expect(screen.getByText(/secure payment instructions/i)).toBeInTheDocument();
+    expect(screen.getByText(/No payment has been taken. Your preferred time is still a request/i)).toBeInTheDocument();
+    expect(screen.getByText(/If your job needs a deposit, we’ll tell you before you agree/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /pay.*deposit/i })).not.toBeInTheDocument();
 
     vi.unstubAllGlobals();

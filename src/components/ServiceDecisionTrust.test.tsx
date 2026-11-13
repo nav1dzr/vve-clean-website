@@ -24,10 +24,10 @@ describe('ServiceDecisionTrust — factual, contextual proof', () => {
     render(<ServiceDecisionTrust service="carpet" />);
     expect(within(panel()).getByRole('link', { name: /Read our reviews on Google/ })).toBeInTheDocument();
     expect(panel()).not.toHaveTextContent('5.0');
-    expect(panel()).toHaveTextContent(`agree the details before emailing your ${penceToDisplay(DEPOSIT_P)} deposit options`);
+    expect(panel()).toHaveTextContent(`If your job needs a ${penceToDisplay(DEPOSIT_P)} deposit, we’ll tell you before you agree`);
     expect(panel()).toHaveTextContent('No payment to send your request.');
-    expect(panel()).toHaveTextContent('The deposit comes off your total.');
-    expect(panel()).toHaveTextContent('Your booking is confirmed once the deposit is paid.');
+    expect(panel()).toHaveTextContent('Any deposit comes off your total.');
+    expect(panel()).toHaveTextContent('We’ll check the price and availability with you.');
     expect(panel().querySelector('blockquote')).toBeNull();
   });
 

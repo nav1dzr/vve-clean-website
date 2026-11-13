@@ -1,4 +1,4 @@
-import { DEPOSIT_P, penceToDisplay } from './pricing';
+import { CONDITIONAL_DEPOSIT_NOTE } from './businessPolicy';
 import { CANCELLATION_NOTICE, LATE_CHANGE_NOTICE } from './businessPolicy';
 export {
   BUILDERS_BUDGET_GUIDE,
@@ -59,8 +59,8 @@ export const BUILDERS_FAQS = [
     a: 'Tell us about a permit or free parking, unloading restrictions, stairs, lifts and entry times. Known parking and congestion costs are shown separately in your quote. Parking is charged at actual cost; an allowance is an estimate. If a charge is still uncertain, we explain its basis or what needs assessment rather than presenting it as free. We agree the final price and any remaining cost basis before you accept the booking.',
   },
   {
-    q: 'When do I pay the deposit and balance?',
-    a: `There is no payment to send a quote request. Once we agree the cleaning list, final price and time, we email your booking details and payment options. The ${penceToDisplay(DEPOSIT_P)} booking deposit normally secures the appointment and is deducted from your total. Your booking is confirmed when the deposit is received. The remaining balance is due on the day of the clean, as set out in your booking details.`,
+    q: 'Do I need a deposit, and when do I pay the balance?',
+    a: `There is no payment to send a quote request. We’ll review the cleaning list, price and time with you. ${CONDITIONAL_DEPOSIT_NOTE} Any deposit paid comes off your total. The remaining balance is due on the day of the clean, as set out in your booking details.`,
   },
   {
     q: 'What if the builders are delayed or I need to change the date?',

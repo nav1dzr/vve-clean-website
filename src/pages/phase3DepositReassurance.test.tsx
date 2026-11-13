@@ -28,7 +28,7 @@ describe('deposit reassurance beside service hero actions', () => {
     const { container } = render(wrap(<Page />));
     const actions = container.querySelector('.service-hero-actions')!;
     expect(actions).toBeInTheDocument();
-    expect(actions.nextElementSibling).toHaveTextContent(`No payment now. Once we agree the details, a ${penceToDisplay(DEPOSIT_P)} deposit secures your booking and comes off the total.`);
+    expect(actions.nextElementSibling).toHaveTextContent(`No payment to request a time. If your job needs a ${penceToDisplay(DEPOSIT_P)} deposit, we’ll tell you before you agree.`);
     expect(actions.querySelectorAll('a')).toHaveLength(2);
     expect(actions).not.toHaveTextContent(/pay now|pay £30/i);
   });

@@ -40,12 +40,15 @@ function detailText(data) {
     .join("\n");
 }
 
+const requestAcknowledgement = "Your preferred time is a request. We’ll check availability and confirm the price with you. If your job needs a deposit, we’ll tell you before you agree. We’ll email you when your appointment is confirmed.";
+const managerNextStep = "Check the price and availability with the customer. If this job needs a deposit, explain it before they agree and send the payment instructions with the booking details.";
+
 function customerText(data) {
   return [
     `Hi ${data.fullName},`,
     "",
     "We received your cleaning request.",
-    "No payment is required to submit a booking request. After we review and confirm the job details, we’ll email your deposit payment instructions. Your booking is confirmed once the deposit is paid.",
+    requestAcknowledgement,
     "",
     detailText(data),
     "",
@@ -67,7 +70,7 @@ function businessText(data) {
     `Estimated total: £${data.totalPrice}`,
     `Notes: ${data.message || "—"}`,
     "",
-    "Manager next step: agree the scope, final price and time with the customer, then send the booking details and £30 deposit request from the CRM.",
+    `Manager next step: ${managerNextStep}`,
   ].join("\n");
 }
 
@@ -91,8 +94,8 @@ function emailHtml(data, business = false) {
     .join("");
 
   const intro = business
-    ? "Agree the scope, final price and time with the customer, then send the booking details and £30 deposit request from the CRM. This request is not a confirmed appointment."
-    : "No payment is required to submit a booking request. After we review and confirm the job details, we’ll email your deposit payment instructions. Your booking is confirmed once the deposit is paid.";
+    ? `${managerNextStep} This request is not a confirmed appointment.`
+    : requestAcknowledgement;
   return `<!doctype html><html lang="en"><body style="margin:0;background:#f5f6f8;font-family:Arial,sans-serif;color:#020b24"><table role="presentation" width="100%"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="560" style="max-width:560px;width:100%;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#020b24;padding:24px 28px">${emailWordmarkHtml({ inverse: true })}</td></tr><tr><td style="padding:28px"><h1 style="font-size:22px;margin:0 0 12px">${business ? "New booking request" : "We received your request"}</h1><p style="font-size:15px;line-height:1.6;margin:0 0 18px">${esc(intro)}</p><table role="presentation" width="100%" cellspacing="0" style="border:1px solid #e3e7ee;border-radius:10px;border-collapse:separate;border-spacing:0">${rows}</table>${business ? "" : '<p style="font-size:14px;line-height:1.6;margin:18px 0 0">Nothing has been charged with this request.</p>'}</td></tr></table></td></tr></table></body></html>`;
 }
 
@@ -177,7 +180,7 @@ function notificationJob(claim, transport, preview, testInbox) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               chat_id: process.env.TELEGRAM_CHAT_ID,
-              text: `New booking request\n${data.bookingRef}\n${data.fullName} · ${data.phone}\n${data.service}\nAddress: ${data.address || "—"}\nPostcode: ${data.postcode || "—"}\n${data.date} · ${data.time}\nEstimated total: £${data.totalPrice}\nNo payment was taken. Review and agree the job details, then email the deposit instructions. The booking is confirmed once the deposit is paid.`,
+              text: `New booking request\n${data.bookingRef}\n${data.fullName} · ${data.phone}\n${data.service}\nAddress: ${data.address || "—"}\nPostcode: ${data.postcode || "—"}\n${data.date} · ${data.time}\nEstimated total: £${data.totalPrice}\nNo payment was taken. ${managerNextStep}`,
             }),
           },
         );

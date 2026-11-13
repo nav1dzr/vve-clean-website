@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, CheckCircle2, MessageCircle } from 'lucide-react';
 import { BUILDERS_WHATSAPP } from '../data/afterBuildersContent';
-import { DEPOSIT_P, penceToDisplay } from '../data/pricing';
+import { CONDITIONAL_DEPOSIT_NOTE } from '../data/businessPolicy';
 import { getAttribution } from '../lib/attribution';
 import { trackContactFormSubmitted } from '../lib/analytics';
 import { clearSubmissionIdentity, submissionIdentity } from '../lib/submissionIdentity';
@@ -99,7 +99,7 @@ export default function AfterBuildersEnquiry() {
   };
   const whatsapp = <a href={BUILDERS_WHATSAPP} target="_blank" rel="noopener noreferrer" className="builders-enquiry-whatsapp" data-track-location="after_builders_enquiry_photos"><MessageCircle size={19} aria-hidden="true" />Send photos on WhatsApp</a>;
 
-  if (submitted) return <div className="builders-enquiry builders-enquiry-success" ref={successPanel} tabIndex={-1} role="status" aria-labelledby="builders-enquiry-success"><CheckCircle2 size={40} aria-hidden="true" /><h3 id="builders-enquiry-success">Your enquiry is saved</h3><p>We’ll review the work and contact you during opening hours to agree the cleaning list, final price and a suitable time. Your appointment is not confirmed yet.</p><p>No payment has been taken. Once the details are agreed, we’ll send instructions for the {penceToDisplay(DEPOSIT_P)} deposit to secure the booking.</p>{whatsapp}<p className="builders-enquiry-privacy">If you send photos, please mention that you have already sent a website enquiry so we can match them.</p></div>;
+  if (submitted) return <div className="builders-enquiry builders-enquiry-success" ref={successPanel} tabIndex={-1} role="status" aria-labelledby="builders-enquiry-success"><CheckCircle2 size={40} aria-hidden="true" /><h3 id="builders-enquiry-success">Your enquiry is saved</h3><p>We’ll review the work and contact you during opening hours to agree the cleaning list, final price and a suitable time. Your appointment is not confirmed yet.</p><p>No payment has been taken. {CONDITIONAL_DEPOSIT_NOTE}</p>{whatsapp}<p className="builders-enquiry-privacy">If you send photos, please mention that you have already sent a website enquiry so we can match them.</p></div>;
 
   return <div className="builders-enquiry">
     <ol className="builders-enquiry-progress" aria-label="Enquiry steps">{STEPS.map((label, index) => <li key={label}><button type="button" disabled={loading || index > furthestStep} aria-current={step === index ? 'step' : undefined} onClick={() => goTo(index)}>{index + 1}. {label}</button></li>)}</ol>
@@ -133,7 +133,7 @@ export default function AfterBuildersEnquiry() {
           <div className="builders-enquiry-review">{afterBuildersEnquirySections(state).map((section, index) => <article key={section.title}><h4>{section.title}</h4><ul>{section.lines.map(line => <li key={line}>{line}</li>)}</ul><button type="button" onClick={() => goTo(index === 0 ? 0 : index === 4 ? 2 : 1)} aria-label={`Edit ${section.title.toLowerCase()}`}>Edit</button></article>)}</div>
           <div className="builders-enquiry-grid builders-enquiry-select-grid"><label className="builders-enquiry-field">Your name *<input name="name" autoComplete="name" value={name} onChange={event => setName(event.target.value)} maxLength={150} required aria-invalid={invalidField === 'name'} aria-describedby={invalidField === 'name' ? 'builders-enquiry-error' : undefined} /></label><label className="builders-enquiry-field">Email address *<input name="email" autoComplete="email" type="email" value={email} onChange={event => setEmail(event.target.value)} maxLength={254} required aria-invalid={invalidField === 'email'} aria-describedby={invalidField === 'email' ? 'builders-enquiry-error' : undefined} /></label></div>
           <label className="builders-enquiry-field">Phone number (optional)<input name="phone" autoComplete="tel" type="tel" value={phone} onChange={event => setPhone(event.target.value)} maxLength={40} /><small>For discussing this enquiry; no marketing subscription.</small></label>
-          <div className="builders-enquiry-note"><strong>No payment to send your enquiry.</strong><p>We’ll assess the job and agree the cleaning list, final price, access costs and time with you. Once agreed, the {penceToDisplay(DEPOSIT_P)} deposit secures your booking and comes off the total.</p></div>
+          <div className="builders-enquiry-note"><strong>No payment to send your enquiry.</strong><p>We’ll assess the job and agree the cleaning list, final price, access costs and time with you. {CONDITIONAL_DEPOSIT_NOTE}</p></div>
           <p className="builders-enquiry-privacy">We use these details to respond to your enquiry. <a href="/privacy-policy">Read our privacy policy</a>.</p>
         </>}
       </fieldset>

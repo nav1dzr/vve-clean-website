@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { BookingProvider } from '../context/BookingContext';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
-import { BOOKING_REQUEST_NOTE } from '../data/businessPolicy';
+import { BOOKING_REQUEST_NOTE, CONDITIONAL_DEPOSIT_NOTE } from '../data/businessPolicy';
 import AreaMarquee from '../components/AreaMarquee';
 import TrustBadges from '../components/TrustBadges';
 import type { HomepageQuoteService } from '../components/HomeServiceSelector';
@@ -88,7 +88,7 @@ export default function HomePage() {
             {[
               ['01', 'Send your request', 'Choose the service and a preferred time. No payment is taken.'],
               ['02', 'Agree the details', 'We discuss the scope, final price and arrival window with you.'],
-              ['03', 'Confirm your agreed visit', 'After we agree the details, we send a £30 deposit request. We confirm your appointment when the deposit is received; it comes off your total.'],
+              ['03', 'Confirm your agreed visit', `${CONDITIONAL_DEPOSIT_NOTE} Look out for our booking confirmation by email.`],
             ].map(([step, title, body]) => <li key={step}><p className="text-sm font-bold text-royal-700">{step}</p><h3 className="mt-2 font-display text-lg font-bold text-navy-950">{title}</h3><p className="mt-2 text-sm leading-relaxed text-slate-600">{body}</p></li>)}
           </ol>
         </div>

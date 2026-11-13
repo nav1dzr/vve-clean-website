@@ -1,6 +1,6 @@
 import PriceTaxNote from '../components/PriceTaxNote';
 import { BUILDERS_GUIDE_HREF, BUILDERS_QUOTE_HREF } from '../../shared/afterBuildersGuide.js';
-import { BOOKING_REQUEST_NOTE } from '../data/businessPolicy';
+import { BOOKING_REQUEST_NOTE, CONDITIONAL_DEPOSIT_NOTE } from '../data/businessPolicy';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarDays, Check, ChevronRight, Home, Layers, Sofa, Sparkles } from 'lucide-react';
@@ -162,7 +162,7 @@ export default function PricingPage() {
       {[
        ['01', 'Request your time', 'Choose your service and preferred time. Sending the request is free.'],
        ['02', 'Agree the details', 'We confirm availability, the work included and the full price, including any access costs.'],
-       ['03', 'Confirm your agreed visit', 'After we agree the details, we send a £30 deposit request. We confirm your appointment when the deposit is received; it comes off your total.'],
+       ['03', 'Confirm your agreed visit', `${CONDITIONAL_DEPOSIT_NOTE} Look out for our booking confirmation by email.`],
       ].map(([number, title, text]) => (
        <li key={number} className="flex gap-4 rounded-2xl border border-white/15 bg-white/5 p-5 sm:block sm:p-6">
         <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-200/40 text-sm font-bold text-sky-100">{number}</span>

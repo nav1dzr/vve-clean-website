@@ -44,8 +44,8 @@ describe('Terms — free request and deposit after agreement', () => {
     const { container } = renderTerms();
     const text = container.textContent ?? '';
     expect(text).toMatch(/No payment is taken when you send that request/i);
-    expect(text).toMatch(/£30 deposit request/i);
-    expect(text).toMatch(/appointment is confirmed when we receive the deposit/i);
+    expect(text).toMatch(/before you agree whether your job needs a £30 deposit/i);
+    expect(text).toMatch(/If a deposit is required, we confirm your appointment when we receive it/i);
     expect(text).toMatch(/remaining balance is normally due after the service/i);
     expect(text).toMatch(/deposit is credited towards your agreed total/i);
   });
@@ -69,7 +69,7 @@ describe('Booking page — no-payment request', () => {
     expect(screen.queryByRole('checkbox', { name: /terms of service/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send request — no payment' })).toBeInTheDocument();
     expect(text).not.toMatch(/Stripe checkout|pay now/i);
-    expect(text).toMatch(/agree the details before emailing your £30 deposit options/i);
+    expect(text).toMatch(/If your job needs a £30 deposit, we’ll tell you before you agree/i);
     expect(text).not.toMatch(/Pay £30 deposit by card|checkout.stripe.com/i);
     expect(text).toMatch(/Booking and cancellation terms apply once an appointment is confirmed/i);
   });
@@ -77,8 +77,8 @@ describe('Booking page — no-payment request', () => {
   it('shows the manager review and customer-agreement steps', () => {
     const { container } = renderBooking();
     const text = container.textContent ?? '';
-    expect(text).toMatch(/We review your request and agree the details before emailing/i);
+    expect(text).toMatch(/We’ll check the price and availability with you/i);
     expect(text).toMatch(/We’ll contact you to agree the work, final price and arrival time before any payment/i);
-    expect(text).toMatch(/Your booking is confirmed once the deposit is paid/i);
+    expect(text).toMatch(/Any deposit comes off your total/i);
   });
 });

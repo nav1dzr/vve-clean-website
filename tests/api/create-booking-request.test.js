@@ -815,10 +815,10 @@ describe("POST /api/create-booking-request", () => {
     for (const [message] of sendMailMock.mock.calls) {
       expect(message.text).toBeTruthy();
       expect(message.html).toBeTruthy();
-      expect(message.text).toMatch(/deposit (?:request|payment instructions)/i);
+      expect(message.text).toMatch(/if (?:your|this) job needs a deposit/i);
       expect(message.text).not.toMatch(/Pay £30 deposit by card|checkout.stripe.com/i);
-      expect(message.text).toMatch(/(?:review and confirm the job details|agree the scope, final price and time)/i);
-      expect(message.html).toMatch(/deposit (?:request|payment instructions)/i);
+      expect(message.text).toMatch(/before (?:you|they) agree/i);
+      expect(message.html).toMatch(/if (?:your|this) job needs a deposit/i);
       expect(message.html).not.toMatch(/Pay £30 deposit by card|checkout.stripe.com/i);
     }
     expect(recordNotificationMock).toHaveBeenCalledWith(
@@ -850,7 +850,7 @@ describe("POST /api/create-booking-request", () => {
     expect(telegramBody.text).toContain("Address: 12 High Street");
     expect(telegramBody.text).toContain("Postcode: E8 1AA");
     expect(telegramBody.text).toMatch(
-      /No payment was taken.*booking is confirmed once the deposit is paid/s,
+      /No payment was taken.*If this job needs a deposit, explain it before they agree/s,
     );
     expect(telegramBody.text).not.toMatch(/£30 deposit|deposit link|Stripe/i);
     expect(recordNotificationMock).toHaveBeenCalledWith(

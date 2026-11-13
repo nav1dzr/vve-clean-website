@@ -23,8 +23,8 @@ describe('TermsOfServicePage — free request and deposit after agreement', () =
     const text = renderPage();
     expect(text).toMatch(/No payment is taken when you send that request/i);
     expect(text).toMatch(/does not create a payment obligation/i);
-    expect(text).toMatch(/After we agree the scope, final price and time with you, we send the agreed booking details/i);
-    expect(text).toMatch(/appointment is confirmed when we receive the deposit/i);
+    expect(text).toMatch(/before you agree whether your job needs a £30 deposit/i);
+    expect(text).toMatch(/If a deposit is required, we confirm your appointment when we receive it/i);
   });
 
   it('explains the preferred time is a request until time, scope and price are agreed', () => {
