@@ -74,3 +74,11 @@ export function formatEmailDisplay(value) {
   if (!value) return value;
   return String(value).trim().toLowerCase();
 }
+
+// Some owners paste a Markdown heading into the payment terms or notes. The
+// document supplies the heading. Keep the agreed wording and any other stars.
+export function formatInvoicePaymentTerms(value) {
+  return String(value ?? '').trim()
+    .replace(/^\*\*payment[ \t]+terms[ \t]*:?\*\*(?=\s|:|$)[ \t]*:?[ \t]*/i, '')
+    .trimStart();
+}

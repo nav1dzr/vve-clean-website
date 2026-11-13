@@ -59,6 +59,23 @@ function pageCount(buffer) {
   return (buffer.toString('latin1').match(/\/Type\s*\/Page\b(?!s)/g) || []).length;
 }
 
+// Capture lines after PDFKit has wrapped them. Spying on text() would miss
+// a second line silently drawn over the next manually positioned paragraph.
+async function invoiceWithDrawnLines(data) {
+  const lines = [];
+  const draw = PDFDocument.prototype._fragment;
+  const spy = vi.spyOn(PDFDocument.prototype, '_fragment').mockImplementation(function (text, x, y, options) {
+    if (String(text).trim()) {
+      lines.push({ text: String(text), y, right: x + this.widthOfString(text.trimEnd()), height: this.currentLineHeight(), page: this.page });
+    }
+    return draw.call(this, text, x, y, options);
+  });
+  try {
+    const pdf = await generateInvoicePdfBuffer(data, items(), settings);
+    return { pdf, lines };
+  } finally { spy.mockRestore(); }
+}
+
 describe('generateInvoicePdfBuffer', () => {
   it('produces a valid PDF (starts with the %PDF magic bytes)', async () => {
     const buffer = await generateInvoicePdfBuffer(invoice(), items(), settings, { isDraft: false });
@@ -150,6 +167,68 @@ describe('generateInvoicePdfBuffer', () => {
     const text = extractPdfText(buffer);
     expect(text).toContain('Company No. 17234391');
     expect(text).toContain('Thank you for choosing VVE Clean.');
+  });
+
+  it('recognises a payment terms heading pasted into the notes field', async () => {
+    const pdf = await generateInvoicePdfBuffer(invoice({
+      payment_terms: null, customer_notes: '**Payment Terms**  Due as agreed. Reference A**B.',
+    }), items(), settings);
+    const printed = extractPdfText(pdf);
+    expect(printed).toContain('Due as agreed. Reference A**B.');
+    expect(printed).not.toContain('**Payment Terms**');
+  });
+
+  it('separates every rendered line of long payment terms, job notes and the following payment options', async () => {
+    const terms = '**Payment Terms**  Payment of £1,792.65 is requested upon receipt of this invoice, following completion of the agreed cleaning services.  Payment can be made by bank transfer or via the secure payment link provided.  Please use the invoice number as your payment reference.';
+    const notes = 'Work completed included carpet extraction and both sides of the removable upholstery cushions. The customer requested the *original* finish.';
+    const data = invoice({
+      payment_terms: terms, customer_notes: notes,
+      payment_option: 'stripe_payment_link', stripe_payment_link_url: 'https://buy.stripe.com/test_example',
+    });
+    const { pdf, lines } = await invoiceWithDrawnLines(data);
+    const first = lines.findIndex(line => line.text.includes('Payment terms & notes'));
+    const payment = lines.findIndex(line => line.text.startsWith('Payment details'));
+    expect(first).toBeGreaterThan(-1);
+    expect(payment).toBeGreaterThan(first + 2);
+    const section = lines.slice(first, payment + 1);
+    for (const [index, current] of section.entries()) {
+      const previous = section[index - 1];
+      if (previous?.page === current.page) {
+        expect(current.y, `"${current.text}" overlaps "${previous.text}"`).toBeGreaterThanOrEqual(previous.y + previous.height - 0.1);
+      }
+    }
+    const printed = extractPdfText(pdf).replace(/\s+/g, '');
+    expect(printed).not.toContain('**PaymentTerms**');
+    expect(printed).toContain(terms.replace('**Payment Terms**', '').replace(/\s+/g, ''));
+    expect(printed).toContain(notes.replace(/\s+/g, ''));
+    expect(data.payment_terms).toBe(terms);
+  });
+
+  it('continues long invoice notes across pages, preserving unbroken references and space for each footer', async () => {
+    const reference = 'ABC0123456789'.repeat(32);
+    const notes = Array.from({ length: 70 }, (_, n) => `Completed sample task ${n + 1}.`).join('\n')
+      + '\nReference ' + reference + '\nEND-OF-NOTES';
+    const { pdf, lines } = await invoiceWithDrawnLines(invoice({ customer_notes: notes }));
+    expect(pageCount(pdf)).toBeGreaterThan(1);
+    const first = lines.findIndex(line => line.text.includes('Payment terms & notes'));
+    const last = lines.findIndex(line => line.text.includes('END-OF-NOTES'));
+    expect(first).toBeGreaterThan(-1);
+    expect(last).toBeGreaterThan(first);
+    const section = lines.slice(first, last + 1);
+    const pages = new Set(section.map(line => line.page));
+    expect(pages.size).toBeGreaterThan(1);
+    for (const page of pages) {
+      const pageBody = section.filter(line => line.page === page);
+      expect(pageBody[0].text).toContain('Payment terms & notes');
+      const footer = lines.find(line => line.page === page && /^Page \d+ of \d+$/.test(line.text));
+      expect(footer).toBeDefined();
+      for (const line of pageBody) {
+        expect(line.y + line.height).toBeLessThan(footer.y);
+        expect(line.right).toBeLessThanOrEqual(page.width - page.margins.right + 0.1);
+      }
+    }
+    const printed = section.map(line => line.text).join('').replace(/\s+/g, '').replaceAll('Paymentterms&notes(continued)', '');
+    expect(printed).toContain(notes.replace(/\s+/g, ''));
   });
 
   it('handles a long item list by flowing onto additional pages without throwing', async () => {

@@ -13,7 +13,7 @@
 
 import { escHtml } from './escHtml.js';
 import { resolveInvoicePaymentInstructions } from './paymentOptions.js';
-import { smartTitleCase } from './textFormat.js';
+import { smartTitleCase, formatInvoicePaymentTerms } from './textFormat.js';
 import { emailWordmarkHtml } from './brandWordmark.js';
 
 function money(settings, amount) {
@@ -98,6 +98,7 @@ function serviceSummary(items) {
 export function invoiceEmail(invoice, settings, { customMessage, items } = {}) {
   const subject = `Invoice ${invoice.invoice_number} from ${settings.tradingName}`;
   const payment = paymentInstructions(invoice, settings);
+  const terms = formatInvoicePaymentTerms(invoice.payment_terms || settings.defaultPaymentTermsText);
   const greetingName = escHtml(smartTitleCase(invoice.customer_name)) || 'there';
   const service = serviceSummary(items);
   const intro = service
@@ -116,7 +117,7 @@ export function invoiceEmail(invoice, settings, { customMessage, items } = {}) {
       <tr><td style="color:#666;">Due date</td><td align="right">${escHtml(invoice.due_date || '—')}</td></tr>
     </table>
     ${payment.html}
-    <p style="color:#666;font-size:12px;">${escHtml(invoice.payment_terms || settings.defaultPaymentTermsText)}</p>
+    ${terms ? `<p style="color:#666;font-size:12px;">${escHtml(terms).replace(/\r\n?|\n/g, '<br/>')}</p>` : ''}
     <p>Thanks,<br/>${escHtml(settings.emailSignature)}</p>
   `;
 
@@ -135,7 +136,7 @@ export function invoiceEmail(invoice, settings, { customMessage, items } = {}) {
     '',
     payment.text,
     '',
-    invoice.payment_terms || settings.defaultPaymentTermsText,
+    terms,
     '',
     `Thanks,`,
     settings.emailSignature,

@@ -21,7 +21,7 @@ import PDFDocument from 'pdfkit';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveInvoicePaymentInstructions } from './paymentOptions.js';
-import { smartTitleCase, formatPostcodeDisplay, formatEmailDisplay } from './textFormat.js';
+import { smartTitleCase, formatPostcodeDisplay, formatEmailDisplay, formatInvoicePaymentTerms } from './textFormat.js';
 import { bookingContent } from '../../shared/bookingPresentation.js';
 
 const PAGE_MARGIN = 50;
@@ -135,20 +135,28 @@ function drawFlowSection(doc, fonts, y, heading, text) {
     doc.font(fonts.regular).fontSize(9.5).fillColor(TEXT);
   };
   title();
-  for (const paragraph of String(text || '').split(/\r?\n/)) {
+  for (const paragraph of String(text || '').split(/\r\n?|\n/)) {
     let line = '';
     const renderLine = () => {
       if (y + 14 > SAFE_BOTTOM) { doc.addPage(); y = PAGE_MARGIN; title(true); }
-      doc.text(line, PAGE_MARGIN, y, { width, lineBreak: false });
+      // The line has already been measured. Passing a width here makes PDFKit
+      // wrap it a second time, painting an extra line over the next baseline.
+      doc.text(line.trimEnd(), PAGE_MARGIN, y, { lineBreak: false });
       y += 14;
       line = '';
     };
-    // Character fallback also handles long URLs/reference strings without clipping.
-    for (const word of paragraph.split(/(\s+)/)) {
-      if (line && doc.widthOfString(line + word) > width) renderLine();
-      for (const char of word) {
-        if (doc.widthOfString(line + char) > width) renderLine();
-        line += char;
+    // Keep inter-word spacing on the same line, without carrying a separator
+    // onto the next line. Split a word only when it cannot fit on its own.
+    for (const token of paragraph.match(/\S+[^\S\r\n]*/g) || []) {
+      if (line && doc.widthOfString((line + token).trimEnd()) > width) renderLine();
+      if (doc.widthOfString(token.trimEnd()) <= width) {
+        line += token;
+      } else {
+        for (const char of token.trimEnd()) {
+          if (line && doc.widthOfString(line + char) > width) renderLine();
+          line += char;
+        }
+        line += token.slice(token.trimEnd().length);
       }
     }
     renderLine();
@@ -602,8 +610,9 @@ export async function generateInvoicePdfBuffer(invoice, items, settings, { isDra
   });
   y = totalsBottom + 14;
 
-  if (invoice.payment_terms || invoice.customer_notes) {
-    const notesText = [invoice.payment_terms, invoice.customer_notes].filter(Boolean).join('\n');
+  const notesText = [invoice.payment_terms, invoice.customer_notes].map(formatInvoicePaymentTerms)
+    .filter(Boolean).join('\n\n');
+  if (notesText) {
     y = drawFlowSection(doc, fonts, y, 'Payment terms & notes', notesText);
   }
 
