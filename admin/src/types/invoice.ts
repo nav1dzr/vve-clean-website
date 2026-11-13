@@ -76,6 +76,7 @@ export interface InvoiceDetail {
   supersededAt: string | null;
   paymentOption: PaymentOptionValue;
   stripePaymentLinkUrl: string | null;
+  paymentInstructions: PaymentInstructionsSnapshot;
   serviceContact: InvoiceServiceContact | null;
   invoiceRecipientEmail: string | null;
   receiptRecipientEmail: string | null;

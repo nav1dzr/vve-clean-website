@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createFakeSupabase } from './fakeSupabase.js';
 import {
   createDraftInvoice,
@@ -489,21 +489,36 @@ describe('payment options', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('issuing freezes a payment_instructions_snapshot reflecting the chosen option', async () => {
+  it('keeps Both as a draft until it can issue with complete bank and card instructions', async () => {
     const supabase = createFakeSupabase();
     const { invoiceId } = await createDraftInvoice(supabase, draftInput({
       paymentOption: 'both', stripePaymentLinkUrl: 'https://checkout.stripe.com/pay/cs_1',
     }), ADMIN_ID);
 
-    const result = await issueInvoice(supabase, invoiceId, ADMIN_ID);
-    expect(result.ok).toBe(true);
+    const pdf = vi.fn();
+    vi.stubEnv('INVOICE_BANK_ACCOUNT_NAME', 'Example Test Account');
+    vi.stubEnv('INVOICE_BANK_SORT_CODE', '00-00-00');
+    vi.stubEnv('INVOICE_BANK_ACCOUNT_NUMBER', '');
+    try {
+      const blocked = await issueInvoice(supabase, invoiceId, ADMIN_ID, { generateAndStorePdf: pdf });
+      expect(blocked).toMatchObject({ ok: false, status: 422, error: expect.stringContaining('bank transfer details') });
+      const draft = supabase._tables.invoices.find(i => i.id === invoiceId);
+      expect(draft.document_status).toBe('draft');
+      expect(draft.invoice_number).toBeFalsy();
+      expect(pdf).not.toHaveBeenCalled();
+      expect(supabase._tables.invoice_events.some(e => e.event_type === 'issued')).toBe(false);
 
-    const invoice = supabase._tables.invoices.find((i) => i.id === invoiceId);
-    expect(invoice.payment_instructions_snapshot.paymentOption).toBe('both');
-    expect(invoice.payment_instructions_snapshot.stripePaymentLinkUrl).toBe('https://checkout.stripe.com/pay/cs_1');
-    // No INVOICE_BANK_* env vars are set in the test environment, so the
-    // bank block is correctly frozen as null, not fabricated.
-    expect(invoice.payment_instructions_snapshot.bankDetails).toBeNull();
+      vi.stubEnv('INVOICE_BANK_ACCOUNT_NUMBER', '00000000');
+      expect((await issueInvoice(supabase, invoiceId, ADMIN_ID)).ok).toBe(true);
+      const issued = supabase._tables.invoices.find(i => i.id === invoiceId);
+      expect(issued.payment_instructions_snapshot).toMatchObject({
+        paymentOption: 'both', stripePaymentLinkUrl: 'https://checkout.stripe.com/pay/cs_1',
+        bankDetails: { accountName: 'Example Test Account', sortCode: '00-00-00', accountNumber: '00000000' },
+      });
+      expect(supabase._tables.invoice_events.filter(e => e.event_type === 'issued')).toHaveLength(1);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 

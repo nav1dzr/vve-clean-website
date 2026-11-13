@@ -31,6 +31,35 @@ function receipt(overrides = {}) {
 }
 
 describe('invoiceEmail', () => {
+  it.each([
+    ['invoice', invoiceEmail],
+    ['reminder', paymentReminderEmail],
+  ])('puts both issued payment methods and the transfer reference in the %s HTML and text', (_name, render) => {
+    const number = 'INV-TEST-1042';
+    const link = 'https://buy.stripe.com/test_sample?source=invoice&view=card';
+    const issued = invoice({
+      document_status: 'issued', invoice_number: number,
+      payment_instructions_snapshot: {
+        paymentOption: 'both', stripePaymentLinkUrl: link,
+        bankDetails: { accountName: 'Sample & Test Ltd', sortCode: '00-00-00', accountNumber: '00000000' },
+      },
+    });
+    const { html, text } = render(issued, settings);
+    for (const version of [html, text]) {
+      expect(version).toContain('Pay the amount due using either method.');
+      expect(version).toContain('Bank transfer');
+      expect(version).toContain('00-00-00');
+      expect(version).toContain('00000000');
+      expect(version).toContain('Pay by card');
+    }
+    expect(text).toContain('Account name: Sample & Test Ltd');
+    expect(text).toContain(`Payment reference: ${number}`);
+    expect(text).toContain(link);
+    expect(html).toContain('Sample &amp; Test Ltd');
+    expect(html).toMatch(/Payment reference<\/th><td[^>]*>INV-TEST-1042<\/td>/);
+    expect(html).toContain(`href="${link.replace('&', '&amp;')}"`);
+  });
+
   it('preserves saved terms and the historical fallback rather than using the new invoice default', () => {
     for (const terms of ['Payment due within 14 days.', null]) {
       const expected = terms || 'Payment is due after the clean.';

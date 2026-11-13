@@ -123,8 +123,8 @@ export function toInvoiceDetail(row) {
     // pdf_storage_path, business_snapshot, and payment_instructions_snapshot
     // are intentionally excluded — the storage path is an internal detail
     // (downloads go through the signed-URL endpoint, never this raw path)
-    // and both snapshots are only needed by the PDF/email renderers
-    // themselves, not the list/detail JSON API.
+    // and the authenticated detail endpoint exposes only the selected
+    // customer payment instructions, never the raw snapshots.
   };
 }
 

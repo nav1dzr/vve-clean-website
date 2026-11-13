@@ -17,6 +17,7 @@ import {
   invoicePdfPath, receiptPdfPath, uploadPdf, getSignedDownloadUrl, downloadPdfBuffer,
 } from '../_lib/invoiceStorage.js';
 import { getBusinessSettings } from '../_lib/businessSettings.js';
+import { draftPaymentInstructionsError, missingCombinedPaymentMethod, resolveInvoicePaymentInstructions } from '../_lib/paymentOptions.js';
 import { invoiceEmail, paymentReminderEmail, paymentAcknowledgementEmail } from '../_lib/invoiceEmailTemplates.js';
 import { sendMail, isMailerConfigured } from '../_lib/mailer.js';
 
@@ -194,6 +195,7 @@ async function handleRoot(req, res, headers, supabase, invoiceId, auth) {
     res.writeHead(200, headers);
     return res.end(JSON.stringify({
       ...toInvoiceDetail(invoice),
+      paymentInstructions: resolveInvoicePaymentInstructions(invoice, invoice.document_status === 'draft' ? getBusinessSettings() : undefined),
       items: (itemsResult.data || []).map(toInvoiceItem),
       payments: (paymentsResult.data || []).map(toInvoicePayment),
     }));
@@ -447,14 +449,21 @@ async function handlePreview(req, res, headers, supabase, invoiceId) {
   }
   console.log('[invoices route debug] preview: items loaded count=%s', items.length);
 
+  const isDraft = invoice.document_status === 'draft';
+  const settings = isDraft ? getBusinessSettings() : (invoice.business_snapshot || getBusinessSettings());
+  if (isDraft) {
+    const instructionsError = draftPaymentInstructionsError(resolveInvoicePaymentInstructions(invoice, settings));
+    if (instructionsError) {
+      res.writeHead(422, headers);
+      return res.end(JSON.stringify({ error: instructionsError }));
+    }
+  }
   await supabase.from('invoice_events').insert({ document_type: 'invoice', document_id: invoiceId, event_type: 'previewed' });
   console.log('[invoices route debug] preview: previewed event logged, generating PDF now');
 
-  const settings = invoice.document_status === 'issued' && invoice.business_snapshot ? invoice.business_snapshot : getBusinessSettings();
-
   let buffer;
   try {
-    buffer = await generateInvoicePdfBuffer(invoice, items, settings, { isDraft: invoice.document_status === 'draft' });
+    buffer = await generateInvoicePdfBuffer(invoice, items, settings, { isDraft });
   } catch (err) {
     // Logged here (before the outer route handler's generic catch) so the
     // specific pdfkit/rendering failure is visible even though the client
@@ -531,6 +540,15 @@ async function handleDownload(req, res, headers, supabase, invoiceId) {
 // recipient can be corrected per-send via body.to without altering the
 // invoice's own stored customer_email — see
 // INVOICE_RECEIPT_IMPLEMENTATION_PLAN.md §9.
+function paymentInstructionsEmailError(invoice) {
+  const missing = missingCombinedPaymentMethod(resolveInvoicePaymentInstructions(invoice));
+  if (!missing) return null;
+  const action = invoice.payment_status === 'unpaid' && !invoice.superseded_by_invoice_id
+    ? 'Under Make a change, select “Adjust services or price” to create a revised draft with the correct payment methods.'
+    : 'Keep the payment history and provide the verified payment instructions separately.';
+  return `This invoice was issued with both payment methods selected but is missing ${missing}. ${action}`;
+}
+
 async function handleSend(req, res, headers, supabase, invoiceId, auth, eventType) {
   if (req.method !== 'POST') {
     res.writeHead(405, headers);
@@ -575,6 +593,11 @@ async function handleSend(req, res, headers, supabase, invoiceId, auth, eventTyp
   if (invoice.payment_status === 'paid') {
     res.writeHead(409, headers);
     return res.end(JSON.stringify({ error: 'This invoice is fully paid — send the receipt instead' }));
+  }
+  const instructionsError = paymentInstructionsEmailError(invoice);
+  if (instructionsError) {
+    res.writeHead(409, headers);
+    return res.end(JSON.stringify({ error: instructionsError }));
   }
 
   // Precedence: an explicit per-send override (body.to) always wins; then
@@ -692,6 +715,11 @@ async function handleRemind(req, res, headers, supabase, invoiceId, auth) {
   if (!(invoice.amount_due > 0)) {
     res.writeHead(409, headers);
     return res.end(JSON.stringify({ error: 'This invoice has no outstanding balance' }));
+  }
+  const instructionsError = paymentInstructionsEmailError(invoice);
+  if (instructionsError) {
+    res.writeHead(409, headers);
+    return res.end(JSON.stringify({ error: instructionsError }));
   }
 
   const recipient = body.to || invoice.invoice_recipient_email || invoice.customer_email;

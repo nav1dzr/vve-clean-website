@@ -194,6 +194,24 @@ describe('generateInvoicePdfBuffer', () => {
     expect(text).toContain('12-34-56');
   });
 
+  it('gives an issued customer a clickable card choice and the exact bank transfer reference on the same page', async () => {
+    const link = 'https://buy.stripe.com/test_sample';
+    const buffer = await generateInvoicePdfBuffer(invoice({
+      document_status: 'issued', invoice_number: 'INV-TEST-1042',
+      payment_instructions_snapshot: {
+        paymentOption: 'both', stripePaymentLinkUrl: link,
+        bankDetails: { accountName: 'Sample Ltd', sortCode: '00-00-00', accountNumber: '00000000' },
+      },
+    }), items(), settings);
+    const payment = extractPdfText(buffer).split('Payment details').at(-1);
+    for (const value of ['Bank transfer', 'Account nameSample Ltd', 'Sort code00-00-00',
+      'Account number00000000', 'Payment referenceINV-TEST-1042', 'Pay by card', 'Pay securely by Stripe']) {
+      expect(payment).toContain(value);
+    }
+    expect(buffer.toString('latin1')).toContain(`/URI (${link})`);
+    expect(pageCount(buffer)).toBe(1);
+  });
+
   it('uses the frozen payment_instructions_snapshot when present, ignoring live settings', async () => {
     const buffer = await generateInvoicePdfBuffer(
       invoice({

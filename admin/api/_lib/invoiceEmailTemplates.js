@@ -12,8 +12,7 @@
 // alternative — see admin/api/_lib/mailer.js's header comment for why.
 
 import { escHtml } from './escHtml.js';
-import { buildPaymentInstructionsSnapshot } from './paymentOptions.js';
-import { hasBankDetails } from './businessSettings.js';
+import { resolveInvoicePaymentInstructions } from './paymentOptions.js';
 import { smartTitleCase } from './textFormat.js';
 import { emailWordmarkHtml } from './brandWordmark.js';
 
@@ -27,7 +26,7 @@ function wrapHtml(bodyHtml, settings) {
   <body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:24px 0;">
       <tr><td align="center">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;">
           <tr><td style="padding:24px 32px 0 32px;">${emailWordmarkHtml()}</td></tr>
           <tr><td style="padding:16px 32px 32px 32px;color:#222;font-size:14px;line-height:1.5;">
             ${bodyHtml}
@@ -42,61 +41,46 @@ function wrapHtml(bodyHtml, settings) {
 </html>`;
 }
 
-// Same "frozen at issue time, computed on the fly otherwise" resolution as
-// invoicePdf.js's resolvePaymentInstructions — see that file's comment.
-function resolvePaymentInstructions(invoice, settings) {
-  if (invoice.payment_instructions_snapshot) return invoice.payment_instructions_snapshot;
-  return buildPaymentInstructionsSnapshot({
-    paymentOption: invoice.payment_option || 'bank_transfer',
-    stripePaymentLinkUrl: invoice.stripe_payment_link_url,
-    settings,
-    hasBankDetails: hasBankDetails(settings),
-  });
-}
+function paymentInstructions(invoice, settings) {
+  const { bankDetails, stripePaymentLinkUrl } = resolveInvoicePaymentInstructions(invoice, settings);
+  if (!bankDetails && !stripePaymentLinkUrl) return { html: '', text: '' };
 
-function paymentInstructionsHtml(invoice, settings) {
-  const instructions = resolvePaymentInstructions(invoice, settings);
-  const parts = [];
-
-  if (instructions.bankDetails) {
-    parts.push(`
-      <p style="margin:12px 0 4px 0;"><strong>Bank transfer</strong><br/>
-      ${escHtml(instructions.bankDetails.accountName)} &middot; Sort code ${escHtml(instructions.bankDetails.sortCode)} &middot; Account ${escHtml(instructions.bankDetails.accountNumber)}
-      ${instructions.bankDetails.referenceInstructions ? `<br/><span style="color:#666;font-size:12px;">${escHtml(instructions.bankDetails.referenceInstructions)}</span>` : ''}
-      </p>`);
+  const choice = bankDetails && stripePaymentLinkUrl ? 'Pay the amount due using either method.' : '';
+  const html = ['<h2 style="margin:20px 0 6px;font-size:18px;color:#122943;">How to pay</h2>'];
+  const text = ['How to pay'];
+  if (choice) {
+    html.push(`<p style="margin:0 0 12px;color:#405368;">${choice}</p>`);
+    text.push(choice);
   }
 
-  if (instructions.stripePaymentLinkUrl) {
-    // href is the same validated, allowlisted-host URL stored on the
-    // invoice (see admin/api/_lib/paymentOptions.js) — never raw
-    // user/customer-controlled input, so no escHtml() is needed for the
-    // URL itself (it is not customer text); the visible label is a fixed
-    // string, not interpolated at all.
-    parts.push(`
-      <p style="margin:12px 0 4px 0;"><strong>Pay by card</strong><br/>
-      <a href="${instructions.stripePaymentLinkUrl}" style="color:#0a5cd8;font-weight:bold;">Pay securely by Stripe</a>
-      </p>`);
+  if (bankDetails) {
+    const rows = [
+      ['Account name', bankDetails.accountName],
+      ['Sort code', bankDetails.sortCode],
+      ['Account number', bankDetails.accountNumber],
+      ['Payment reference', invoice.invoice_number || 'Your invoice number once issued'],
+    ];
+    html.push(`
+      <div style="border:1px solid #d5e1ec;border-radius:8px;background:#f4f8fc;padding:14px 16px;margin:12px 0;">
+        <h3 style="margin:0 0 8px;color:#122943;font-size:15px;">Bank transfer</h3>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;line-height:1.5;">
+          ${rows.map(([label, value]) => `<tr><th scope="row" align="left" valign="top" style="width:44%;padding:3px 8px 3px 0;text-align:left;font-weight:normal;color:#405368;">${label}</th><td style="padding:3px 0;color:#122943;font-weight:bold;overflow-wrap:anywhere;">${escHtml(value)}</td></tr>`).join('')}
+        </table>
+        ${bankDetails.referenceInstructions ? `<p style="color:#405368;font-size:13px;margin:8px 0 0;">${escHtml(bankDetails.referenceInstructions)}</p>` : ''}
+      </div>`);
+    text.push('', 'Bank transfer', ...rows.map(([label, value]) => `${label}: ${value}`));
+    if (bankDetails.referenceInstructions) text.push(bankDetails.referenceInstructions);
   }
 
-  return parts.join('');
-}
-
-function paymentInstructionsText(invoice, settings) {
-  const instructions = resolvePaymentInstructions(invoice, settings);
-  const lines = [];
-
-  if (instructions.bankDetails) {
-    lines.push('Bank transfer:');
-    lines.push(`${instructions.bankDetails.accountName} · Sort code ${instructions.bankDetails.sortCode} · Account ${instructions.bankDetails.accountNumber}`);
-    if (instructions.bankDetails.referenceInstructions) lines.push(instructions.bankDetails.referenceInstructions);
-  }
-  if (instructions.stripePaymentLinkUrl) {
-    if (lines.length) lines.push('');
-    lines.push('Pay by card (Stripe):');
-    lines.push(instructions.stripePaymentLinkUrl);
+  if (stripePaymentLinkUrl) {
+    const href = escHtml(stripePaymentLinkUrl).replace(/"/g, '&quot;');
+    html.push(`
+      <h3 style="margin:14px 0 6px;color:#122943;font-size:15px;">Pay by card</h3>
+      <a href="${href}" style="display:inline-block;padding:11px 16px;border-radius:6px;background:#105591;color:#fff;text-decoration:none;font-weight:bold;">Pay securely by Stripe</a>`);
+    text.push('', 'Pay by card (Stripe):', stripePaymentLinkUrl);
   }
 
-  return lines.join('\n');
+  return { html: html.join(''), text: text.join('\n') };
 }
 
 // A one-line "for your ___" summary of what the invoice is for, derived
@@ -113,6 +97,7 @@ function serviceSummary(items) {
 
 export function invoiceEmail(invoice, settings, { customMessage, items } = {}) {
   const subject = `Invoice ${invoice.invoice_number} from ${settings.tradingName}`;
+  const payment = paymentInstructions(invoice, settings);
   const greetingName = escHtml(smartTitleCase(invoice.customer_name)) || 'there';
   const service = serviceSummary(items);
   const intro = service
@@ -130,12 +115,10 @@ export function invoiceEmail(invoice, settings, { customMessage, items } = {}) {
       <tr><td style="color:#666;">Amount due</td><td align="right"><strong>${money(settings, invoice.amount_due)}</strong></td></tr>
       <tr><td style="color:#666;">Due date</td><td align="right">${escHtml(invoice.due_date || '—')}</td></tr>
     </table>
-    ${paymentInstructionsHtml(invoice, settings)}
+    ${payment.html}
     <p style="color:#666;font-size:12px;">${escHtml(invoice.payment_terms || settings.defaultPaymentTermsText)}</p>
     <p>Thanks,<br/>${escHtml(settings.emailSignature)}</p>
   `;
-
-  const paymentText = paymentInstructionsText(invoice, settings);
 
   const text = [
     `Invoice ${invoice.invoice_number} from ${settings.tradingName}`,
@@ -150,7 +133,7 @@ export function invoiceEmail(invoice, settings, { customMessage, items } = {}) {
     `Amount due: ${money(settings, invoice.amount_due)}`,
     `Due date: ${invoice.due_date || '—'}`,
     '',
-    paymentText,
+    payment.text,
     '',
     invoice.payment_terms || settings.defaultPaymentTermsText,
     '',
@@ -210,17 +193,16 @@ export function paymentAcknowledgementEmail(invoice, payment, settings) {
 // admin/api/invoices/[id].js's handleRemind).
 export function paymentReminderEmail(invoice, settings, { customMessage } = {}) {
   const subject = `Payment reminder — Invoice ${invoice.invoice_number}`;
+  const payment = paymentInstructions(invoice, settings);
   const greetingName = escHtml(smartTitleCase(invoice.customer_name)) || 'there';
 
   const bodyHtml = `
     <p>Hi ${greetingName},</p>
     <p>This is a friendly reminder that <strong>${money(settings, invoice.amount_due)}</strong> remains outstanding on invoice <strong>${escHtml(invoice.invoice_number)}</strong>, due on ${escHtml(invoice.due_date || '—')}.</p>
     ${customMessage ? `<p>${escHtml(customMessage)}</p>` : ''}
-    ${paymentInstructionsHtml(invoice, settings)}
+    ${payment.html}
     <p>Thanks,<br/>${escHtml(settings.emailSignature)}</p>
   `;
-
-  const paymentText = paymentInstructionsText(invoice, settings);
 
   const text = [
     `Payment reminder — Invoice ${invoice.invoice_number}`,
@@ -230,7 +212,7 @@ export function paymentReminderEmail(invoice, settings, { customMessage } = {}) 
     `This is a friendly reminder that ${money(settings, invoice.amount_due)} remains outstanding on invoice ${invoice.invoice_number}, due on ${invoice.due_date || '—'}.`,
     customMessage || '',
     '',
-    paymentText,
+    payment.text,
     '',
     'Thanks,',
     settings.emailSignature,
