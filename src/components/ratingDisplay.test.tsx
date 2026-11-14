@@ -60,7 +60,7 @@ describe('the hero Google badge, while the rating is unverified', () => {
     // Neutral presentation, not a silent badge: the visitor is told what the
     // link is, and can go and read the reviews for themselves.
     expect(container.textContent).toMatch(/Google/i);
-    expect(container.querySelector('a')?.getAttribute('href')).toContain('share.google');
+    expect(container.querySelector('a')?.getAttribute('href')).toBe('https://www.google.com/maps/place//data=!4m4!3m3!1s0x26aa7415b170a881:0xefae08882640d180!9m1!1b1');
   });
 
   it.runIf(unverified)('claims no rating in its accessible name', () => {
@@ -95,14 +95,14 @@ describe('the reviews section, while the rating is unverified', () => {
     expect(largestIconRun(container)).toBeLessThan(4);
   });
 
-  it('keeps the real review text and the real profile link intact', () => {
+  it('keeps the real review text and the review links intact', () => {
     // De-claiming the rating must not quietly remove the genuine content.
     const { container } = render(<Reviews />);
     expect(container.textContent).toContain('Hannah M.');
     expect(container.textContent).toContain('Islington, N1');
     expect(container.textContent).toMatch(/Read our Google reviews/i);
     const hrefs = [...container.querySelectorAll('a')].map((a) => a.getAttribute('href') ?? '');
-    expect(hrefs.some((h) => h.includes('share.google'))).toBe(true);
+    expect(hrefs.some((h) => h === 'https://www.google.com/maps/place//data=!4m4!3m3!1s0x26aa7415b170a881:0xefae08882640d180!9m1!1b1')).toBe(true);
     expect(hrefs.some((h) => h.includes('g.page/r/'))).toBe(true);
   });
 });
@@ -153,11 +153,19 @@ describe('the Google trust card source', () => {
 });
 
 
+it('keeps reading reviews and writing a review as separate actions', () => {
+  render(<Reviews />);
+  expect(screen.getByRole('link', { name: 'Read our Google reviews' }))
+    .toHaveAttribute('href', 'https://www.google.com/maps/place//data=!4m4!3m3!1s0x26aa7415b170a881:0xefae08882640d180!9m1!1b1');
+  expect(screen.getByRole('link', { name: 'Leave us a review' }))
+    .toHaveAttribute('href', 'https://g.page/r/CYDRQCaICK7vEAE/review');
+});
+
 describe('compact Google badge', () => {
   it('keeps a visible check date and complete accessible rating in the smaller layout', () => {
     render(<GoogleBadge variant="compact" />);
     const link = screen.getByRole('link');
-    expect(link).toHaveAttribute('href', 'https://share.google/tZEyXUs0J0SxXZlDi');
+    expect(link).toHaveAttribute('href', 'https://www.google.com/maps/place//data=!4m4!3m3!1s0x26aa7415b170a881:0xefae08882640d180!9m1!1b1');
     expect(link).toHaveClass('min-h-[44px]', 'max-w-full');
     if (VERIFIED_GOOGLE_RATING) {
       expect(screen.getByText(/^Checked /)).toBeVisible();

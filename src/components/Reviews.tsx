@@ -3,8 +3,8 @@ import { useReveal } from '../hooks/useReveal';
 import GoogleBadge from './GoogleBadge';
 import { REVIEWS } from '../data/reviews';
 
-import { GOOGLE_PROFILE_LINK, GOOGLE_REVIEW_LINK, GoogleIcon } from './GoogleBrand';
-export { GOOGLE_PROFILE_LINK, GoogleIcon } from './GoogleBrand';
+import { GOOGLE_READ_REVIEWS_LINK, GOOGLE_REVIEW_LINK, GoogleIcon } from './GoogleBrand';
+export { GOOGLE_READ_REVIEWS_LINK, GoogleIcon } from './GoogleBrand';
 
 // Three strong reviews, one per service line, shown near the quote decision
 // (this section sits directly below the calculator) — the full set is one
@@ -132,7 +132,7 @@ export default function Reviews() {
           }`}
         >
           <a
-            href={GOOGLE_PROFILE_LINK}
+            href={GOOGLE_READ_REVIEWS_LINK}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2.5 border-2 border-navy-900 text-navy-900 font-bold px-7 py-3.5 min-h-[44px] rounded-full transition-all duration-300 hover:bg-navy-900 hover:text-white text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal-600"

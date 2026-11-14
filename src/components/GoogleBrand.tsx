@@ -1,7 +1,7 @@
 export const GOOGLE_REVIEW_LINK  = 'https://g.page/r/CYDRQCaICK7vEAE/review';
-// Single source of truth for the Google profile URL — also used by the
+// Single source of truth for the Google Maps reviews list URL — also used by the
 // compact GoogleBadge shown in the homepage and service-page heroes.
-export const GOOGLE_PROFILE_LINK = 'https://share.google/tZEyXUs0J0SxXZlDi';
+export const GOOGLE_READ_REVIEWS_LINK = 'https://www.google.com/maps/place//data=!4m4!3m3!1s0x26aa7415b170a881:0xefae08882640d180!9m1!1b1';
 
 export function GoogleIcon({ size = 20 }: { size?: number }) {
   return (
