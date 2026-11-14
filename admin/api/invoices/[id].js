@@ -204,11 +204,8 @@ async function handleRoot(req, res, headers, supabase, invoiceId, auth) {
     res.writeHead(200, headers);
     return res.end(JSON.stringify({
       ...toInvoiceDetail(invoice),
-<<<<<<< HEAD
       paymentInstructions: resolveInvoicePaymentInstructions(invoice, invoice.document_status === 'draft' ? getBusinessSettings() : undefined),
-=======
       ...(allocationEnabled ? { bookingPaymentAllocationEnabled: true } : {}),
->>>>>>> 1accd38 (Apply existing booking balances to linked CRM invoices)
       items: (itemsResult.data || []).map(toInvoiceItem),
       payments: (paymentsResult.data || []).map((p) => ({ ...toInvoicePayment(p), ...(allocationByPayment.has(p.id) ? { bookingAllocation: allocationByPayment.get(p.id) } : {}) })),
     }));
