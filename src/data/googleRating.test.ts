@@ -153,9 +153,9 @@ describe('if a verified rating is added, it stays consistent', () => {
 });
 
 describe('the genuine review content is untouched', () => {
-  it('still links to the real Google profile', () => {
+  it('still links to the Google reviews list', () => {
     expect(read('components/GoogleBrand.tsx'))
-      .toContain("export const GOOGLE_PROFILE_LINK = 'https://share.google/tZEyXUs0J0SxXZlDi'");
+      .toContain("export const GOOGLE_READ_REVIEWS_LINK = 'https://www.google.com/maps/place//data=!4m4!3m3!1s0x26aa7415b170a881:0xefae08882640d180!9m1!1b1'");
   });
 
   it('still links to the real review-writing URL', () => {
