@@ -116,7 +116,7 @@ describe('GalleryPage — categories, deep links, empty states, keyboard nav', (
     );
     expect(screen.getByRole('link', { name: /VVE Clean is rated .* Google reviews/ })).toHaveAttribute(
       'href',
-      'https://share.google/tZEyXUs0J0SxXZlDi',
+      'https://www.google.com/maps/place//data=!4m4!3m3!1s0x26aa7415b170a881:0xefae08882640d180!9m1!1b1',
     );
   });
 
