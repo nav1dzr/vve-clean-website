@@ -45,6 +45,11 @@ function lastModified(sources) {
 
 const { render, ROUTE_METADATA: routes, NOT_FOUND_METADATA: notFoundRoute } = await import('./dist/server/entry-server.js');
 const template = readFileSync(resolve(distDir, 'index.html'), 'utf-8');
+// The first HTML response includes the price table, so it needs the same responsive
+// styles as the hydrated page, including when JavaScript is slow or disabled.
+const clientManifest = JSON.parse(readFileSync(resolve(distDir, '.vite/manifest.json'), 'utf-8'));
+const buildersStyles = clientManifest['src/pages/AfterBuildersPage.tsx']?.css;
+if (!buildersStyles?.length) throw new Error('Missing After Builders page stylesheet in client build');
 
 /** Replaces a meta tag's content, or inserts the tag if the template lacks it. */
 function setMeta(html, matcher, replacement, insertAfter) {
@@ -59,6 +64,11 @@ function buildHtml(route, canonical) {
   ));
   const app = render(route.path);
   let output = template.replace('<div id="root"></div>', `<div id="root">${app}</div>`);
+
+  if (route.path === '/after-builders-cleaning-london') {
+    const links = buildersStyles.map(file => `<link rel="stylesheet" crossorigin href="/${file}">`).join('\n');
+    output = output.replace('</head>', `${links}\n</head>`);
+  }
 
   output = output.replace(/<title>[^<]*<\/title>/, `<title>${route.title}</title>`);
   output = output.replace(

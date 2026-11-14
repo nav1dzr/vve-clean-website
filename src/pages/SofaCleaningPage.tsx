@@ -85,6 +85,7 @@ const SCHEMA = JSON.stringify({
 
 const DATA: ServiceLandingData = {
   schema: SCHEMA,
+  featuredReviewService: 'Sofa Cleaning',
   breadcrumb: 'Sofa & Upholstery Cleaning London',
 
   eyebrow: '',

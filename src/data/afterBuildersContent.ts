@@ -12,6 +12,9 @@ export {
 export const BUILDERS_WHATSAPP =
   'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20an%20after-builders%20clean%20quote.%20Sending%20photos%20now.';
 
+export const BUILDERS_FOLLOWUP_WHATSAPP =
+  `https://wa.me/447845451111?text=${encodeURIComponent('Hello, I’ve sent an after-builders enquiry on your website. Here are the photos for that enquiry.')}`;
+
 // One source for the visible FAQ and FAQPage structured data.
 export const BUILDERS_FAQS = [
   {

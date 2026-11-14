@@ -96,6 +96,7 @@ const SCHEMA = JSON.stringify({
 
 const DATA: ServiceLandingData = {
   schema: SCHEMA,
+  featuredReviewService: 'End of Tenancy',
   breadcrumb: 'End of Tenancy Cleaning London',
 
   eyebrow: 'End of Tenancy Cleaning · East & North London',
@@ -187,7 +188,24 @@ const DATA: ServiceLandingData = {
   afterPricingSection: <EotResultsSection />,
   // Full guarantee terms live here rather than on the homepage (§9). The
   // homepage keeps the promise and links to #guarantee on this page.
-  proofSection: <GuaranteeTerms />,
+  proofSection: <>
+    <GuaranteeTerms />
+    <section className="bg-white px-4 py-8" aria-labelledby="cleaning-record-heading">
+      <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 p-5 sm:p-7">
+        <h2 id="cleaning-record-heading" className="font-display text-2xl font-bold text-navy-950">Paperwork for your letting agent</h2>
+        <p className="mt-2 text-slate-700">Ask for an itemised invoice and a record of the work completed. Once your payment is recorded, we can also provide a paid receipt.</p>
+        <details data-disclosure="example-cleaning-record" className="mt-3">
+          <summary className="cursor-pointer py-3 font-semibold text-royal-800">See an example of a cleaning record</summary>
+          <p className="text-sm text-slate-700">Example entries for a move-out clean. Your record lists the work actually carried out at your property.</p>
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-navy-900">
+            <li>Kitchen — oven interior, hob and extractor cleaned.</li>
+            <li>Bathroom — shower screen and basin cleaned and descaled.</li>
+            <li>Living areas — accessible internal windows and skirting boards cleaned.</li>
+          </ul>
+        </details>
+      </div>
+    </section>
+  </>,
 
   // Conversion-focused reading order for this page: hero → quote (via
   // afterHeroSection, always directly under the hero) → real proof media →

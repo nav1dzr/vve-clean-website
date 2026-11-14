@@ -191,9 +191,9 @@ describe('AfterBuildersPage — budget guide and assessed enquiry', () => {
     expect(screen.getByText(/it is not an unlimited package/)).toBeInTheDocument();
     expect(screen.getByText(/cannot guarantee removal of every mark/)).toBeInTheDocument();
     expect(container.querySelector('#builders-faq')?.textContent).not.toMatch(/72.hour|7.day|6–8 hours/);
-    expect(container.querySelector('#builders-results')?.textContent).toContain('After-builders project photos will be added here.');
-    expect(container.querySelectorAll('[data-photo-slot]')).toHaveLength(3);
-    expect(screen.getAllByText('Project photo to be added')).toHaveLength(3);
-    expect(container.querySelector('#builders-results img')).toBeNull();
+    expect(container.querySelector('#builders-results')).toBeNull();
+    expect(container.querySelector('[data-photo-slot]')).toBeNull();
+    expect(screen.queryByText(/photo to be added/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: 'After-builders budget at a glance' })).toBeVisible();
   });
 });
