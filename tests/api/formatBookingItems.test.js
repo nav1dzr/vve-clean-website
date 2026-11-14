@@ -113,6 +113,21 @@ describe('formatBookingItemLines — end of tenancy / deep clean', () => {
     ]);
   });
 
+  it('names move-in upholstery and mattress extras as the customer chose them', () => {
+    const lines = formatBookingItemLines({
+      service: 'deep', deepService: 'move_in', deepSize: 'bed2', deepBaths: 1,
+      addOnCounts: { eot_sofa_2: 1, eot_sofa_3: 1, eot_sofa_corner: 1, eot_mattress_single: 2, eot_mattress_double: 1 },
+    });
+    expect(lines).toEqual([
+      'Move-in deep clean — 2 Bed, 1 bathroom',
+      '1 × 2-seater sofa steam clean',
+      '1 × 3-seater sofa steam clean',
+      '1 × Corner / L-shaped sofa steam clean',
+      '2 × Single mattress steam clean',
+      '1 × Double mattress steam clean',
+    ]);
+  });
+
   it('lists add-ons for move-in and after-builders without the free-oven line', () => {
     const lines = formatBookingItemLines({
       service: 'deep',

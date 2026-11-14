@@ -48,6 +48,22 @@ describe('Pricebook startup', () => {
     expect(window.__VVE_PRICEBOOK__).toBeUndefined();
     expect(mocks.render.mock.calls[0][0].type).toBe('main');
   });
+
+  it('offers phone, WhatsApp and email on the recovery screen', async () => {
+    mocks.load.mockRejectedValue(new Error('Unavailable'));
+    await import('./main');
+    await vi.waitFor(() => expect(mocks.render).toHaveBeenCalledOnce());
+    const links: string[] = [];
+    const collect = (node: unknown): void => {
+      if (Array.isArray(node)) { node.forEach(collect); return; }
+      if (!node || typeof node !== 'object') return;
+      const element = node as { type?: unknown; props?: { href?: string; children?: unknown } };
+      if (element.type === 'a' && element.props?.href) links.push(element.props.href);
+      collect(element.props?.children);
+    };
+    collect(mocks.render.mock.calls[0][0]);
+    expect(links).toEqual(expect.arrayContaining(['tel:02080502233', 'https://wa.me/447845451111', 'mailto:contact@vveclean.co.uk']));
+  });
 });
 
 

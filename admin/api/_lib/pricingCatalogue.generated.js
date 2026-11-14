@@ -806,6 +806,21 @@ const ADDON_PRICES_P = readPrice('ADDON_PRICES_P', {
 // entry.
 const EOT_UPHOLSTERY_ADDON_KEYS = ['armchair', 'sofa_2', 'sofa_3', 'sofa_corner', 'mattress_single', 'mattress_double', 'mattress_king'];
 
+// Upholstery/mattress extras offered on the generic property-clean calculator
+// (move-in deep clean). The calculator's add-on keys carry an `eot_` prefix
+// for historical reasons; each one is the SAME service, at the SAME standalone
+// CARPET_ITEM_PRICES_P price, as its unprefixed carpet & upholstery item —
+// never a second price table. Without this map the server priced these
+// selected extras at £0, so the saved total fell below the total the customer
+// was shown.
+const PROPERTY_CLEAN_UPHOLSTERY_ADDON_ITEMS = {
+  eot_sofa_2:          'sofa_2',
+  eot_sofa_3:          'sofa_3',
+  eot_sofa_corner:     'sofa_corner',
+  eot_mattress_single: 'mattress_single',
+  eot_mattress_double: 'mattress_double',
+};
+
 // ─── Booking constants ────────────────────────────────────────────────────────
 
 const DEPOSIT_P = 3000;  // £30 — deducted from final balance. Never removed, never changed here casually.
@@ -985,6 +1000,8 @@ function computeBasePrice(quoteConfig) {
           addons += (STAIR_ADDON_PRICES_LEGACY[Math.min(n, 3)] ?? 0) / 100;
         } else if (key === 'carpet_bundle') {
           addons += ((EOT_CARPET_BUNDLE_P[deepSize] ?? 0) / 100) * n;
+        } else if (Object.hasOwn(PROPERTY_CLEAN_UPHOLSTERY_ADDON_ITEMS, key)) {
+          addons += ((CARPET_ITEM_PRICES_P[PROPERTY_CLEAN_UPHOLSTERY_ADDON_ITEMS[key]] ?? 0) / 100) * n;
         } else {
           addons += ((ADDON_PRICES_P[key] ?? 0) / 100) * n;
         }

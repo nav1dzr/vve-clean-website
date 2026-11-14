@@ -748,6 +748,27 @@ describe("POST /api/create-booking-request", () => {
     expect(insertSingleMock.mock.calls[0][0].total_price).toBe(85);
   });
 
+  // The move-in calculator shows £344 for a 2-bed with a 3-seater sofa. The
+  // saved request used to be £249 with the extra listed as "Eot Sofa 3".
+  it("saves the move-in total the customer was shown, including upholstery extras", async () => {
+    const response = res();
+    await handler(req(payload({
+      service: "Move-in deep clean — 2 Bed",
+      price: 344,
+      quoteConfig: {
+        service: "deep", deepService: "move_in", deepSize: "bed2", deepBaths: 1,
+        addOnCounts: { oven: 0, eot_sofa_3: 1 },
+        parkingAvailable: "yes", congestionZone: "no",
+      },
+    })), response);
+    expect(response.statusCode).toBe(201);
+    const row = insertSingleMock.mock.calls[0][0];
+    expect(row.total_price).toBe(344);
+    expect(row.service).toContain("1 × 3-seater sofa steam clean");
+    expect(row.service).not.toMatch(/Eot/);
+    expect(JSON.parse(response.body).total).toBe(344);
+  });
+
   it("retries with a numbered reference when a simultaneous request wins the first reference", async () => {
     insertSingleMock
       .mockResolvedValueOnce({
