@@ -108,6 +108,27 @@ Separately review Google's existing remote automatic user-data detection before 
 
 A/B testing, richer case studies and possible restrained motion follow reliable flows and useful photos. A 3D redesign is not a prerequisite.
 
+## Verified release and remaining CRM review — 14 November 2026
+
+The combined website preview was specifically approved and published through PR #69. Merge commit `2765c15c6134170f60f253c8d8ac4bbd62bb3531` passed the required checks; both Vercel production checks succeeded. The website's production alias resolves to that commit and is Ready. Live mobile checks passed for the homepage, After Builders, End of Tenancy, carpet and sofa pages. The live move-in quote with a three-seater sofa still displayed £344. The CRM sign-in page returned HTTP 200. No customer request or payment was submitted in these checks.
+
+This release includes hiding empty After Builders photo sections and the approved combined website refinements. It does not complete every longer-term Phase 4 idea above. Genuine job photos, business decisions on unapproved scope/pricing changes and later experiments remain separate.
+
+The outstanding Phase 1B, 2A, 2B and 3A CRM code is integrated with current main in the isolated local branch `codex/crm-completion-review-20261114`. Integration preserves the recently released invoice bank/Stripe instructions and PDF fixes. The original older worktree and its unfinished files are preserved. This CRM review branch has not been pushed or released.
+
+Validation of the integrated CRM:
+
+- All 1,427 tests passed across 102 test files; TypeScript and build passed. Lint has zero errors and one existing Fast Refresh warning; the existing bundle-size warning remains.
+- 22 booking-to-invoice allocation checks and six media unpublish/restore checks passed against disposable local PostgreSQL 18 databases. Coverage includes access restrictions, duplicate/concurrent requests, stale data, transaction rollback and preservation of payment/publication history.
+- The actual payment review component passed mobile and desktop browser checks with synthetic fixtures and external requests blocked. Both payment-reference and deposit-review acknowledgements were required before applying the sample £120 balance against a £150 invoice with its £30 deposit already credited. The simulated result was £0 outstanding. This establishes UI behaviour, not a live bank/Stripe transaction or delivery of a real receipt.
+
+Next release gates, still outstanding:
+
+1. Read-only compatibility review of the live schema and existing configuration for the two proposed migrations. The local database tests are not evidence that either migration is installed in production.
+2. Specific approval for the CRM release and production database exception for `20261103120000_booking_invoice_payment_allocations.sql` and `20261105120000_media_position_unpublish.sql`, with their separately controlled feature flags. No production data, schema or settings were changed during this review.
+3. After release, verify the authorised real photo/video upload, processing, replacement and mobile playback flow. Synthetic media tests do not establish current provider behaviour.
+4. Separate follow-up for partial/split payments, correction/refund reconciliation, the Phase 5 operational additions and the measurement evidence/configuration review above.
+
 ## Owner review and release sequence
 
 Phase 1A is live. Phases 1B, 2A, 2B and 3A are implemented locally; preserve the separate database and release gates. Owner review is deferred until the planned work is ready. Remaining work includes Phase 1B partial/split/refund and correction workflows, Phase 3B provider verification, Phase 4 website refinements and Phase 5 operational additions.
