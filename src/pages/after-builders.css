@@ -150,18 +150,10 @@
 .builders-enquiry-layout { display: grid; gap: 2rem; align-items: start; }
 .builders-hero-visual { display: grid; gap: 1rem; }
 .builders-photo { margin: 0; overflow: hidden; border-radius: 1.35rem; background: #dfebe7; border: 1px solid #bad4cf; position: relative; }
-.builders-photo-placeholder { aspect-ratio: 16 / 10; min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .6rem; padding: 1.5rem; color: #285951; text-align: center; background: radial-gradient(ellipse at 20% 0%, #fff8e4, transparent 70%), linear-gradient(140deg, #eaf3eb, #bcded7); }
-.builders-photo-placeholder::before { content: ''; position: absolute; inset: .8rem; border: 1px solid #ffffffb0; border-radius: .8rem; pointer-events: none; }
-.builders-photo-placeholder > span { font-size: 1.05rem; font-weight: 650; }
-.builders-photo-placeholder small { font-size: .8rem; color: #42655f; }
 .builders-photo img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
+.builders-photo--hero img { aspect-ratio: 16 / 9; }
 .builders-photo figcaption { padding: .85rem 1rem; font-size: .85rem; color: #254c45; background: #f6faf8; }
-.builders-photo--hero .builders-photo-placeholder, .builders-photo--hero img { aspect-ratio: 16 / 9; }
-.builders-photo--before .builders-photo-placeholder { background: linear-gradient(135deg, #f8efdf, #e6e5d5); color: #595846; }
-.builders-photo--before .builders-photo-placeholder small { color: #65644e; }
 .builders-results { background: #fffaf1; border-block: 1px solid #eee3cc; }
-.builders-results-heading { display: flex; align-items: end; justify-content: space-between; gap: 2rem; }
-.builders-results-heading .builders-link { flex: none; }
 .builders-photo-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; margin-top: 2rem; }
 #builders-checklist .builders-accordion { background: #ffffffc9; border: 1px solid #c6deea; border-radius: 1rem; padding-inline: 1.25rem; margin-bottom: .7rem; }
 #builders-extras { background: #f9fcfa; }
@@ -194,8 +186,6 @@
   .builders-budget-definitions > div { padding: 1rem; border-bottom: 1px solid #d5e2e8; }
   .builders-budget-definitions > div:first-child { border-radius: 1rem 1rem 0 0; }
   .builders-table-foot { border-radius: 0 0 1rem 1rem; }
-  .builders-results-heading { display: block; }
-  .builders-results-heading .builders-link { margin-top: .8rem; }
   .builders-photo-pair { grid-template-columns: 1fr; gap: 1rem; }
   .builders-quote-strip, .builders-extra-options { align-items: stretch; flex-direction: column; gap: 1.1rem; }
   .builders-extra-row { padding: 1.4rem 1.1rem; gap: 1rem; }

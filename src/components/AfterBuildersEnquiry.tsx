@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, CheckCircle2, MessageCircle } from 'lucide-react';
-import { BUILDERS_WHATSAPP } from '../data/afterBuildersContent';
+import { BUILDERS_FOLLOWUP_WHATSAPP, BUILDERS_WHATSAPP } from '../data/afterBuildersContent';
 import { CONDITIONAL_DEPOSIT_NOTE } from '../data/businessPolicy';
 import { getAttribution } from '../lib/attribution';
 import { trackContactFormSubmitted } from '../lib/analytics';
@@ -97,9 +97,9 @@ export default function AfterBuildersEnquiry() {
       if (mounted.current) setLoading(false);
     }
   };
-  const whatsapp = <a href={BUILDERS_WHATSAPP} target="_blank" rel="noopener noreferrer" className="builders-enquiry-whatsapp" data-track-location="after_builders_enquiry_photos"><MessageCircle size={19} aria-hidden="true" />Send photos on WhatsApp</a>;
+  const whatsapp = <a href={submitted ? BUILDERS_FOLLOWUP_WHATSAPP : BUILDERS_WHATSAPP} target="_blank" rel="noopener noreferrer" className="builders-enquiry-whatsapp" data-track-location="after_builders_enquiry_photos"><MessageCircle size={19} aria-hidden="true" />Send photos on WhatsApp</a>;
 
-  if (submitted) return <div className="builders-enquiry builders-enquiry-success" ref={successPanel} tabIndex={-1} role="status" aria-labelledby="builders-enquiry-success"><CheckCircle2 size={40} aria-hidden="true" /><h3 id="builders-enquiry-success">Your enquiry is saved</h3><p>We’ll review the work and contact you during opening hours to agree the cleaning list, final price and a suitable time. Your appointment is not confirmed yet.</p><p>No payment has been taken. {CONDITIONAL_DEPOSIT_NOTE}</p>{whatsapp}<p className="builders-enquiry-privacy">If you send photos, please mention that you have already sent a website enquiry so we can match them.</p></div>;
+  if (submitted) return <div className="builders-enquiry builders-enquiry-success" ref={successPanel} tabIndex={-1} role="status" aria-labelledby="builders-enquiry-success"><CheckCircle2 size={40} aria-hidden="true" /><h3 id="builders-enquiry-success">Your enquiry is saved</h3><p>We’ll review the work and contact you during opening hours to agree the cleaning list, final price and a suitable time. Your appointment is not confirmed yet.</p><p>No payment has been taken. {CONDITIONAL_DEPOSIT_NOTE}</p>{whatsapp}<p className="builders-enquiry-privacy">When you send photos, include the name you used on this form and the property postcode if you know it. We’ll match them to this enquiry.</p></div>;
 
   return <div className="builders-enquiry">
     <ol className="builders-enquiry-progress" aria-label="Enquiry steps">{STEPS.map((label, index) => <li key={label}><button type="button" disabled={loading || index > furthestStep} aria-current={step === index ? 'step' : undefined} onClick={() => goTo(index)}>{index + 1}. {label}</button></li>)}</ol>

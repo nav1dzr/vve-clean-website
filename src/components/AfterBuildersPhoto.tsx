@@ -1,20 +1,40 @@
 import { useState } from 'react';
-import { Camera } from 'lucide-react';
+import { buildersJobPhotos, type BuildersJobPhoto, type BuildersPhotoSlot } from '../data/afterBuildersPhotos';
 
-// Replace a null source with an approved real job photo, then add its factual
-// alt text/caption. Empty or failed photos stay explicitly labelled placeholders.
-const PHOTOS = {
-  hero: { src: null as string | null, alt: '', title: 'The finished space', caption: '' },
-  before: { src: null as string | null, alt: '', title: 'Before the clean', caption: '' },
-  after: { src: null as string | null, alt: '', title: 'After the clean', caption: '' },
-};
+function JobPhoto({ photo, slot, onError }: { photo: BuildersJobPhoto; slot: BuildersPhotoSlot; onError: () => void }) {
+  return (
+    <figure className={`builders-photo builders-photo--${slot}`} data-photo-slot={`after-builders-${slot}`}>
+      <img src={photo.src} alt={photo.alt} loading={slot === 'hero' ? 'eager' : 'lazy'} decoding="async" onError={onError} />
+      {(slot !== 'hero' || photo.caption) && (
+        <figcaption>
+          {slot !== 'hero' && <strong>{slot === 'before' ? 'Before the clean' : 'After the clean'}{photo.caption && ' · '}</strong>}
+          {photo.caption}
+        </figcaption>
+      )}
+    </figure>
+  );
+}
 
-export default function AfterBuildersPhoto({ slot }: { slot: keyof typeof PHOTOS }) {
-  const photo = PHOTOS[slot];
-  const [failed, setFailed] = useState(false);
-  return <figure className={`builders-photo builders-photo--${slot}`} data-photo-slot={`after-builders-${slot}`}>
-    {photo.src && !failed ? <img src={photo.src} alt={photo.alt} loading={slot === 'hero' ? 'eager' : 'lazy'} decoding="async" onError={() => setFailed(true)} /> :
-      <div className="builders-photo-placeholder"><Camera size={36} strokeWidth={1.3} aria-hidden="true" /><span>{photo.title}</span><small>Project photo to be added</small></div>}
-    {photo.src && !failed && photo.caption && <figcaption>{photo.caption}</figcaption>}
-  </figure>;
+export default function AfterBuildersPhoto() {
+  const photo = buildersJobPhotos.hero;
+  const [failed, setFailed] = useState('');
+  if (!photo?.src || !photo.alt.trim() || failed === photo.src) return null;
+  return <JobPhoto photo={photo} slot="hero" onError={() => setFailed(photo.src)} />;
+}
+
+export function AfterBuildersResults() {
+  const { before, after } = buildersJobPhotos;
+  const [failed, setFailed] = useState('');
+  if (!before?.src || !after?.src || !before.alt.trim() || !after.alt.trim() || failed === before.src || failed === after.src) return null;
+  return (
+    <section id="builders-results" className="builders-section builders-results" aria-labelledby="builders-results-title">
+      <div className="builders-wrap">
+        <h2 id="builders-results-title">Before and after the builders’ clean</h2>
+        <div className="builders-photo-pair">
+          <JobPhoto slot="before" photo={before} onError={() => setFailed(before.src)} />
+          <JobPhoto slot="after" photo={after} onError={() => setFailed(after.src)} />
+        </div>
+      </div>
+    </section>
+  );
 }

@@ -111,7 +111,7 @@ export default function HomepagePhotoCarousel() {
       </div>
       <div
         role="group" aria-roledescription="slide" aria-label={`${active + 1} of ${slides.length}: ${slide.service}`}
-        className="[&_.service-photo]:rounded-none [&_.service-photo]:border-0 [&_.service-photo]:shadow-none [&_.service-photo>img]:aspect-[4/3] [&_.service-photo>img]:max-h-none [&_.service-photo>figcaption]:min-h-[7.5rem]"
+        className="[&_.service-photo]:rounded-none [&_.service-photo]:border-0 [&_.service-photo]:shadow-none [&_.service-photo>img]:aspect-[16/9] [&_.service-photo>img]:max-h-none lg:[&_.service-photo>figcaption]:min-h-[7.5rem]"
         onTouchStart={event => {
           touchStart.current = event.touches.length === 1 ? { x: event.touches[0].clientX, y: event.touches[0].clientY } : null;
         }}

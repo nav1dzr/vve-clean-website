@@ -13,7 +13,10 @@ export { GOOGLE_READ_REVIEWS_LINK, GoogleIcon } from './GoogleBrand';
 // The Review type and REVIEWS array live in ../data/reviews so area pages can
 // filter them by location without duplicating this content.
 
-export default function Reviews() {
+export default function Reviews({ featuredService }: { featuredService?: string }) {
+  const reviews = featuredService
+    ? [...REVIEWS.filter(review => review.service === featuredService), ...REVIEWS.filter(review => review.service !== featuredService)]
+    : REVIEWS;
   const { ref, visible } = useReveal();
 
   return (
@@ -40,15 +43,15 @@ export default function Reviews() {
           </h2>
 
           <p className="text-silver-600 text-base max-w-xl mx-auto">
-            Real reviews from real jobs — end of tenancy, carpet cleaning, and more across East and North London.
+            Customer feedback on our carpet, upholstery and end of tenancy cleans.
           </p>
         </div>
 
         {/* Cards — flex-wrap so last row centres naturally */}
         <div className="flex flex-wrap justify-center gap-5 mb-10">
-          {REVIEWS.map((r, i) => (
+          {reviews.map((r, i) => (
             <div
-              key={i}
+              key={r.name}
               className={`bg-white border border-silver-200 rounded-2xl p-6 flex flex-col shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-royal-400 transition-all duration-300 w-full sm:w-[calc(50%-10px)] lg:w-[calc(33.33%-14px)] ${
                 visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
               }`}

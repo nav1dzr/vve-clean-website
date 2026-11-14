@@ -39,12 +39,13 @@ export const CARPET_ITEM_DEFS: CarpetItem[] = [
   // ── Carpets ──────────────────────────────────────────────────
   { key: 'bedroom',         label: CARPET_ITEM_LABELS.bedroom,         group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.bedroom         / 100 },
   { key: 'living_room',     label: CARPET_ITEM_LABELS.living_room,     group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.living_room     / 100 },
-  { key: 'large_lounge',    label: CARPET_ITEM_LABELS.large_lounge,    group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.large_lounge    / 100 },
+  { key: 'large_lounge',    label: CARPET_ITEM_LABELS.large_lounge,    group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.large_lounge    / 100,
+    helper: 'For a large or through lounge. If you are unsure which room to choose, send us a photo.' },
   { key: 'hallway',         label: CARPET_ITEM_LABELS.hallway,         group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.hallway         / 100 },
   { key: 'landing',         label: CARPET_ITEM_LABELS.landing,         group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.landing         / 100 },
   { key: 'stairs',          label: CARPET_ITEM_LABELS.stairs,          group: 'Carpets',            unitPrice: null,
     stairsFirst: STAIRS_FIRST_P / 100, stairsExtra: STAIRS_EXTRA_P / 100,
-    helper: 'One flight = one set of stairs between floors.' },
+    helper: 'Count one flight between floors. Add a landing separately if you want its carpet cleaned.' },
   { key: 'rug',             label: CARPET_ITEM_LABELS.rug,             group: 'Carpets',            unitPrice: CARPET_ITEM_PRICES_P.rug             / 100,
     helper: 'Large, wool, silk or specialist rugs — send a photo for a tailored quote.' },
   // ── Sofas & Upholstery ───────────────────────────────────────

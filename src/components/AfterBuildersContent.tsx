@@ -1,5 +1,5 @@
 import AfterBuildersEnquiry from './AfterBuildersEnquiry';
-import AfterBuildersPhoto from './AfterBuildersPhoto';
+import { AfterBuildersResults } from './AfterBuildersPhoto';
 import { ArrowRight, Camera, Check, ChevronDown, ClipboardCheck, MapPin, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BUILDERS_FAQS, BUILDERS_BUDGET_GUIDE, BUILDERS_LEVELS, formatBuildersRange, BUILDERS_ROOMS, BUILDERS_WHATSAPP } from '../data/afterBuildersContent';
@@ -84,10 +84,6 @@ function Process() {
   return <section id="builders-process" className="builders-section builders-dark" aria-labelledby="builders-process-title"><div className="builders-wrap"><span className="builders-kicker">From photos to final check</span><h2 id="builders-process-title">Know the work. Agree the price.<br />Then confirm your date.</h2><p className="builders-lead">One clear quotation for your property. No hourly bill to work out afterwards.</p><ol className="builders-grid builders-grid-3 builders-process">{steps.map(([title, body], index) => <li key={title}><span className="builders-process-number" aria-hidden="true">{index + 1}</span><h3>{title}</h3><p className="mt-3 text-sm">{body}</p></li>)}</ol><div className="mt-8 flex flex-wrap items-center gap-5 border-t border-white/20 pt-6"><ShieldCheck size={26} className="text-sky-200" aria-hidden="true" /><p className="text-sm">£5m public liability insurance · Please give at least 24 hours’ notice to change a confirmed appointment.</p><Link to="/terms-of-service" className="text-sm text-white underline underline-offset-4">Read booking terms</Link></div></div></section>;
 }
 
-function ResultsNote() {
-  return <section id="builders-results" className="builders-section builders-results" aria-labelledby="builders-results-title"><div className="builders-wrap"><div className="builders-results-heading"><div><span className="builders-kicker">The work, in pictures</span><h2 id="builders-results-title">A closer look at the clean.</h2><p className="builders-lead">After-builders project photos will be added here. Our gallery already shows genuine work from other cleaning services.</p></div><Link className="builders-link" to="/gallery">Visit our cleaning gallery <ArrowRight size={16} aria-hidden="true" /></Link></div><div className="builders-photo-pair"><AfterBuildersPhoto slot="before" /><AfterBuildersPhoto slot="after" /></div></div></section>;
-}
-
 function ClientsAndAreas() {
   return <>
     <section id="builders-clients" className="builders-section bg-white" aria-labelledby="builders-clients-title"><div className="builders-wrap"><span className="builders-kicker">Homes and handovers</span><h2 id="builders-clients-title">A quote that fits your project</h2><div className="builders-grid builders-grid-3 mt-8">{[
@@ -102,13 +98,13 @@ function ClientsAndAreas() {
 function QuestionsAndQuote() {
   return <>
     <section id="builders-faq" className="builders-section bg-white" aria-labelledby="builders-faq-title"><div className="builders-wrap builders-split"><div><span className="builders-kicker">Before you book</span><h2 id="builders-faq-title">The practical questions</h2><p className="builders-lead">If your project has an unusual finish or access requirement, include it in your enquiry. It is easier to plan for it before the visit.</p><a className="builders-link mt-4" href="tel:02080502233">Call 020 8050 2233</a></div><div>{BUILDERS_FAQS.map((faq) => <details className="builders-accordion" key={faq.q}><summary><span className="faq-question">{faq.q}</span><ChevronDown size={19} aria-hidden="true" /></summary><p className="faq-answer builders-accordion-body text-sm text-slate-600">{faq.a}</p></details>)}</div></div></section>
-    <section id="builders-quote" className="builders-section builders-soft" aria-labelledby="builders-quote-title"><div className="builders-wrap builders-enquiry-layout"><div><span className="builders-kicker">Your project</span><h2 id="builders-quote-title">Tell us what needs cleaning.</h2><p className="builders-lead">A few choices help us understand the job. You can leave anything you’re unsure about and send photos later.</p><div className="builders-note mt-6"><strong>A quote request, not a booking.</strong><p className="mt-2 text-sm">We’ll check the work, price and date with you. {CONDITIONAL_DEPOSIT_NOTE}</p></div><div className="mt-5"><PhotoQuoteLink location="after_builders_enquiry_photos" children="Send photos on WhatsApp" /><p className="mt-3 text-sm text-slate-600">Send views of the affected rooms and close-ups of residue. Leave people and personal documents out of photos.</p></div></div><AfterBuildersEnquiry /></div></section>
+    <section id="builders-quote" className="builders-section builders-soft" aria-labelledby="builders-quote-title"><div className="builders-wrap builders-enquiry-layout"><div><span className="builders-kicker">Your project</span><h2 id="builders-quote-title">Tell us what needs cleaning.</h2><p className="builders-lead">A few choices help us understand the job. You can leave anything you’re unsure about and send photos later.</p><div className="builders-note mt-6"><strong>A quote request, not a booking.</strong><p className="mt-2 text-sm">We’ll check the work, price and date with you. {CONDITIONAL_DEPOSIT_NOTE}</p></div><div className="mt-5"><PhotoQuoteLink location="after_builders_enquiry_photos" children="Send photos on WhatsApp" /><p className="mt-3 text-sm text-slate-600">You can also ask for a quote entirely on WhatsApp. Send the postcode, a view of each affected room and a close-up of any residue. Keep people and personal documents out of the photos.</p></div></div><AfterBuildersEnquiry /></div></section>
   </>;
 }
 
 export default function AfterBuildersContent() {
   return <>
     <nav className="builders-nav" aria-label="After-builders page sections"><div className="builders-wrap"><span className="mr-2 text-xs font-bold uppercase tracking-widest text-slate-500">On this page</span>{NAV.map(([id, label]) => <a key={id} href={`#${id}`}>{label}</a>)}</div></nav>
-    <PricingGuide /><ResultsNote /><CleaningChecklist /><Extras /><Process /><ClientsAndAreas /><QuestionsAndQuote />
+    <PricingGuide /><AfterBuildersResults /><CleaningChecklist /><Extras /><Process /><ClientsAndAreas /><QuestionsAndQuote />
   </>;
 }
