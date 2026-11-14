@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { BookingProvider } from '../context/BookingContext';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
-import { BOOKING_REQUEST_NOTE, CONDITIONAL_DEPOSIT_NOTE } from '../data/businessPolicy';
+import { CONDITIONAL_DEPOSIT_NOTE } from '../data/businessPolicy';
 import AreaMarquee from '../components/AreaMarquee';
 import TrustBadges from '../components/TrustBadges';
 import type { HomepageQuoteService } from '../components/HomeServiceSelector';
@@ -83,7 +83,6 @@ export default function HomePage() {
       <section className="border-y border-slate-200 bg-white px-4 py-12" aria-labelledby="booking-steps-heading">
         <div className="mx-auto max-w-6xl">
           <h2 id="booking-steps-heading" className="font-display text-3xl font-bold text-navy-950">From request to confirmed visit</h2>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600">{BOOKING_REQUEST_NOTE}</p>
           <ol className="mt-7 grid gap-4 sm:grid-cols-3">
             {[
               ['01', 'Send your request', 'Choose the service and a preferred time. No payment is taken.'],

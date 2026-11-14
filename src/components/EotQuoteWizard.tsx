@@ -966,13 +966,12 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
 
         {/* ══ Step 2: Choose your cleaning package ══ */}
         {step === 2 && (
-          <div className="space-y-6">
+          <div className="eot-package-step space-y-6">
             <div>
-              <p className="text-royal-700 text-[10px] font-bold uppercase tracking-[0.18em] mb-2">Your cleaning standard</p>
               <h3 data-step-heading className="font-display text-2xl sm:text-3xl font-bold text-navy-900 tracking-tight">Choose your cleaning package</h3>
-              <p className="text-muted text-sm sm:text-base leading-relaxed mt-2 max-w-xl">Complete includes the full cleaning checklist for your property. Choose Tailored if you only need selected tasks, with appliance and storage interiors added separately.</p>
+              <p className="text-muted text-sm sm:text-base leading-relaxed mt-2 max-w-xl">Both packages include the oven, hob, grill and extractor. Complete includes the other listed appliance and storage interiors. With Tailored, you choose which of those to add.</p>
             </div>
-            <div className="grid gap-5 items-start" role="group" aria-label="Cleaning package">
+            <div className="eot-package-options grid gap-5 items-start" role="group" aria-label="Cleaning package">
               {/* Complete */}
               <article className={`rounded-3xl border-2 overflow-hidden transition-all duration-200 ${state.pkg === 'complete' ? 'border-royal-500 shadow-[0_18px_50px_rgba(14,165,233,0.16)]' : 'border-line hover:border-sky-300'}`}>
                 <div className="bg-sky-700 text-white px-5 py-2.5 flex items-center justify-between gap-3">
@@ -1309,16 +1308,17 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
               <h3 className="text-navy-900 font-bold text-base mb-3">Other add-ons</h3>
               <div className="space-y-2">
                 {[
-                  { key: 'ext_windows' as const, label: 'Exterior windows', price: ADDON_PRICES_P.ext_windows },
-                  { key: 'balcony' as const, label: 'Balcony', price: ADDON_PRICES_P.balcony },
-                  { key: 'wall_marks' as const, label: 'Wall-mark treatment', price: ADDON_PRICES_P.wall_marks },
-                  { key: 'key_collect' as const, label: 'Key collection/return', price: ADDON_PRICES_P.key_collect },
-                  { key: 'rubbish' as const, label: 'Rubbish removal (small load)', price: ADDON_PRICES_P.rubbish },
+                  { key: 'ext_windows' as const, label: 'Exterior windows', price: ADDON_PRICES_P.ext_windows, help: 'Tell us which windows and floors need cleaning so we can check access.' },
+                  { key: 'balcony' as const, label: 'Balcony', price: ADDON_PRICES_P.balcony, help: 'Include the size and surface when you request your clean.' },
+                  { key: 'wall_marks' as const, label: 'Wall-mark treatment', price: ADDON_PRICES_P.wall_marks, help: 'Send a close-up so we can check the marks and paint finish.' },
+                  { key: 'key_collect' as const, label: 'Key collection/return', price: ADDON_PRICES_P.key_collect, help: 'Tell us where to collect the keys and where to return them.' },
+                  { key: 'rubbish' as const, label: 'Rubbish removal (small load)', price: ADDON_PRICES_P.rubbish, help: 'Describe the items and amount so we can agree what can be taken.' },
                 ].map((item) => (
                   <div key={item.key} className="flex items-center justify-between gap-2 rounded-xl bg-silver-100 border border-silver-300 px-4 py-3 min-h-[44px]">
                     <div>
                       <div className="text-navy-800 text-sm font-medium">{item.label}</div>
                       <div className="text-royal-700 text-[11px] font-bold">+{penceToDisplay(item.price)}</div>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-600">{item.help}</p>
                     </div>
                     <Counter value={state.extras[item.key]} label={item.label} onChange={(v) => setState((p) => ({ ...p, extras: { ...p.extras, [item.key]: v } }))} />
                   </div>

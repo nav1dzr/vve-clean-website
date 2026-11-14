@@ -52,6 +52,7 @@ export interface ServiceLandingData {
   // Schema
   schema: string;
   breadcrumb: string;
+  featuredReviewService?: string;
 
   // Hero
   eyebrow: string;
@@ -309,7 +310,7 @@ export default function ServiceLandingLayout({ data }: { data: ServiceLandingDat
 
     gallery: <Gallery />,
 
-    reviews: <Reviews />,
+    reviews: <Reviews featuredService={data.featuredReviewService} />,
 
     why: (
       <section className="bg-navy-900 py-16 px-4">

@@ -89,6 +89,7 @@ function CarpetHeroPanel() {
 
 const DATA: ServiceLandingData = {
   schema: SCHEMA,
+  featuredReviewService: 'Carpet Cleaning',
   breadcrumb: 'Carpet Cleaning London',
 
   eyebrow: 'Professional Carpet Cleaning',

@@ -34,6 +34,7 @@ function eotGalleryManifest() {
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), eotGalleryManifest()],
+  build: { manifest: true },
   optimizeDeps: {
     exclude: ['lucide-react'],
   },

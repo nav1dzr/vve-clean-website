@@ -12,8 +12,8 @@ const prerender = readFileSync('prerender.mjs', 'utf8');
 // Execute the real prerender head transformation with a controlled body. The
 // same definitions must yield the same metadata in initial HTML and the DOM.
 const rendererFunctions = prerender.slice(prerender.indexOf('function setMeta'), prerender.indexOf('// ── Prerender every real route'));
-const buildHtml = new Function('template', 'render', 'OG_IMAGE', 'OG_IMAGE_W', 'OG_IMAGE_H',
-  `${rendererFunctions}; return buildHtml;`)(template, () => '<main><h1>Test page</h1></main>', 'https://www.vveclean.co.uk/og-image.jpg', '1200', '630');
+const buildHtml = new Function('template', 'render', 'OG_IMAGE', 'OG_IMAGE_W', 'OG_IMAGE_H', 'buildersStyles',
+  `${rendererFunctions}; return buildHtml;`)(template, () => '<main><h1>Test page</h1></main>', 'https://www.vveclean.co.uk/og-image.jpg', '1200', '630', ['assets/builders-test.css']);
 const content = (doc: Document, selector: string) => doc.head.querySelector(selector)?.getAttribute('content');
 beforeEach(() => { document.head.innerHTML = ''; });
 afterEach(() => { document.head.innerHTML = initialHead; });
@@ -21,6 +21,9 @@ afterEach(() => { document.head.innerHTML = initialHead; });
 describe('route metadata on direct loads and client navigation', () => {
   it.each(ROUTE_METADATA.map((route) => [route.path, route] as const))('%s has matching title, description, social tags and robots in both render paths', (path, route) => {
     const direct = new DOMParser().parseFromString(buildHtml(route, route.canonical), 'text/html');
+    expect(direct.head.querySelectorAll('link[rel="stylesheet"][href="/assets/builders-test.css"]')).toHaveLength(
+      path === '/after-builders-cleaning-london' ? 1 : 0,
+    );
     applyRouteMetadata('/leaflet');
     applyRouteMetadata(path);
     expect(document.title).toBe(direct.title);

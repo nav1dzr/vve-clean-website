@@ -13,7 +13,7 @@ export default function MobileActionBar({ primary, whatsappHref, secondary }: { 
   return (
     <nav
       aria-label="Quick booking and help"
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white lg:hidden transition-none"
+      className="mobile-quick-actions fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white lg:hidden transition-none"
       // Explicitly disable transitions: the global reduced-motion duration would
       // otherwise give the default transition-property:all a brief bottom animation.
       style={{ bottom: 'var(--vve-cookie-banner-h, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}

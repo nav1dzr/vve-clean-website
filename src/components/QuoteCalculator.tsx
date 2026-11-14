@@ -1033,9 +1033,9 @@ function QuoteCalculatorForm({
                 {isEotFocused
                   ? 'One complete package. Essential inspection items included. Genuine upgrades shown separately.'
                   : isCarpetFocused
-                    ? 'Pick your rooms and stairs — fixed prices, added up as you go.'
+                    ? 'Select your rooms, landings and flights of stairs to see your total.'
                     : isUpholsteryFocused
-                      ? 'Pick your sofas, chairs and mattresses — fixed prices, added up as you go.'
+                      ? 'Select the furniture you want cleaned. For dining chairs or unlisted pieces, you can ask for a photo quote below.'
                       : 'Choose your service and property details to see your estimate.'}
               </p>
             </>
@@ -1044,10 +1044,10 @@ function QuoteCalculatorForm({
 
         <PriceTaxNote className="mb-5 text-center" inverse={!homepageMode} />
         {/* Card grid */}
-        <div className={`grid lg:grid-cols-5 gap-0 rounded-2xl shadow-2xl transition-all duration-700 delay-200 lg:items-start ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+        <div className={`grid grid-cols-1 lg:grid-cols-5 gap-0 rounded-2xl shadow-2xl transition-all duration-700 delay-200 lg:items-start ${contentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
 
           {/* ── Left: configurator ── */}
-          <div className="lg:col-span-3 bg-white p-6 md:p-8 rounded-tl-2xl rounded-tr-2xl lg:rounded-tr-none lg:rounded-bl-2xl">
+          <div className="min-w-0 lg:col-span-3 bg-white p-4 sm:p-6 md:p-8 rounded-tl-2xl rounded-tr-2xl lg:rounded-tr-none lg:rounded-bl-2xl">
             <div ref={serviceAreaRef} className="space-y-5">
 
               {/* Step label */}
@@ -1244,6 +1244,17 @@ function QuoteCalculatorForm({
                             </div>
                           )}
                         </div>
+                      )}
+
+                      {(!crossSellGroup || crossSellGroup === 'Carpets' || crossSellOpen) && (
+                        <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm leading-relaxed text-navy-900">
+                          Dining chairs, loose cushions or an unusual sofa?{' '}
+                          <a href={`${WA_BASE}?text=${encodeURIComponent('Hello, could you quote for my upholstery? I can send a photo of the whole piece and its care label.')}`}
+                            target="_blank" rel="noopener noreferrer" data-track-location="quote_upholstery_photo"
+                            className="inline-flex min-h-11 items-center font-semibold text-royal-800 underline underline-offset-4">
+                            Ask for a photo quote on WhatsApp
+                          </a>
+                        </p>
                       )}
 
                       {/* Bundle savings info — hidden when a promo code already gives a better saving */}
@@ -1776,7 +1787,7 @@ function QuoteCalculatorForm({
           </div>
 
           {/* ── Right: price panel ── */}
-          <div className="lg:col-span-2 navy-gradient p-6 flex flex-col justify-between rounded-br-2xl rounded-bl-2xl lg:rounded-bl-none lg:rounded-tr-2xl lg:sticky lg:top-24 lg:self-start">
+          <div className="min-w-0 lg:col-span-2 navy-gradient p-4 sm:p-6 flex flex-col justify-between rounded-br-2xl rounded-bl-2xl lg:rounded-bl-none lg:rounded-tr-2xl lg:sticky lg:top-24 lg:self-start">
             <div>
               <h3 className="text-silver-400 text-xs font-medium tracking-widest uppercase mb-2">
                 {isAfterBuilders ? 'Your project' : (isEot && eotTailoredQuote) ? 'Tailored Quote' : isRugOnlySelection ? 'Add-on only' : isCarpet && carpetResult?.isPhotoQuote ? 'Photo Quote' : 'Your price'}

@@ -331,6 +331,18 @@ details[open] > .faq-summary .faq-icon {
   overflow: clip;
   background: radial-gradient(ellipse at 100% 0%, #d4eaf5 0%, transparent 58%), linear-gradient(140deg, #f8fbfd 25%, #eaf3f8 100%);
 }
+/* Compare packages side by side only when the calculator itself has room. */
+.eot-package-step { container-type: inline-size; }
+@container (min-width: 42rem) {
+  .eot-package-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1023px) and (pointer: coarse) {
+  body:has(:is(textarea, input:not([type]), input[type="text"], input[type="email"], input[type="tel"], input[type="number"], input[type="search"]):focus) .mobile-quick-actions {
+    display: none;
+  }
+}
+
 .home-hero::before {
   content: '';
   position: absolute;
