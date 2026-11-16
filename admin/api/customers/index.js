@@ -2,6 +2,7 @@ import { verifyAdminRequest } from '../_lib/adminAuth.js';
 import { corsHeaders } from '../_lib/cors.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
 import { readJsonBody } from '../_lib/body.js';
+import completionReportHandler from '../_lib/completionReportRoute.js';
 import { sanitiseFreeTextFilter } from '../_lib/normalise.js';
 import {
   CUSTOMER_TYPE_VALUES, CUSTOMER_SOURCE_VALUES, CUSTOMER_SORT_VALUES,
@@ -9,7 +10,7 @@ import {
 } from '../_lib/customerFields.js';
 import { createCustomer, listCustomers } from '../_lib/customerLifecycle.js';
 
-export const config = { api: { bodyParser: false } };
+export const config = { api: { bodyParser: false }, maxDuration: 60 };
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
@@ -37,6 +38,11 @@ function parsePositiveInt(value, fallback) {
 // simply never matches the file). Detail/update/actions now live in
 // admin/api/customers/[id].js, split out the same way invoices was fixed.
 export default async function handler(req, res) {
+  // Share the existing function budget; the report handler retains its own
+  // admin verification and opt-in gate. Normal customer routes are unchanged.
+  if (new URL(req.url, 'https://admin.vveclean.co.uk').searchParams.get('resource') === 'completion-reports') {
+    return completionReportHandler(req, res);
+  }
   const origin = req.headers.origin || '';
   const headers = { ...corsHeaders(origin), 'Cache-Control': 'no-store', 'Content-Type': 'application/json' };
 
