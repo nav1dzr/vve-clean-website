@@ -9,6 +9,7 @@ const navItems = [
   { to: '/enquiries', label: 'Enquiries' },
   { to: '/invoices', label: 'Invoices' },
   { to: '/receipts', label: 'Receipts' },
+  ...(import.meta.env.VITE_COMPLETION_REPORTS_ENABLED === 'true' ? [{ to: '/completion-reports', label: 'Completion reports' }] : []),
   { to: '/catalogue', label: 'Catalogue' },
   { to: '/media', label: 'Media' },
   { to: '/website-prices', label: 'Website prices' },

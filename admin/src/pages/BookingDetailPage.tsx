@@ -11,6 +11,7 @@ import StatusControl from '../components/StatusControl';
 import BalanceControl from '../components/BalanceControl';
 import InternalNotesSection from '../components/InternalNotesSection';
 import BookingInvoicesSection from '../components/BookingInvoicesSection';
+import CompletionReportsSection from '../components/CompletionReportsSection';
 import BookingCustomerSection from '../components/BookingCustomerSection';
 import BookingJourneyPanel from '../components/BookingJourneyPanel';
 import {
@@ -272,6 +273,7 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
       <BookingCustomerSection bookingId={b.id} fullName={b.fullName} email={b.email} phone={b.phone} completed={b.status === 'completed'} />
 
       <BookingInvoicesSection bookingId={b.id} />
+      {import.meta.env.VITE_COMPLETION_REPORTS_ENABLED === 'true' && <CompletionReportsSection bookingId={b.id} />}
 
       <Section title="Customer notes">
         <p className="whitespace-pre-wrap text-sm text-navy-700">{b.notes || 'No notes recorded'}</p>
