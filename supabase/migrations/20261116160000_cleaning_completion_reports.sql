@@ -40,6 +40,9 @@ alter table public.cleaning_report_photos enable row level security;
 alter table public.cleaning_report_events enable row level security;
 alter table public.cleaning_report_sends enable row level security;
 revoke all on public.cleaning_completion_reports,public.cleaning_report_photos,public.cleaning_report_events,public.cleaning_report_sends from anon,authenticated;
+-- Existing database defaults grant ALL to service_role on new public tables.
+-- Remove those inherited grants so mutations must use the audited RPC below.
+revoke all on public.cleaning_completion_reports,public.cleaning_report_photos,public.cleaning_report_events,public.cleaning_report_sends from service_role;
 grant select on public.cleaning_completion_reports,public.cleaning_report_photos,public.cleaning_report_events,public.cleaning_report_sends to service_role;
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
  values('cleaning-reports-private','cleaning-reports-private',false,4194304,array['image/jpeg','image/png','application/pdf'])
