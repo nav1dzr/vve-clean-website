@@ -68,6 +68,8 @@ export interface GallerySlot {
   sortOrder: number;
   assignments: MediaAssignment[];
   usages: MediaUsage[];
+  /** When the current selection was published; null when nothing is live. */
+  publishedAt?: string | null;
 }
 
 export interface WebsiteSlot {
@@ -79,6 +81,7 @@ export interface WebsiteSlot {
   sortOrder: number;
   assignments: MediaAssignment[];
   usages: MediaUsage[];
+  publishedAt?: string | null;
 }
 
 export interface MediaReference {

@@ -22,6 +22,21 @@ describe('media library listing and upload plans',()=>{
     const first=await call('GET',{}, {category:'carpet'});expect(first.statusCode).toBe(200);expect(first.body.assets).toHaveLength(30);expect(first.body.nextPage).toBe(1);expect(first.body.assignedAssets[0].id).toBe(id(34));
     const second=await call('GET',{}, {category:'carpet',page:'1'});expect(second.body.assets).toHaveLength(5);expect(second.body.nextPage).toBeNull();
   });
+  it('reports when each position was published, and null for an empty position',async()=>{
+    db._tables.media_gallery_slots=[
+      {id:id(50),topic_key:'carpet',slot_code:'BA01',slot_kind:'before_after',label:'Before / After 01',sort_order:1},
+      {id:id(51),topic_key:'carpet',slot_code:'BA02',slot_kind:'before_after',label:'Before / After 02',sort_order:2},
+    ];
+    db._tables.media_assignments=[
+      {asset_id:id(33),gallery_slot_id:id(50),media_role:'before',updated_at:'2026-11-10T09:00:00+00:00'},
+      {asset_id:id(34),gallery_slot_id:id(50),media_role:'after',updated_at:'2026-11-12T10:30:00+00:00'},
+    ];
+    const result=await call('GET',{}, {category:'carpet'});
+    const slots=Object.fromEntries(result.body.gallerySlots.map(slot=>[slot.code,slot]));
+    expect(slots.BA01.publishedAt).toBe('2026-11-12T10:30:00+00:00');
+    expect(slots.BA02.publishedAt).toBeNull();
+    expect(slots.BA01.assignments).toEqual([{assetId:id(33),role:'before'},{assetId:id(34),role:'after'}]);
+  });
   it('rejects invalid files before creating records or signed URLs',async()=>{expect((await call('POST',{filename:'script.svg',contentType:'image/svg+xml',size:100})).statusCode).toBe(400);expect(db._tables.media_assets).toHaveLength(35);expect(mocks.upload).not.toHaveBeenCalled();});
   it('creates only a private draft and checks the selected provider',async()=>{
     expect((await call('POST',{filename:'photo.jpg',contentType:'image/jpeg',size:123,category:'carpet',websiteVisible:true})).statusCode).toBe(201);

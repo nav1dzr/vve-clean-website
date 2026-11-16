@@ -1,0 +1,63 @@
+import { describe, expect, it } from "vitest";
+import {
+  checkMediaFile,
+  formatFileSize,
+  MAX_PHOTO_BYTES,
+  MAX_VIDEO_BYTES,
+  mediaContentType,
+} from "./mediaFileCheck";
+
+const file = (name: string, type: string, size = 1000) => ({ name, type, size });
+
+describe("media file check before upload", () => {
+  it("accepts supported photos and videos and reports their kind", () => {
+    expect(checkMediaFile(file("kitchen.JPG", "image/jpeg"))).toEqual({
+      ok: true, kind: "photo", contentType: "image/jpeg",
+    });
+    expect(checkMediaFile(file("sofa.mov", "video/quicktime"))).toEqual({
+      ok: true, kind: "video", contentType: "video/quicktime",
+    });
+  });
+
+  it("recognises an iPhone photo or video when the browser reports no type", () => {
+    expect(mediaContentType(file("IMG_0001.HEIC", ""))).toBe("image/heic");
+    expect(checkMediaFile(file("IMG_0002.MOV", ""))).toEqual({
+      ok: true, kind: "video", contentType: "video/quicktime",
+    });
+  });
+
+  it("never guesses a type the browser has identified as unsupported", () => {
+    expect(checkMediaFile(file("notes.jpg", "application/pdf"))).toMatchObject({ ok: false });
+    expect(checkMediaFile(file("logo.svg", "image/svg+xml"))).toMatchObject({
+      ok: false, reason: expect.stringContaining("not supported"),
+    });
+  });
+
+  it("explains a mismatched extension, an empty file and an over-long name", () => {
+    expect(checkMediaFile(file("photo.png", "image/jpeg"))).toMatchObject({
+      ok: false, reason: expect.stringContaining(".jpg"),
+    });
+    expect(checkMediaFile(file("photo.jpg", "image/jpeg", 0))).toMatchObject({
+      ok: false, reason: expect.stringContaining("empty"),
+    });
+    expect(checkMediaFile(file(`${"a".repeat(180)}.jpg`, "image/jpeg"))).toMatchObject({
+      ok: false, reason: expect.stringContaining("too long"),
+    });
+  });
+
+  it("applies the 40 MB photo and 500 MB video limits with the actual size", () => {
+    expect(checkMediaFile(file("a.jpg", "image/jpeg", MAX_PHOTO_BYTES))).toMatchObject({ ok: true });
+    expect(checkMediaFile(file("a.jpg", "image/jpeg", MAX_PHOTO_BYTES + 1024 * 1024))).toMatchObject({
+      ok: false, reason: expect.stringMatching(/41 MB.*40 MB/),
+    });
+    expect(checkMediaFile(file("a.mp4", "video/mp4", MAX_VIDEO_BYTES))).toMatchObject({ ok: true });
+    expect(checkMediaFile(file("a.mp4", "video/mp4", MAX_VIDEO_BYTES + 1))).toMatchObject({ ok: false });
+  });
+
+  it("formats sizes for people", () => {
+    expect(formatFileSize(500)).toBe("500 bytes");
+    expect(formatFileSize(81443)).toBe("80 KB");
+    expect(formatFileSize(3.5 * 1024 * 1024)).toBe("3.5 MB");
+    expect(formatFileSize(120 * 1024 * 1024)).toBe("120 MB");
+  });
+});

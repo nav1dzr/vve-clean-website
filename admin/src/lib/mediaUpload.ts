@@ -4,6 +4,9 @@ export function uploadMediaFile(
   file: File,
   onProgress: (percent: number) => void,
   signal: AbortSignal,
+  // Must equal the type the upload link was signed for. Some browsers report
+  // no type for HEIC or MOV files, so the caller passes the checked type.
+  contentType: string = file.type,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -39,7 +42,7 @@ export function uploadMediaFile(
     signal.addEventListener("abort", cancel, { once: true });
     xhr.open("PUT", url);
     xhr.timeout = 15 * 60_000;
-    xhr.setRequestHeader("Content-Type", file.type);
+    xhr.setRequestHeader("Content-Type", contentType);
     xhr.setRequestHeader("If-None-Match", "*");
     xhr.upload.onprogress = (event) => {
       watch();
