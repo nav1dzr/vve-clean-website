@@ -917,3 +917,76 @@ describe('financial API compatibility guards', () => {
     expect(missing.statusCode).toBe(503);expect(db._tables.invoices[0].document_status).toBe('draft');
   });
 });
+
+describe('invoice safeguards: replaced invoices and voiding with payments', () => {
+  beforeEach(() => {
+    verifyAdminRequestMock.mockReset();
+    getServiceClientMock.mockReset();
+    sendMailMock.mockReset();
+    isMailerConfiguredMock.mockReset();
+    verifyAdminRequestMock.mockResolvedValue(ADMIN);
+    isMailerConfiguredMock.mockReturnValue(true);
+    sendMailMock.mockResolvedValue({ ok: true, messageId: 'msg-1' });
+  });
+
+  async function seedIssued(supabase) {
+    const invoiceId = await seedDraft(supabase);
+    await issueInvoice(supabase, invoiceId, 'admin-1');
+    return invoiceId;
+  }
+
+  it.each(['send', 'resend', 'remind'])('refuses to %s a replaced invoice and emails nothing', async (action) => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedIssued(supabase);
+    supabase._tables.invoices.find((i) => i.id === invoiceId).superseded_by_invoice_id = VALID_UUID;
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}?action=${action}`, method: 'POST', bodyObj: {} }), res);
+    expect(res.statusCode).toBe(409);
+    expect(JSON.parse(res.body).error).toMatch(/replaced by a revised invoice/);
+    expect(sendMailMock).not.toHaveBeenCalled();
+  });
+
+  it('asks for acknowledgement before voiding an invoice with a recorded payment', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedIssued(supabase);
+    supabase._tables.invoice_payments = [{ id: VALID_UUID, invoice_id: invoiceId, amount: 25, method: 'bank_transfer' }];
+
+    const refused = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}?action=void`, method: 'POST', bodyObj: { reason: 'Issued in error' } }), refused);
+    expect(refused.statusCode).toBe(409);
+    expect(JSON.parse(refused.body).code).toBe('PAYMENTS_NEED_ACKNOWLEDGEMENT');
+    expect(supabase._tables.invoices.find((i) => i.id === invoiceId).document_status).toBe('issued');
+
+    const accepted = makeRes();
+    await handler(makeReq({
+      url: `/api/invoices/${invoiceId}?action=void`, method: 'POST', bodyObj: { reason: 'Issued in error', acknowledgePayments: true },
+    }), accepted);
+    expect(accepted.statusCode).toBe(200);
+    expect(supabase._tables.invoices.find((i) => i.id === invoiceId).document_status).toBe('void');
+  });
+
+  it('does not ask for acknowledgement when the only payment was reversed', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedIssued(supabase);
+    supabase._tables.invoice_payments = [{ id: VALID_UUID, invoice_id: invoiceId, amount: 25, method: 'bank_transfer', reversed_at: '2026-11-01T10:00:00Z' }];
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}?action=void`, method: 'POST', bodyObj: { reason: 'Issued in error' } }), res);
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('asks for acknowledgement before voiding an invoice that has a receipt', async () => {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const invoiceId = await seedIssued(supabase);
+    supabase._tables.receipts = [{ id: VALID_UUID, invoice_id: invoiceId }];
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/invoices/${invoiceId}?action=void`, method: 'POST', bodyObj: { reason: 'Issued in error' } }), res);
+    expect(res.statusCode).toBe(409);
+  });
+});

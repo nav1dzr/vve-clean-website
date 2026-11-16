@@ -14,6 +14,8 @@ export interface InvoiceCard {
   dueDate: string | null;
   issueDate: string | null;
   createdAt: string;
+  supersededByInvoiceId?: string | null;
+  sentAt?: string | null;
 }
 
 export interface InvoiceCustomer {

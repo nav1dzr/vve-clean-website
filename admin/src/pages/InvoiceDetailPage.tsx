@@ -235,9 +235,11 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
     load();
   }
 
-  async function handleVoid(reason: string) {
+  async function handleVoid(reason: string, acknowledgePayments: boolean) {
     if (!id) return;
-    await authFetch(`/api/invoices/${id}?action=void`, { method: 'POST', body: JSON.stringify({ reason }) });
+    await authFetch(`/api/invoices/${id}?action=void`, {
+      method: 'POST', body: JSON.stringify({ reason, ...(acknowledgePayments ? { acknowledgePayments: true } : {}) }),
+    });
     setModal(null);
     load();
   }
@@ -754,7 +756,10 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
           <ul className="space-y-1.5 text-sm">
             {events.map((e) => (
               <li key={e.id} className="flex justify-between gap-2 text-navy-700">
-                <span>{invoiceEventLabel(e.eventType)}</span>
+                <span className="min-w-0 break-words">
+                  {invoiceEventLabel(e.eventType)}
+                  {typeof e.metadata?.to === 'string' && <span className="block text-xs text-navy-500">To {e.metadata.to}</span>}
+                </span>
                 <span className="text-xs text-navy-500">{formatDateTime(e.createdAt)}</span>
               </li>
             ))}
@@ -780,7 +785,12 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
           onClose={() => { setModal(null); load(); }} onConfirm={handleRecordPayment}
         />
       )}
-      {modal === 'void' && <VoidInvoiceModal onClose={() => setModal(null)} onConfirm={handleVoid} />}
+      {modal === 'void' && (
+        <VoidInvoiceModal
+          onClose={() => setModal(null)} onConfirm={handleVoid}
+          hasPayments={inv.amountPaid > 0 || inv.paymentStatus !== 'unpaid' || inv.payments.some((p) => !p.reversedAt)}
+        />
+      )}
       {modal === 'send' && (
         <SendDocumentModal
           titleId="send-invoice-title"

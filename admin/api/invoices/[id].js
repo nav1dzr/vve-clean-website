@@ -278,6 +278,27 @@ async function handleVoid(req, res, headers, supabase, invoiceId, auth) {
     res.writeHead(400, headers);
     return res.end(JSON.stringify({ error: err.message || 'Invalid request body' }));
   }
+  // Voiding does not undo recorded payments or withdraw a receipt. Make the
+  // owner acknowledge that before an invoice with money against it is voided.
+  if (body.acknowledgePayments !== true) {
+    const [paymentsCheck, receiptsCheck] = await Promise.all([
+      supabase.from('invoice_payments').select('id, reversed_at').eq('invoice_id', invoiceId),
+      supabase.from('receipts').select('id').eq('invoice_id', invoiceId),
+    ]);
+    if (paymentsCheck.error || receiptsCheck.error) {
+      res.writeHead(503, headers);
+      return res.end(JSON.stringify({ error: 'Could not check this invoice for payments. Nothing was voided. Please retry.' }));
+    }
+    const activePayments = (paymentsCheck.data || []).filter((p) => !p.reversed_at).length;
+    const receipts = (receiptsCheck.data || []).length;
+    if (activePayments > 0 || receipts > 0) {
+      res.writeHead(409, headers);
+      return res.end(JSON.stringify({
+        error: 'This invoice has a recorded payment or receipt. Voiding does not refund or reverse it. Confirm you have checked the payment history before voiding.',
+        code: 'PAYMENTS_NEED_ACKNOWLEDGEMENT',
+      }));
+    }
+  }
   const result = await voidInvoice(supabase, invoiceId, body.reason, auth.admin.id);
   if (!result.ok) {
     res.writeHead(result.status || 400, headers);
@@ -595,6 +616,12 @@ async function handleSend(req, res, headers, supabase, invoiceId, auth, eventTyp
     res.writeHead(409, headers);
     return res.end(JSON.stringify({ error: 'Only an issued invoice can be emailed' }));
   }
+  // The screen hides Send on a replaced invoice; an older open tab must not
+  // be able to email the outdated document either.
+  if (invoice.superseded_by_invoice_id) {
+    res.writeHead(409, headers);
+    return res.end(JSON.stringify({ error: 'This invoice was replaced by a revised invoice. Send the replacement instead.' }));
+  }
   // Once fully paid, "send the invoice" no longer makes sense — the
   // customer should get the receipt instead (correct wording, correct
   // attachment, implemented in admin/api/receipts/index.js send/resend).
@@ -721,6 +748,10 @@ async function handleRemind(req, res, headers, supabase, invoiceId, auth) {
   if (invoice.document_status !== 'issued') {
     res.writeHead(409, headers);
     return res.end(JSON.stringify({ error: 'Only an issued invoice can receive a payment reminder' }));
+  }
+  if (invoice.superseded_by_invoice_id) {
+    res.writeHead(409, headers);
+    return res.end(JSON.stringify({ error: 'This invoice was replaced by a revised invoice. Send the reminder from the replacement instead.' }));
   }
   if (!(invoice.amount_due > 0)) {
     res.writeHead(409, headers);

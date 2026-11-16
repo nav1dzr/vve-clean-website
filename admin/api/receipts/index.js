@@ -299,6 +299,25 @@ async function handleSend(req, res, headers, supabase, receiptId, auth, eventTyp
     return res.end(JSON.stringify({ error: 'Receipt not found' }));
   }
 
+  // A receipt says "paid in full". If its invoice has since been voided or a
+  // payment reversed, emailing it would tell the customer something untrue.
+  if (receipt.invoice_id) {
+    const { data: linkedInvoice, error: linkedError } = await supabase
+      .from('invoices').select('document_status, payment_status').eq('id', receipt.invoice_id).maybeSingle();
+    if (linkedError) {
+      res.writeHead(503, headers);
+      return res.end(JSON.stringify({ error: 'Could not check the invoice for this receipt. Nothing was sent. Please retry.' }));
+    }
+    if (linkedInvoice && (linkedInvoice.document_status !== 'issued' || linkedInvoice.payment_status !== 'paid')) {
+      res.writeHead(409, headers);
+      return res.end(JSON.stringify({
+        error: linkedInvoice.document_status !== 'issued'
+          ? 'The invoice for this receipt has been voided, so the receipt cannot be emailed.'
+          : 'The invoice for this receipt is no longer fully paid, so the receipt cannot be emailed. Check the invoice payment history.',
+      }));
+    }
+  }
+
   const recipient = body.to || receipt.customer_email;
   if (!recipient || !isValidEmail(recipient)) {
     res.writeHead(400, headers);

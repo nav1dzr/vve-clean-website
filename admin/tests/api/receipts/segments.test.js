@@ -263,3 +263,43 @@ describe('/api/receipts?id=<uuid>[&action] dispatcher', () => {
     expect(sendMailMock.mock.calls[0][0].to).toBe('landlord@example.com');
   });
 });
+
+describe('receipt send safeguard: the linked invoice must still be paid', () => {
+  beforeEach(() => {
+    verifyAdminRequestMock.mockReset();
+    getServiceClientMock.mockReset();
+    sendMailMock.mockReset();
+    isMailerConfiguredMock.mockReset();
+    verifyAdminRequestMock.mockResolvedValue(ADMIN);
+    isMailerConfiguredMock.mockReturnValue(true);
+    sendMailMock.mockResolvedValue({ ok: true, messageId: 'msg-1' });
+  });
+
+  async function seedWithInvoice(invoice) {
+    const supabase = createFakeSupabase();
+    getServiceClientMock.mockReturnValue(supabase);
+    const { receiptId } = await seedReceipt(supabase, { invoiceId: VALID_UUID });
+    supabase._tables.invoices = [{ id: VALID_UUID, ...invoice }];
+    return { supabase, receiptId };
+  }
+
+  it('sends when the invoice is issued and paid', async () => {
+    const { receiptId } = await seedWithInvoice({ document_status: 'issued', payment_status: 'paid' });
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/receipts?id=${receiptId}&action=send`, method: 'POST', bodyObj: {} }), res);
+    expect(res.statusCode).toBe(200);
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['a payment was reversed', { document_status: 'issued', payment_status: 'partially_paid' }, /no longer fully paid/],
+    ['the invoice was voided', { document_status: 'void', payment_status: 'paid' }, /has been voided/],
+  ])('refuses and emails nothing when %s', async (_label, invoice, message) => {
+    const { receiptId } = await seedWithInvoice(invoice);
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/receipts?id=${receiptId}&action=send`, method: 'POST', bodyObj: {} }), res);
+    expect(res.statusCode).toBe(409);
+    expect(JSON.parse(res.body).error).toMatch(message);
+    expect(sendMailMock).not.toHaveBeenCalled();
+  });
+});

@@ -1,4 +1,6 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useContext, useEffect, useState, type FormEvent } from "react";
+import { AuthContext } from "../auth/AuthContext";
+import { readBookingAgreementDraft, saveBookingAgreementDraft, clearBookingAgreementDraft, type BookingAgreementDraft } from "../lib/bookingAgreementDraft";
 import { authFetch } from "../lib/authFetch";
 import type { BookingDetail } from "../types/booking";
 import { bookingAgreementText, fillMissingAgreementText, initialBookingPaymentPlan, requestedArrivalWindow } from "../lib/bookingAgreementDefaults";
@@ -121,7 +123,13 @@ export default function BookingJourneyPanel({
     [paymentReference, setPaymentReference] = useState(""),
     [paymentMethod, setPaymentMethod] = useState("bank_transfer"),
     [bankDepositReference, setBankDepositReference] = useState(booking.bookingRef || ""),
-    [bankDepositReceived, setBankDepositReceived] = useState(false);
+    [bankDepositReceived, setBankDepositReceived] = useState(false),
+    [dirty, setDirty] = useState(false),
+    [recovered, setRecovered] = useState<BookingAgreementDraft | null>(null);
+  // Optional so the panel still renders in isolation; without an account
+  // there is simply no saved draft.
+  const ownerId = useContext(AuthContext)?.admin?.id || "";
+  const draftContext = { userId: ownerId, bookingId: booking.id };
   const endpoint = `/api/bookings/${booking.id}?action=journey`;
   useEffect(() => {
     let active = true;
@@ -131,6 +139,8 @@ export default function BookingJourneyPanel({
         if (active) {
           setView(data);
           if (data.journey) setAgreement({ ...data.journey.draft, accessNotes: data.journey.draft.accessNotes || "" });
+          // Offer unsaved edits from an earlier visit; never apply them silently.
+          setRecovered(readBookingAgreementDraft({ userId: ownerId, bookingId: booking.id }));
         }
       })
       .catch((e) => {
@@ -142,7 +152,12 @@ export default function BookingJourneyPanel({
     return () => {
       active = false;
     };
-  }, [endpoint]);
+  }, [endpoint, ownerId, booking.id]);
+  const journeyRevision = view?.journey?.revision ?? 0;
+  useEffect(() => {
+    if (!dirty || !ownerId) return;
+    saveBookingAgreementDraft({ userId: ownerId, bookingId: booking.id }, journeyRevision, agreement);
+  }, [dirty, agreement, ownerId, booking.id, journeyRevision]);
   async function action(
     operation: string,
     extra: Record<string, unknown> = {},
@@ -170,6 +185,12 @@ export default function BookingJourneyPanel({
             ? "Agreement saved. Preview the email before sending."
             : "Booking action saved. Delivery status is shown below.",
       );
+      if (operation === "draft" || operation === "send") {
+        // The server now holds these details; the local copy is no longer needed.
+        clearBookingAgreementDraft(draftContext);
+        setDirty(false);
+        setRecovered(null);
+      }
       if (operation === "draft" || operation === "preview") setPreview(true);
       if (["send", "complete", "cancel", "manual_payment", "manual_deposit"].includes(operation))
         onChanged();
@@ -190,6 +211,7 @@ export default function BookingJourneyPanel({
   const locked = busy || loading || !view?.enabled;
   function update(key: keyof Agreement, value: string | number) {
     setAgreement((old) => ({ ...old, [key]: value }));
+    setDirty(true);
     setPreview(false);
     setChecked(false);
   }
@@ -204,7 +226,7 @@ export default function BookingJourneyPanel({
             id="journey-heading"
             className="text-lg font-semibold text-navy-950"
           >
-            {j?.state === 'completed' ? 'Completed booking' : j?.state === 'cancelled' ? 'Cancelled booking' : 'Arrange and confirm this booking'}
+            {j?.state === 'completed' ? 'Completed booking' : j?.state === 'cancelled' ? 'Cancelled booking' : j?.state === 'confirmed' ? 'Confirmed booking' : 'Arrange and confirm this booking'}
           </h2>
           <p className="mt-1 text-sm text-navy-700">
             {!view
@@ -213,6 +235,8 @@ export default function BookingJourneyPanel({
               ? 'The job is marked completed. You can review the agreed details and message history below.'
               : j?.state === 'cancelled'
               ? 'This appointment is cancelled. Its agreed details and message history remain available below.'
+              : j?.state === 'confirmed'
+              ? 'This appointment is confirmed. Edit the details below only if something has changed; the customer is asked to accept any change.'
               : agreement.paymentPlan === 'deposit_after_agreement'
               ? 'Agree the details with the customer, then send the £30 deposit request. Their appointment is confirmed when the deposit is received.'
               : 'No deposit for this booking. Check the agreed details, then confirm the appointment directly. Payment is due on the cleaning day.'}
@@ -297,7 +321,29 @@ export default function BookingJourneyPanel({
           </p>
         </div>
       )}
-      <details className="mt-5" open={!j || j.state === "draft"}>
+      {recovered && !dirty && (
+        <div role="status" className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+          <p className="font-semibold">You have unsaved changes to this booking</p>
+          <p className="mt-1">
+            Typed on this device at {new Date(recovered.savedAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} and not saved.
+            {recovered.revision !== (j?.revision ?? 0) && " The booking has changed since then, so check every detail before saving."}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" className={`${button} bg-white`} onClick={() => {
+              setAgreement((old) => ({ ...old, ...recovered.values }));
+              setDirty(true);
+              setRecovered(null);
+              setPreview(false);
+              setChecked(false);
+            }}>Restore my changes</button>
+            <button type="button" className={`${button} bg-white`} onClick={() => {
+              clearBookingAgreementDraft(draftContext);
+              setRecovered(null);
+            }}>Discard them</button>
+          </div>
+        </div>
+      )}
+      <details className="mt-5" open={!j || j.state === "draft" || dirty}>
         <summary className="cursor-pointer font-semibold text-navy-950">
           Edit service, price and appointment
         </summary>
@@ -307,6 +353,7 @@ export default function BookingJourneyPanel({
           <button type="button" className={`${button} mt-3 bg-white`} disabled={busy}
             onClick={() => {
               setAgreement((old) => fillMissingAgreementText(old, booking));
+              setDirty(true);
               setPreview(false);
               setChecked(false);
             }}>
@@ -612,7 +659,17 @@ export default function BookingJourneyPanel({
             <button
               className={`${button} bg-navy-950 text-white`}
               disabled={locked}
-              onClick={() => action("complete")}
+              onClick={() => {
+                const owed = Math.max(0, (j.snapshot?.totalPence || 0) - paid);
+                if (
+                  window.confirm(
+                    owed > 0
+                      ? `Mark this clean as completed and email the customer their ${money(owed)} balance request? This cannot be undone.`
+                      : "Mark this clean as completed? The customer will be emailed. This cannot be undone.",
+                  )
+                )
+                  void action("complete");
+              }}
             >
               Mark clean completed and send balance
             </button>
@@ -709,13 +766,23 @@ export default function BookingJourneyPanel({
             <button
               className={button}
               disabled={locked || !paymentAmount || !paymentReference}
-              onClick={() =>
-                action("manual_payment", {
-                  amountPence: Math.round(Number(paymentAmount) * 100),
-                  method: paymentMethod,
-                  reference: paymentReference,
-                })
-              }
+              onClick={() => {
+                const amountPence = Math.round(Number(paymentAmount) * 100);
+                if (!Number.isFinite(amountPence) || amountPence <= 0) {
+                  setError("Enter the amount you received.");
+                  return;
+                }
+                if (
+                  window.confirm(
+                    `Record ${money(amountPence)} as received and email the customer a receipt?`,
+                  )
+                )
+                  void action("manual_payment", {
+                    amountPence,
+                    method: paymentMethod,
+                    reference: paymentReference,
+                  });
+              }}
             >
               Record payment and email receipt
             </button>

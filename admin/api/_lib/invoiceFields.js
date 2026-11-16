@@ -11,6 +11,9 @@ export const INVOICE_SORT_VALUES = ['newest', 'oldest', 'due_soonest', 'highest_
 export const INVOICE_CARD_SELECT = [
   'id', 'invoice_number', 'customer_name', 'total', 'amount_due',
   'document_status', 'payment_status', 'due_date', 'issue_date', 'created_at',
+  // A replaced invoice stays "issued" for the record but is no longer owed;
+  // lists and balances need this to tell the two apart.
+  'superseded_by_invoice_id', 'sent_at',
 ].join(', ');
 
 export const INVOICE_DETAIL_SELECT = [
@@ -56,6 +59,8 @@ export function toInvoiceCard(row) {
     dueDate: row.due_date,
     issueDate: row.issue_date,
     createdAt: row.created_at,
+    supersededByInvoiceId: row.superseded_by_invoice_id || null,
+    sentAt: row.sent_at || null,
   };
 }
 
