@@ -21,10 +21,11 @@ Nothing in this work touched production data, settings, storage, Mux, Supabase, 
 | What is published now | 9 public rows = 1 end-of-tenancy pair (`BA01`, "Kitchen hob") and 1 sofa video (`VIDEO01`, "Armchair cushion clean"), each repeated across its gallery page, service page and an older unused page key. | Called `public_media_references()` anonymously, exactly as a visitor's browser does. **Verified.** |
 | Photo delivery | `vve-media-preview.navidz7111.workers.dev`. Returns AVIF, 480 px ≈ 19–27 KB, 2400 px ≈ 270–620 KB, cached for one year per file. Odd sizes and raw-original paths return 404. | Fetched the published photos. **Verified.** |
 | Video delivery | Mux poster and stream both respond. Highest rendition offered for the live video is 960×540. | Fetched poster and playlist. **Verified.** |
-| CRM production database | Almost certainly the same project, because the CRM has one server connection (`admin/api/_lib/supabaseAdmin.js:22`) and its published rows appear there. | **Inferred, not verified** — no dashboard or CLI access. |
-| R2 bucket | `vve-media-originals` in `cloudflare/media-preview-worker/wrangler.toml`. Whether Vercel Production and Preview use the same bucket and keys is unknown. | **Unverified.** |
-| Mux environment | Unknown whether Production and Preview share one. | **Unverified.** |
-| Project "OS" (`spbrstpxrimuuorkbsbo`) | Named in `previewIsolation.js:4` and blocked for previews unless explicitly allowed. Not touched, and not assumed to be unused. | Code reading only. |
+| CRM production database | The live CRM at `admin.vveclean.co.uk` names the same project, `temlphabsqukkiqmrvhl`, and no other. | Downloaded the live CRM's public JavaScript. **Verified.** |
+| R2 bucket | `vve-media-originals` in `cloudflare/media-preview-worker/wrangler.toml`. The September record (`docs/website-completion-2026-09-08/cloud-connections.md`) found one bucket, one Worker and one Mux environment ("website"), then used for previews. Production photos now come from that same Worker, so production very probably uses that same bucket. A separate test bucket is not known to exist. | **Inferred, not verified.** |
+| Mux environment | September record shows a single environment, "website". Whether a separate test environment exists now is unknown. | **Unverified.** |
+| Project "OS" (`spbrstpxrimuuorkbsbo`) | Named in `previewIsolation.js:4` and blocked for previews unless explicitly allowed. The September record found it healthy and in use by another system. Not touched, and not to be repurposed. | Code and earlier record. |
+| Test database "VVE TEST" (`xzacwohfeabpfadapcjz`) | Recorded in September as paused; Supabase refused to resume it because both free project slots are in use. | Earlier record; **not re-checked.** |
 | Private customer material | Completion-report files use a separate private Supabase Storage bucket, `cleaning-reports-private` (`admin/api/_lib/completionReports.js:9`). Website media uses R2. They do not share storage or tables. | Code reading. **Verified in code.** |
 
 To close the unverified rows I need you to open the Vercel environment-variable list for `vve-clean-crm` (names and which environment each applies to — not the values), and the R2 and Mux dashboards.
@@ -108,7 +109,12 @@ What was checked instead, and what it does and does not prove:
 
 ### Two ways forward — your choice
 
-**A. Isolated environment (preferred).** Un-pause or create a test Supabase project, add a test R2 bucket and a Mux test environment to the CRM Preview, and approve preview isolation. Then every step, including publishing and replacing, can be tested with nothing public.
+**A. Isolated environment (preferred; chosen by the owner on 16 November).** Then every step, including publishing and replacing, can be tested with nothing public. It needs four things that only the owner can create or approve:
+
+1. **A test database.** The free plan allows two active projects and both are in use, so "VVE TEST" cannot be resumed as things stand. Either move Supabase to a paid plan and resume it, or run a local test database on the office PC (needs Docker Desktop and the Supabase tool installed).
+2. **A test R2 bucket** with its own access key, and a second copy of the image Worker bound to it. The existing bucket and Worker appear to be the production ones.
+3. **A separate Mux environment** with its own token.
+4. **Preview settings** on the CRM Preview for this branch: the test database address and keys, the test bucket, Worker address and Mux token, the three matching `VVE_PREVIEW_…` declarations, a test inbox, and `VVE_PREVIEW_ISOLATION_APPROVED=true`. Full list: `docs/website-completion-2026-09-08/deployment-isolation-readiness.md`. The R2 upload rule must also list the preview address.
 
 **B. Narrow production exception.** I upload exactly these two files to the Carpet library through the normal CRM screen, run checks 1–6, and **publish nothing**. Limits you should know before saying yes:
 
