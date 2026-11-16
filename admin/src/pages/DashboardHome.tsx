@@ -7,6 +7,7 @@ import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import { CardListSkeleton } from '../components/Skeleton';
 import SearchBox from '../components/SearchBox';
+import NeedsAttention from '../components/NeedsAttention';
 
 type State =
   | { status: 'loading' }
@@ -34,6 +35,7 @@ export default function DashboardHome() {
     <div className="px-4 py-6 sm:px-6">
       <h1 className="mb-4 font-semibold text-xl text-navy-950">VVE Admin</h1>
       <SearchBox className="mb-6" />
+      <NeedsAttention />
 
       {state.status === 'loading' && <CardListSkeleton count={3} />}
       {state.status === 'error' && <ErrorState message={state.message} onRetry={load} />}

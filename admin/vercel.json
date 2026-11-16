@@ -49,6 +49,9 @@
     "api/search.js": {
       "maxDuration": 60
     },
+    "api/invoices/*.js": {
+      "maxDuration": 60
+    },
     "api/bookings/*.js": {
       "maxDuration": 60
     },

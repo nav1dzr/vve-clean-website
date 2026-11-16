@@ -121,6 +121,12 @@ export function createFakeSupabase(initialData = {}) {
       delete() { pendingDelete = true; return builder; },
       eq(col, val) { filters.push((r) => r[col] === val); return builder; },
       neq(col, val) { filters.push((r) => r[col] !== val); return builder; },
+      // Range comparisons on ISO timestamps / numbers (NULL never matches,
+      // as in SQL) — used by the invoice email queue's "due" query.
+      lte(col, val) { filters.push((r) => r[col] != null && r[col] <= val); return builder; },
+      lt(col, val) { filters.push((r) => r[col] != null && r[col] < val); return builder; },
+      gte(col, val) { filters.push((r) => r[col] != null && r[col] >= val); return builder; },
+      gt(col, val) { filters.push((r) => r[col] != null && r[col] > val); return builder; },
       // SQL LIKE semantics (case-sensitive, % wildcard) — used by
       // customerLifecycle.js's manual-booking-ref uniqueness check
       // (`booking_ref LIKE 'BASE%'`), mirroring api/create-checkout-

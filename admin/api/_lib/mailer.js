@@ -28,17 +28,23 @@ export function isMailerConfigured() {
 // is more likely to hit strict corporate mail filters that penalise
 // HTML-only mail.
 //
-// Returns { ok: true, messageId } on success or { ok: false, error } on
-// failure — never throws, so callers can record a send-failure event
-// without an unhandled rejection.
+// Returns { ok: true, messageId } on success or { ok: false, error, uncertain,
+// code } on failure — never throws, so callers can record a send-failure
+// event without an unhandled rejection.
+//
+// `uncertain: false` means the message was definitely not transmitted (not
+// configured, sign-in refused, recipient refused, or the connection never
+// opened). `uncertain: true` means the failure happened at a point where
+// Gmail may already have accepted the message; a caller must not resend it
+// automatically.
 export async function sendMail({ to, subject, html, text, attachments, fromName, messageId }) {
   const isolation = previewIsolation();
-  if (!isolation.ok) return { ok: false, error: isolation.error };
+  if (!isolation.ok) return { ok: false, error: isolation.error, uncertain: false, code: 'preview_isolation' };
   if (!isMailerConfigured()) {
-    return { ok: false, error: 'mailer is not configured (GMAIL_SENDER/GMAIL_APP_PASSWORD missing)' };
+    return { ok: false, error: 'mailer is not configured (GMAIL_SENDER/GMAIL_APP_PASSWORD missing)', uncertain: false, code: 'not_configured' };
   }
   if (!to || !subject || !html) {
-    return { ok: false, error: 'to, subject, and html are required' };
+    return { ok: false, error: 'to, subject, and html are required', uncertain: false, code: 'invalid_message' };
   }
 
   try {
@@ -56,6 +62,11 @@ export async function sendMail({ to, subject, html, text, attachments, fromName,
     return { ok: true, messageId: info?.messageId || null };
   } catch (err) {
     console.error('[admin/api mailer] send failed:', err?.message || err);
-    return { ok: false, error: 'failed to send email' };
+    const code = typeof err?.code === 'string' ? err.code.replace(/[^A-Za-z0-9_]/g, '').slice(0, 30) : 'unknown';
+    // Nodemailer marks connection-phase failures with command "CONN"; sign-in,
+    // envelope (recipient) and DNS failures all happen before any message
+    // data is sent. Everything else is treated as possibly delivered.
+    const definite = ['EAUTH', 'EENVELOPE', 'EDNS'].includes(code) || err?.command === 'CONN';
+    return { ok: false, error: 'failed to send email', uncertain: !definite, code };
   }
 }

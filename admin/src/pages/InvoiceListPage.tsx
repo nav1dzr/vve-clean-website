@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import ScheduledEmailsList from '../components/ScheduledEmailsList';
 import { Link, useSearchParams } from 'react-router-dom';
 import { authFetch, ApiError } from '../lib/authFetch';
 import type { InvoiceListResponse, InvoiceSortValue } from '../types/invoice';
@@ -32,6 +33,8 @@ function readFilters(params: URLSearchParams) {
     q: params.get('q') || '',
     dueFrom: params.get('dueFrom') || '',
     dueTo: params.get('dueTo') || '',
+    delivery: params.get('delivery') === 'unsent' ? 'unsent' : '',
+    overdue: params.get('overdue') === '1' ? '1' : '',
     sort: (params.get('sort') as InvoiceSortValue) || 'newest',
     page: Number.parseInt(params.get('page') || '1', 10) || 1,
   };
@@ -53,6 +56,8 @@ export default function InvoiceListPage() {
     if (filters.q) qs.set('q', filters.q);
     if (filters.dueFrom) qs.set('dueFrom', filters.dueFrom);
     if (filters.dueTo) qs.set('dueTo', filters.dueTo);
+    if (filters.delivery) qs.set('delivery', filters.delivery);
+    if (filters.overdue) qs.set('overdue', filters.overdue);
     qs.set('sort', filters.sort);
     qs.set('page', String(filters.page));
     qs.set('pageSize', String(PAGE_SIZE));
@@ -106,6 +111,34 @@ export default function InvoiceListPage() {
             {filtersOpen ? 'Hide filters' : 'Filters'}
           </button>
         </div>
+      </div>
+
+      <ScheduledEmailsList />
+
+      <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Quick filters">
+        {([
+          ['All', '', ''],
+          ['Not emailed yet', 'delivery', 'unsent'],
+          ['Overdue', 'overdue', '1'],
+        ] as const).map(([label, key, value]) => {
+          const selected = key ? filters[key] === value : !filters.delivery && !filters.overdue;
+          return (
+            <button
+              key={label} type="button" aria-pressed={selected}
+              onClick={() => {
+                const next = new URLSearchParams(searchParams);
+                next.delete('delivery');
+                next.delete('overdue');
+                if (key) next.set(key, value);
+                next.set('page', '1');
+                setSearchParams(next);
+              }}
+              className={`min-h-11 rounded-full border px-4 text-sm font-medium ${selected ? 'border-navy-950 bg-navy-950 text-white' : 'border-silver-300 bg-white text-navy-900'}`}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       <div

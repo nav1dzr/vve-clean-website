@@ -21,6 +21,10 @@ import { getBusinessSettings } from '../_lib/businessSettings.js';
 import { draftPaymentInstructionsError, missingCombinedPaymentMethod, resolveInvoicePaymentInstructions } from '../_lib/paymentOptions.js';
 import { invoiceEmail, paymentReminderEmail, paymentAcknowledgementEmail } from '../_lib/invoiceEmailTemplates.js';
 import { sendMail, isMailerConfigured } from '../_lib/mailer.js';
+import {
+  invoiceEmailQueueEnabled, listInvoiceEmails, queueInvoiceEmail, cancelInvoiceEmail, rescheduleInvoiceEmail,
+  sendInvoiceEmailNow, resolveUncertainInvoiceEmail, toOutboxView,
+} from '../_lib/invoiceEmailOutbox.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -153,6 +157,7 @@ export default async function handler(req, res) {
     if (action === 'resend') return await handleSend(req, res, headers, supabase, invoiceId, auth, 'resent');
     if (action === 'remind') return await handleRemind(req, res, headers, supabase, invoiceId, auth);
     if (action === 'paymentAck') return await handlePaymentAck(req, res, headers, supabase, invoiceId, auth);
+    if (action === 'emailQueue') return await handleEmailQueue(req, res, headers, supabase, invoiceId, auth);
 
     console.log('[invoices route debug] dispatch=none (unknown action)', action);
     res.writeHead(404, headers);
@@ -201,9 +206,18 @@ async function handleRoot(req, res, headers, supabase, invoiceId, auth) {
       if (error) { res.writeHead(503, headers); return res.end(JSON.stringify({ error: 'Could not check the complete invoice payment links. Please retry.' })); }
       allocationByPayment = new Map((data || []).map((a) => [a.invoice_payment_id, { id: a.id, sourcePaymentId: a.source_payment_external_id }]));
     }
+    // Scheduled / queued emails. If the queue is switched on but cannot be
+    // read, the page falls back to the ordinary Send button rather than fail.
+    let emailQueue = null;
+    if (invoiceEmailQueueEnabled()) {
+      const queued = await listInvoiceEmails(supabase, invoiceId);
+      if (queued.ok) emailQueue = queued.emails;
+      else console.error('[admin/api] invoice email queue unavailable for detail view');
+    }
     res.writeHead(200, headers);
     return res.end(JSON.stringify({
       ...toInvoiceDetail(invoice),
+      ...(emailQueue ? { emailQueueEnabled: true, emailQueue } : {}),
       paymentInstructions: resolveInvoicePaymentInstructions(invoice, invoice.document_status === 'draft' ? getBusinessSettings() : undefined),
       ...(allocationEnabled ? { bookingPaymentAllocationEnabled: true } : {}),
       items: (itemsResult.data || []).map(toInvoiceItem),
@@ -933,4 +947,49 @@ async function handleBookingPaymentAllocation(req, res, headers, supabase, invoi
   // pending attempt. Unknown network/database outcomes retain the same UUID.
   res.writeHead(200, headers);
   return res.end(JSON.stringify(result));
+}
+
+// GET  /api/invoices/:id?action=emailQueue — this invoice's queued and past emails.
+// POST /api/invoices/:id?action=emailQueue — { op, id, ... }:
+//   schedule     { id, date, time, to?, message? }  UK date and time
+//   sendNow      { id, to?, message? }              queue and send immediately
+//   sendExisting { id }                             send a waiting/held email now
+//   reschedule   { id, date, time }
+//   cancel       { id }
+//   markSent / markNotSent { id }                   resolve an unconfirmed send
+// `id` is generated in the browser, so a repeated request is the same email.
+async function handleEmailQueue(req, res, headers, supabase, invoiceId, auth) {
+  const send = (status, body) => { res.writeHead(status, headers); return res.end(JSON.stringify(body)); };
+  if (!['GET', 'POST'].includes(req.method)) return send(405, { error: 'Method not allowed' });
+  if (!invoiceEmailQueueEnabled()) return send(503, { error: 'Scheduled emails are not switched on yet.' });
+  if (req.method === 'GET') {
+    const listed = await listInvoiceEmails(supabase, invoiceId);
+    return listed.ok ? send(200, { emails: listed.emails }) : send(listed.status, { error: listed.error });
+  }
+  let body;
+  try { body = await readJsonBody(req, 16 * 1024); }
+  catch { return send(400, { error: 'Invalid request body' }); }
+  const adminId = auth.admin.id;
+  let result;
+  if (body.op === 'schedule') {
+    result = await queueInvoiceEmail(supabase, invoiceId, { id: body.id, date: body.date, time: body.time, to: body.to, message: body.message }, adminId);
+  } else if (body.op === 'sendNow') {
+    result = await queueInvoiceEmail(supabase, invoiceId, { id: body.id, sendNow: true, to: body.to, message: body.message }, adminId);
+    if (result.ok) result = await sendInvoiceEmailNow(supabase, invoiceId, body.id, adminId);
+  } else if (body.op === 'sendExisting') {
+    result = await sendInvoiceEmailNow(supabase, invoiceId, body.id, adminId);
+  } else if (body.op === 'reschedule') {
+    result = await rescheduleInvoiceEmail(supabase, invoiceId, body.id, { date: body.date, time: body.time });
+  } else if (body.op === 'cancel') {
+    result = await cancelInvoiceEmail(supabase, invoiceId, body.id);
+  } else if (body.op === 'markSent' || body.op === 'markNotSent') {
+    result = await resolveUncertainInvoiceEmail(supabase, invoiceId, body.id, body.op === 'markSent' ? 'sent' : 'not_sent', adminId);
+  } else {
+    return send(400, { error: 'Unknown email action' });
+  }
+  if (!result.ok) return send(result.status || 400, { error: result.error });
+  return send(200, {
+    ok: true, email: toOutboxView(result.row), outcome: result.outcome || null,
+    ...(result.error ? { warning: result.error } : {}),
+  });
 }
