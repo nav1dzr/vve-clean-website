@@ -49,7 +49,7 @@ Run in `admin/` on 16 November 2026:
 
 | Check | Result |
 |---|---|
-| `npm test` | 109 files, 1,513 tests passed (1,427 before this branch) |
+| `npm test` | 114 files, 1,561 tests passed after merging current main (PR #71) |
 | `npm run typecheck`, `npm run lint`, `npm run build` | passed; lint 0 errors and 1 existing warning; existing bundle-size warning |
 | `scripts/validate-invoice-email-outbox-db.sql` against a throwaway local PostgreSQL 18 | 10 of 10 checks passed: applies twice, repeated id refused, one open email per invoice, claim wins once, invalid values refused, browser roles have no access, rollback works |
 | Phone-width (375×812) preview with made-up data | Home list, invoice page, Send sheet: no sideways scrolling; Send / Record payment at 192px from the top (was 1,378px) |
@@ -62,7 +62,7 @@ Do them in this order. Stop at any step that does not match.
 
 1. **Merge PR #70 first**, then this branch's pull request. Both required checks must pass. After this step the safety fixes and Home list are live; scheduled sending is still hidden.
 2. **Phase 0 read-only check** (`output/crm-audit-2026-11-15/phase0/` in the audit worktree): confirm `pg_cron`, `pg_net` and Vault are enabled.
-3. **Apply the migration** `supabase/migrations/20261116120000_invoice_email_outbox.sql`. It only adds one table and three indexes.
+3. **Apply the migration** `supabase/migrations/20261117090000_invoice_email_outbox.sql`. It only adds one table and three indexes.
 4. **Create the worker secret**: a random string of 32 or more characters. Store it as `INVOICE_EMAIL_WORKER_SECRET` on the `vve-clean-crm` Vercel project (Production) and as the Vault secret `vve_invoice_email_worker_secret`. Do not paste it into chat or a file.
 5. **Switch on** `INVOICE_EMAIL_QUEUE_ENABLED=true` on `vve-clean-crm` (Production) and redeploy.
 6. **Test "Send now"** on an invoice addressed to your own email. Check it arrives once, with the PDF, and the invoice shows "Sent".

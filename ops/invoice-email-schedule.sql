@@ -1,5 +1,5 @@
 -- Activation only. Run after ALL of these are true and Navid has approved:
---   1. supabase/migrations/20261116120000_invoice_email_outbox.sql is applied.
+--   1. supabase/migrations/20261117090000_invoice_email_outbox.sql is applied.
 --   2. The CRM deployment has INVOICE_EMAIL_WORKER_SECRET (32+ characters)
 --      and INVOICE_EMAIL_QUEUE_ENABLED=true.
 --   3. A Vault secret named vve_invoice_email_worker_secret holds the SAME
