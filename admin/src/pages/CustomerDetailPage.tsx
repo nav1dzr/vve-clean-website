@@ -12,6 +12,7 @@ import ErrorState from '../components/ErrorState';
 import { CardListSkeleton } from '../components/Skeleton';
 import StatusBadge from '../components/StatusBadge';
 import CopyReviewLink from '../components/CopyReviewLink';
+import CompletionReportsSection from '../components/CompletionReportsSection';
 import {
   formatMoney, formatDateTime, telHref, whatsappHref, mailtoHref,
   bookingStatusBadge, invoiceDocumentStatusBadge, invoicePaymentStatusBadge,
@@ -216,6 +217,7 @@ export default function CustomerDetailPage() {
         )}
       </Section>
 
+      {import.meta.env.VITE_COMPLETION_REPORTS_ENABLED === 'true' && <CompletionReportsSection customerId={c.id} />}
       <p className="text-xs text-navy-500">Customer added {formatDateTime(c.createdAt)}</p>
 
       {showBookingModal && <ManualBookingModal ownerId={admin?.id || ''} customerId={c.id} customerEmail={c.email} onClose={() => setShowBookingModal(false)} onCreate={handleCreateBooking} />}

@@ -22,6 +22,7 @@ import CatalogueListPage from './pages/CatalogueListPage';
 import MediaManagerPage from './pages/MediaManagerPage';
 import EnquiriesPage from './pages/EnquiriesPage';
 import WebsitePricebookPage from './pages/WebsitePricebookPage';
+import CompletionReportsPage from './pages/CompletionReportsPage';
 
 const router = createBrowserRouter(createRoutesFromElements(
   <Route element={<AuthProvider><Outlet /></AuthProvider>}>
@@ -47,6 +48,7 @@ const router = createBrowserRouter(createRoutesFromElements(
       <Route path="/enquiries" element={<EnquiriesPage />} />
       <Route path="/website-prices" element={<WebsitePricebookPage />} />
       <Route path="/receipts" element={<ReceiptListPage />} />
+      <Route path="/completion-reports" element={import.meta.env.VITE_COMPLETION_REPORTS_ENABLED === 'true' ? <CompletionReportsPage /> : <p className="p-6">Completion reports are not enabled in this environment yet.</p>} />
       <Route path="/receipts/new" element={<ReceiptEditorPage />} />
       <Route path="/receipts/:id" element={<ReceiptDetailPage />} />
       <Route path="/customers" element={<CustomerListPage />} />
