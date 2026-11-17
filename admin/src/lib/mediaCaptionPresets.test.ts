@@ -22,7 +22,7 @@ describe("media caption starters", () => {
   });
 
   it("keeps all suggestions within existing field limits without invented details", () => {
-    for (const category of ["carpet", "sofa-upholstery", "end-of-tenancy"] as MediaCategory[]) {
+    for (const category of ["carpet", "sofa-upholstery", "end-of-tenancy", "property-services"] as MediaCategory[]) {
       for (const stage of ["none", "before", "during", "after"] as BeforeAfter[]) {
         for (const type of ["image", "video"] as MediaType[]) {
           const suggestions = mediaCaptionPresets(category, stage, type);
@@ -37,5 +37,12 @@ describe("media caption starters", () => {
         }
       }
     }
+  });
+  it("uses neutral property-work captions without inventing a particular treatment", () => {
+    expect(mediaCaptionPresets("property-services", "none", "image")[0].title).toBe("Property services photo");
+    const after = mediaCaptionPresets("property-services", "after", "video");
+    expect(after[0].title).toBe("Property after work");
+    expect(after.every((item) => /after/i.test(item.title + item.altText))).toBe(true);
+    expect(after.map((item) => item.title + item.altText).join(" ")).not.toMatch(/pressure|paint|garden|cleaning|repair|completed|restored/i);
   });
 });

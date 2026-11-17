@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Play } from 'lucide-react';
 import { useViewportVideo } from './useViewportVideo';
+import { useResolvedWebsiteMedia } from '../../lib/websiteMediaPositions';
+import ManagedVideo from './ManagedVideo';
 
 export interface InlineVideo {
   src: string;
@@ -9,10 +11,19 @@ export interface InlineVideo {
   description: string;
   label?: string;
   playLabel?: string;
+  playerUrl?: string;
 }
 
 /** Shared native player: one visible clip, silent preview, user controls always. */
 export default function LazyVideo({ video, className = '' }: { video: InlineVideo; className?: string }) {
+  const original = { ...video, type: 'video' as const, id: video.src, label: video.label || video.description };
+  const [resolved] = useResolvedWebsiteMedia([original]);
+  const displayed = resolved === original ? video : resolved;
+  if (displayed.playerUrl) return <ManagedVideo playerUrl={displayed.playerUrl} poster={displayed.poster} title={displayed.description} className={className} />;
+  return <NativeVideo video={displayed} className={className} />;
+}
+
+function NativeVideo({ video, className }: { video: InlineVideo; className: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playback = useViewportVideo();
   const [playing, setPlaying] = useState(false);

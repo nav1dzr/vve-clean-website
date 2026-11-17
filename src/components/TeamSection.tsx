@@ -1,5 +1,6 @@
 import { ShieldCheck } from 'lucide-react';
 import { TEAM_MEMBERS, initialsFor, type TeamMember } from '../data/team';
+import { useWebsiteMediaPosition } from '../lib/websiteMediaPositions';
 
 /**
  * Team grid for /about.
@@ -26,8 +27,8 @@ export default function TeamSection() {
           Who comes to your property
         </h2>
         <ul className={`mt-9 grid gap-6 ${columns}`}>
-          {TEAM_MEMBERS.map((member) => (
-            <TeamCard key={member.name} member={member} />
+          {TEAM_MEMBERS.map((member, index) => (
+            <TeamCard key={member.name} member={member} index={index} />
           ))}
         </ul>
       </div>
@@ -35,14 +36,15 @@ export default function TeamSection() {
   );
 }
 
-function TeamCard({ member }: { member: TeamMember }) {
+function TeamCard({ member, index }: { member: TeamMember; index: number }) {
+  const photo = useWebsiteMediaPosition(`about-team-${index + 1}`, member.photo ? { type: 'photo' as const, id: member.name, src: member.photo, alt: `${member.name}, ${member.role} at VVE Clean`, label: member.name } : null);
   return (
     <li className="rounded-3xl border border-line bg-white p-6">
       <div className="flex items-center gap-4">
-        {member.photo ? (
+        {photo?.type === 'photo' ? (
           <img
-            src={member.photo}
-            alt={`${member.name}, ${member.role} at VVE Clean`}
+            src={photo.src}
+            alt={photo.alt}
             loading="lazy"
             width={64}
             height={64}

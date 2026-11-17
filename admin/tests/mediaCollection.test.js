@@ -22,6 +22,17 @@ describe('media library listing and upload plans',()=>{
     const first=await call('GET',{}, {category:'carpet'});expect(first.statusCode).toBe(200);expect(first.body.assets).toHaveLength(30);expect(first.body.nextPage).toBe(1);expect(first.body.assignedAssets[0].id).toBe(id(34));
     const second=await call('GET',{}, {category:'carpet',page:'1'});expect(second.body.assets).toHaveLength(5);expect(second.body.nextPage).toBeNull();
   });
+  it('keeps property-services uploads in their own library rather than silently showing every category',async()=>{
+    const created=await call('POST',{filename:'garden.jpg',contentType:'image/jpeg',size:123,category:'property-services'});
+    expect(created.statusCode).toBe(201);
+    expect(db._tables.media_assets.at(-1)).toMatchObject({category:'property-services',placement:'gallery-property-services',service:'Property services',website_visible:false});
+    const property=await call('GET',{}, {category:'property-services'});
+    expect(property.body.assets).toHaveLength(1);
+    expect(property.body.assets[0].category).toBe('property-services');
+    expect(property.body.assets[0].filename).toBe('garden.jpg');
+    const carpet=await call('GET',{}, {category:'carpet'});
+    expect(carpet.body.assets.every(asset=>asset.category==='carpet')).toBe(true);
+  });
   it('reports when each position was published, and null for an empty position',async()=>{
     db._tables.media_gallery_slots=[
       {id:id(50),topic_key:'carpet',slot_code:'BA01',slot_kind:'before_after',label:'Before / After 01',sort_order:1},

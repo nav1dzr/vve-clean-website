@@ -7,13 +7,14 @@ const IMAGE_TYPES = new Set([
   "image/heif",
 ]);
 const VIDEO_TYPES = new Set(["video/mp4", "video/quicktime", "video/webm"]);
-export const CATEGORY_VALUES = ["end-of-tenancy", "carpet", "sofa-upholstery"];
+export const CATEGORY_VALUES = ["end-of-tenancy", "carpet", "sofa-upholstery", "property-services"];
 export const BEFORE_AFTER_VALUES = ["before", "after", "during", "none"];
 export const PLACEMENT_VALUES = [
   "main-home",
   "gallery-end-of-tenancy",
   "gallery-carpet",
   "gallery-sofa",
+  "gallery-property-services",
   "carpet-page",
   "sofa-page",
   "end-of-tenancy-page",
@@ -25,6 +26,7 @@ const PLACEMENT_DEFAULTS = {
     service: "End of tenancy cleaning",
   },
   "gallery-carpet": { category: "carpet", service: "Carpet cleaning" },
+  "gallery-property-services": { category: "property-services", service: "Property services" },
   "gallery-sofa": {
     category: "sofa-upholstery",
     service: "Sofa & upholstery cleaning",
@@ -110,6 +112,7 @@ export function normaliseMetadata(body) {
     carpet: "gallery-carpet",
     "sofa-upholstery": "gallery-sofa",
     "end-of-tenancy": "gallery-end-of-tenancy",
+    "property-services": "gallery-property-services",
   };
   const chosenCategory = CATEGORY_VALUES.includes(body.category) ? body.category : "end-of-tenancy";
   const placement = PLACEMENT_VALUES.includes(body.placement)

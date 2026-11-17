@@ -4,7 +4,7 @@ import HomepagePhotoCarousel from './HomepagePhotoCarousel';
 import type { GalleryItem } from '../data/galleryMedia';
 
 const { websiteMedia, serviceMedia } = vi.hoisted(() => ({ websiteMedia: vi.fn(), serviceMedia: vi.fn() }));
-vi.mock('../lib/managedGalleryMedia', () => ({ useManagedWebsiteMedia: websiteMedia, useManagedServiceHeroMedia: serviceMedia }));
+vi.mock('../lib/managedGalleryMedia', async original => ({ ...await original<typeof import('../lib/managedGalleryMedia')>(), useManagedWebsiteMedia: websiteMedia, useManagedServiceHeroMedia: serviceMedia, usePublishedReferences: () => [] }));
 
 let reduced = false;
 let motionListeners: Array<() => void>;

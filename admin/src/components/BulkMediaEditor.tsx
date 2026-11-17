@@ -104,7 +104,7 @@ export default function BulkMediaEditor({ assets, onClose, onDirtyChange, onBusy
           <fieldset disabled={busy}>
             <label className="block text-sm font-medium">Service for {row.asset.filename}
               <select className={field} value={row.category} onChange={(event) => patch(row.asset.id, { category: event.target.value as MediaCategory })}>
-                <option value="carpet">Carpet</option><option value="sofa-upholstery">Sofa & upholstery</option><option value="end-of-tenancy">End of tenancy</option>
+                <option value="carpet">Carpet</option><option value="sofa-upholstery">Sofa & upholstery</option><option value="end-of-tenancy">End of tenancy</option><option value="property-services">Property services</option>
               </select>
             </label>
             <label className="mt-2 block text-sm font-medium">Caption for {row.asset.filename}

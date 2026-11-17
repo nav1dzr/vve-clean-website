@@ -5,6 +5,11 @@ const draft = {assetId:'sample',baseVersion:'v1',values:{title:'Sample title',al
   category:'carpet' as const,beforeAfter:'none' as const,locationLabel:'',pairKey:''}};
 beforeEach(() => {sessionStorage.clear();vi.restoreAllMocks();});
 describe('private media detail recovery', () => {
+  it('retains an editable property-services draft without changing its category', () => {
+    const property = {...draft,values:{...draft.values,category:'property-services' as const}};
+    expect(saveMediaDetailsDraft('owner', property)).toBe(true);
+    expect(readMediaDetailsDraft('owner')).toEqual(property);
+  });
   it('isolates the owner and clears recovery on sign-out', () => {
     expect(saveMediaDetailsDraft('owner-a', draft)).toBe(true);
     expect(readMediaDetailsDraft('owner-b')).toBeNull();

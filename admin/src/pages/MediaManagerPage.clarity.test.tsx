@@ -69,31 +69,33 @@ beforeEach(() => {
 
 async function ready() {
   render(<MediaManagerPage />);
+  fireEvent.click(screen.getByRole("button", { name: "Upload & library" }));
   await screen.findByRole("heading", { name: "Upload to Carpet" });
 }
 
+function openPublished() {
+  fireEvent.click(screen.getByRole("button", { name: "Website media" }));
+  fireEvent.click(screen.getByText("Published selections (2)"));
+}
+
 describe("what is live on the website", () => {
-  it("counts live positions and lists them for every service on one screen", async () => {
-    await ready();
-    expect(screen.getByText(/positions on the website show/)).toHaveTextContent("2 positions on the website show media from your library.");
-    fireEvent.click(screen.getByRole("button", { name: "See what is live" }));
-    expect(screen.getByRole("heading", { name: "Live on the website now" })).toBeInTheDocument();
-    const carpet = within(screen.getByRole("region", { name: "Carpet — live media" }));
-    expect(carpet.getByRole("heading", { name: "Carpet (1 live)" })).toBeInTheDocument();
-    expect(carpet.getByText(/Live since 12 Nov 2026/)).toBeInTheDocument();
-    expect(carpet.getByText("Title old-before")).toBeInTheDocument();
-    expect(carpet.getByText("Title old-after")).toBeInTheDocument();
-    expect(carpet.queryByText("Before / After 02")).not.toBeInTheDocument();
-    const sofa = within(screen.getByRole("region", { name: "Sofa & upholstery — live media" }));
-    expect(sofa.getByRole("button", { name: "Replace this video" })).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "End of tenancy — live media" })).getByText(/built-in photos only/)).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "Other website positions — live media" })).getByText(/built-in photos/)).toBeInTheDocument();
+  it("opens a visual website browser and keeps the duplicate selection index collapsed", async () => {
+    render(<MediaManagerPage />);
+    await screen.findByRole("heading", { name: "Choose the photo you want to change" });
+    expect(screen.getByRole("button", { name: "Website media" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getAllByRole("img").length).toBeGreaterThan(0);
+    expect(screen.getByText("Published selections (2)").closest("details")).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByText("Published selections (2)"));
+    expect(screen.getByText(/Published 12 Nov 2026/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Manage published selection: Carpet · Before / After 01" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Manage published selection: Sofa & upholstery · Video 01" })).toBeInTheDocument();
+    expect(screen.queryByText("Before / After 02")).not.toBeInTheDocument();
   });
 
   it("opens the exact live position from its Replace button", async () => {
     await ready();
-    fireEvent.click(screen.getByRole("button", { name: "Live on website" }));
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Replace this pair" })));
+    openPublished();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Manage published selection: Carpet · Before / After 01" })));
     expect(screen.getByRole("heading", { name: "Carpet · Before / After 01" })).toBeInTheDocument();
     expect(screen.getByLabelText("before photograph")).toHaveValue(oldBefore.id);
     expect(screen.getByRole("button", { name: "Choose Title old-before (in this position now)" })).toHaveAttribute("aria-pressed", "true");
@@ -115,6 +117,7 @@ describe("what is live on the website", () => {
 
   it("marks shared positions as live or empty", async () => {
     await ready();
+    fireEvent.click(screen.getByText("More media tools"));
     fireEvent.click(screen.getByRole("button", { name: "Shared gallery positions" }));
     expect(screen.getByText("● Live on website since 12 Nov 2026")).toBeInTheDocument();
     expect(screen.getByText(/Empty — nothing from your library is shown here/)).toBeInTheDocument();
@@ -124,8 +127,8 @@ describe("what is live on the website", () => {
 describe("choosing and reviewing a replacement", () => {
   it("opens the video position with only ready videos from its service", async () => {
     await ready();
-    fireEvent.click(screen.getByRole("button", { name: "Live on website" }));
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Replace this video" })));
+    openPublished();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Manage published selection: Sofa & upholstery · Video 01" })));
     const picker = screen.getByLabelText("Video");
     expect(picker).toHaveValue(sofaVideo.id);
     expect(within(picker).getByRole("option", { name: /sofa\.mp4/ })).toBeInTheDocument();
@@ -135,8 +138,8 @@ describe("choosing and reviewing a replacement", () => {
 
   it("lets the owner pick by picture and shows old against new before publishing", async () => {
     await ready();
-    fireEvent.click(screen.getByRole("button", { name: "Live on website" }));
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Replace this pair" })));
+    openPublished();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Manage published selection: Carpet · Before / After 01" })));
     const beforePicker = within(screen.getByRole("group", { name: "before photograph — choose by picture" }));
     expect(beforePicker.queryByRole("button", { name: /Title new-after/ })).not.toBeInTheDocument();
     fireEvent.click(beforePicker.getByRole("button", { name: "Choose Title new-before" }));

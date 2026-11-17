@@ -19,6 +19,11 @@ const services = {
     title: "End-of-tenancy cleaning",
     work: "end-of-tenancy cleaning",
   },
+  "property-services": {
+    subject: "Property",
+    title: "Property services",
+    work: "property services",
+  },
 } as const;
 
 // These are editable starters based only on the owner's classifications.
@@ -51,25 +56,26 @@ export function mediaCaptionPresets(
     ];
   }
   const Stage = stage.charAt(0).toUpperCase() + stage.slice(1);
+  const activity = category === "property-services" ? "work" : "cleaning";
   return [
     {
       id: "simple", label: "Simple caption",
       title: category === "end-of-tenancy"
         ? `${Stage} the end-of-tenancy clean`
-        : `${service.subject} ${stage} cleaning`,
+        : `${service.subject} ${stage} ${activity}`,
       altText: stage === "during"
         ? `${Type} taken during our ${service.work} work.`
-        : `${Stage}-cleaning ${type} from our ${service.work} work.`,
+        : `${Stage}-${activity} ${type} from our ${service.work} work.`,
     },
     {
       id: "service", label: "Service first",
       title: `${service.title} — ${stage}`,
-      altText: `${Type} from our ${service.work} work, taken ${stage} cleaning.`,
+      altText: `${Type} from our ${service.work} work, taken ${stage} ${activity}.`,
     },
     {
       id: "stage", label: "Short title",
-      title: `${Stage} cleaning`,
-      altText: `Our ${service.work} work, shown ${stage} cleaning in this ${type}.`,
+      title: `${Stage} ${activity}`,
+      altText: `Our ${service.work} work, shown ${stage} ${activity} in this ${type}.`,
     },
   ];
 }

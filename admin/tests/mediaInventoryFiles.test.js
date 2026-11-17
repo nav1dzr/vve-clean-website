@@ -12,7 +12,10 @@ describe('website media inventory files', () => {
   it('points every original photograph, comparison and video at an existing public file', () => {
     const library = { assets: [], topics: [], gallerySlots: [], websiteSlots: [], references: [] };
     const positions = buildWebsiteMediaInventory(library, new Map());
-    const localSources = new Set(positions.flatMap(position => sources(position.media)).filter(source => source.startsWith('/')));
+    const localSources = new Set(positions.flatMap(position => {
+      if (position.source === "empty") { expect(position.media).toBeNull(); return []; }
+      return sources(position.media);
+    }).filter(source => source.startsWith('/')));
     expect(localSources.size).toBeGreaterThan(0);
     for (const source of localSources) {
       expect(existsSync(resolve(process.cwd(), '../public', decodeURIComponent(source.slice(1)))), source).toBe(true);

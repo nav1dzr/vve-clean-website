@@ -4,6 +4,7 @@ import PhotoLightbox from '../gallery/PhotoLightbox';
 import { toLightboxPhotos, useLightbox } from '../gallery/useLightbox';
 import LazyVideo from '../media/LazyVideo';
 import { SOFA_BEFORE_AFTER, SOFA_FEATURE_VIDEO } from '../../data/sofaMedia';
+import { useResolvedWebsiteMedia } from '../../lib/websiteMediaPositions';
 
 // The Sofa page's strongest proof, placed directly under the quote.
 //
@@ -20,10 +21,10 @@ import { SOFA_BEFORE_AFTER, SOFA_FEATURE_VIDEO } from '../../data/sofaMedia';
 
 // All eight halves of the four approved pairs, in reading order, so Previous/
 // Next walks the section exactly as it appears on screen.
-const LIGHTBOX_PHOTOS = toLightboxPhotos(SOFA_BEFORE_AFTER);
-
 export default function SofaProofSection() {
-  const pairs = SOFA_BEFORE_AFTER;
+  const pairs = useResolvedWebsiteMedia(SOFA_BEFORE_AFTER);
+  const [featureVideo] = useResolvedWebsiteMedia([SOFA_FEATURE_VIDEO]);
+  const lightboxPhotos = toLightboxPhotos(pairs);
   const lightbox = useLightbox();
 
   return (
@@ -67,7 +68,7 @@ export default function SofaProofSection() {
         </div>
 
         <PhotoLightbox
-          photos={LIGHTBOX_PHOTOS}
+          photos={lightboxPhotos}
           index={lightbox.index}
           onClose={lightbox.close}
           onNavigate={lightbox.setIndex}
@@ -85,7 +86,7 @@ export default function SofaProofSection() {
               min-content width, which would otherwise stop the columns shrinking
               on a phone and push the page sideways. */}
           <LazyVideo
-            video={SOFA_FEATURE_VIDEO}
+            video={featureVideo}
             className="mx-auto aspect-[9/16] w-full min-w-0 max-w-[340px] shadow-2xl"
           />
 
@@ -101,7 +102,7 @@ export default function SofaProofSection() {
             </h2>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-silver-300">
               The machine extracts loosened dirt and used cleaning solution from the upholstery.
-              This clip shows the collected wastewater after a sofa clean.
+              {featureVideo.src === SOFA_FEATURE_VIDEO.src ? 'This clip shows the collected wastewater after a sofa clean.' : featureVideo.description}
             </p>
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-silver-400">
               The same pass takes most of the moisture with it, which is why a fabric sofa is

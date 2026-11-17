@@ -22,7 +22,7 @@ import {
   MEDIA_REFERENCES_TABLE,
   MEDIA_WEBSITE_SLOTS_TABLE,
 } from "../_lib/mediaTables.js";
-import { WEBSITE_PHOTO_PAGE_KEYS } from "../../shared/mediaWebsitePositions.js";
+import { findWebsiteMediaPosition } from "../../shared/mediaWebsitePositions.js";
 import { applyMuxVideoState, findMuxVideoByPassthrough } from './mediaVideoState.js';
 
 export const config = { api: { bodyParser: false } };
@@ -670,19 +670,17 @@ async function assignMedia(res, headers, supabase, asset, body, adminId) {
     .eq("active", true)
     .order("sort_order");
   if (referencesError) throw referencesError;
-  const needsPhoto = references?.some((row) =>
-    WEBSITE_PHOTO_PAGE_KEYS.includes(row.page_key),
-  );
-  if (body.targetType === "website" && !needsPhoto)
-    return reply(res, headers, 409, {
-      error: "This position is not connected to a website page yet. Choose a shared gallery position or another connected position.",
+  if (body.targetType === "website") {
+    const kinds = new Set((references || []).map(row => findWebsiteMediaPosition(row.page_key))
+      .filter(position => position?.targetType === "website").map(position => position.kind));
+    if (kinds.size !== 1) return reply(res, headers, 409, {
+      error: "This position is not connected to a website page yet. Choose another connected position.",
     });
-  // These public components render still images, so accepting a video here
-  // would report a successful publication while the page keeps its fallback.
-  if (body.targetType === "website" && needsPhoto && chosen.some((row) => row.media_type !== "image"))
-    return reply(res, headers, 400, {
-      error: "This website position displays photographs only. Choose a ready photo; videos belong in a gallery video position.",
+    const requiresVideo = kinds.has("video");
+    if (chosen.some(row => row.media_type !== (requiresVideo ? "video" : "image"))) return reply(res, headers, 400, {
+      error: requiresVideo ? "This website position displays videos only. Choose a ready video." : "This website position displays photographs only. Choose a ready photo.",
     });
+  }
   const expected = sortedAssignments(current || []);
   const impact = (references || []).map((row) => ({
     key: row.reference_key,

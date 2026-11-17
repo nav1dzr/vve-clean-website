@@ -30,6 +30,17 @@ beforeEach(() => {
       : library,
   );
 });
+function openMediaTool(name: string) {
+  const summary = screen.getByText("More media tools");
+  if (!summary.closest("details")?.open) fireEvent.click(summary);
+  fireEvent.click(screen.getByRole("button", { name }));
+}
+function renderLibrary() {
+  const view = render(<MediaManagerPage />);
+  fireEvent.click(screen.getByRole("button", { name: "Upload & library" }));
+  fireEvent.click(screen.getByText("More media tools"));
+  return view;
+}
 describe("media manager recovery", () => {
   it("replaces stale caption feedback with specific archive and restore confirmations", async () => {
     let status: MediaAsset["status"] = "ready";
@@ -40,7 +51,7 @@ describe("media manager recovery", () => {
       if (action === "restore") status = "ready";
       return {};
     });
-    render(<MediaManagerPage />);
+    renderLibrary();
     fireEvent.click(await screen.findByRole("button", { name: "Edit caption & details" }));
     fireEvent.click(screen.getByRole("button", { name: "Save details" }));
     expect(await screen.findByRole("status")).toHaveTextContent("Caption and details saved.");
@@ -62,7 +73,7 @@ describe("media manager recovery", () => {
       if (action === "archive") status = "archived";
       return {};
     });
-    render(<MediaManagerPage />);
+    renderLibrary();
     fireEvent.click(await screen.findByRole("button", { name: "Archive unused item" }));
     await screen.findByRole("button", { name: "Restore" });
     expect(screen.getByRole("status")).toHaveTextContent("Media archived.");
@@ -77,7 +88,7 @@ describe("media manager recovery", () => {
     mocks.fetch.mockImplementation((url) => String(url).includes("category=carpet")
       ? carpetResponse
       : Promise.resolve({ ...library, assets: [{ ...readyAsset, title: "Current sofa photo", category: "sofa-upholstery" }] }));
-    render(<MediaManagerPage />);
+    renderLibrary();
     fireEvent.change(screen.getByLabelText("Service"), { target: { value: "sofa-upholstery" } });
     expect(await screen.findByText("Current sofa photo")).toBeInTheDocument();
     await act(async () => resolveCarpet({ ...library, assets: [{ ...readyAsset, title: "Old carpet photo" }] }));
@@ -89,7 +100,7 @@ describe("media manager recovery", () => {
     mocks.fetch.mockImplementation((url) => String(url).includes("category=carpet")
       ? Promise.resolve({ ...library, assets: [{ ...readyAsset, title: "Old carpet photo" }] })
       : new Promise(() => {}));
-    render(<MediaManagerPage />);
+    renderLibrary();
     await screen.findByText("Old carpet photo");
     fireEvent.change(screen.getByLabelText("Service"), { target: { value: "sofa-upholstery" } });
     expect(screen.queryByText("Old carpet photo")).not.toBeInTheDocument();
@@ -102,7 +113,7 @@ describe("media manager recovery", () => {
     mocks.fetch.mockImplementation((url) => String(url).includes("category=carpet")
       ? carpetResponse
       : Promise.resolve({ ...library, assets: [{ ...readyAsset, title: "Current sofa photo", category: "sofa-upholstery" }] }));
-    render(<MediaManagerPage />);
+    renderLibrary();
     fireEvent.change(screen.getByLabelText("Service"), { target: { value: "sofa-upholstery" } });
     await screen.findByText("Current sofa photo");
     await act(async () => rejectCarpet(new Error("Old category request failed")));
@@ -114,7 +125,7 @@ describe("media manager recovery", () => {
     mocks.upload.mockRejectedValue(
       new Error("Connection interrupted. Retry this file."),
     );
-    render(<MediaManagerPage />);
+    renderLibrary();
     await screen.findByRole("heading", { name: "Upload to Carpet" });
     fireEvent.change(screen.getByLabelText("Photos or videos"), {
       target: {
@@ -167,14 +178,14 @@ describe("media position guidance", () => {
     mocks.fetch.mockImplementation(async (_url, init) => !init
       ? { ...library, assets: [{ ...readyAsset, title: "Saved photo", altText: "Saved description" }], gallerySlots: slots }
       : JSON.parse(init.body).action === "assign" ? pending : { history: [] });
-    render(<MediaManagerPage />);
+    renderLibrary();
     await screen.findByRole("heading", { name: "Upload to Carpet" });
-    fireEvent.click(screen.getByRole("button", { name: "Shared gallery positions" }));
+    openMediaTool("Shared gallery positions");
     fireEvent.click(screen.getByRole("button", { name: "Work photos (2)" }));
     fireEvent.click(screen.getAllByRole("button", { name: "Choose / replace media" })[0]);
     fireEvent.change(screen.getByLabelText("Photograph"), { target: { value: readyAsset.id } });
     fireEvent.click(screen.getByRole("button", { name: "Preview affected pages" }));
-    fireEvent.click(screen.getByRole("button", { name: "Shared gallery positions" }));
+    openMediaTool("Shared gallery positions");
     fireEvent.click(screen.getAllByRole("button", { name: "Choose / replace media" })[1]);
     await act(async () => resolvePreview({ expected: [], selections: [{ assetId: readyAsset.id, role: "primary" }], impact: [], assets: [readyAsset] }));
     expect(screen.getByRole("heading", { name: "Carpet · Work photo 2" })).toBeInTheDocument();
@@ -190,9 +201,9 @@ describe("media position guidance", () => {
     mocks.fetch.mockImplementation(async (_url, init) => !init
       ? { ...library, assets: [{ ...readyAsset, title: "Saved photo", altText: "Saved description" }, otherPhoto], websiteSlots: [slot] }
       : JSON.parse(init.body).action === "assign" ? pending : { history: [] });
-    render(<MediaManagerPage />);
+    renderLibrary();
     await screen.findByRole("heading", { name: "Upload to Carpet" });
-    fireEvent.click(screen.getByRole("button", { name: "Other website positions" }));
+    openMediaTool("Other website positions");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Choose / replace media" })));
     fireEvent.click(screen.getByRole("button", { name: "Preview affected pages" }));
     fireEvent.change(screen.getByLabelText("Photograph"), { target: { value: otherPhoto.id } });
@@ -208,12 +219,12 @@ describe("media position guidance", () => {
     mocks.fetch.mockImplementation(async (_url, init) => !init
       ? { ...library, assets: [{ ...readyAsset, title: "Saved photo", altText: "Saved description" }], gallerySlots: slots }
       : JSON.parse(init.body).targetId === "photo-1" ? pending : { history: [] });
-    render(<MediaManagerPage />);
+    renderLibrary();
     await screen.findByRole("heading", { name: "Upload to Carpet" });
-    fireEvent.click(screen.getByRole("button", { name: "Shared gallery positions" }));
+    openMediaTool("Shared gallery positions");
     fireEvent.click(screen.getByRole("button", { name: "Work photos (2)" }));
     fireEvent.click(screen.getAllByRole("button", { name: "Choose / replace media" })[0]);
-    fireEvent.click(screen.getByRole("button", { name: "Shared gallery positions" }));
+    openMediaTool("Shared gallery positions");
     await act(async () => fireEvent.click(screen.getAllByRole("button", { name: "Choose / replace media" })[1]));
     await act(async () => resolveHistory({ history: [{ id: "old-history", previous_assignments: slots[0].assignments, created_at: "2026-10-15T10:00:00Z" }] }));
     expect(screen.getByRole("heading", { name: "Carpet · Work photo 2" })).toBeInTheDocument();
@@ -232,15 +243,15 @@ describe("media position guidance", () => {
       if (body.confirm) return pending;
       return { expected: [], selections: body.assignments, impact: [], assets: [readyAsset] };
     });
-    render(<MediaManagerPage />);
+    renderLibrary();
     await screen.findByRole("heading", { name: "Upload to Carpet" });
-    fireEvent.click(screen.getByRole("button", { name: "Shared gallery positions" }));
+    openMediaTool("Shared gallery positions");
     fireEvent.click(screen.getByRole("button", { name: "Work photos (2)" }));
     fireEvent.click(screen.getAllByRole("button", { name: "Choose / replace media" })[0]);
     fireEvent.change(screen.getByLabelText("Photograph"), { target: { value: readyAsset.id } });
     fireEvent.click(screen.getByRole("button", { name: "Preview affected pages" }));
     fireEvent.click(await screen.findByRole("button", { name: "Publish to these pages" }));
-    fireEvent.click(screen.getByRole("button", { name: "Shared gallery positions" }));
+    openMediaTool("Shared gallery positions");
     fireEvent.click(screen.getAllByRole("button", { name: "Choose / replace media" })[1]);
     await act(async () => resolvePublish({ published: true }));
     expect(screen.getByRole("heading", { name: "Carpet · Work photo 2" })).toBeInTheDocument();
@@ -258,9 +269,9 @@ describe("media position guidance", () => {
       { id: "video", topicKey: "carpet", code: "VIDEO01", kind: "video", label: "Video 1", sortOrder: 4, assignments: [], usages: [] },
     ];
     mocks.fetch.mockImplementation(async (_url, init) => init ? { history: [] } : { ...library, gallerySlots: slots });
-    render(<MediaManagerPage />);
+    renderLibrary();
     await screen.findByRole("heading", { name: "Upload to Carpet" });
-    fireEvent.click(screen.getByRole("button", { name: "Shared gallery positions" }));
+    openMediaTool("Shared gallery positions");
     const filters = within(screen.getByRole("group", { name: "Position type" }));
     expect(filters.getByRole("button", { name: "Before / after (1)" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("heading", { name: "Before / after set 1" })).toBeInTheDocument();
@@ -284,9 +295,9 @@ describe("media position guidance", () => {
       { key: "carpet-other", pageKey: "carpet-cleaning-london", pageLabel: "Carpet cleaning", componentLabel: "Work photos" },
     ];
     mocks.fetch.mockImplementation(async () => ({ ...library, websiteSlots: [{ ...websiteSlot, usages }] }));
-    render(<MediaManagerPage />);
+    renderLibrary();
     await screen.findByRole("heading", { name: "Upload to Carpet" });
-    fireEvent.click(screen.getByRole("button", { name: "Other website positions" }));
+    openMediaTool("Other website positions");
     fireEvent.click(screen.getByLabelText("Show unconnected positions (not publishable)"));
     expect(screen.getAllByText("Carpet cleaning · Featured comparison")).toHaveLength(1);
     expect(screen.getByText("Carpet cleaning · Work photos")).toBeInTheDocument();
@@ -296,9 +307,9 @@ describe("media position guidance", () => {
     mocks.fetch.mockImplementation(async (_url, init) => init
       ? { history: [{ id: "history-one", previous_assignments: websiteSlot.assignments, created_at: "2026-10-15T10:00:00Z" }] }
       : { ...library, assets: [{ ...readyAsset, title: "Saved photo", altText: "Saved description" }], websiteSlots: [websiteSlot] });
-    render(<MediaManagerPage />);
+    renderLibrary();
     await screen.findByRole("heading", { name: "Upload to Carpet" });
-    fireEvent.click(screen.getByRole("button", { name: "Other website positions" }));
+    openMediaTool("Other website positions");
     expect(screen.queryByText(/Not connected to a website page yet/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByLabelText("Show unconnected positions (not publishable)"));
     expect(screen.getByText(/Not connected to a website page yet/)).toBeInTheDocument();
@@ -322,9 +333,9 @@ describe("media position guidance", () => {
     const photo = { ...readyAsset, title: "Current photo", altText: "Current description" };
     const video = { ...readyAsset, id: "33333333-2222-3333-4444-555555555555", mediaType: "video", title: "Gallery video", muxPlaybackId: "synthetic-video" };
     mocks.fetch.mockImplementation(async (_url, init) => init ? { history: [] } : { ...library, assets: [photo, video], websiteSlots: [slot] });
-    render(<MediaManagerPage />);
+    renderLibrary();
     await screen.findByRole("heading", { name: "Upload to Carpet" });
-    fireEvent.click(screen.getByRole("button", { name: "Other website positions" }));
+    openMediaTool("Other website positions");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Choose / replace media" })));
     const selection = screen.getByLabelText("Photograph");
     expect(screen.getByRole("heading", { name: "Used on" })).toBeInTheDocument();
@@ -340,7 +351,7 @@ describe("media position guidance", () => {
 
 async function openCaptionEditor(asset: MediaAsset = readyAsset) {
   mocks.fetch.mockImplementation(async (_url, init) => init ? {} : { ...library, assets: [asset] });
-  render(<MediaManagerPage />);
+  renderLibrary();
   fireEvent.click(await screen.findByRole("button", { name: "Edit caption & details" }));
   return within(screen.getByRole("form", { name: "Media caption and details" }));
 }
@@ -351,7 +362,7 @@ describe("media manager guidance and caption suggestions", () => {
     fireEvent.change(editor.getByLabelText("Title shown on the website"), { target: { value: "My unsaved title" } });
     fireEvent.click(editor.getByRole("button", { name: "Close editor" }));
     expect(editor.getByLabelText("Title shown on the website")).toHaveValue("My unsaved title");
-    fireEvent.click(screen.getByRole("button", { name: "Shared gallery positions" }));
+    openMediaTool("Shared gallery positions");
     expect(editor.getByLabelText("Title shown on the website")).toHaveValue("My unsaved title");
     fireEvent.change(screen.getAllByLabelText("Service")[0], { target: { value: "sofa-upholstery" } });
     expect(screen.getAllByLabelText("Service")[0]).toHaveValue("carpet");
@@ -378,7 +389,7 @@ describe("media manager guidance and caption suggestions", () => {
 
   it("does not replace an unsaved editor with another photo without confirmation", async () => {
     mocks.fetch.mockResolvedValue({ ...library, assets: [{ ...readyAsset, title: "First" }, { ...readyAsset, id: "second", title: "Second" }] });
-    render(<MediaManagerPage />);
+    renderLibrary();
     fireEvent.click((await screen.findAllByRole("button", { name: "Edit caption & details" }))[0]);
     fireEvent.change(screen.getByLabelText("Title shown on the website"), { target: { value: "First edit" } });
     fireEvent.click(screen.getAllByRole("button", { name: "Edit caption & details" })[1]);
@@ -387,13 +398,18 @@ describe("media manager guidance and caption suggestions", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Edit caption & details" })[1]);
     expect(screen.getByLabelText("Title shown on the website")).toHaveValue("Second");
   });
-  it("starts with uploads and explains all three publishing steps", async () => {
+  it("starts with website photos and keeps publishing help and legacy tools optional", async () => {
     render(<MediaManagerPage />);
-    await screen.findByRole("heading", { name: "Upload to Carpet" });
+    await screen.findByRole("heading", { name: "Choose the photo you want to change" });
+    const navigation = within(screen.getByRole("navigation", { name: "Media sections" }));
+    expect(navigation.getAllByRole("button")).toHaveLength(2);
+    expect(navigation.getByRole("button", { name: "Website media" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("More media tools").closest("details")).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByText("More media tools"));
+    fireEvent.click(screen.getByText("How publishing works"));
     const steps = within(screen.getByRole("list", { name: "How to publish your media" }));
     expect(steps.getAllByRole("listitem")).toHaveLength(3);
-    expect(screen.getByRole("button", { name: "Upload & library" })).toHaveAttribute("aria-current", "page");
-    fireEvent.click(screen.getByRole("button", { name: "Shared gallery positions" }));
+    openMediaTool("Shared gallery positions");
     expect(screen.getByRole("heading", { name: "Choose a shared position" })).toBeInTheDocument();
     expect(mocks.fetch.mock.calls.every(([, init]) => !init)).toBe(true);
   });
@@ -464,9 +480,9 @@ describe("visual publication guidance", () => {
       { key: "current", pageKey: "carpet-main-results", pageLabel: "Carpet Service", componentLabel: "Results" },
     ];
     mocks.fetch.mockResolvedValue({ ...library, gallerySlots: [{ id: "pair", topicKey: "carpet", code: "BA01", kind: "before_after", label: "Pair 1", sortOrder: 1, assignments: [], usages }] });
-    render(<MediaManagerPage />);
+    renderLibrary();
     await screen.findByRole("heading", { name: "Upload to Carpet" });
-    fireEvent.click(screen.getByRole("button", { name: "Shared gallery positions" }));
+    openMediaTool("Shared gallery positions");
     const filter = screen.getByLabelText("Show positions used on");
     expect(within(filter).getByRole("option", { name: "Carpet cleaning page" })).toHaveValue("carpet-main-results");
     expect(within(filter).getByRole("option", { name: "Carpet — older page reference" })).toHaveValue("carpet-page");
@@ -476,19 +492,19 @@ describe("visual publication guidance", () => {
   });
   it("shows the built-in homepage image until a managed image is assigned", async () => {
     mocks.fetch.mockResolvedValue({ ...library, websiteSlots: [{ id:"home-slot",key:"homepage-hero",pageLabel:"Homepage",purposeLabel:"First carousel photo",description:"",sortOrder:1, assignments: [], usages: [{key:"home", pageKey:"homepage-hero-image",pageLabel:"Homepage",componentLabel:"First carousel photo"}] }] });
-    render(<MediaManagerPage />);
+    renderLibrary();
     await screen.findByRole("heading", { name: "Upload to Carpet" });
-    fireEvent.click(screen.getByRole("button", { name: "Other website positions" }));
-    expect(screen.getByRole("img", { name: "Carpet extraction in progress" })).toHaveAttribute("src", "https://www.vveclean.co.uk/images/carpet-cleaning-hero.webp");
-    expect(screen.getByRole("link", { name: "View on website" })).toHaveAttribute("href", "https://www.vveclean.co.uk/");
+    openMediaTool("Other website positions");
+    expect(screen.getByRole("img", { name: "Extraction equipment cleaning a blue carpet" })).toHaveAttribute("src", "https://www.vveclean.co.uk/images/carpet-cleaning-hero.webp");
+    expect(screen.getByRole("link", { name: "View on website" })).toHaveAttribute("href", "https://www.vveclean.co.uk/#cleaning-photos");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Choose / replace media" })));
     expect(screen.getByRole("heading", { name: "Current published selection" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Your proposed replacement or addition" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Choose your replacement" })).toBeInTheDocument();
     expect(mocks.fetch.mock.calls.filter(([,init])=>init).every(([,init])=>JSON.parse(init.body).action === "history")).toBe(true);
   });
   it("loads the video player only after Play video, without publishing", async () => {
     mocks.fetch.mockResolvedValue({ ...library, assets: [{ ...readyAsset, mediaType:"video",muxPlaybackId:"test-video",title:"Test clip" }] });
-    render(<MediaManagerPage />);
+    renderLibrary();
     await screen.findByRole("heading", { name: "Upload to Carpet" });
     expect(screen.queryByTitle(/Video preview/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button",{name:"Play video"}));
@@ -512,6 +528,7 @@ describe("media caption recovery across navigation", () => {
       { path: "/media", element: <MediaManagerPage /> },
     ], { initialEntries: ["/bookings", "/media"], initialIndex: 1 });
     render(<RouterProvider router={router} />);
+    fireEvent.click(screen.getByRole("button", { name: "Upload & library" }));
     fireEvent.click(await screen.findByRole("button", { name: "Edit caption & details" }));
     fireEvent.change(screen.getByLabelText("Title shown on the website"), { target: { value: "Unsent wording" } });
     await act(async () => { await router.navigate(-1); });
@@ -524,6 +541,7 @@ describe("media caption recovery across navigation", () => {
     await screen.findByRole("heading", { name: "Booking list" });
     await act(async () => { await router.navigate("/media"); });
     await screen.findByText("Unsaved media details on this browser");
+    fireEvent.click(screen.getByRole("button", { name: "Upload & library" }));
     fireEvent.click(await screen.findByRole("button", { name: "Edit caption & details" }));
     fireEvent.click(screen.getByRole("button", { name: "Restore wording for review" }));
     expect(screen.getByLabelText("Title shown on the website")).toHaveValue("Unsent wording");
