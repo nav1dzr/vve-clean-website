@@ -17,6 +17,8 @@ export function uploadMediaFile(
       finished = true;
       clearTimeout(idleTimer);
       signal.removeEventListener("abort", cancel);
+      xhr.upload.onprogress = null;
+      xhr.onload = xhr.onerror = xhr.ontimeout = xhr.onabort = null;
       if (error) reject(error);
       else resolve();
     };
@@ -29,7 +31,7 @@ export function uploadMediaFile(
       idleTimer = setTimeout(() => {
         finish(
           new Error(
-            "No upload progress for 60 seconds. Check your connection and retry.",
+            "No upload progress for 60 seconds. Keep this page open, check your connection and retry.",
           ),
         );
         xhr.abort();
@@ -40,10 +42,8 @@ export function uploadMediaFile(
       return;
     }
     signal.addEventListener("abort", cancel, { once: true });
-    xhr.open("PUT", url);
-    xhr.timeout = 15 * 60_000;
-    xhr.setRequestHeader("Content-Type", contentType);
-    xhr.setRequestHeader("If-None-Match", "*");
+    // Some browsers only deliver upload progress when this is registered
+    // before open(). Missing progress would otherwise trigger the idle timer.
     xhr.upload.onprogress = (event) => {
       watch();
       if (event.lengthComputable)
@@ -75,7 +75,18 @@ export function uploadMediaFile(
         ),
       );
     xhr.onabort = () => finish(new Error("Upload cancelled."));
-    watch();
-    xhr.send(file);
+    try {
+      xhr.open("PUT", url);
+      xhr.timeout = 15 * 60_000;
+      xhr.setRequestHeader("Content-Type", contentType);
+      xhr.setRequestHeader("If-None-Match", "*");
+      watch();
+      xhr.send(file);
+    } catch {
+      // A phone may expose a cloud-backed File that is not readable locally.
+      // Synchronous browser failures must release the timer/listener too.
+      finish(new Error("The browser could not read or send this file. Download it to your device, then select it again and retry."));
+      xhr.abort();
+    }
   });
 }

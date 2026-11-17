@@ -1,34 +1,28 @@
-import { GALLERY_MEDIA, CARPET_FEATURED_BEFORE_AFTER, EOT_FEATURED_BEFORE_AFTER, EOT_ROTATING_PHOTOS, type GalleryCategory, type GalleryItem } from "../../../src/data/galleryMedia";
-import { CARPET_RESULT_VIDEOS, CARPET_PROCESS_VIDEO } from "../../../src/data/carpetMedia";
-import { SOFA_BEFORE_AFTER, SOFA_PHOTOS, SOFA_FEATURE_VIDEO, SOFA_SUPPORTING_VIDEOS } from "../../../src/data/sofaMedia";
+import type { GalleryItem } from "../../../src/data/galleryMedia";
 import { getHomepageProofPairs } from "../../../src/data/homepageProof";
-import { AREAS } from "../../../src/data/areas";
-import { getAreaShowcaseVideos } from "../../../src/data/areaShowcase";
-import { matchesNamedArea } from "../../../src/lib/areaMatch";
-import { buildersJobPhotos } from "../../../src/data/afterBuildersPhotos";
-import { TEAM_MEMBERS } from "../../../src/data/team";
+import { WEBSITE_MEDIA_POSITIONS } from "../../shared/mediaWebsitePositions.js";
 import type { GallerySlot, MediaAsset, MediaLibrary, WebsiteSlot } from "../types/media";
 
 export const WEBSITE_ORIGIN = "https://www.vveclean.co.uk";
-export const INVENTORY_PAGES = ["Homepage", "Carpet cleaning", "Sofa & upholstery", "End of tenancy", "Gallery", "Commercial carpet", "Local area pages", "About", "After builders"];
+export const INVENTORY_PAGES = ["Homepage", ...new Set(WEBSITE_MEDIA_POSITIONS.flatMap(position => position.pages.map(page => page.label)).filter(label => label !== "Homepage"))];
 export type InventoryPosition = {
   id: string;
   page: string;
   section: string;
   href: string;
-  media: GalleryItem;
-  source: "built-in" | "crm";
+  media: GalleryItem | null;
+  kind: "photo" | "video" | "before_after";
+  source: "built-in" | "crm" | "empty";
   note?: string;
   fallback?: GalleryItem;
-  replacementHint?: string;
   gallerySlot?: GallerySlot;
   websiteSlot?: WebsiteSlot;
 };
 
-const SERVICES: { category: GalleryCategory; topic: string; label: string; path: string; main: string; gallery: string; hero: string; alt: string }[] = [
-  { category: "carpet", topic: "carpet", label: "Carpet cleaning", path: "/carpet-cleaning-london", main: "carpet-main-results", gallery: "gallery-carpet", hero: "/images/carpet-cleaning-hero.webp", alt: "Carpet extraction in progress" },
-  { category: "sofa-upholstery", topic: "sofa", label: "Sofa & upholstery", path: "/sofa-cleaning-london", main: "sofa-main-results", gallery: "gallery-sofa", hero: "/sofa_upholstery/web/gallery/sofa-gallery-01.webp", alt: "Upholstery cleaning in progress" },
-  { category: "end-of-tenancy", topic: "end-of-tenancy", label: "End of tenancy", path: "/end-of-tenancy-cleaning-london", main: "end-of-tenancy-main-results", gallery: "gallery-end-of-tenancy", hero: "/end_of_tenancy/before-after/kitchen1_after.jpg", alt: "Kitchen hob after cleaning" },
+const SERVICES = [
+  { category: "carpet", label: "Carpet cleaning", path: "/carpet-cleaning-london", main: "carpet-main-results", gallery: "gallery-carpet", anchor: "results" },
+  { category: "sofa-upholstery", label: "Sofa & upholstery", path: "/sofa-cleaning-london", main: "sofa-main-results", gallery: "gallery-sofa", anchor: "gallery" },
+  { category: "end-of-tenancy", label: "End of tenancy", path: "/end-of-tenancy-cleaning-london", main: "end-of-tenancy-main-results", gallery: "gallery-end-of-tenancy", anchor: "results" },
 ];
 
 const photo = (id: string, src: string, alt: string): GalleryItem => ({ type: "photo", id, src, alt, label: alt });
@@ -64,80 +58,60 @@ function slotsOnPage(library: MediaLibrary, pageKey: string, includeEmpty = fals
     .sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code));
 }
 
-function websiteSlot(library: MediaLibrary, pageKey: string) {
-  return library.websiteSlots.find(slot => slot.usages.some(usage => usage.pageKey === pageKey));
+
+export function serviceOpeningPhoto(library: MediaLibrary, assets: Map<string, MediaAsset>, category: string) {
+  const service = SERVICES.find(entry => entry.category === category);
+  if (!service) return null;
+  const slot = slotsOnPage(library, service.main)[0] ?? slotsOnPage(library, service.gallery)[0];
+  const media = slot && inventorySlotMedia(slot, assets);
+  if (media?.type === "before-after") return photo(media.id, media.after, media.afterAlt);
+  return media?.type === "photo" ? media : null;
 }
 
 export function buildWebsiteMediaInventory(library: MediaLibrary, assets: Map<string, MediaAsset>, date = new Date()): InventoryPosition[] {
   const positions: InventoryPosition[] = [];
-  const push = (position: InventoryPosition) => positions.push(position);
-  const fixed = (id: string, page: string, section: string, href: string, media: GalleryItem, note?: string) => push({ id, page, section, href, media, source: "built-in", note });
-
+  const todaysProof = getHomepageProofPairs(date);
+  for (const entry of WEBSITE_MEDIA_POSITIONS) {
+    const websiteSlot = entry.targetType === "website" ? library.websiteSlots.find(slot => slot.usages.some(usage => usage.pageKey === entry.key)) : undefined;
+    const gallerySlot = entry.targetType === "gallery" ? library.gallerySlots.find(slot => slot.code === entry.slotKey && slot.usages.some(usage => usage.pageKey === entry.key)) : undefined;
+    const slot = websiteSlot ?? gallerySlot;
+    const assigned = slot && inventorySlotMedia(slot, assets);
+    const current = assigned?.type === (entry.kind === "before_after" ? "before-after" : entry.kind) ? assigned : null;
+    const inherited = entry.fallbackService ? serviceOpeningPhoto(library, assets, entry.fallbackService) : null;
+    const underlying = inherited ?? entry.defaultMedia;
+    const media = current ?? underlying;
+    for (const page of entry.pages) {
+      // A replacement has no verified location from the original job.
+      if (current && page.label === "Local area pages" && page.section.endsWith(" · Tagged job")) continue;
+      const original = entry.defaultMedia;
+      const proof = page.path === "/#gallery" && original?.type === "before-after"
+        ? todaysProof.find(pair => pair.before === original.before && pair.after === original.after) : undefined;
+      if (page.path === "/#gallery" && !proof) continue;
+      const note = proof?.id.startsWith("daily-") ? "Part of today’s rotating homepage selection."
+        : inherited && !current ? "Currently uses the first published service result. You can choose a separate opening photo here."
+        : page.label === "Local area pages" && entry.kind === "video" ? "This area page shows a selection of cleaning videos from across London."
+        : entry.pages.length > 1 ? "This item is shared. Preview the affected pages before publishing." : undefined;
+      positions.push({
+        id: [entry.key, page.path, page.section].join("|"), page: page.label, section: page.section, href: page.path, kind: entry.kind,
+        media, source: current || inherited ? "crm" : media ? "built-in" : "empty",
+        fallback: current ? underlying ?? undefined : inherited ? entry.defaultMedia ?? undefined : undefined,
+        websiteSlot, gallerySlot, note,
+      });
+    }
+  }
   for (const service of SERVICES) {
-    const fallback = photo(`${service.topic}-hero`, service.hero, service.alt);
-    const lead = slotsOnPage(library, service.main)[0] ?? slotsOnPage(library, service.gallery)[0];
-    const editableLead = lead
-      ?? slotsOnPage(library, service.main, true).find(slot => slot.kind !== "video")
-      ?? slotsOnPage(library, service.gallery, true).find(slot => slot.kind !== "video");
-    const leadItem = lead ? inventorySlotMedia(lead, assets) : null;
-    const heroMedia = leadItem?.type === "before-after" ? photo(leadItem.id, leadItem.after, leadItem.afterAlt) : leadItem?.type === "photo" ? leadItem : null;
-    const hero: InventoryPosition = { id: `${service.topic}-hero`, page: service.label, section: "Opening photograph", href: `${service.path}#main-content`, media: heroMedia ?? fallback, source: heroMedia ? "crm" : "built-in", fallback: heroMedia ? fallback : undefined, gallerySlot: editableLead,
-      replacementHint: "Choose a first service result in Shared gallery positions to change this opening photo. A complete photo pair or work photo can supply it; a video cannot.",
-      note: leadItem?.type === "video" ? "The leading position is a video, so the page keeps its built-in opening photo." : lead ? "Uses the first published service result. Changing that position also changes its connected gallery pages." : "Uses the built-in photo until a suitable first service result is published." };
-    push(hero);
-    if (service.category !== "carpet") push({ ...hero, id: `home-carousel-${service.topic}`, page: "Homepage", section: `Opening slideshow · ${service.label}`, href: "/#cleaning-photos" });
-    fixed(`home-service-${service.topic}`, "Homepage", `Service card · ${service.label}`, "/#services", fallback, "This service card is built into the website; gallery publishing does not replace it.");
-
-    // Match each rendered component's subset. Gallery membership alone does not
-    // imply that the same item is displayed on a service or local-area page.
-    const serviceMedia: GalleryItem[] = service.category === "carpet" ? [
-      ...CARPET_FEATURED_BEFORE_AFTER,
-      ...CARPET_FEATURED_BEFORE_AFTER.flatMap(pair => {
-        const clip = CARPET_RESULT_VIDEOS.find(video => video.pairedWith === pair.id);
-        return clip ? [{ ...clip, type: "video" as const }] : [];
-      }),
-      ...(CARPET_PROCESS_VIDEO ? [{ ...CARPET_PROCESS_VIDEO, type: "video" as const }] : []),
-    ] : service.category === "sofa-upholstery" ? [...SOFA_BEFORE_AFTER, ...SOFA_PHOTOS, SOFA_FEATURE_VIDEO, ...SOFA_SUPPORTING_VIDEOS] : [...EOT_FEATURED_BEFORE_AFTER, ...EOT_ROTATING_PHOTOS];
-    for (const item of serviceMedia) {
-      const section = item.type === "before-after" ? "Before-and-after results" : item.type === "video" ? "Cleaning videos" : "Job photographs";
-      const anchor = item.id === CARPET_PROCESS_VIDEO?.id ? "process" : item.type === "before-after" ? "results" : service.category === "sofa-upholstery" ? (item.id === SOFA_FEATURE_VIDEO.id ? "extraction" : "gallery") : "results";
-      fixed(`service-${service.topic}-${item.id}`, service.label, section, `${service.path}#${anchor}`, item, "This original website item stays visible when you add a CRM gallery position.");
-    }
-    for (const item of GALLERY_MEDIA[service.category]) {
-      const section = item.type === "before-after" ? "Before-and-after results" : item.type === "video" ? "Cleaning videos" : "Job photographs";
-      fixed(`gallery-${service.topic}-${item.id}`, "Gallery", `${service.label} · ${section}`, `/gallery?category=${service.category}#gallery-collection`, item, "Built-in gallery item. Publishing a new CRM position adds to the gallery; it does not replace this item.");
-    }
-    for (const [pageKey, page, href] of [[service.main, service.label, `${service.path}#${service.category === "sofa-upholstery" ? "gallery" : "results"}`], [service.gallery, "Gallery", `/gallery?category=${service.category}#gallery-collection`]]) {
+    const routes = [[service.main, service.label, `${service.path}#${service.anchor}`], [service.gallery, "Gallery", `/gallery?category=${service.category}#gallery-collection`]];
+    if (service.category === "carpet") routes.push(["carpet-process-results", "How we clean carpets", "/how-we-clean-carpets#results"]);
+    for (const [pageKey, page, href] of routes) {
       for (const slot of slotsOnPage(library, pageKey)) {
         const media = inventorySlotMedia(slot, assets);
-        if (media) push({ id: `${pageKey}-${slot.id}`, page, href, section: `${service.label} · ${slot.label}`, media, source: "crm", gallerySlot: slot, note: "Published CRM position. Review all connected pages before replacing it." });
+        if (media) positions.push({ id: `${pageKey}-${slot.id}`, page, href, section: `${service.label} · ${slot.label}`, media, kind: slot.kind, source: "crm", gallerySlot: slot });
       }
     }
   }
-
-  for (const [pageKey, section, src, alt] of [
-    ["homepage-hero-image", "Opening slideshow · Carpet cleaning", "/images/carpet-cleaning-hero.webp", "Carpet extraction in progress"],
-    ["homepage-equipment-image", "The equipment we bring", "/gallery/van-equipment.webp", "VVE Clean van and cleaning equipment"],
-  ]) {
-    const slot = websiteSlot(library, pageKey);
-    const candidate = slot ? inventorySlotMedia(slot, assets) : null;
-    const managed = candidate?.type === "photo" ? candidate : null;
-    const fallback = photo(pageKey, src, alt);
-    push({ id: pageKey, page: "Homepage", section, href: pageKey === "homepage-hero-image" ? "/#cleaning-photos" : "/#equipment", media: managed ?? fallback, source: managed ? "crm" : "built-in", websiteSlot: slot, fallback: managed ? fallback : undefined, note: "This named homepage position is separate from the service-page opening photo." });
-  }
-
-  for (const pair of getHomepageProofPairs(date)) fixed(`home-proof-${pair.id}`, "Homepage", `Before-and-after results · ${pair.service}`, "/#gallery", { ...pair, type: "before-after" }, pair.id.startsWith("daily-") ? "Part of the daily rotation. The selection can change each day." : "Built-in homepage comparison.");
-  fixed("about-equipment", "About", "Our story", "/about#main-content", photo("about-equipment", "/gallery/van-equipment.webp", "VVE Clean van and cleaning equipment"), "This is independent of the editable homepage equipment position.");
-  for (const member of TEAM_MEMBERS) if (member.photo) fixed(`team-${member.name}`, "About", "Our team", "/about#main-content", photo(`team-${member.name}`, member.photo, member.name));
-  const office = GALLERY_MEDIA.carpet.find(item => item.id === "carpet-office" && item.type === "before-after");
-  if (office) fixed("commercial-office-result", "Commercial carpet", "Office carpet before and after", "/commercial-carpet-cleaning-london#main-content", office);
-  for (const area of AREAS.filter(item => item.coverageConfirmed !== false)) {
-    for (const video of getAreaShowcaseVideos(area.slug)) fixed(`area-${area.slug}-${video.id}`, "Local area pages", `${area.name} · Cleaning in progress`, `/cleaning-${area.slug}#area-services`, { ...video, type: "video" }, "A showcase clip from work across London; this is not a claim that the job was in this area.");
-    for (const item of Object.values(GALLERY_MEDIA).flat().filter(item => matchesNamedArea(item.location, area.name))) fixed(`area-proof-${area.slug}-${item.id}`, "Local area pages", `${area.name} · Tagged job`, `/cleaning-${area.slug}#main-content`, item);
-  }
-  const buildersHero = buildersJobPhotos.hero;
-  if (buildersHero?.src && buildersHero.alt.trim()) fixed("builders-hero", "After builders", "Opening photograph", "/after-builders-cleaning-london#main-content", photo("builders-hero", buildersHero.src, buildersHero.alt));
-  const { before, after } = buildersJobPhotos;
-  if (before?.src && after?.src && before.alt.trim() && after.alt.trim()) fixed("builders-comparison", "After builders", "Before and after the builders’ clean", "/after-builders-cleaning-london#builders-results", { type: "before-after", id: "builders-comparison", label: "Before and after the builders’ clean", before: before.src, after: after.src, beforeAlt: before.alt, afterAlt: after.alt });
-  return positions;
+  // Follow the homepage from top to bottom, keeping the slideshow frames together.
+  const homeSections = ["/#cleaning-photos", "/#services", "/#equipment", "/#gallery"];
+  const home = positions.filter(position => position.page === "Homepage")
+    .sort((a, b) => homeSections.indexOf(a.href) - homeSections.indexOf(b.href));
+  return [...home, ...positions.filter(position => position.page !== "Homepage")];
 }

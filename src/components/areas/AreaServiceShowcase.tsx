@@ -5,6 +5,7 @@ import { getAreaShowcaseVideos } from '../../data/areaShowcase';
 import { CARPET_ITEM_PRICES_P, CARPET_MIN_BOOKING_P, EOT_BASE_PRICES_P, penceToDisplay } from '../../data/pricing';
 import PriceTaxNote from '../PriceTaxNote';
 import LazyVideo from '../media/LazyVideo';
+import { useResolvedWebsiteMedia } from '../../lib/websiteMediaPositions';
 
 type AreaServiceCard = {
   title: string;
@@ -55,7 +56,7 @@ const serviceCards: AreaServiceCard[] = [
 ];
 
 export default function AreaServiceShowcase({ area }: { area: AreaInfo }) {
-  const videos = getAreaShowcaseVideos(area.slug);
+  const videos = useResolvedWebsiteMedia(getAreaShowcaseVideos(area.slug).map(video => ({ ...video, type: 'video' as const })));
 
   return (
     <section id="area-services" className="scroll-mt-28 border-y border-slate-200 bg-slate-50 px-4 py-12 sm:py-16" aria-labelledby={`${area.slug}-services-heading`}>
@@ -98,7 +99,7 @@ export default function AreaServiceShowcase({ area }: { area: AreaInfo }) {
             <div className="grid gap-5 sm:grid-cols-2">
               {videos.map((video) => (
                 <figure key={video.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  <LazyVideo video={{ src: video.src, poster: video.poster, description: video.description }} className="aspect-video w-full rounded-none" />
+                  <LazyVideo video={{ ...video, label: undefined }} className="aspect-video w-full rounded-none" />
                   <figcaption className="p-4">
                     <span className="text-xs font-bold uppercase tracking-[0.14em] text-royal-700">{video.service}</span>
                     <span className="mt-1 block font-semibold text-navy-900">{video.label}</span>

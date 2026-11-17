@@ -3,6 +3,8 @@ import { uploadMediaFile } from "./mediaUpload";
 
 class FakeXHR {
   static last: FakeXHR;
+  static failAt: "open" | "send" | null = null;
+  hadProgressHandlerAtOpen = false;
   upload: {
     onprogress?: (event: {
       loaded: number;
@@ -16,15 +18,21 @@ class FakeXHR {
   onerror?: () => void;
   onabort?: () => void;
   ontimeout?: () => void;
-  open = vi.fn();
+  open = vi.fn(() => {
+    this.hadProgressHandlerAtOpen = typeof this.upload.onprogress === "function";
+    if (FakeXHR.failAt === "open") throw new DOMException("synthetic open failure", "InvalidStateError");
+  });
   setRequestHeader = vi.fn();
-  send = vi.fn();
+  send = vi.fn(() => {
+    if (FakeXHR.failAt === "send") throw new DOMException("synthetic file read failure", "NotReadableError");
+  });
   abort = vi.fn(() => this.onabort?.());
   constructor() {
     FakeXHR.last = this;
   }
 }
 beforeEach(() => {
+  FakeXHR.failAt = null;
   vi.stubGlobal("XMLHttpRequest", FakeXHR);
   vi.useFakeTimers();
 });
@@ -48,6 +56,7 @@ describe("direct media transfer", () => {
       lengthComputable: true,
     });
     expect(progress).toHaveBeenCalledWith(50);
+    expect(FakeXHR.last.hadProgressHandlerAtOpen).toBe(true);
     expect(FakeXHR.last.setRequestHeader).toHaveBeenCalledWith(
       "If-None-Match",
       "*",
@@ -108,5 +117,38 @@ describe("direct media transfer", () => {
     await vi.advanceTimersByTimeAsync(60_000);
     await result;
     expect(FakeXHR.last.abort).toHaveBeenCalled();
+  });
+  it.each(["open", "send"] as const)("cleans up after a synchronous %s failure so the next file can upload", async (failure) => {
+    FakeXHR.failAt = failure;
+    const control = new AbortController();
+    const removeListener = vi.spyOn(control.signal, "removeEventListener");
+    await expect(uploadMediaFile("https://upload.example/signed", file, vi.fn(), control.signal))
+      .rejects.toThrow("Download it to your device");
+    expect(removeListener).toHaveBeenCalledWith("abort", expect.any(Function));
+    expect(vi.getTimerCount()).toBe(0);
+    expect(FakeXHR.last.upload.onprogress).toBeNull();
+    FakeXHR.failAt = null;
+    const next = uploadMediaFile("https://upload.example/next", file, vi.fn(), new AbortController().signal);
+    FakeXHR.last.onload?.();
+    await expect(next).resolves.toBeUndefined();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it("keeps an actively progressing large transfer alive and waits for storage acknowledgement", async () => {
+    const progress = vi.fn();
+    const resolved = vi.fn();
+    const transfer = uploadMediaFile("https://upload.example/signed", file, progress, new AbortController().signal);
+    void transfer.then(resolved);
+    expect(FakeXHR.last.timeout).toBe(15 * 60_000);
+    for (let chunk = 1; chunk <= 4; chunk += 1) {
+      await vi.advanceTimersByTimeAsync(45_000);
+      FakeXHR.last.upload.onprogress?.({ loaded: chunk, total: 4, lengthComputable: true });
+      expect(FakeXHR.last.abort).not.toHaveBeenCalled();
+    }
+    expect(progress).toHaveBeenLastCalledWith(100);
+    expect(resolved).not.toHaveBeenCalled();
+    FakeXHR.last.onload?.();
+    await transfer;
+    expect(resolved).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

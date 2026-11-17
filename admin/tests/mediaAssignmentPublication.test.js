@@ -126,6 +126,19 @@ describe("authenticated atomic media publication", () => {
     expect(db.rpc).not.toHaveBeenCalled();
   });
 
+  it("accepts a ready video for an original website film and rejects a still photo in the same position", async () => {
+    const key = "builtin-carpet-carpet-stairs";
+    db._tables.media_website_slots = [{ id: T, slot_key: key }];
+    db._tables.media_page_references = [{ website_slot_id: T, active: true, page_key: key, reference_key: "stairs" }];
+    const request = { action: "assign", targetType: "website", targetId: T, assignments: [{ assetId: A, role: "primary" }], preview: true };
+    expect((await call(request)).statusCode).toBe(400);
+    Object.assign(db._tables.media_assets[0], { media_type: "video", mux_playback_id: "synthetic-playback" });
+    const preview = await call(request);
+    expect(preview.statusCode).toBe(200);
+    expect(preview.body.assets[0].mediaType).toBe("video");
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
   it("continues to accept ready videos in gallery video positions", async () => {
     Object.assign(db._tables.media_assets[0], { media_type: "video", mux_playback_id: "synthetic-video" });
     db._tables.media_gallery_slots[0].slot_kind = "video";

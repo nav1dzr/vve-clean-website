@@ -89,7 +89,7 @@ const DATA: ServiceLandingData = {
   whyH2: '',
   whyPoints: [],
 
-  proofSection: <CarpetResultsSection />,
+  proofSection: <CarpetResultsSection pageKey="carpet-process-results" />,
   processSection: <CarpetProcessSection />,
   sectionOrder: ['intro', 'process', 'proof', 'faq', 'related'],
 

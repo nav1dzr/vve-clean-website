@@ -1,10 +1,11 @@
 import { useViewportVideo } from './useViewportVideo';
 
 /** Hosted controls are isolated in an iframe, so require an explicit Play gesture. */
-export default function ManagedVideo({ playerUrl, poster, title }: {
+export default function ManagedVideo({ playerUrl, poster, title, className = 'aspect-video' }: {
   playerUrl: string;
   poster?: string;
   title: string;
+  className?: string;
 }) {
   const playback = useViewportVideo(false);
   const url = new URL(playerUrl);
@@ -20,7 +21,7 @@ export default function ManagedVideo({ playerUrl, poster, title }: {
   url.searchParams.set('accent-color', '#0b83b5');
 
   return (
-    <div ref={playback.ref} className="relative aspect-video overflow-hidden rounded-2xl bg-navy-950">
+    <div ref={playback.ref} className={`relative overflow-hidden rounded-2xl bg-navy-950 ${className}`}>
       {playback.play ? (
         <>
           <iframe src={url.toString()} title={title} className="h-full w-full border-0"

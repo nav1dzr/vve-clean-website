@@ -17,7 +17,12 @@ const TYPES: Record<string, { kind: "photo" | "video"; extensions: string[] }> =
 // browser cannot accept a file that the image-processing provider will reject.
 export const MAX_PHOTO_BYTES = 20_000_000;
 export const MAX_VIDEO_BYTES = 500 * 1024 * 1024;
-export const MEDIA_ACCEPT = Object.keys(TYPES).join(",");
+// Include extensions as well as MIME names: phone/file-provider pickers may
+// know a HEIC or MOV extension without reporting its MIME type.
+export const MEDIA_ACCEPT = [
+  ...Object.keys(TYPES),
+  ...new Set(Object.values(TYPES).flatMap(({ extensions }) => extensions.map((extension) => `.${extension}`))),
+].join(",");
 
 export type MediaFileCheck =
   | { ok: true; kind: "photo" | "video"; contentType: string }
@@ -26,11 +31,11 @@ export type MediaFileCheck =
 const extensionOf = (name: string) =>
   name.includes(".") ? name.split(".").pop()!.toLowerCase() : "";
 
-/** Some browsers report no type for HEIC or MOV files; use the extension. */
+/** An absent or generic binary type carries no format information. */
 export function mediaContentType(file: Pick<File, "name" | "type">) {
-  const reported = file.type.toLowerCase();
+  const reported = file.type.trim().toLowerCase();
   if (TYPES[reported]) return reported;
-  if (reported) return "";
+  if (reported && reported !== "application/octet-stream") return "";
   const extension = extensionOf(file.name);
   return (
     Object.keys(TYPES).find((type) =>

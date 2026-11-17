@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { Paintbrush } from 'lucide-react';
 import type { HomepageQuoteService } from './HomeServiceSelector';
 import { EOT_BASE_PRICES_P, CARPET_ITEM_PRICES_P, CARPET_MIN_BOOKING_P } from '../data/pricing';
+import { useWebsiteMediaPosition } from '../lib/websiteMediaPositions';
+import type { GalleryPhotoItem } from '../data/galleryMedia';
 
 const services = [
   { title: 'Carpet cleaning', href: '/carpet-cleaning-london', quoteHash: '#quote', quoteLabel: 'Build my estimate', image: '/images/carpet-cleaning-hero.webp', alt: 'Extraction equipment cleaning a blue carpet', price: `Rooms from £${CARPET_ITEM_PRICES_P.bedroom / 100} · £${CARPET_MIN_BOOKING_P / 100} minimum`, description: 'Bedrooms, living rooms, stairs and hallways. Choose your rooms for a clear estimate.' },
@@ -9,6 +11,11 @@ const services = [
   { title: 'End of tenancy cleaning', href: '/end-of-tenancy-cleaning-london', quoteHash: '#quote', quoteLabel: 'Build my estimate', image: '/end_of_tenancy/before-after/kitchen1_after.jpg', alt: 'Kitchen hob after cleaning', price: `Complete from £${EOT_BASE_PRICES_P.studio / 100}`, description: 'Moving out of a vacant property? Compare Complete and Tailored, with oven cleaning included in both.' },
   { title: 'After builders cleaning', href: '/after-builders-cleaning-london', quoteHash: '#builders-quote', quoteLabel: 'Get my cleaning quote', image: '', alt: '', price: 'Budget guide · fixed written quote', description: 'After a renovation or building work. Tell us about the rooms, dust and finishes so we can agree the cleaning list and price.' },
 ];
+const photoKeys = ['homepage-service-carpet', 'homepage-service-sofa', 'homepage-service-end-of-tenancy', 'homepage-service-after-builders'];
+function ServiceCardPhoto({ service, index }: { service: typeof services[number]; index: number }) {
+  const image = useWebsiteMediaPosition<GalleryPhotoItem>(photoKeys[index], service.image ? { type: 'photo', id: photoKeys[index], label: service.title, src: service.image, alt: service.alt } : null);
+  return image?.type === 'photo' ? <img src={image.src} srcSet={image.srcSet} sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw" alt="" width={800} height={480} loading="lazy" decoding="async" className="h-44 w-full object-cover sm:h-52" /> : <div className="flex h-44 flex-col items-center justify-center gap-3 bg-navy-950 text-white sm:h-52"><Paintbrush size={48} strokeWidth={1.4} aria-hidden="true" /><span className="text-sm font-medium tracking-wide">After the building work</span></div>;
+}
 
 export default function Services({ onChoose }: { onChoose: (service: HomepageQuoteService) => void }) {
   return (
@@ -20,9 +27,9 @@ export default function Services({ onChoose }: { onChoose: (service: HomepageQuo
           <p className="mt-3 text-base leading-relaxed text-slate-600">Choose a service to see its scope, real work and price. Your preferred time starts as a free request.</p>
         </div>
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {services.map((service) => (
+          {services.map((service, index) => (
             <article key={service.href} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-              <Link to={service.href} tabIndex={-1} aria-hidden="true">{service.image ? <img src={service.image} alt="" width={800} height={480} loading="lazy" decoding="async" className="h-44 w-full object-cover sm:h-52" /> : <div className="flex h-44 flex-col items-center justify-center gap-3 bg-navy-950 text-white sm:h-52"><Paintbrush size={48} strokeWidth={1.4} aria-hidden="true" /><span className="text-sm font-medium tracking-wide">After the building work</span></div>}</Link>
+              <Link to={service.href} tabIndex={-1} aria-hidden="true"><ServiceCardPhoto service={service} index={index} /></Link>
               <div className="p-5 sm:p-6">
                 <h3 className="font-display text-xl font-bold text-navy-950"><Link to={service.href} className="hover:text-royal-700">{service.title}</Link></h3>
                 <p className="mt-3 text-sm font-semibold text-royal-700">{service.price}</p>

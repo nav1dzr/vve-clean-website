@@ -12,6 +12,18 @@ const asset = (id: string): MediaAsset => ({
 });
 beforeEach(() => { fetchMock.mockReset(); });
 describe('bulk media edits', () => {
+  it('supports property-services metadata and neutral caption suggestions', async () => {
+    const property = {...asset('garden'),category:'property-services' as const,placement:'gallery-property-services' as const};
+    fetchMock.mockResolvedValue({asset:property});
+    render(<BulkMediaEditor assets={[property]} onClose={vi.fn()} onDirtyChange={vi.fn()} onBusyChange={vi.fn()} />);
+    expect(screen.getByLabelText('Service for garden.jpg')).toHaveValue('property-services');
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', {name:'Fill with suggested wording'}));
+    expect(screen.getByLabelText('Caption for garden.jpg')).toHaveValue('Property services photo');
+    fireEvent.click(screen.getByRole('button', {name:'Save unsaved items'}));
+    await screen.findByText('Saved');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).category).toBe('property-services');
+  });
   it('retains existing wording unless replacement is deliberately enabled', () => {
     render(<BulkMediaEditor assets={[asset('one')]} onClose={vi.fn()} onDirtyChange={vi.fn()} onBusyChange={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', {name:'Fill with suggested wording'}));

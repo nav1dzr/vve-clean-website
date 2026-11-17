@@ -55,7 +55,7 @@ function fetchReferences() {
 // deliberately contains no R2 key, original filename, upload metadata, or
 // private library asset. A Gallery position can therefore be reused by any
 // number of page references without duplicating its file.
-function usePublishedReferences() {
+export function usePublishedReferences() {
   const [references, setReferences] = useState<PublishedReference[]>([]);
   useEffect(() => {
     let live = true;

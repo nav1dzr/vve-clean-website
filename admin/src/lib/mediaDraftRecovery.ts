@@ -25,7 +25,7 @@ function valid(value: unknown): value is MediaDetailsDraft {
   return text(draft.assetId, 100) && text(draft.baseVersion, 100) && !!draft.values
     && text(draft.values.title, 120) && text(draft.values.altText, 300)
     && text(draft.values.locationLabel, 100) && text(draft.values.pairKey, 64)
-    && ['carpet', 'sofa-upholstery', 'end-of-tenancy'].includes(draft.values.category)
+    && ['carpet', 'sofa-upholstery', 'end-of-tenancy', 'property-services'].includes(draft.values.category)
     && ['before', 'after', 'during', 'none'].includes(draft.values.beforeAfter);
 }
 

@@ -71,7 +71,7 @@ export default function ReplacementComparison({
           ? "This is the same as what is live now. Publishing changes nothing."
           : current.length
             ? "Publishing removes what is on the website now and shows your new choice instead."
-            : "Nothing from your library is in this position yet. Publishing adds your new choice."}
+            : "Publishing will show your selection in this position."}
       </p>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         <Column heading="On the website now" tone="border-silver-300 bg-silver-100" rows={current} assets={assets} empty={whenEmpty} />

@@ -4,6 +4,7 @@ import {
   formatFileSize,
   MAX_PHOTO_BYTES,
   MAX_VIDEO_BYTES,
+  MEDIA_ACCEPT,
   mediaContentType,
 } from "./mediaFileCheck";
 
@@ -24,6 +25,21 @@ describe("media file check before upload", () => {
     expect(checkMediaFile(file("IMG_0002.MOV", ""))).toEqual({
       ok: true, kind: "video", contentType: "video/quicktime",
     });
+  });
+
+  it("offers supported extensions to phone pickers and handles a generic file-provider type", () => {
+    const accepted = MEDIA_ACCEPT.split(",");
+    for (const extension of [".heic", ".heif", ".mov", ".m4v", ".jpg", ".jpeg", ".png", ".webp", ".avif", ".mp4", ".webm"])
+      expect(accepted).toContain(extension);
+    expect(accepted).not.toContain("application/octet-stream");
+    expect(checkMediaFile(file("IMG_001.HEIC", "application/octet-stream"))).toEqual({
+      ok: true, kind: "photo", contentType: "image/heic",
+    });
+    expect(checkMediaFile(file("IMG_002.MOV", "application/octet-stream"))).toEqual({
+      ok: true, kind: "video", contentType: "video/quicktime",
+    });
+    expect(checkMediaFile(file("document.pdf", "application/octet-stream"))).toMatchObject({ ok: false });
+    expect(checkMediaFile(file("unknown", "application/octet-stream"))).toMatchObject({ ok: false });
   });
 
   it("never guesses a type the browser has identified as unsupported", () => {

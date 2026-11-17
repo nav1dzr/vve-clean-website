@@ -2,8 +2,9 @@ import { Link } from 'react-router-dom';
 import { useReveal } from '../hooks/useReveal';
 import { getHomepageProofPairs, type HomepageProofPair } from '../data/homepageProof';
 import { INSTAGRAM_URL } from '../data/social';
+import { useResolvedWebsiteMedia } from '../lib/websiteMediaPositions';
 
-const beforeAfterPairs = getHomepageProofPairs();
+const defaultPairs = getHomepageProofPairs().map(pair => ({ ...pair, type: 'before-after' as const }));
 
 // Always-visible side-by-side comparison — no hover/tap interaction required
 // to see the result, so it reads correctly on first glance on mobile too.
@@ -50,6 +51,7 @@ function BeforeAfterCard({ pair }: { pair: HomepageProofPair }) {
 }
 
 export default function Gallery() {
+  const beforeAfterPairs = useResolvedWebsiteMedia(defaultPairs);
   const { ref, visible } = useReveal();
 
   return (

@@ -10,6 +10,7 @@ describe("media upload fields", () => {
     ["carpet", "Carpet cleaning", "gallery-carpet"],
     ["sofa-upholstery", "Sofa & upholstery cleaning", "gallery-sofa"],
     ["end-of-tenancy", "End of tenancy cleaning", "gallery-end-of-tenancy"],
+    ["property-services", "Property services", "gallery-property-services"],
   ])("derives %s upload service and placement from the chosen category", (category, service, placement) => {
     const result = validateNewAsset({ filename: "photo.jpg", contentType: "image/jpeg", size: 100, category });
     expect(result.value).toMatchObject({ category, service, placement });
