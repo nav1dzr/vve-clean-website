@@ -8,6 +8,7 @@ import { websitePricebookHandler } from './_lib/websitePricebookActions.js';
 import { enquiriesHandler } from './_lib/enquiries.js';
 import { mediaCollectionHandler } from './_lib/mediaCollectionActions.js';
 import { mediaAssetHandler } from './_lib/mediaAssetActions.js';
+import { mediaMuxWebhookHandler } from './_lib/mediaMuxWebhook.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -25,6 +26,9 @@ export default async function handler(req, res) {
   // Hobby project is at its route cap. Both handlers verify the same admin
   // token and validate their own request data before any provider action.
   const params = new URL(req.url, 'https://admin.local').searchParams;
+  // Provider callbacks use a verified raw-body signature and environment binding,
+  // not a staff browser session. The handler is disabled until configured.
+  if (params.get('resource') === 'media-mux-webhook') return mediaMuxWebhookHandler(req, res);
   if (params.get('resource') === 'website-pricebook') return websitePricebookHandler(req, res);
   if (params.get('resource') === 'enquiries') return enquiriesHandler(req, res);
   if (params.get('resource') === 'media') {

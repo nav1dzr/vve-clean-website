@@ -440,7 +440,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
         setRejected([]);
 
         setNotice(
-          "Files stored. Add a caption and description, then choose a position. Videos finish processing automatically while this page is open.",
+          "Files stored. Add a caption and description, then choose a position. Processing videos are checked while this page is open; you can also use Check processing in the library.",
         );
       } finally {
         setProgress(null);
@@ -926,10 +926,10 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                       className="mt-4 block font-semibold capitalize text-navy-950"
                     >
                       {role === "primary"
-                        ? target.kind === "photo" ? "Photograph" : "Photo or video"
+                        ? target.kind === "photo" ? "Photograph" : target.kind === "video" ? "Video" : "Photo or video"
                         : `${role} photograph`}
                       <select
-                        aria-label={role === "primary" ? target.kind === "photo" ? "Photograph" : "Photo or video" : `${role} photograph`}
+                        aria-label={role === "primary" ? target.kind === "photo" ? "Photograph" : target.kind === "video" ? "Video" : "Photo or video" : `${role} photograph`}
                         disabled={targetUnavailable}
                         className={field}
                         value={
@@ -949,7 +949,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                       </select>
                     </label>
                     <MediaThumbnailPicker
-                      label={role === "primary" ? target.kind === "photo" ? "Photograph" : "Photo or video" : `${role} photograph`}
+                      label={role === "primary" ? target.kind === "photo" ? "Photograph" : target.kind === "video" ? "Video" : "Photo or video" : `${role} photograph`}
                       assets={choicesFor(role)}
                       selectedId={selection.find((item) => item.role === role)?.assetId || ""}
                       currentId={target.assignments.find((item) => item.role === role)?.assetId}
@@ -1047,6 +1047,11 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                   Photos up to 40 MB; videos up to 500 MB. Files appear on
                   website pages only after you choose a position and publish. Interrupted files can be retried from
                   the library after refresh.
+                </p>
+                <p className="mt-2 text-sm text-navy-700">
+                  Use this library for photos and videos you have permission to share publicly.
+                  Unpublished files can still be opened by someone with their media link.
+                  Keep private customer evidence in Completion reports.
                 </p>
                 <label className="mt-4 block font-semibold text-navy-950">
                   Cleaning stage
@@ -1285,6 +1290,24 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                                 Retry processing
                               </button>
                             </>
+                          )}
+                          {asset.status === "processing" && (
+                            <button
+                              className={button}
+                              disabled={busy}
+                              onClick={() => void run(async () => {
+                                const result = await authFetch<{ status?: string; message?: string }>(`${api}&id=${asset.id}`, {
+                                  method: "POST",
+                                  body: JSON.stringify({ action: "sync" }),
+                                });
+                                await load();
+                                setNotice(result.message || (result.status === "ready"
+                                  ? "Your video is ready. You can now choose a position."
+                                  : "Processing checked. This does not upload your file again. If it still needs attention, check the message on the video."));
+                              })}
+                            >
+                              Check processing
+                            </button>
                           )}
                           {["ready", "archived"].includes(asset.status) &&
                             !asset.usages.length && (

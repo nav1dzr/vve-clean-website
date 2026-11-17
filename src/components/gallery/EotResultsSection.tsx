@@ -24,7 +24,7 @@ export default function EotResultsSection() {
   const lightbox = useLightbox();
 
   return (
-    <section className="py-16 px-4 bg-white border-y border-silver-200" aria-label="End of tenancy results">
+    <section id="results" className="py-16 px-4 bg-white border-y border-silver-200" aria-label="End of tenancy results">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-10">
           <h2 className="font-display text-3xl md:text-4xl font-bold text-navy-900 leading-tight">

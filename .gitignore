@@ -21,3 +21,6 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Local CRM previews, test evidence and disposable database clusters.
+/admin/output/

@@ -1,5 +1,7 @@
 # CRM photo and video audit — 16 November 2026
 
+> Follow-up, 17 November: see [MEDIA-COMPLETION-2026-11-17.md](MEDIA-COMPLETION-2026-11-17.md) for the isolated Codex completion work, real PostgreSQL lifecycle proof, website-photo inventory and video recovery. The missing prompt was recovered; the historical truncation note below is no longer a blocker. OS is not assumed empty: approved completion-report tests already used it. This media follow-up used a fresh local database instead.
+
 Branch `claude/media-audit-clarity-20261116`, stacked on `codex/crm-completion-review-20261114` (PR #70, head `b3037fd`), which already changes the media manager. Production `main` was `059478e` when this was written.
 
 Nothing in this work touched production settings, Stripe, bookings, invoices, prices, DNS or advertising. No migration was created or applied. The only production change was the owner-approved two-file upload test on 17 November (section 5): two synthetic, labelled files in the Carpet library, never published, then archived.

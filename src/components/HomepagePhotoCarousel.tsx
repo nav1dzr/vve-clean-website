@@ -85,6 +85,7 @@ export default function HomepagePhotoCarousel() {
 
   return (
     <section
+      id="cleaning-photos"
       aria-label="Cleaning photos"
       aria-roledescription="carousel"
       className="min-w-0 overflow-hidden rounded-[1.25rem] border border-slate-200 bg-white shadow-lg shadow-slate-900/5"
