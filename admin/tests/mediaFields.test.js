@@ -50,6 +50,14 @@ describe("media upload fields", () => {
 });
 
 describe("media integrity limits", () => {
+  it('matches the 20 MB image-processing admission limit without changing the video limit', () => {
+    const photo = { filename: 'photo.jpg', contentType: 'image/jpeg' };
+    expect(validateNewAsset({ ...photo, size: 20_000_000 }).ok).toBe(true);
+    const oversized = validateNewAsset({ ...photo, size: 20_000_001 });
+    expect(oversized.ok).toBe(false);
+    expect(oversized.error).toContain('20 MB');
+    expect(validateNewAsset({ filename: 'video.mp4', contentType: 'video/mp4', size: 500 * 1024 * 1024 }).ok).toBe(true);
+  });
   it("rejects file extension/type mismatch, traversal and oversized originals", () => {
     for (const row of [
       { filename: "photo.svg", contentType: "image/jpeg", size: 100 },

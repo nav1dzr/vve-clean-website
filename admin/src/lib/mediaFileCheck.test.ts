@@ -45,11 +45,16 @@ describe("media file check before upload", () => {
     });
   });
 
-  it("applies the 40 MB photo and 500 MB video limits with the actual size", () => {
+  it("rejects photos above the provider's decimal 20 MB boundary before upload", () => {
+    expect(MAX_PHOTO_BYTES).toBe(20_000_000);
     expect(checkMediaFile(file("a.jpg", "image/jpeg", MAX_PHOTO_BYTES))).toMatchObject({ ok: true });
-    expect(checkMediaFile(file("a.jpg", "image/jpeg", MAX_PHOTO_BYTES + 1024 * 1024))).toMatchObject({
-      ok: false, reason: expect.stringMatching(/41 MB.*40 MB/),
+    expect(checkMediaFile(file("a.jpg", "image/jpeg", MAX_PHOTO_BYTES + 1))).toMatchObject({
+      ok: false, reason: expect.stringContaining("20 MB"),
     });
+    expect(checkMediaFile(file("a.HEIC", "", 20 * 1024 * 1024))).toMatchObject({ ok: false });
+  });
+
+  it("retains the 500 MB video boundary", () => {
     expect(checkMediaFile(file("a.mp4", "video/mp4", MAX_VIDEO_BYTES))).toMatchObject({ ok: true });
     expect(checkMediaFile(file("a.mp4", "video/mp4", MAX_VIDEO_BYTES + 1))).toMatchObject({ ok: false });
   });

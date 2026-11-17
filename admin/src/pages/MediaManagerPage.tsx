@@ -146,6 +146,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
 
   const [files, setFiles] = useState<File[]>([]);
   const [rejected, setRejected] = useState<{ name: string; reason: string }[]>([]);
+  const [uploadIssues, setUploadIssues] = useState<{ file: File; reason: string }[]>([]);
 
   const [stage, setStage] = useState<BeforeAfter>("none");
 
@@ -171,6 +172,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
   const editorContainer = useRef<HTMLDivElement>(null);
 
   const controller = useRef<AbortController | null>(null);
+  const cancelRequested = useRef(false);
 
   const libraryRef = useRef<MediaLibrary | null>(null);
   const loadVersion = useRef(0);
@@ -231,6 +233,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
   }, [load, topic]);
 
   useEffect(() => () => {
+    cancelRequested.current = true;
     controller.current?.abort();
     targetVersion.current += 1;
     selectionVersion.current += 1;
@@ -332,6 +335,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
     if (inFlight.current) return;
 
     inFlight.current = true;
+    cancelRequested.current = false;
     setBusy(true);
     setError("");
     setNotice("");
@@ -367,38 +371,44 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
 
     setProgress({ name: file.name, percent: 0, stage: "Preparing upload" });
 
-    const plan = await authFetch<{
-      id: string;
-      uploadUrl: string;
-      alreadyStored?: boolean;
-    }>(oldId ? `${api}&id=${oldId}` : api, {
-      method: "POST",
-      body: JSON.stringify(
-        oldId
-          ? { action: "retry-upload" }
-          : {
-              filename: file.name,
-              size: file.size,
-              contentType,
-              category: topic,
-              beforeAfter: stage,
-            },
-      ),
-    });
-    retryIds.current.set(key, plan.id);
-
-    controller.current = new AbortController();
+    const control = new AbortController();
+    controller.current = control;
+    let originalStored = false;
+    let plannedId: string | undefined;
 
     try {
+      const plan = await authFetch<{
+        id: string;
+        uploadUrl: string;
+        alreadyStored?: boolean;
+      }>(oldId ? `${api}&id=${oldId}` : api, {
+        method: "POST",
+        body: JSON.stringify(
+          oldId
+            ? { action: "retry-upload" }
+            : {
+                filename: file.name,
+                size: file.size,
+                contentType,
+                category: topic,
+                beforeAfter: stage,
+              },
+        ),
+      });
+      retryIds.current.set(key, plan.id);
+      plannedId = plan.id;
+      originalStored = Boolean(plan.alreadyStored);
+      if (control.signal.aborted) throw new Error("Upload cancelled. This file remains selected for retry.");
       if (!plan.alreadyStored)
         await uploadMediaFile(
           plan.uploadUrl,
           file,
           (percent) =>
             setProgress({ name: file.name, percent, stage: "Uploading" }),
-          controller.current.signal,
+          control.signal,
           contentType,
         );
+      originalStored = true;
       setProgress({
         name: file.name,
         percent: 100,
@@ -412,11 +422,14 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
 
       retryIds.current.delete(key);
     } catch (err) {
-      await authFetch(`${api}&id=${plan.id}`, {
+      // Verification may fail after storage accepted the original. Keep its
+      // recovery state, and let retry-upload/complete check the same record.
+      if (plannedId && !originalStored) await authFetch(`${api}&id=${plannedId}`, {
         method: "POST",
         body: JSON.stringify({ action: "fail" }),
       }).catch(() => undefined);
-
+      if (originalStored && !control.signal.aborted)
+        throw new Error(`The transfer finished, but the final check did not complete. ${explain(err)}`);
       throw err;
     } finally {
       controller.current = null;
@@ -428,19 +441,31 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
 
     await run(async () => {
       if (!files.length) throw new Error("Choose a photo or video first.");
-
+      const selected = [...files];
+      const issues: { file: File; reason: string }[] = [];
+      let stored = 0;
+      setUploadIssues([]);
       try {
-        for (const file of files) {
-          await transfer(file);
-
-          setFiles((previous) => previous.filter((item) => item !== file));
+        for (const file of selected) {
+          if (cancelRequested.current) break;
+          try {
+            await transfer(file);
+            stored += 1;
+            setFiles((previous) => previous.filter((item) => item !== file));
+          } catch (err) {
+            if (!cancelRequested.current) {
+              issues.push({ file, reason: explain(err) });
+              setUploadIssues([...issues]);
+            }
+          }
         }
-
-        if (fileInput.current) fileInput.current.value = "";
-        setRejected([]);
-
+        const remaining = selected.length - stored;
+        if (!remaining) {
+          if (fileInput.current) fileInput.current.value = "";
+          setRejected([]);
+        }
         setNotice(
-          "Files stored. Add a caption and description, then choose a position. Processing videos are checked while this page is open; you can also use Check processing in the library.",
+          `${stored} ${stored === 1 ? "file" : "files"} uploaded and checked. ${cancelRequested.current ? "Upload stopped. " : ""}${remaining ? `${remaining} ${remaining === 1 ? "file remains" : "files remain"} selected; retry when ready. ` : ""}${stored ? "Add captions in the library, then choose a position to publish. Videos may still be processing." : ""}`,
         );
       } finally {
         setProgress(null);
@@ -1044,7 +1069,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                   {categories.find((item) => item.value === topic)?.label}
                 </h2>
                 <p className="mt-2 text-sm text-navy-700">
-                  Photos up to 40 MB; videos up to 500 MB. Files appear on
+                  Photos up to 20 MB; videos up to 500 MB. Files appear on
                   website pages only after you choose a position and publish. Interrupted files can be retried from
                   the library after refresh.
                 </p>
@@ -1079,6 +1104,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                     accept={MEDIA_ACCEPT}
                     onChange={(event) => {
                       const chosen = Array.from(event.target.files || []);
+                      setUploadIssues([]);
                       setFiles(chosen.filter((file) => checkMediaFile(file).ok));
                       setRejected(chosen.flatMap((file) => {
                         const check = checkMediaFile(file);
@@ -1121,6 +1147,20 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                   </div>
                 )}
 
+                {uploadIssues.length > 0 && (
+                  <div role="alert" aria-label="Files to retry" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-navy-950">
+                    <p className="font-semibold">Some files need another try</p>
+                    <p className="mt-1">Other files continued uploading. Only the remaining files will be retried.</p>
+                    <ul className="mt-2 space-y-2">
+                      {uploadIssues.map(({ file, reason }) => (
+                        <li key={`${file.name}:${file.size}:${file.lastModified}`} className="break-words">
+                          <span className="font-semibold">{file.name}:</span> {reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {progress && (
                   <div role="status" className="mt-4">
                     <p className="text-sm">
@@ -1135,7 +1175,10 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                     <button
                       type="button"
                       className={button}
-                      onClick={() => controller.current?.abort()}
+                      onClick={() => {
+                        cancelRequested.current = true;
+                        controller.current?.abort();
+                      }}
                     >
                       Cancel transfer
                     </button>
@@ -1147,7 +1190,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                   className={`${primary} mt-4`}
                   type="submit"
                 >
-                  {busy ? "Working…" : "Upload selected files"}
+                  {busy ? "Working…" : uploadIssues.length ? "Retry remaining files" : "Upload selected files"}
                 </button>
               </form>
 

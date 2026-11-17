@@ -57,6 +57,12 @@ export function getMediaConfig(mediaType = "image") {
     muxTokenSecret: process.env.MUX_TOKEN_SECRET,
     r2: new S3Client({
       region: "auto",
+      // The browser supplies the file after this server signs its PUT URL.
+      // SDK default WHEN_SUPPORTED would checksum the absent signing-time body
+      // as empty and make R2 reject the actual, non-empty upload with BadDigest.
+      // Integrity remains checked against the stored size/type; originals also
+      // retain the signed If-None-Match condition and cannot be overwritten.
+      requestChecksumCalculation: 'WHEN_REQUIRED',
       endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
       credentials: {
         accessKeyId: process.env.R2_ACCESS_KEY_ID,
@@ -102,23 +108,37 @@ export async function createDownloadUrl(config, key) {
   );
 }
 
-export async function originalExists(config, key, expected) {
+// A failed verification is not evidence that an immutable original is absent.
+// Only a confirmed 404 can safely offer another PUT to the same object key.
+export async function inspectOriginal(config, key, expected) {
   try {
     const object = await config.r2.send(
       new HeadObjectCommand({ Bucket: config.bucket, Key: key }),
+      { abortSignal: AbortSignal.timeout(5000) },
     );
-    return (
-      !expected ||
-      (Number(object.ContentLength) === Number(expected.original_size_bytes) &&
-        object.ContentType === expected.original_content_type)
-    );
+    if (!expected) return { status: 'verified' };
+    const sizeMatches = Number(object.ContentLength) === Number(expected.original_size_bytes);
+    const typeMatches = object.ContentType === expected.original_content_type;
+    if (sizeMatches && typeMatches) return { status: 'verified' };
+    return { status: 'mismatch', reason: !sizeMatches && !typeMatches ? 'size-and-type' : !sizeMatches ? 'size' : 'type' };
   } catch (error) {
+    const httpStatus = Number(error?.$metadata?.httpStatusCode) || 0;
+    const missingBucket = [error?.name, error?.Code, error?.code].includes('NoSuchBucket');
+    if (!missingBucket && (httpStatus === 404 || (!httpStatus && ['NotFound', 'NoSuchKey'].includes(error?.name))))
+      return { status: 'missing' };
+    // Never log the key, filename, signed URL, credentials or provider payload.
     console.warn(
-      "[admin/media] R2 original was not available for delivery:",
-      error?.name || "unknown error",
+      '[admin/media] original verification unavailable:',
+      httpStatus || 'network-or-timeout',
     );
-    return false;
+    return { status: 'unavailable', reason: missingBucket || [401, 403].includes(httpStatus) ? 'access' : 'temporary' };
   }
+}
+
+// Retained for callers that only need a verified/not-verified answer. Recovery
+// decisions must use inspectOriginal so mismatches cannot become overwrite URLs.
+export async function originalExists(config, key, expected) {
+  return (await inspectOriginal(config, key, expected)).status === 'verified';
 }
 
 // The Worker reconstructs the immutable private R2 key from this constrained

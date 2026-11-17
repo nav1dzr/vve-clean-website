@@ -5,6 +5,7 @@ vi.mock('../api/_lib/adminAuth.js', () => ({ verifyMediaAdminRequest: mocks.auth
 vi.mock('../api/_lib/supabaseAdmin.js', () => ({ getMediaServiceClient: mocks.client }));
 vi.mock('../api/_lib/mediaConfig.js', () => ({
   getMediaConfig: mocks.config, originalExists: mocks.exists, createDownloadUrl: mocks.download,
+  inspectOriginal: async (...args) => ({ status: await mocks.exists(...args) ? 'verified' : 'missing' }),
   muxAuthHeader: () => 'Basic synthetic', createUploadUrl: mocks.upload, createImageDeliveryTemplate: vi.fn(),
 }));
 import { mediaAssetHandler } from '../api/_lib/mediaAssetActions.js';
