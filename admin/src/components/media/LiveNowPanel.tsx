@@ -8,6 +8,7 @@ import type {
 } from "../../types/media";
 import { formatMediaDate } from "../../lib/mediaStatus";
 import { MediaPreview } from "./MediaPreview";
+import WebsitePhotoInventory from "./WebsitePhotoInventory";
 
 const SERVICES: { topicKey: string; label: string }[] = [
   { topicKey: "carpet", label: "Carpet" },
@@ -117,9 +118,11 @@ export default function LiveNowPanel({
       </h2>
       <p className="mb-5 mt-2 max-w-3xl text-navy-700">
         {total
-          ? `${total} ${total === 1 ? "position shows" : "positions show"} media from your library. Everything else on the website is a built-in photo that came with the site. To change one, press its Replace button and compare the old and new before publishing.`
-          : "Nothing from your library is on the website yet. Visitors see the built-in photos that came with the site. Upload a file, add its caption, then choose a position."}
+          ? `${total} ${total === 1 ? "position shows" : "positions show"} media from your library. Use the page browser below to see those selections alongside the website's original photos and videos.`
+          : "Nothing from your library is on the website yet. The page browser below shows the original website photos and videos."}
       </p>
+      <WebsitePhotoInventory library={library} assets={assets} onReplaceGallery={onReplaceGallery} onReplaceWebsite={onReplaceWebsite} />
+      <h3 className="mb-5 text-xl font-semibold text-navy-950">Manage published CRM positions</h3>
       {SERVICES.map((service) => {
         const slots = liveGallery
           .filter((slot) => slot.topicKey === service.topicKey)

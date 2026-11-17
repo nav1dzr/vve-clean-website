@@ -122,6 +122,17 @@ describe("what is live on the website", () => {
 });
 
 describe("choosing and reviewing a replacement", () => {
+  it("opens the video position with only ready videos from its service", async () => {
+    await ready();
+    fireEvent.click(screen.getByRole("button", { name: "Live on website" }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Replace this video" })));
+    const picker = screen.getByLabelText("Video");
+    expect(picker).toHaveValue(sofaVideo.id);
+    expect(within(picker).getByRole("option", { name: /sofa\.mp4/ })).toBeInTheDocument();
+    expect(within(picker).queryByRole("option", { name: /old-before\.jpg/ })).not.toBeInTheDocument();
+    expect(mocks.fetch.mock.calls.some(([url]) => url.includes("category=sofa-upholstery"))).toBe(true);
+  });
+
   it("lets the owner pick by picture and shows old against new before publishing", async () => {
     await ready();
     fireEvent.click(screen.getByRole("button", { name: "Live on website" }));
@@ -146,6 +157,27 @@ describe("choosing and reviewing a replacement", () => {
 });
 
 describe("file checks before upload", () => {
+  it("offers a processing check without uploading or starting another video", async () => {
+    const processing = asset("waiting-video", { mediaType: "video", status: "processing", imageUrl: null, filename: "waiting.mp4" });
+    mocks.fetch.mockImplementation(async (_url: string, init?: { body: string }) => {
+      if (!init) return { ...library, assets: [processing] };
+      return { status: "processing", message: "Still processing. Your original is safe." };
+    });
+    await ready();
+    fireEvent.click(screen.getByRole("button", { name: "Check processing" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Still processing. Your original is safe.");
+    const writes = mocks.fetch.mock.calls.filter(([, init]) => init?.body);
+    expect(writes).toHaveLength(1);
+    expect(writes[0][0]).toContain("id=waiting-video");
+    expect(JSON.parse(writes[0][1].body)).toEqual({ action: "sync" });
+    expect(mocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("explains that the website library is not private customer storage", async () => {
+    await ready();
+    expect(screen.getByText(/Unpublished files can still be opened/)).toHaveTextContent("Keep private customer evidence in Completion reports.");
+  });
+
   it("names each unsuitable file with its reason and uploads only suitable ones", async () => {
     await ready();
     const good = new File(["photo"], "kitchen.jpg", { type: "image/jpeg" });

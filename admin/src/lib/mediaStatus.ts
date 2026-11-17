@@ -35,7 +35,7 @@ export function mediaStatusSummary(
     return {
       label: "Processing video",
       tone: "waiting",
-      help: "Usually a few minutes. Keep this page open; it updates by itself.",
+      help: "Usually a few minutes. This page checks for updates; use Check processing if it is taking longer.",
     };
   if (asset.status === "uploading")
     return {

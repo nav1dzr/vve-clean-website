@@ -11,6 +11,6 @@ describe('CRM upload Content Security Policy', () => {
   });
   it('preserves the existing script, frame, form and document restrictions', () => {
     const rest = Object.fromEntries(Object.entries(directives).filter(([name]) => name !== 'connect-src'));
-    expect(rest).toEqual({ 'default-src': ["'self'"], 'script-src': ["'self'"], 'style-src': ["'self'", "'unsafe-inline'"], 'img-src': ["'self'", 'data:', 'https:'], 'font-src': ["'self'"], 'frame-src': ['https://player.mux.com'], 'frame-ancestors': ["'none'"], 'base-uri': ["'self'"], 'form-action': ["'self'"] });
+    expect(rest).toEqual({ 'default-src': ["'self'"], 'script-src': ["'self'"], 'style-src': ["'self'", "'unsafe-inline'"], 'img-src': ["'self'", 'data:', 'https:'], 'font-src': ["'self'"], 'frame-src': ['https://player.mux.com'], 'media-src': ["'self'", 'https://www.vveclean.co.uk'], 'frame-ancestors': ["'none'"], 'base-uri': ["'self'"], 'form-action': ["'self'"] });
   });
 });

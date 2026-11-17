@@ -15,6 +15,7 @@ export default function OurKit() {
 
   return (
     <section
+      id="equipment"
       ref={ref}
       className="navy-gradient px-4 py-20"
     >
