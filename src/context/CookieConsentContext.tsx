@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
+  CONSENT_STORAGE_KEY,
   ACCEPT_ALL_CATEGORIES,
   REJECT_OPTIONAL_CATEGORIES,
   applyConsentToGtag,
@@ -7,7 +8,9 @@ import {
   saveConsent,
   type ConsentCategories,
   type ConsentChoice,
+  type StoredConsent,
 } from '../lib/consent';
+import { setConsentRecord } from '../lib/attribution';
 import CookieConsentBanner from '../components/CookieConsentBanner';
 import CookieSettingsModal from '../components/CookieSettingsModal';
 
@@ -35,27 +38,39 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
   const [categories, setCategories] = useState<ConsentCategories>(REJECT_OPTIONAL_CATEGORIES);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  useEffect(() => {
-    const stored = getStoredConsent();
-    if (stored) {
-      const next = { analytics: stored.analytics, advertising: stored.advertising };
-      setCategories(next);
-      setDecided(true);
-      // index.html/confirmation.html already apply any stored choice before
-      // the app hydrates; this is a harmless, idempotent re-application in
-      // case gtag finished loading after that inline script ran.
-      applyConsentToGtag(next);
-    }
-    setReady(true);
-  }, []);
-
-  const commit = useCallback((next: ConsentCategories, choice: ConsentChoice) => {
-    saveConsent(next, choice);
+  const applyRecord = useCallback((record: StoredConsent | null) => {
+    const next = record
+      ? { analytics: record.analytics, advertising: record.advertising }
+      : REJECT_OPTIONAL_CATEGORIES;
+    // Publish synchronously; payloads must never mix a new choice with old proof.
+    setConsentRecord(record);
     applyConsentToGtag(next);
     setCategories(next);
-    setDecided(true);
-    setSettingsOpen(false);
+    setDecided(record !== null);
   }, []);
+
+  useEffect(() => {
+    applyRecord(getStoredConsent());
+    setReady(true);
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== null && event.key !== CONSENT_STORAGE_KEY) return;
+      // Ignore sessionStorage events. A missing storageArea is allowed for
+      // synthetic events; reading localStorage can itself fail in locked browsers.
+      if (event.storageArea) {
+        try { if (event.storageArea !== window.localStorage) return; }
+        catch { applyRecord(null); return; }
+      }
+      applyRecord(getStoredConsent());
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [applyRecord]);
+
+  const commit = useCallback((next: ConsentCategories, choice: ConsentChoice) => {
+    // The explicit current-tab choice remains valid if persistence is blocked.
+    applyRecord(saveConsent(next, choice));
+    setSettingsOpen(false);
+  }, [applyRecord]);
 
   const acceptAll = useCallback(() => commit(ACCEPT_ALL_CATEGORIES, 'accepted_all'), [commit]);
   const rejectOptional = useCallback(() => commit(REJECT_OPTIONAL_CATEGORIES, 'rejected_optional'), [commit]);
