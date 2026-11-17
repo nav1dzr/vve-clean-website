@@ -165,6 +165,13 @@ async function listMedia(req, res, headers, supabase) {
     usages.push(...(referencesByTarget.get(target) || []));
     usagesByAsset.set(assignment.asset_id, usages);
   }
+  // The newest assignment timestamp is when the live selection was published.
+  const publishedAt = (targetId) =>
+    (assignmentsByTarget.get(targetId) || [])
+      .map((assignment) => assignment.updated_at)
+      .filter(Boolean)
+      .sort()
+      .at(-1) || null;
   res.writeHead(200, headers);
   return res.end(
     JSON.stringify({
@@ -196,6 +203,7 @@ async function listMedia(req, res, headers, supabase) {
           }),
         ),
         usages: referencesByTarget.get(slot.id) || [],
+        publishedAt: publishedAt(slot.id),
       })),
       websiteSlots: (websiteSlots || []).map((slot) => ({
         id: slot.id,
@@ -211,6 +219,7 @@ async function listMedia(req, res, headers, supabase) {
           }),
         ),
         usages: referencesByTarget.get(slot.id) || [],
+        publishedAt: publishedAt(slot.id),
       })),
       references: (references || []).map((reference) => ({
         id: reference.id,

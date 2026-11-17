@@ -71,6 +71,22 @@ describe("direct media transfer", () => {
     expect(FakeXHR.last.abort).toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
   });
+  it("sends the checked content type when the browser reports none", async () => {
+    const untyped = new File(["image"], "IMG_0001.HEIC", { type: "" });
+    const promise = uploadMediaFile(
+      "https://upload.example/signed",
+      untyped,
+      vi.fn(),
+      new AbortController().signal,
+      "image/heic",
+    );
+    expect(FakeXHR.last.setRequestHeader).toHaveBeenCalledWith(
+      "Content-Type",
+      "image/heic",
+    );
+    FakeXHR.last.onload?.();
+    await promise;
+  });
   it("stops a transfer that makes no progress for a minute", async () => {
     const promise = uploadMediaFile(
       "https://upload.example/signed",
