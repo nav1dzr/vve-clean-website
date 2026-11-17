@@ -58,12 +58,17 @@ export function getStoredConsent(): StoredConsent | null {
     const parsed = JSON.parse(raw) as Partial<StoredConsent>;
     if (parsed.version !== CONSENT_VERSION) return null; // policy changed — re-prompt
     if (typeof parsed.analytics !== 'boolean' || typeof parsed.advertising !== 'boolean') return null;
+    // Never manufacture proof for an incomplete or corrupt saved choice.
+    if (typeof parsed.timestamp !== 'string') return null;
+    const timestamp = Date.parse(parsed.timestamp);
+    if (!Number.isFinite(timestamp) || timestamp > Date.now() + 60000 ||
+        new Date(timestamp).toISOString() !== parsed.timestamp) return null;
     return {
       analytics: parsed.analytics,
       advertising: parsed.advertising,
       choice: parsed.choice ?? 'custom',
       version: parsed.version,
-      timestamp: parsed.timestamp ?? new Date().toISOString(),
+      timestamp: parsed.timestamp,
     };
   } catch {
     return null; // storage unavailable or corrupt — treat as not-yet-decided
