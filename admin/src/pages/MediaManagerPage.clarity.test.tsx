@@ -189,7 +189,7 @@ describe("file checks before upload", () => {
     const problems = within(screen.getByRole("alert", { name: "Files that cannot be uploaded" }));
     expect(problems.getByText(/2 files cannot be uploaded/)).toBeInTheDocument();
     expect(problems.getByText(/not supported/)).toBeInTheDocument();
-    expect(problems.getByText(/41 MB/)).toBeInTheDocument();
+    expect(problems.getByText(/The limit is 20 MB/)).toBeInTheDocument();
     mocks.upload.mockResolvedValue(undefined);
     fireEvent.click(screen.getByRole("button", { name: "Upload selected files" }));
     await waitFor(() => expect(mocks.upload).toHaveBeenCalledTimes(1));

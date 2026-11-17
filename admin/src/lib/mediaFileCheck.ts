@@ -13,7 +13,9 @@ const TYPES: Record<string, { kind: "photo" | "video"; extensions: string[] }> =
   "video/webm": { kind: "video", extensions: ["webm"] },
 };
 
-export const MAX_PHOTO_BYTES = 40 * 1024 * 1024;
+// Cloudflare Images accepts a maximum 20 MB source; use decimal bytes so the
+// browser cannot accept a file that the image-processing provider will reject.
+export const MAX_PHOTO_BYTES = 20_000_000;
 export const MAX_VIDEO_BYTES = 500 * 1024 * 1024;
 export const MEDIA_ACCEPT = Object.keys(TYPES).join(",");
 
@@ -68,7 +70,9 @@ export function checkMediaFile(
   if (file.size > limit)
     return {
       ok: false,
-      reason: `This ${rule.kind} is ${formatFileSize(file.size)}. The limit is ${formatFileSize(limit)}; export a smaller copy.`,
+      reason: rule.kind === "photo"
+        ? "This photo is too large. The limit is 20 MB; export a smaller copy."
+        : `This video is ${formatFileSize(file.size)}. The limit is ${formatFileSize(limit)}; export a smaller copy.`,
     };
   return { ok: true, kind: rule.kind, contentType };
 }

@@ -16,6 +16,7 @@ vi.mock("../api/_lib/supabaseAdmin.js", () => ({
 vi.mock("../api/_lib/mediaConfig.js", () => ({
   getMediaConfig: mocks.config,
   originalExists: mocks.exists,
+  inspectOriginal: async (...args) => ({ status: await mocks.exists(...args) ? 'verified' : 'missing' }),
   createUploadUrl: mocks.upload,
   createDownloadUrl: vi.fn(),
   createImageDeliveryTemplate: vi.fn(
@@ -306,7 +307,9 @@ describe("authenticated atomic media publication", () => {
   it("completed retries are idempotent and cannot overwrite a ready original", async () => {
     expect((await call({ action: "complete" })).statusCode).toBe(200);
     expect(mocks.config).not.toHaveBeenCalled();
-    expect((await call({ action: "retry-upload" })).statusCode).toBe(409);
+    const retry = await call({ action: "retry-upload" });
+    expect(retry.statusCode).toBe(200);
+    expect(retry.body).toEqual({ id: A, alreadyStored: true });
     expect(mocks.upload).not.toHaveBeenCalled();
   });
   it("keeps a failed transfer recoverable in the saved library", async () => {

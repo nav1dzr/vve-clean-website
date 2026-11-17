@@ -71,6 +71,16 @@ describe("direct media transfer", () => {
     expect(FakeXHR.last.abort).toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
   });
+  it("allows the caller to verify an original already accepted by storage instead of re-uploading it", async () => {
+    const progress = vi.fn();
+    const promise = uploadMediaFile("https://upload.example/signed", file, progress, new AbortController().signal);
+    FakeXHR.last.status = 412;
+    FakeXHR.last.onload?.();
+    await expect(promise).resolves.toBeUndefined();
+    expect(FakeXHR.last.send).toHaveBeenCalledTimes(1);
+    expect(progress).toHaveBeenLastCalledWith(100);
+    expect(vi.getTimerCount()).toBe(0);
+  });
   it("sends the checked content type when the browser reports none", async () => {
     const untyped = new File(["image"], "IMG_0001.HEIC", { type: "" });
     const promise = uploadMediaFile(

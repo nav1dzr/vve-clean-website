@@ -129,7 +129,7 @@ describe("media manager recovery", () => {
     );
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Upload selected files" }),
+        screen.getByRole("button", { name: "Retry remaining files" }),
       ).toBeEnabled(),
     );
     expect(screen.getByRole("alert")).toHaveTextContent("Retry this file");

@@ -50,15 +50,15 @@ export function uploadMediaFile(
         onProgress(Math.round((event.loaded / event.total) * 100));
     };
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
+      // A retry can race with a completed PUT. Do not overwrite the original or
+      // keep retrying it: the caller must still verify it with action=complete.
+      if ((xhr.status >= 200 && xhr.status < 300) || xhr.status === 412) {
         onProgress(100);
         finish();
       } else
         finish(
           new Error(
-            xhr.status === 412
-              ? "This original is already stored. Use Retry processing in the library."
-              : `Upload did not finish (${xhr.status}). Retry to obtain a fresh upload link.`,
+            `Upload did not finish (${xhr.status}). Retry to obtain a fresh upload link.`,
           ),
         );
     };
