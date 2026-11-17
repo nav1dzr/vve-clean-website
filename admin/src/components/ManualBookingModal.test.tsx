@@ -61,9 +61,10 @@ describe('manual booking payment choice', () => {
     render(<ManualBookingModal ownerId="owner-test" customerId="customer-test" customerEmail={null} onClose={() => {}} onCreate={create} />);
     await user.type(screen.getByLabelText(/Service \*/), 'Carpet cleaning');
     await user.selectOptions(screen.getByLabelText(/Payment arrangement/), 'after_clean');
+    await user.selectOptions(screen.getByLabelText('How did this booking come in?'), 'phone');
     await user.type(screen.getByLabelText(/Email for booking confirmation/), 'local@example.invalid');
     await user.click(screen.getByRole('button', { name: /^Create booking$/ }));
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({ email: 'local@example.invalid' }));
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ email: 'local@example.invalid', source: 'phone', paymentPlan: 'after_clean' }));
   });
   it('restores an uncertain save after remount and retries the exact original operation', async () => {
     const user = userEvent.setup();

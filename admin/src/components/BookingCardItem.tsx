@@ -30,6 +30,7 @@ export default function BookingCardItem({ booking }: { booking: BookingCard }) {
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <StatusBadge {...appointmentStatusBadge(booking)} />
+          {booking.isTest && <StatusBadge label="Test record" className="bg-amber-100 text-amber-900" />}
           {booking.awaitingAvailabilityReview ? (
             <StatusBadge label="Check availability" className="bg-sky-100 text-sky-900" />
           ) : (

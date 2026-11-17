@@ -93,6 +93,7 @@ export interface MediaReference {
 }
 
 export interface MediaLibrary {
+  unpublishEnabled?: boolean;
   assets: MediaAsset[];
   topics: GalleryTopic[];
   gallerySlots: GallerySlot[];

@@ -5,6 +5,7 @@ import type { BookingListResponse } from '../types/booking';
 import {
   BOOKING_STATUS_VALUES, PAYMENT_STATUS_VALUES, BALANCE_STATUS_VALUES, SORT_VALUES, type SortValue,
 } from '../types/booking';
+import { MANUAL_BOOKING_SOURCES } from '../lib/manualBookingSource';
 import BookingCardItem from '../components/BookingCardItem';
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
@@ -21,6 +22,16 @@ const SORT_LABELS: Record<SortValue, string> = {
 };
 
 const PAGE_SIZE = 20;
+const SERVICE_GROUP_OPTIONS = [
+  { value: '', label: 'All services' },
+  { value: 'end_of_tenancy', label: 'End of tenancy' },
+  { value: 'carpet_upholstery', label: 'Carpet, sofa and upholstery' },
+  { value: 'after_builders', label: 'After builders' },
+  { value: 'move_in', label: 'Move-in deep clean' },
+  { value: 'window', label: 'Window cleaning' },
+  { value: 'gutter', label: 'Gutter clearing' },
+  { value: 'office', label: 'Office cleaning' },
+];
 
 type State =
   | { status: 'loading' }
@@ -33,6 +44,9 @@ function readFilters(params: URLSearchParams) {
     paymentStatus: params.get('paymentStatus') || '',
     balanceStatus: params.get('balanceStatus') || '',
     service: params.get('service') || '',
+    serviceGroup: params.get('serviceGroup') || '',
+    bookingOrigin: params.get('bookingOrigin') || '',
+    records: params.get('records') || 'live',
     source: params.get('source') || '',
     postcode: params.get('postcode') || '',
     dateFrom: params.get('dateFrom') || '',
@@ -58,7 +72,10 @@ export default function BookingListPage() {
     if (filters.status) qs.set('status', filters.status);
     if (filters.paymentStatus) qs.set('paymentStatus', filters.paymentStatus);
     if (filters.balanceStatus) qs.set('balanceStatus', filters.balanceStatus);
-    if (filters.service) qs.set('service', filters.service);
+    if (filters.serviceGroup) qs.set('serviceGroup', filters.serviceGroup);
+    else if (filters.service) qs.set('service', filters.service);
+    if (filters.bookingOrigin) qs.set('bookingOrigin', filters.bookingOrigin);
+    qs.set('records', filters.records);
     if (filters.source) qs.set('source', filters.source);
     if (filters.postcode) qs.set('postcode', filters.postcode);
     if (filters.dateFrom) qs.set('dateFrom', filters.dateFrom);
@@ -87,6 +104,7 @@ export default function BookingListPage() {
     const next = new URLSearchParams(searchParams);
     if (value) next.set(key, value);
     else next.delete(key);
+    if (key === 'serviceGroup') next.delete('service');
     next.delete('page');
     setSearchParams(next);
   }
@@ -122,11 +140,11 @@ export default function BookingListPage() {
         }`}
       >
         <FilterSelect
-          label="Status"
+          label="Internal job status"
           value={filters.status}
           onChange={(v) => updateFilter('status', v)}
           options={[
-            { value: '', label: 'All statuses' },
+            { value: '', label: 'All internal statuses' },
             ...BOOKING_STATUS_VALUES.map((s) => ({ value: s, label: bookingStatusBadge(s).label })),
           ]}
         />
@@ -148,8 +166,13 @@ export default function BookingListPage() {
             ...BALANCE_STATUS_VALUES.map((s) => ({ value: s, label: balanceStatusBadge(s).label })),
           ]}
         />
-        <TextFilter label="Service" value={filters.service} onChange={(v) => updateFilter('service', v)} placeholder="e.g. end_of_tenancy" />
-        <TextFilter label="Source" value={filters.source} onChange={(v) => updateFilter('source', v)} placeholder="e.g. google" />
+        <FilterSelect label="Service" value={filters.serviceGroup} onChange={(value) => updateFilter('serviceGroup', value)} options={SERVICE_GROUP_OPTIONS} />
+        {filters.service && !filters.serviceGroup && <TextFilter label="Exact service (saved filter)" value={filters.service} onChange={(value) => updateFilter('service', value)} />}
+        <FilterSelect label="Manual booking source" value={filters.bookingOrigin} onChange={(value) => updateFilter('bookingOrigin', value)}
+          options={[{ value: '', label: 'Any manual source or website' }, ...MANUAL_BOOKING_SOURCES]} />
+        <TextFilter label="Marketing source" value={filters.source} onChange={(v) => updateFilter('source', v)} placeholder="e.g. google" />
+        <FilterSelect label="Records" value={filters.records} onChange={(value) => updateFilter('records', value)}
+          options={[{ value: 'live', label: 'Customer bookings' }, { value: 'test', label: 'Test records only' }, { value: 'all', label: 'Customer and test records' }]} />
         <TextFilter label="Postcode" value={filters.postcode} onChange={(v) => updateFilter('postcode', v)} placeholder="e.g. N15" />
         <DateFilter label="From" value={filters.dateFrom} onChange={(v) => updateFilter('dateFrom', v)} />
         <DateFilter label="To" value={filters.dateTo} onChange={(v) => updateFilter('dateTo', v)} />
@@ -177,7 +200,7 @@ export default function BookingListPage() {
           />
           Show superseded (abandoned) bookings
         </label>
-        <p className="text-xs text-navy-700 sm:col-span-3 lg:col-span-4">Deposit status does not show whether the full job has been paid. For no-deposit bookings, leave Deposit status on All and use Balance status.</p>
+        <p className="text-xs text-navy-700 sm:col-span-3 lg:col-span-4">The internal status filter uses the job record. The appointment column shows the customer agreement stage when available. Use Balance status to see what remains to be paid.</p>
       </div>
 
       {state.status === 'loading' && <CardListSkeleton count={5} />}
@@ -223,7 +246,7 @@ export default function BookingListPage() {
                     <th className="px-4 py-2.5 font-medium">Postcode</th>
                     <th className="px-4 py-2.5 font-medium">Service</th>
                     <th className="px-4 py-2.5 font-medium">Date</th>
-                    <th className="px-4 py-2.5 font-medium">Status</th>
+                    <th className="px-4 py-2.5 font-medium">Appointment</th>
                     <th className="px-4 py-2.5 font-medium">Deposit</th>
                     <th className="px-4 py-2.5 font-medium">Balance</th>
                     <th className="px-4 py-2.5 text-right font-medium">Value</th>
@@ -243,6 +266,7 @@ export default function BookingListPage() {
                           <Link to={`/bookings/${b.id}`} className="font-medium text-navy-950 hover:text-sky-600">
                             {b.fullName || 'Name not recorded'}
                           </Link>
+                          {b.isTest && <span className="mt-1 block text-xs font-medium text-amber-900">Test record</span>}
                         </td>
                         <td className="px-4 py-2.5">{b.postcode || '—'}</td>
                         <td className="px-4 py-2.5">{b.service || '—'}</td>

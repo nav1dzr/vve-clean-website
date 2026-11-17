@@ -8,6 +8,10 @@ import {
 } from "react";
 
 import { authFetch } from "../lib/authFetch";
+import { useAuth } from "../auth/useAuth";
+import BulkMediaEditor from "../components/BulkMediaEditor";
+import MediaNavigationGuard from "../components/MediaNavigationGuard";
+import { clearMediaDetailsDraft, readMediaDetailsDraft, saveMediaDetailsDraft, type MediaDetails } from "../lib/mediaDraftRecovery";
 
 import { uploadMediaFile } from "../lib/mediaUpload";
 import { mediaCaptionPresets, type MediaCaptionPreset } from "../lib/mediaCaptionPresets";
@@ -111,11 +115,20 @@ type History = {
 type Progress = { name: string; percent: number; stage: string };
 
 export default function MediaManagerPage() {
+  const { admin } = useAuth();
+  return <MediaManagerContent key={admin?.id || 'signed-out'} ownerId={admin?.id || ''} />;
+}
+
+function MediaManagerContent({ ownerId }: { ownerId: string }) {
+  const [savedDraft, setSavedDraft] = useState(() => readMediaDetailsDraft(ownerId));
   const [positionPage, setPositionPage] = useState("all");
   const [showUnconnected, setShowUnconnected] = useState(false);
   const [library, setLibrary] = useState<MediaLibrary | null>(null);
 
   const [tab, setTab] = useState("uploads");
+  const [bulkIds, setBulkIds] = useState<string[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkDirty, setBulkDirty] = useState(false);
 
   const [topic, setTopic] = useState<MediaCategory>("carpet");
 
@@ -138,6 +151,7 @@ export default function MediaManagerPage() {
   const [review, setReview] = useState<Review | null>(null);
 
   const [history, setHistory] = useState<History[]>([]);
+  const [removal, setRemoval] = useState<{ expected: MediaAssignment[]; impact: MediaUsage[] } | null>(null);
 
   const [editor, setEditor] = useState<MediaAsset | null>(null);
   const [editorDirty, setEditorDirty] = useState(false);
@@ -158,7 +172,7 @@ export default function MediaManagerPage() {
 
   const inFlight = useRef(false);
   const editing = useRef(false);
-  editing.current = Boolean(target || editor);
+  editing.current = Boolean(target || editor || bulkOpen);
   const retryIds = useRef(new Map<string, string>());
 
   const topicRef = useRef(topic);
@@ -220,19 +234,12 @@ export default function MediaManagerPage() {
     editorContainer.current?.scrollIntoView?.({ block: "start" });
   }, [editor]);
 
-  useEffect(() => {
-    if (!editorDirty) return;
-    const protectReload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", protectReload);
-    return () => window.removeEventListener("beforeunload", protectReload);
-  }, [editorDirty]);
 
   function leaveEditor(action: () => void) {
     if (editor && busy) return;
     if (editorDirty && !window.confirm("Discard your unsaved media details? Choose Cancel to keep editing, or OK to discard them.")) return;
+    if (editor) clearMediaDetailsDraft(ownerId, editor.id);
+    setSavedDraft(readMediaDetailsDraft(ownerId));
     setEditorDirty(false);
     setEditor(null);
     action();
@@ -432,13 +439,16 @@ export default function MediaManagerPage() {
     selectionVersion.current += 1;
     setTarget(null);
     setReview(null);
+    setRemoval(null);
     setHistory([]);
   }
 
   function chooseTarget(next: Target) {
+    if (selectionDirty && !window.confirm("Discard this unpublished position selection?")) return;
     const version = ++targetVersion.current;
     selectionVersion.current += 1;
     setTarget(next);
+    setRemoval(null);
     setSelection(next.assignments.map((assignment) => ({ ...assignment })));
     setReview(null);
     setHistory([]);
@@ -448,10 +458,9 @@ export default function MediaManagerPage() {
 
     window.scrollTo({ top: 0, behavior: "smooth" });
 
-    const anchorId = next.assignments[0]?.assetId;
+    const anchorId = next.id;
 
-    if (anchorId)
-      void authFetch<{ history: History[] }>(`${api}&id=${anchorId}`, {
+    void authFetch<{ history: History[] }>(`${api}&id=${anchorId}`, {
         method: "POST",
         body: JSON.stringify({
           action: "history",
@@ -460,7 +469,10 @@ export default function MediaManagerPage() {
         }),
       })
         .then((result) => {
-          if (version === targetVersion.current) setHistory(result.history);
+          if (version === targetVersion.current) {
+            if (Array.isArray(result.history)) setHistory(result.history);
+            else setError("Position history could not be loaded. Retry this position before restoring an earlier version.");
+          }
         })
         .catch((err) => {
           if (version === targetVersion.current) setError(explain(err));
@@ -472,7 +484,8 @@ export default function MediaManagerPage() {
       if (!target) return;
       const version = selectionVersion.current;
 
-      const anchor = selection[0]?.assetId || target.assignments[0]?.assetId;
+      const anchor = selection[0]?.assetId || target.assignments[0]?.assetId
+        || (historyId ? target.id : undefined);
 
       if (!anchor)
         throw new Error("Choose media for every part of this position.");
@@ -514,6 +527,30 @@ export default function MediaManagerPage() {
     });
   }
 
+  async function reviewRemoval() {
+    await run(async () => {
+      if (!target) return;
+      const version = targetVersion.current;
+      const result = await authFetch<{ expected: MediaAssignment[]; impact: MediaUsage[] }>(api + '&id=' + target.id, {
+        method: 'POST', body: JSON.stringify({ action: 'unpublish', targetType: target.type, targetId: target.id, preview: true }),
+      });
+      if (version === targetVersion.current) { setReview(null); setRemoval(result); }
+    });
+  }
+
+  async function removePublication() {
+    await run(async () => {
+      if (!target || !removal) return;
+      await authFetch(api + '&id=' + target.id, {
+        method: 'POST', body: JSON.stringify({ action: 'unpublish', targetType: target.type, targetId: target.id,
+          expected: removal.expected, confirm: true }),
+      });
+      clearTarget();
+      setNotice("Position removed from publication. Previous media is available in position history.");
+      await load();
+    });
+  }
+
   async function publish() {
     await run(async () => {
       if (!target || !review) return;
@@ -539,8 +576,35 @@ export default function MediaManagerPage() {
     });
   }
 
+  const selectionDirty = target !== null && JSON.stringify([...selection].sort((a,b) => a.role.localeCompare(b.role)))
+    !== JSON.stringify([...target.assignments].sort((a,b) => a.role.localeCompare(b.role)));
+  const unsaved = editorDirty || selectionDirty || files.length > 0 || bulkDirty || removal !== null;
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <MediaNavigationGuard dirty={unsaved} busy={busy} />
+      {bulkOpen && <BulkMediaEditor assets={allAssets.filter((asset) => bulkIds.includes(asset.id))}
+        onDirtyChange={setBulkDirty} onBusyChange={setBusy} onClose={() => {
+          setBulkOpen(false); setBulkDirty(false); setBulkIds([]);
+          void load().catch((err) => setError(explain(err)));
+        }} />}
+      {savedDraft && !editor && <section className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-navy-900">
+        <h2 className="font-semibold">Unsaved media details on this browser</h2>
+        <p className="mt-1">Open the saved item to review and restore your wording.</p>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <button className={button} disabled={busy} onClick={() => void run(async () => {
+            const result = await authFetch<{ asset: MediaAsset }>(api + '&id=' + savedDraft.assetId, {
+              method: 'POST', body: JSON.stringify({ action: 'details' }),
+            });
+            setTab('uploads');
+            setEditor(result.asset);
+          })}>Review saved details</button>
+          <button className={button} disabled={busy} onClick={() => {
+            clearMediaDetailsDraft(ownerId, savedDraft.assetId);
+            setSavedDraft(null);
+          }}>Discard saved details</button>
+        </div>
+      </section>}
       <header className="mb-6">
         <p className="text-sm font-semibold text-sky-700">
           Your shared photo and video library
@@ -613,6 +677,7 @@ export default function MediaManagerPage() {
           value={topic}
           onChange={(event) => {
             const category = event.target.value as MediaCategory;
+            if (selectionDirty && !window.confirm("Discard this unpublished position selection?")) return;
             leaveEditor(() => {
             topicRef.current = category;
             loadVersion.current += 1;
@@ -620,6 +685,7 @@ export default function MediaManagerPage() {
             setLibrary(null);
             setError("");
             setTopic(category);
+            setBulkIds([]);
             setPositionPage("all");
             clearTarget();
             });
@@ -747,7 +813,11 @@ export default function MediaManagerPage() {
                     </div>
                   )}
                   {target.assignments.length > 0 && !targetUnavailable && (
-                    <p className="mt-4 text-sm leading-6 text-navy-700">To change what appears, replace the selection below or use a previous version when available. Removing a published position without a replacement is not available yet.</p>
+                    <div className="mt-4 text-sm leading-6 text-navy-700">
+                      <p>Replace the selection below or preview an earlier version from position history.</p>
+                      {library?.unpublishEnabled && <button className={button + ' mt-2'} disabled={busy}
+                        onClick={() => void reviewRemoval()}>Remove this position from the website</button>}
+                    </div>
                   )}
 
                   <div className="mt-5 rounded-xl border border-silver-300 bg-white p-4">
@@ -755,6 +825,15 @@ export default function MediaManagerPage() {
                     {target.assignments.length ? <div className="grid gap-3 sm:grid-cols-2">{target.assignments.map(assignment => <Preview key={assignment.role} asset={byId.get(assignment.assetId)} label={assignment.role} />)}</div> : target.type === "website" ? <DefaultPhoto usages={target.usages} /> : <p className="text-sm text-navy-700">This is an additional gallery position. Existing built-in gallery photos remain. Publishing may also change the leading service photo; review every connected page below.</p>}
                     <UsageList usages={target.usages} heading="Check these pages" />
                   </div>
+                  {removal && <section aria-label="Remove published position" className="mt-4 rounded-xl border border-amber-300 bg-white p-4">
+                    <h3 className="font-semibold">Review removal</h3>
+                    <UsageList usages={removal.impact} heading="Affected pages" />
+                    <p className="mt-2 text-sm leading-6">This CRM position will stop appearing. Pages may use another published result or a built-in photo. Gallery photos supplied with the website remain visible. The files stay in your library, and you can restore the previous selection from history.</p>
+                    <div className="mt-3 flex flex-wrap gap-3">
+                      <button className={button} disabled={busy} onClick={() => setRemoval(null)}>Keep published</button>
+                      <button className={primary} disabled={busy} onClick={() => void removePublication()}>Confirm removal</button>
+                    </div>
+                  </section>}
                   <h3 className="mt-5 font-semibold">Your proposed replacement or addition</h3>
                   {(target.kind === "before_after"
                     ? ["before", "after"]
@@ -785,6 +864,7 @@ export default function MediaManagerPage() {
                             },
                           ]);
                           setReview(null);
+                          setRemoval(null);
                         }}
                       >
                         <option value="">Choose ready media…</option>
@@ -833,7 +913,9 @@ export default function MediaManagerPage() {
                     </button>
                     <button
                       className={button}
-                      onClick={clearTarget}
+                      onClick={() => {
+                        if (!selectionDirty || window.confirm("Discard this unpublished position selection?")) clearTarget();
+                      }}
                     >
                       Close position
                     </button>
@@ -969,6 +1051,7 @@ export default function MediaManagerPage() {
                 <MetadataEditor
                   key={editor.id}
                   asset={editor}
+                  ownerId={ownerId}
                   busy={busy}
                   onDirtyChange={setEditorDirty}
                   onClose={() => leaveEditor(() => {})}
@@ -981,6 +1064,8 @@ export default function MediaManagerPage() {
                           updatedAt: editor.updatedAt,
                         }),
                       });
+                      clearMediaDetailsDraft(ownerId, editor.id);
+                      setSavedDraft(null);
                       setEditorDirty(false);
                       setEditor(null);
                       setNotice("Caption and details saved.");
@@ -996,6 +1081,9 @@ export default function MediaManagerPage() {
                   <h2 className="text-xl font-semibold text-navy-950">
                     Your media library
                   </h2>
+                  <button className={button} disabled={busy || !bulkIds.length} onClick={() => leaveEditor(() => setBulkOpen(true))}>
+                    Edit selected details ({bulkIds.length}/10)
+                  </button>
                   <label className="text-sm font-semibold">
                     Show
                     <select
@@ -1031,6 +1119,13 @@ export default function MediaManagerPage() {
                         }
                       />
                       <div className="p-4">
+                        {asset.status === "ready" && <label className="mb-3 flex min-h-11 items-center gap-2 text-sm font-semibold">
+                          <input type="checkbox" checked={bulkIds.includes(asset.id)}
+                            disabled={busy || (!bulkIds.includes(asset.id) && bulkIds.length >= 10)}
+                            onChange={(event) => setBulkIds((current) => event.target.checked
+                              ? [...current, asset.id] : current.filter((id) => id !== asset.id))} />
+                          Select {asset.filename} for editing
+                        </label>}
                         <h3 className="font-semibold text-navy-950">
                           {asset.title || "Caption needed"}
                         </h3>
@@ -1291,18 +1386,25 @@ function WebsiteCard({
 
 function MetadataEditor({
   asset,
+  ownerId,
   busy,
   onClose,
   onSave,
   onDirtyChange,
 }: {
   asset: MediaAsset;
+  ownerId: string;
   busy: boolean;
   onClose: () => void;
-  onSave: (values: Record<string, string>) => void;
+  onSave: (values: MediaDetails) => void;
   onDirtyChange: (dirty: boolean) => void;
 }) {
-  const [values, setValues] = useState({
+  const [recovery, setRecovery] = useState(() => {
+    const draft = readMediaDetailsDraft(ownerId);
+    return draft?.assetId === asset.id ? draft : null;
+  });
+  const [storageFailed, setStorageFailed] = useState(false);
+  const [values, setValues] = useState<MediaDetails>({
     title: asset.title,
     altText: asset.altText,
     category: asset.category,
@@ -1316,7 +1418,10 @@ function MetadataEditor({
   const suggestions = mediaCaptionPresets(values.category, values.beforeAfter, asset.mediaType);
   const suggestion = suggestions.find((item) => item.id === presetId) || suggestions[0];
   const dirty = Object.entries(values).some(([key, value]) => value !== asset[key as keyof typeof values]);
-  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
+  useEffect(() => {
+    onDirtyChange(dirty);
+    if (dirty) setStorageFailed(!saveMediaDetailsDraft(ownerId, { assetId: asset.id, baseVersion: asset.updatedAt, values }));
+  }, [dirty, onDirtyChange, ownerId, asset.id, asset.updatedAt, values]);
 
   useEffect(() => {
     setValues({
@@ -1350,6 +1455,18 @@ function MetadataEditor({
       <h2 tabIndex={-1} className="text-xl font-semibold text-navy-950">
         Describe this media
       </h2>
+      {recovery && <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm">
+        <p>{recovery.baseVersion === asset.updatedAt
+          ? 'Your unsaved wording is available to restore.'
+          : 'This media changed since your draft. Restore your wording for review and compare it with the current media before saving.'}</p>
+        <button type="button" className={button + ' mt-2'} disabled={busy} onClick={() => {
+          setValues(recovery.values); setRecovery(null);
+        }}>Restore wording for review</button>
+        <button type="button" className={button + ' ml-2 mt-2'} disabled={busy} onClick={() => {
+          clearMediaDetailsDraft(ownerId, asset.id); setRecovery(null);
+        }}>Keep current details</button>
+      </div>}
+      {storageFailed && <p role="alert" className="mt-3 text-sm text-amber-950">This browser could not keep a recovery copy. Save your details before leaving.</p>}
       <p className="mt-2 text-sm text-navy-700">
         Describe only what the media shows. Add an area only when known and
         approved for publication. Caption edits update its published uses.

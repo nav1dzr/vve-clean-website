@@ -1,3 +1,4 @@
+import ApplyBookingPaymentModal from '../components/ApplyBookingPaymentModal';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { authFetch, authFetchBlob, ApiError } from '../lib/authFetch';
@@ -40,6 +41,8 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
   const navigate = useNavigate();
   const { admin } = useAuth();
   const adminId = admin?.id;
+  const [allocationOpen, setAllocationOpen] = useState(false);
+  const [allocationNotice, setAllocationNotice] = useState<string | null>(null);
   const [draftDirty, setDraftDirty] = useState(false);
   const [draftConflict, setDraftConflict] = useState(false);
   const [hasPendingPayment, setHasPendingPayment] = useState(false);
@@ -520,6 +523,8 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
         <p role="alert" className="mb-3 text-sm text-red-600">{actionError}</p>
       )}
 
+      {allocationNotice && <p role="status" className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900">{allocationNotice}</p>}
+
       {inv.bookingId && inv.documentStatus === 'issued' && !isSuperseded && (
         <BookingBalancePaymentNotice bookingId={inv.bookingId} accountId={adminId} invoice={inv} />
       )}
@@ -643,6 +648,9 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
 
             {!isSuperseded && (
               <ActionGroup title="Payment">
+                {inv.bookingId && inv.bookingPaymentAllocationEnabled && adminId && (
+                  <ActionButton label="Apply existing booking payment" onClick={() => setAllocationOpen(true)} disabled={busy} />
+                )}
             {!isSuperseded && (
               <ActionButton label="Record payment" onClick={() => setModal('payment')} disabled={busy || inv.amountDue <= 0} primary />
             )}
@@ -707,7 +715,7 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
                   <p className={`text-sm font-medium ${p.reversedAt ? 'text-navy-500 line-through' : 'text-navy-950'}`}>
                     {formatMoney(p.amount)} · {invoicePaymentMethodLabel(p.method)}
                   </p>
-                  {!p.reversedAt && (
+                  {!p.reversedAt && !p.bookingAllocation && (
                     <button type="button" onClick={() => void handleReversePayment(p.id)} className="text-xs text-red-700 hover:underline">
                       Reverse
                     </button>
@@ -715,6 +723,7 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
                 </div>
                 <p className="text-xs text-navy-500">
                   {p.paymentDate} {p.reference ? `· ${p.reference}` : ''}
+                  {p.bookingAllocation && <span className="block text-navy-700">Applied from the linked booking. Corrections require payment review.</span>}
                   {p.reversedAt ? ` · reversed: ${p.reversalReason || ''}` : ''}
                 </p>
               </li>
@@ -722,6 +731,17 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
           </ul>
         )}
       </Section>
+
+      {allocationOpen && inv.bookingId && inv.bookingPaymentAllocationEnabled && adminId && (
+        <ApplyBookingPaymentModal key={adminId + ':' + inv.id} invoiceId={inv.id} ownerId={adminId}
+          onClose={() => setAllocationOpen(false)} onApplied={(result) => {
+            setAllocationOpen(false);
+            setAllocationNotice(result.receiptId
+              ? 'Booking payment applied. The paid receipt is ready to view.'
+              : 'Booking payment applied. Check the receipt status below.');
+            load();
+          }} />
+      )}
 
       <Section title="History">
         {eventsError && <div role="alert" className="text-sm text-navy-700">

@@ -3,12 +3,12 @@ import { corsHeaders } from '../_lib/cors.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
 import { readJsonBody } from '../_lib/body.js';
 import completionReportHandler from '../_lib/completionReportRoute.js';
-import { sanitiseFreeTextFilter } from '../_lib/normalise.js';
+import { isValidEmail, sanitiseFreeTextFilter } from '../_lib/normalise.js';
 import {
   CUSTOMER_TYPE_VALUES, CUSTOMER_SOURCE_VALUES, CUSTOMER_SORT_VALUES,
   toCustomerCard, toCustomerDetail,
 } from '../_lib/customerFields.js';
-import { createCustomer, listCustomers } from '../_lib/customerLifecycle.js';
+import { createCustomer, findDuplicateWarnings, listCustomers, normalisePhoneForDedup } from '../_lib/customerLifecycle.js';
 
 export const config = { api: { bodyParser: false }, maxDuration: 60 };
 
@@ -146,6 +146,10 @@ async function handleCreate(req, res, headers, supabase, auth) {
     return res.end(JSON.stringify({ error: err.message || 'Invalid request body' }));
   }
 
+  if (new URL(req.url, 'https://x').searchParams.get('action') === 'check-duplicates') {
+    return checkDuplicates(res, headers, supabase, body);
+  }
+
   const result = await createCustomer(supabase, body, auth.admin.id);
   if (!result.ok) {
     res.writeHead(result.status || 400, headers);
@@ -161,4 +165,25 @@ async function handleCreate(req, res, headers, supabase, auth) {
 
   res.writeHead(201, headers);
   return res.end(JSON.stringify({ ...toCustomerDetail(created), duplicateWarnings: result.duplicateWarnings }));
+}
+
+async function checkDuplicates(res, headers, supabase, body) {
+  const email = typeof body?.email === 'string' ? body.email.trim() : '';
+  const phone = typeof body?.phone === 'string' ? body.phone.trim() : '';
+  const phoneDigits = normalisePhoneForDedup(phone);
+  if ((!email && !phone) || email.length > 254 || (email && !isValidEmail(email))
+    || phone.length > 40 || (phone && (!phoneDigits || phoneDigits.length < 7))) {
+    res.writeHead(400, headers);
+    return res.end(JSON.stringify({ error: 'Enter a valid email address or phone number to check.' }));
+  }
+  try {
+    const warnings = await findDuplicateWarnings(supabase, { email, phone }, null, { requireComplete: true });
+    res.writeHead(200, headers);
+    return res.end(JSON.stringify({ warnings: warnings.slice(0, 10).map(({ type, customer }) => ({
+      type, customer: { id: customer.id, name: customer.name },
+    })) }));
+  } catch {
+    res.writeHead(503, headers);
+    return res.end(JSON.stringify({ error: 'Could not check existing contacts. Try again or search Customers.' }));
+  }
 }

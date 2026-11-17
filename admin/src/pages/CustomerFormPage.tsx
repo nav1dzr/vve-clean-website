@@ -4,6 +4,7 @@ import { authFetch, ApiError } from '../lib/authFetch';
 import type {
   CustomerDetail, CustomerDraftInput, CustomerCreateResponse, CustomerUpdateResponse, CustomerDuplicateWarning,
 } from '../types/customer';
+import { enquiryDetailsPath, type EnquiryBookingContext } from '../types/enquiry';
 import type { BookingDetail } from '../types/booking';
 import { CUSTOMER_TYPE_VALUES, CUSTOMER_SOURCE_VALUES, CUSTOMER_CONTACT_METHOD_VALUES } from '../types/customer';
 import { customerTypeLabel } from '../lib/format';
@@ -21,6 +22,11 @@ function emptyValue(): FormValue {
   return { name: '', email: '', phone: '', address: '', postcode: '', customerType: 'individual', source: 'other', preferredContactMethod: '', notes: '' };
 }
 
+type ContactMatch = {
+  type: CustomerDuplicateWarning['type'];
+  customer: Pick<CustomerDuplicateWarning['customer'], 'id' | 'name'>;
+};
+
 type LoadState = { key: string } & ({ status: 'ready' } | { status: 'loading' } | { status: 'error'; message: string });
 
 // /customers/new and /customers/:id/edit — the same form for both. Never
@@ -32,13 +38,20 @@ export default function CustomerFormPage() {
   const isEdit = Boolean(id);
   const [searchParams] = useSearchParams();
   const fromBookingId = !isEdit ? searchParams.get('fromBookingId') : null;
-  const loadKey = id ? `customer:${id}` : `booking:${fromBookingId || 'new'}`;
+  const fromEnquiryId = !isEdit && !fromBookingId ? searchParams.get('fromEnquiryId') : null;
+  const loadKey = id ? 'customer:' + id : fromEnquiryId ? 'enquiry:' + fromEnquiryId : 'booking:' + (fromBookingId || 'new');
   const navigate = useNavigate();
   const [value, setValue] = useState<FormValue>(emptyValue());
-  const [load, setLoad] = useState<LoadState>({ key: loadKey, status: isEdit || fromBookingId ? 'loading' : 'ready' });
+  const [load, setLoad] = useState<LoadState>({ key: loadKey, status: isEdit || fromBookingId || fromEnquiryId ? 'loading' : 'ready' });
   const [retry, setRetry] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [contactCheck, setContactCheck] = useState<{
+    key: string;
+    loading?: boolean;
+    warnings?: ContactMatch[];
+    error?: string;
+  } | null>(null);
   const [warnings, setWarnings] = useState<CustomerDuplicateWarning[]>([]);
   const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | undefined>();
   const [conflict, setConflict] = useState(false);
@@ -47,10 +60,11 @@ export default function CustomerFormPage() {
     let active = true;
     setError(null);
     setWarnings([]);
+    setContactCheck(null);
     setExpectedUpdatedAt(undefined);
     setConflict(false);
     setValue(emptyValue());
-    if (!id && !fromBookingId) {
+    if (!id && !fromBookingId && !fromEnquiryId) {
       setLoad({ key: loadKey, status: 'ready' });
       return () => { active = false; };
     }
@@ -65,7 +79,12 @@ export default function CustomerFormPage() {
           customerType: c.customerType, source: customerSourceChoice(c.source, c.notes), preferredContactMethod: c.preferredContactMethod || '', notes: c.notes || '',
         });
       })
-      : authFetch<BookingDetail>(`/api/bookings/${fromBookingId}`).then((b) => {
+      : fromEnquiryId
+        ? authFetch<EnquiryBookingContext>(enquiryDetailsPath(fromEnquiryId)).then(({ enquiry }) => {
+          if (!active) return;
+          setValue({ ...emptyValue(), name: enquiry.full_name, email: enquiry.email || '', phone: enquiry.phone || '', source: 'website' });
+        })
+        : authFetch<BookingDetail>(`/api/bookings/${fromBookingId}`).then((b) => {
         if (!active) return;
         // Prefill is a draft only; nothing is saved until the owner reviews it.
         setValue({
@@ -77,10 +96,30 @@ export default function CustomerFormPage() {
     void request.then(() => {
       if (active) setLoad({ key: loadKey, status: 'ready' });
     }).catch((err) => {
-      if (active) setLoad({ key: loadKey, status: 'error', message: err instanceof ApiError ? err.message : id ? 'Could not load this customer.' : 'Could not load the booking to prefill from.' });
+      if (active) setLoad({ key: loadKey, status: 'error', message: err instanceof ApiError ? err.message : id ? 'Could not load this customer.' : 'Could not load the source details.' });
     });
     return () => { active = false; };
-  }, [id, fromBookingId, loadKey, retry]);
+  }, [id, fromBookingId, fromEnquiryId, loadKey, retry]);
+
+  const email = value.email.trim();
+  const phone = value.phone.trim();
+  const contactKey = JSON.stringify([email, phone]);
+  const currentCheck = contactCheck?.key === contactKey ? contactCheck : null;
+
+  async function checkContacts() {
+    if (!email && !phone) return;
+    setContactCheck({ key: contactKey, loading: true });
+    try {
+      const { warnings } = await authFetch<{ warnings: ContactMatch[] }>('/api/customers?action=check-duplicates', {
+        method: 'POST',
+        body: JSON.stringify({ email, phone }),
+      });
+      setContactCheck((current) => current?.key === contactKey ? { key: contactKey, warnings } : current);
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Could not check existing contacts.';
+      setContactCheck((current) => current?.key === contactKey ? { key: contactKey, error: message } : current);
+    }
+  }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -220,6 +259,27 @@ export default function CustomerFormPage() {
           <button type="button" onClick={() => setRetry((attempt) => attempt + 1)} className="min-h-11 rounded-lg border border-amber-300 px-3 font-semibold">Discard edits and reload latest</button>
         </div>}
 
+        {!isEdit && (
+          <section className="mb-4 rounded-xl border border-silver-300 bg-white p-4 text-sm text-navy-800" aria-label="Existing customer check">
+            <p className="mb-2">Check the email or phone before saving if this might be a returning customer.</p>
+            <button type="button" onClick={() => void checkContacts()} disabled={submitting || !!currentCheck?.loading || (!email && !phone)}
+              className="min-h-11 rounded-lg border border-silver-300 px-3 font-semibold text-navy-950 disabled:opacity-50">
+              {currentCheck?.loading ? 'Checking…' : 'Check for an existing customer'}
+            </button>
+            {currentCheck?.error && <p role="alert" className="mt-2 text-red-700">{currentCheck.error}</p>}
+            {currentCheck?.warnings && <div role="status" className="mt-3">
+              {currentCheck.warnings.length ? <>
+                <p className="font-semibold">Possible matches</p>
+                <ul className="mt-1 space-y-1">
+                  {currentCheck.warnings.map(({ customer, type }) => <li key={customer.id + ':' + type}>
+                    <Link to={'/customers/' + customer.id} target="_blank" rel="noreferrer" className="font-semibold text-sky-700 underline">{customer.name}</Link>
+                    {' · matching ' + type + ' · opens in a new tab'}
+                  </li>)}
+                </ul>
+              </> : <p>No saved customer matched these contact details.</p>}
+            </div>}
+          </section>
+        )}
         <button type="submit" disabled={submitting || conflict} className="min-h-11 w-full rounded-lg bg-navy-950 px-4 text-sm font-semibold text-white transition-colors hover:bg-navy-900 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
           {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create customer'}
         </button>

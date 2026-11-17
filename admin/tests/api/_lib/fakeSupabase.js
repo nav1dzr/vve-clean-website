@@ -112,6 +112,7 @@ export function createFakeSupabase(initialData = {}) {
         return builder;
       },
       range(from, to) { rangeSpec = { from, to }; return builder; },
+      limit(count) { rangeSpec = { from: 0, to: count - 1 }; return builder; },
       insert(rowOrRows) {
         pendingInsert = Array.isArray(rowOrRows) ? rowOrRows : [rowOrRows];
         return builder;

@@ -71,6 +71,30 @@ describe('GET/POST /api/customers (list/create)', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it('checks an exact contact before saving and returns minimal match details', async () => {
+    const supabase = createFakeSupabase({
+      customers: [{ id: 'existing', name: 'Sample contact', email: 'existing@example.invalid', normalised_email: 'existing@example.invalid' }],
+    });
+    getServiceClientMock.mockReturnValue(supabase);
+    const res = makeRes();
+    await handler(makeReq({ url: '/api/customers?action=check-duplicates', method: 'POST',
+      bodyObj: { email: 'Existing@example.invalid' } }), res);
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ warnings: [{ type: 'email', customer: { id: 'existing', name: 'Sample contact' } }] });
+    expect(supabase._tables.customers).toHaveLength(1);
+  });
+
+  it('reports an unavailable contact lookup rather than implying there are no matches', async () => {
+    getServiceClientMock.mockReturnValue({ from: () => ({ select: () => ({
+      eq: async () => ({ error: { code: 'fixture_error' } }),
+    }) }) });
+    const res = makeRes();
+    await handler(makeReq({ url: '/api/customers?action=check-duplicates', method: 'POST',
+      bodyObj: { email: 'existing@example.invalid' } }), res);
+    expect(res.statusCode).toBe(503);
+    expect(JSON.parse(res.body)).not.toHaveProperty('warnings');
+  });
+
   it('creates a customer and returns duplicateWarnings', async () => {
     const supabase = createFakeSupabase({
       customers: [{ id: 'c-existing', name: 'Existing', email: 'dup@example.com', phone: null, postcode: null, normalised_email: 'dup@example.com', normalised_phone: null }],

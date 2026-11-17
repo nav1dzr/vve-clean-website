@@ -1,6 +1,6 @@
 # VVE website and CRM completion roadmap
 
-Updated 3 November 2026. This reconciles the October website PDF, website HTML audit, advertising handoff and CRM audit with releases through PR #62. Historical "not released" labels in older plans are not current status.
+Updated 5 November 2026. This reconciles the October website PDF, website HTML audit, advertising handoff and CRM audit with releases through PR #62. Historical "not released" labels in older plans are not current status.
 
 ## Delivery rules
 
@@ -36,40 +36,53 @@ Deliver:
 
 Acceptance: mocked deposit/balance/refund/failed-read/stale-response tests; issued-invoice regression; CRM types/lint/build/full suite; mobile/desktop synthetic component review.
 Files: admin/src/components/BookingBalancePaymentNotice.tsx; admin/src/lib/bookingPaymentReview.ts; admin/src/pages/InvoiceDetailPage.tsx; related tests.
-Status: implemented and validated locally; not pushed, merged or deployed.
+Status: released through approved PR #63, merge 7264263. Both production deployments verified Ready on that source; CRM live bundle contains the new review panel.
 
 Validation: 107 focused tests passed, then the full CRM suite passed with 1,317 tests and zero failures. TypeScript/lint/build passed; one existing Fast Refresh warning and the existing bundle-size warning remain. Synthetic component browser checks verified desktop, 390px layout, full refund and unavailable/retry states. No production provider or customer action was performed. The complete payment allocation/correction workflow remains Phase 1B.
 
-### 1B: Explicit allocation and correction — design before implementation
+### 1B: Apply a recorded booking balance
 
-Owner journey: open payment review > choose an existing payment and its linked invoice > see money already allocated/refunded and proposed resulting totals > explicitly confirm. This links evidence of received money; it never charges the customer or records another receipt of funds.
+The CRM review and transaction are implemented locally. The owner can apply a single recorded balance payment to settle its linked invoice and create its paid receipt. The workflow checks prior credits and requires confirmation of the original references. See BOOKING-INVOICE-ALLOCATION-DESIGN-2026-11-03.md for eligibility, validation and the release gate.
 
-Required design:
-- Immutable booking source-payment identity, explicit invoice linkage and bounded GBP pence amounts.
-- Database transaction locks + server-enforced uniqueness/idempotency to prevent concurrent or repeated allocation.
-- Treat an invoice's existing depositApplied and other payments as potentially representing existing funds. Block ambiguous historic matches for deliberate review; do not auto-match.
-- Multiple linked invoices, partial payments, revisions, voids, refunds and overpayments need explicit outcomes.
-- Preserve original bank-entry/payment rows. Corrections append attributed reasons and compensating records rather than deleting history.
-- Invoice receipt/PDF policy: keep issued historical documents, generate a new version only through the approved lifecycle, reconcile uncertain storage/email outcomes.
-- Stripe refunds and checkout behavior stay outside this work.
-- No automatic replay, historic migration or bulk allocation.
-
-Acceptance: disposable database transaction/concurrency tests, partial/refund/revision scenarios, no duplicate money or receipt, API authorization and owner preview. Review exact migration and write scope before any production exception.
-Decision checkpoint: approve the proposed correction/allocation behavior and specific release after review.
+Partial and split payments, manual bank-entry correction and refund reconciliation remain separate work. Production release requires specific written approval and an exception for the additive migration.
 
 ## Phase 2 — Daily CRM workflow
 
-Deliver enquiry-to-booking draft conversion (retaining the source enquiry); normalized service filters; operational/agreement status explanations; consistent phone/Checkatrade source; deliberate tenant/payer/agent links; earlier duplicate-contact advisory; defined test-record filtering.
-Keep per-booking deposit/no-deposit choice.
-Acceptance: phone-only, Checkatrade, website and company scenarios; back/refresh/retry; stale edits; no automatic customer merge or message.
-Likely files: EnquiriesPage, BookingListPage, customer/booking APIs, customer relationship UI. Relationships may need a separately reviewed migration.
+### 2A — Booking list and customer intake
+
+Local implementation for review. Booking filters group current quote types and known older labels, with an exact-match fallback for saved filter links. The Bookings list defaults to customer records and offers a separate view for explicitly marked tests. The appointment column and internal job filter now explain their distinct meanings.
+
+Manual booking drafts retain the chosen contact channel (including phone and Checkatrade) separately from marketing attribution and keep the owner's explicit payment choice. Older manual records with no channel keep a generic label. The New Customer form can check an exact email or phone before saving and open possible matches in a separate tab. The owner chooses the customer record.
+
+Browser preview uses synthetic fixtures. Component and route regressions cover source recovery, filter validation, and contact checks that perform no writes. This increment uses existing database fields and has no migration.
+
+### 2B — Enquiry handoff and booking contacts
+
+Implemented locally. Start a draft from a saved enquiry, then choose an existing customer or open a prefilled new-customer form. Tenant, payer and agent are optional links picked by staff. The booking and enquiry link back to each other. The original enquiry and message are preserved, and the cleaning address is entered separately from the selected contact's address.
+
+Each enquiry uses one booking identity. Stale revisions are rejected before the create attempt, and concurrent requests reopen the winning booking. No new database migration is required. Role links are captured at conversion and shown in booking details. Existing email and invoice recipient review stays separate. Editing or backfilling contact-role links on saved bookings is outside this increment.
+
+Owner review is deferred until the planned phases are ready. Continue local testing and keep each release gate explicit.
 
 ## Phase 3 — Media management completion
 
-Deliver cross-route/back unsaved-edit protection and recovery; true unpublish with affected-pages preview and history; bulk captions/categories; understandable treatment of built-in versus managed media.
-Verify an approved real photo and video upload/replacement through cloud processing and public mobile playback; preserve previous publication on failures.
-Acceptance: cancel/discard/navigation/reload, failed upload/retry, before/after pair, replacement/unpublish/restore and exact affected pages. Real publication requires specific approval.
-Likely files: MediaManagerPage and media APIs, shared media mapping, gallery components.
+### 3A — Editing and publication controls implemented locally
+
+Cross-route links, browser Back and reload now protect unsaved media edits and running actions. A single-item caption draft is saved in account-scoped session storage for up to 24 hours, offered for explicit review on return, and cleared on sign-out. Blocked storage leaves editing available and shows a recovery warning. Bulk edits, position selections and file selections have navigation protection but are not restored after leaving.
+
+Staff can edit captions, descriptions and categories for up to ten ready items together. Suggested wording preserves existing writing unless replacement is explicitly selected. Each row reports its result; retries skip confirmed saves and reconcile a lost acknowledgement before retrying. Published service/stage changes retain the existing server-side restriction.
+
+A position can be removed after reviewing the exact affected pages, with concurrency checks and atomic publication history. The original media and other uses remain. Empty positions can restore a prior published selection. Built-in gallery photos remain; a service page may fall back to another published result or its built-in image.
+
+Validation on 5 November: CRM TypeScript, lint and build passed; 1,403 CRM tests passed with zero failures. Six isolated real PostgreSQL checks passed: role restrictions, target-only removal, concurrent/retried removal, stale-selection rejection, transactional rollback and history restoration. Synthetic browser checks covered Back/link cancellation and recovery, bulk saves, removal/restoration and the normal application shell. Existing Fast Refresh and bundle-size warnings remain.
+
+Files: admin/src/App.tsx; admin/src/pages/MediaManagerPage.tsx; admin/src/components/MediaNavigationGuard.tsx; admin/src/components/BulkMediaEditor.tsx; admin/src/lib/mediaDraftRecovery.ts; admin/src/lib/invoiceDraftRecovery.ts; admin/api/_lib/mediaAssetActions.js; admin/api/_lib/mediaCollectionActions.js; related types and tests; scripts/validate-media-unpublish-db.mjs.
+
+Release gate: additive migration supabase/migrations/20261105120000_media_position_unpublish.sql and server flag MEDIA_POSITION_UNPUBLISH_ENABLED=true require the explicit production database exception and specific release approval. The flag remains disabled by default. No production database, hosting configuration, public media or provider setting was changed.
+
+### 3B — Provider and live verification still pending
+
+Verify an approved real photo and video upload/replacement through cloud processing and public mobile playback after the approved release. Check before/after pairs, failed upload/retry, exact affected pages and preservation of previous publication on failure. Local fixtures do not establish current cloud-provider acceptance.
 
 ## Phase 4 — Remaining website conversion improvements
 
@@ -95,6 +108,27 @@ Separately review Google's existing remote automatic user-data detection before 
 
 A/B testing, richer case studies and possible restrained motion follow reliable flows and useful photos. A 3D redesign is not a prerequisite.
 
+## Verified release and remaining CRM review — 14 November 2026
+
+The combined website preview was specifically approved and published through PR #69. Merge commit `2765c15c6134170f60f253c8d8ac4bbd62bb3531` passed the required checks; both Vercel production checks succeeded. The website's production alias resolves to that commit and is Ready. Live mobile checks passed for the homepage, After Builders, End of Tenancy, carpet and sofa pages. The live move-in quote with a three-seater sofa still displayed £344. The CRM sign-in page returned HTTP 200. No customer request or payment was submitted in these checks.
+
+This release includes hiding empty After Builders photo sections and the approved combined website refinements. It does not complete every longer-term Phase 4 idea above. Genuine job photos, business decisions on unapproved scope/pricing changes and later experiments remain separate.
+
+The outstanding Phase 1B, 2A, 2B and 3A CRM code is integrated with current main in the isolated local branch `codex/crm-completion-review-20261114`. Integration preserves the recently released invoice bank/Stripe instructions and PDF fixes. The original older worktree and its unfinished files are preserved. This CRM review branch has not been pushed or released.
+
+Validation of the integrated CRM:
+
+- All 1,427 tests passed across 102 test files; TypeScript and build passed. Lint has zero errors and one existing Fast Refresh warning; the existing bundle-size warning remains.
+- 22 booking-to-invoice allocation checks and six media unpublish/restore checks passed against disposable local PostgreSQL 18 databases. Coverage includes access restrictions, duplicate/concurrent requests, stale data, transaction rollback and preservation of payment/publication history.
+- The actual payment review component passed mobile and desktop browser checks with synthetic fixtures and external requests blocked. Both payment-reference and deposit-review acknowledgements were required before applying the sample £120 balance against a £150 invoice with its £30 deposit already credited. The simulated result was £0 outstanding. This establishes UI behaviour, not a live bank/Stripe transaction or delivery of a real receipt.
+
+Next release gates, still outstanding:
+
+1. Read-only compatibility review of the live schema and existing configuration for the two proposed migrations. The local database tests are not evidence that either migration is installed in production.
+2. Specific approval for the CRM release and production database exception for `20261103120000_booking_invoice_payment_allocations.sql` and `20261105120000_media_position_unpublish.sql`, with their separately controlled feature flags. No production data, schema or settings were changed during this review.
+3. After release, verify the authorised real photo/video upload, processing, replacement and mobile playback flow. Synthetic media tests do not establish current provider behaviour.
+4. Separate follow-up for partial/split payments, correction/refund reconciliation, the Phase 5 operational additions and the measurement evidence/configuration review above.
+
 ## Owner review and release sequence
 
-Finish 1A locally and present the diff + validation. Review 1B design next, then implement in isolation. Release small phases using normal required checks and explicit approval. No additional sign-ins or production actions are needed merely to prepare the current phase.
+Phase 1A is live. Phases 1B, 2A, 2B and 3A are implemented locally; preserve the separate database and release gates. Owner review is deferred until the planned work is ready. Remaining work includes Phase 1B partial/split/refund and correction workflows, Phase 3B provider verification, Phase 4 website refinements and Phase 5 operational additions.
