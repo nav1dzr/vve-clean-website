@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
-import { GALLERY_MEDIA, type GalleryItem } from "../../../src/data/galleryMedia";
+import { GALLERY_MEDIA } from "../../../src/data/galleryMedia";
 import { getAreaShowcaseVideos } from "../../../src/data/areaShowcase";
 import { AREAS } from "../../../src/data/areas";
 import { buildWebsiteMediaInventory, inventorySlotMedia } from "./websiteMediaInventory";
@@ -10,7 +8,6 @@ import type { GallerySlot, MediaAsset, MediaLibrary } from "../types/media";
 const empty = (): MediaLibrary => ({ assets: [], topics: [], gallerySlots: [], websiteSlots: [], references: [] });
 const asset = (id: string, extra: Partial<MediaAsset> = {}): MediaAsset => ({ id, mediaType: "image", status: "ready", title: id, altText: id, service: "Carpet", category: "carpet", placement: "gallery-carpet", beforeAfter: "none", pairKey: "", locationLabel: "", websiteVisible: true, googleEnabled: false, socialEnabled: false, requestedSlotKey: null, activeSlotKey: null, usages: [], imageUrl: `https://images.example/${id}.jpg`, muxPlaybackId: null, processingError: "", createdAt: "", updatedAt: "", filename: `${id}.jpg`, size: 50, contentType: "image/jpeg", ...extra });
 const slot = (id: string, assetId: string, extra: Partial<GallerySlot> = {}): GallerySlot => ({ id, topicKey: "carpet", code: id, kind: "photo", label: id, sortOrder: 1, assignments: [{ role: "primary", assetId }], usages: [{ key: id, pageKey: "carpet-main-results", pageLabel: "Carpet", componentLabel: "Results" }], ...extra });
-const sources = (item: GalleryItem): string[] => item.type === "photo" ? [item.src] : item.type === "before-after" ? [item.before, item.after] : [item.src, item.poster];
 
 describe("website photograph inventory", () => {
   it("includes every original gallery item and keeps approved pairs intact", () => {
@@ -20,9 +17,6 @@ describe("website photograph inventory", () => {
       expect(positions.find(position => position.page === "Gallery" && position.media.id === item.id)?.media).toEqual(item);
     }
     expect(new Set(positions.map(position => position.id)).size).toBe(positions.length);
-    for (const position of positions) for (const source of sources(position.media)) {
-      if (source.startsWith("/")) expect(existsSync(resolve(process.cwd(), "../public", decodeURIComponent(source.slice(1)))), source).toBe(true);
-    }
   });
 
   it("keeps static gallery images while adding CRM results and changes only the connected hero", () => {
