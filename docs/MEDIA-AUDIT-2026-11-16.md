@@ -2,7 +2,7 @@
 
 Branch `claude/media-audit-clarity-20261116`, stacked on `codex/crm-completion-review-20261114` (PR #70, head `b3037fd`), which already changes the media manager. Production `main` was `059478e` when this was written.
 
-Nothing in this work touched production data, settings, storage, Mux, Supabase, Stripe, bookings, invoices, prices, DNS or advertising. No migration was created or applied. No real upload was made.
+Nothing in this work touched production settings, Stripe, bookings, invoices, prices, DNS or advertising. No migration was created or applied. The only production change was the owner-approved two-file upload test on 17 November (section 5): two synthetic, labelled files in the Carpet library, never published, then archived.
 
 **The owner's request arrived cut off** part-way through step 3 (after "7. Correct"). Everything below covers sections 1–2 and the part of section 3 that was received.
 
@@ -10,7 +10,7 @@ Nothing in this work touched production data, settings, storage, Mux, Supabase, 
 
 - The upload-to-website chain works in production today. I checked it from the outside, read-only: the live site shows one end-of-tenancy before/after pair and one sofa video from the CRM library, and both are delivered correctly.
 - The weak point was the CRM screen, not the plumbing. It could not answer "what is live?" on one screen, replacements were picked from a text list of file names, and the final review step named pages but did not show the old picture against the new one. This branch fixes those.
-- Real upload tests have **not** been run. No isolated cloud environment is available to me, and production uploads need your approval. The two labelled test files and the exact test are ready (section 5).
+- Real upload test **passed** on the live CRM (owner-approved production exception, 17 November). A synthetic photo and a synthetic 5-second video uploaded, processed, showed correct thumbnail and poster, survived a refresh, took edited captions, and could be previewed for a position. Nothing was published, the public website was unchanged, and both were archived (section 5).
 - Several deeper issues are recorded but deliberately not changed, because they need a decision, a migration or a provider setting (section 4).
 
 ## 2. What each deployment uses
@@ -80,43 +80,56 @@ To close the unverified rows I need you to open the Vercel environment-variable 
 - HEIC conversion by Cloudflare with a real iPhone file.
 - Whether the live video's 960×540 ceiling is the source file or a Mux plan limit.
 - R2 CORS rules for the production CRM address.
-- Everything in section 5.
+- The parts of section 5 marked "not covered" (publishing, replacing, retry, iPhone HEIC, large video on mobile data).
 
 ## 5. Real upload tests
 
-**Status: not run.** Reason: the only environment I could confirm is production. Hosted previews are read-only without a separate test project, the free test Supabase project is recorded as paused, no Vercel or Supabase CLI is signed in here, and I did not read local `.env` files.
+**Status: run on 17 November 2026 on the live CRM** (`admin.vveclean.co.uk`, production `main` `059478e`) under the owner's narrow production exception, after he signed in himself. An isolated environment was tried first but this PC has no Docker. The test used the live screen, not the new screen from this branch.
 
-Prepared files (synthetic, labelled "VVE MEDIA TEST — NOT CUSTOMER WORK"):
+**Test files.** The built-in browser cannot drive a file picker, so the two files were drawn inside the page (a canvas photo and a canvas-recorded video) and placed in the CRM's normal file field, as automated browser tests do. Everything after that used the normal buttons and routes. The content matches the prepared fixtures: navy background, red band reading "VVE MEDIA TEST / NOT CUSTOMER WORK".
 
-- `admin/tests/fixtures/media-upload-test/vve-media-test-photo.jpg` — JPEG, 1600×1200, 80 KB.
-- `admin/tests/fixtures/media-upload-test/vve-media-test-video.mp4` — H.264 MP4, 1280×720, 5 seconds, 45 KB.
+- `vve-media-test-photo.jpg` — JPEG, 1600×1200, 70 KB. CRM id `b2e4e8ae-abfd-4948-9c6a-aaf597e48b28`.
+- `vve-media-test-video.mp4` — browser-recorded MP4 (H.264), 1280×720, 5.00 s, 101 KB.
 
-| Check (per file) | Photo | Video |
+| Check | Photo | Video |
 |---|---|---|
-| 1. File selection and validation | Passed against the CRM's browser check and the server's rule in automated tests. Not yet in a real browser session. | Same. |
-| 2. Upload and saved record | Not run | Not run |
-| 3. Processing completes | Not run | Not run |
-| 4. Correct thumbnail / poster | Not run | Not run |
-| 5. Reopen after refresh and signing in again | Not run | Not run |
-| 6. Edit title, description and placement | Not run | Not run |
+| 1. File selection and validation | **Pass** — accepted, "1 files waiting". | **Pass**. A playback check inside the CRM page was blocked by the CRM's own security policy (`blob:` video not allowed); Mux processing below confirms the file. |
+| 2. Upload and saved record | **Pass** — card appeared, Carpet, Unassigned. | **Pass** — card appeared as "processing". |
+| 3. Processing completes | **Pass** — "ready" within about 8 seconds. | **Pass** — "ready" within about 30 seconds while the page was open. |
+| 4. Correct thumbnail / poster | **Pass** — Worker returned the 768 px thumbnail (768×576, correct 4:3, uncropped) and a 1200 px JPEG; viewed and correct. | **Pass** — Mux poster correct (viewed); stream 5.00 s, renditions 1280×720, 854×480, 480×270. |
+| 5. Reopen after refresh | **Pass** — present with thumbnail after reload. | **Pass**. |
+| 5b. … and after signing in again | **Not tested** — I do not sign the owner out. | Not tested. |
+| 6a. Edit title and description | **Pass** — saved "VVE MEDIA TEST — NOT CUSTOMER WORK (photo)"; still there after reload. | **Pass** — same, "(video)". |
+| 6b. Placement | **Pass, preview only** — Carpet "Work photo 20" offered the test photo and not the video; "Preview affected pages" listed Carpet Gallery · Work photo 20. Publish was **not** pressed; the selection was discarded by reloading. | Not tried (a video position would be the same flow). |
 | 7. "Correct…" (text cut off) | Awaiting the rest of the request | — |
 
-What was checked instead, and what it does and does not prove:
+**After the test**
 
-- **Live read-only check** (section 2): proves the production chain delivered real photos and a real video. Does not prove a new upload works today.
+- Public website media list (`public_media_references()`): 9 rows before, 9 rows after, byte-for-byte identical; no test title in it.
+- Both test files archived through the normal button; both show **Restore**.
+- What remains, by design: two archived CRM records, two originals in R2, one Mux video with a public but unlisted playback ID (`R01gb01cfcd2YFSmviNSNLAGycSiVOwcVCgaDNuxW02zrA`). Remove by hand in the R2 and Mux dashboards if wanted.
+- **Found during the test:** the Carpet library already held two earlier test items from 21 October 2026 ("TEST ONLY - photo/video upload check", `VVE-TEST-20261021-*`), ready and unassigned. So a real upload had been tested before. They were left untouched; consider archiving them.
+
+**Not covered by this test:** publishing, replacing a live pair, history restore, interrupted upload and retry, HEIC from an iPhone, a large video on mobile data, and the new screen in this branch (it is not deployed).
+
+What was also checked, and what it does and does not prove:
+
+- **Live read-only check** (section 2): proves the production chain delivered real photos and a real video.
 - **Local database check**: all four media migrations applied to a throwaway PostgreSQL 18 database; publish, stale-review refusal, pair replacement, label guard, archive guard, removal, history and anonymous access all behaved as designed. Does not involve R2, the Worker or Mux.
 - **Synthetic screen check**: the new screens were opened at phone width (375 px) with made-up data and no network access; no sideways scrolling. Does not involve the real API.
 
-### Two ways forward — your choice
+### Routes that were considered
 
-**A. Isolated environment (preferred; chosen by the owner on 16 November).** Then every step, including publishing and replacing, can be tested with nothing public. It needs four things that only the owner can create or approve:
+The owner first chose A, then B on 17 November because Docker was not available on this PC.
+
+**A. Isolated environment.** Then every step, including publishing and replacing, can be tested with nothing public. It needs four things that only the owner can create or approve:
 
 1. **A test database.** The free plan allows two active projects and both are in use, so "VVE TEST" cannot be resumed as things stand. Either move Supabase to a paid plan and resume it, or run a local test database on the office PC (needs Docker Desktop and the Supabase tool installed).
 2. **A test R2 bucket** with its own access key, and a second copy of the image Worker bound to it. The existing bucket and Worker appear to be the production ones.
 3. **A separate Mux environment** with its own token.
 4. **Preview settings** on the CRM Preview for this branch: the test database address and keys, the test bucket, Worker address and Mux token, the three matching `VVE_PREVIEW_…` declarations, a test inbox, and `VVE_PREVIEW_ISOLATION_APPROVED=true`. Full list: `docs/website-completion-2026-09-08/deployment-isolation-readiness.md`. The R2 upload rule must also list the preview address.
 
-**B. Narrow production exception.** I upload exactly these two files to the Carpet library through the normal CRM screen, run checks 1–6, and **publish nothing**. Limits you should know before saying yes:
+**B. Narrow production exception (used).** Upload exactly two labelled files to the Carpet library through the normal CRM screen, run checks 1–6, and **publish nothing**. Limits agreed beforehand:
 
 - "Placement" in production means publishing, so I would stop at "Preview affected pages" and not press Publish.
 - The files cannot be deleted from the CRM. After the test they would be archived. Two records, two R2 objects and one Mux video would remain until removed by hand in the dashboards.
