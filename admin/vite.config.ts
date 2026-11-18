@@ -2,10 +2,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { websiteMediaManifest } from './plugins/websiteMediaManifest';
+import { privateReviewGuard } from './plugins/privateReviewGuard';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), websiteMediaManifest()],
+  plugins: [privateReviewGuard(), react(), websiteMediaManifest()],
   server: {
     port: 5174,
   },

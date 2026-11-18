@@ -9,8 +9,14 @@ describe('CRM upload Content Security Policy', () => {
     expect(directives['connect-src']).toEqual(["'self'", 'https://*.supabase.co', 'https://*.r2.cloudflarestorage.com', 'https://storage.googleapis.com']);
     expect(directives['connect-src']).not.toEqual(expect.arrayContaining(['*', 'https:', 'https://*.googleapis.com']));
   });
+  it('allows customer and website video playback only from approved sources', () => {
+    expect(directives['media-src']).toEqual(["'self'", 'https://*.supabase.co', 'https://www.vveclean.co.uk']);
+    expect(directives['media-src']).not.toEqual(expect.arrayContaining(['*', 'https:', 'data:']));
+    const viewer = config.headers.find(rule => rule.source === '/report-view');
+    expect(viewer.headers).toEqual(expect.arrayContaining([{ key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'Cache-Control', value: 'no-store' }]));
+  });
   it('preserves the existing script, frame, form and document restrictions', () => {
     const rest = Object.fromEntries(Object.entries(directives).filter(([name]) => name !== 'connect-src'));
-    expect(rest).toEqual({ 'default-src': ["'self'"], 'script-src': ["'self'"], 'style-src': ["'self'", "'unsafe-inline'"], 'img-src': ["'self'", 'data:', 'https:'], 'font-src': ["'self'"], 'frame-src': ['https://player.mux.com'], 'media-src': ["'self'", 'https://www.vveclean.co.uk'], 'frame-ancestors': ["'none'"], 'base-uri': ["'self'"], 'form-action': ["'self'"] });
+    expect(rest).toEqual({ 'default-src': ["'self'"], 'script-src': ["'self'"], 'style-src': ["'self'", "'unsafe-inline'"], 'img-src': ["'self'", 'data:', 'https:'], 'font-src': ["'self'"], 'media-src': ["'self'", 'https://*.supabase.co', 'https://www.vveclean.co.uk'], 'frame-src': ['https://player.mux.com'], 'frame-ancestors': ["'none'"], 'base-uri': ["'self'"], 'form-action': ["'self'"] });
   });
 });

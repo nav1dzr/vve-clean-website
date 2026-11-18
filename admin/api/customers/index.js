@@ -3,6 +3,8 @@ import { corsHeaders } from '../_lib/cors.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
 import { readJsonBody } from '../_lib/body.js';
 import completionReportHandler from '../_lib/completionReportRoute.js';
+import clientPackHandler from '../_lib/clientPackRoute.js';
+import clientPackViewHandler from '../_lib/clientPackViewRoute.js';
 import { isValidEmail, sanitiseFreeTextFilter } from '../_lib/normalise.js';
 import {
   CUSTOMER_TYPE_VALUES, CUSTOMER_SOURCE_VALUES, CUSTOMER_SORT_VALUES,
@@ -40,7 +42,10 @@ function parsePositiveInt(value, fallback) {
 export default async function handler(req, res) {
   // Share the existing function budget; the report handler retains its own
   // admin verification and opt-in gate. Normal customer routes are unchanged.
-  if (new URL(req.url, 'https://admin.vveclean.co.uk').searchParams.get('resource') === 'completion-reports') {
+  const resource = new URL(req.url, 'https://admin.vveclean.co.uk').searchParams.get('resource');
+  if (resource === 'client-packs') return clientPackHandler(req, res);
+  if (resource === 'client-pack-view') return clientPackViewHandler(req, res);
+  if (resource === 'completion-reports') {
     return completionReportHandler(req, res);
   }
   const origin = req.headers.origin || '';

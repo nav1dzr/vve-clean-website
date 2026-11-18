@@ -10,6 +10,7 @@ const navItems = [
   { to: '/invoices', label: 'Invoices' },
   { to: '/receipts', label: 'Receipts' },
   ...(import.meta.env.VITE_COMPLETION_REPORTS_ENABLED === 'true' ? [{ to: '/completion-reports', label: 'Completion reports' }] : []),
+  ...(import.meta.env.VITE_CLIENT_PACKS_ENABLED === 'true' ? [{ to: '/client-packs', label: 'Customer packs' }] : []),
   { to: '/catalogue', label: 'Catalogue' },
   { to: '/media', label: 'Media' },
   { to: '/website-prices', label: 'Website prices' },
