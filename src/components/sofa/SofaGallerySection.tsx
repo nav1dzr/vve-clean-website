@@ -5,6 +5,7 @@ import LazyVideo from '../media/LazyVideo';
 import { SOFA_SUPPORTING_VIDEOS } from '../../data/sofaMedia';
 import { useSofaGalleryOrder } from './useSofaGalleryOrder';
 import ManagedServiceMedia from '../media/ManagedServiceMedia';
+import { useResolvedWebsiteMedia } from '../../lib/websiteMediaPositions';
 
 // The supporting sofa gallery: 11 photographs plus the three clips that are not
 // the featured extraction shot.
@@ -19,7 +20,7 @@ import ManagedServiceMedia from '../media/ManagedServiceMedia';
 // tile the visitor actually clicked, shuffled or not.
 
 export default function SofaGallerySection() {
-  const photos = useSofaGalleryOrder();
+  const photos = useResolvedWebsiteMedia(useSofaGalleryOrder());
   const lightbox = useLightbox();
   const lightboxPhotos = toLightboxPhotos(photos);
 

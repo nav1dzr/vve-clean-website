@@ -14,8 +14,16 @@ import MediaNavigationGuard from "../components/MediaNavigationGuard";
 import { clearMediaDetailsDraft, readMediaDetailsDraft, saveMediaDetailsDraft, type MediaDetails } from "../lib/mediaDraftRecovery";
 
 import { uploadMediaFile } from "../lib/mediaUpload";
+import { checkMediaFile, formatFileSize, MEDIA_ACCEPT } from "../lib/mediaFileCheck";
+import { formatMediaDate, matchesMediaFilter, MEDIA_FILTERS, mediaStatusSummary } from "../lib/mediaStatus";
+import { MediaPreview as Preview, MediaStatusBadge } from "../components/media/MediaPreview";
+import MediaThumbnailPicker from "../components/media/MediaThumbnailPicker";
+import ReplacementComparison from "../components/media/ReplacementComparison";
+import LiveNowPanel from "../components/media/LiveNowPanel";
 import { mediaCaptionPresets, type MediaCaptionPreset } from "../lib/mediaCaptionPresets";
-import { WEBSITE_PHOTO_PAGE_KEYS } from "../../shared/mediaWebsitePositions.js";
+import { InventoryMedia } from "../components/media/WebsitePhotoInventory";
+import { serviceOpeningPhoto } from "../lib/websiteMediaInventory";
+import { findWebsiteMediaPosition } from "../../shared/mediaWebsitePositions.js";
 
 import type {
   BeforeAfter,
@@ -29,16 +37,10 @@ import type {
 } from "../types/media";
 
 const PUBLIC_SITE = "https://www.vveclean.co.uk";
-const DEFAULT_PHOTOS: Record<string, { src: string; alt: string }> = {
-  "homepage-hero-image": { src: "/images/carpet-cleaning-hero.webp", alt: "Carpet extraction in progress" },
-  "carpet-main-results": { src: "/images/carpet-cleaning-hero.webp", alt: "Carpet extraction in progress" },
-  "sofa-main-results": { src: "/sofa_upholstery/web/gallery/sofa-gallery-01.webp", alt: "Upholstery cleaning in progress" },
-  "end-of-tenancy-main-results": { src: "/end_of_tenancy/before-after/kitchen1_after.jpg", alt: "Kitchen hob after cleaning" },
-  "homepage-equipment-image": { src: "/gallery/van-equipment.webp", alt: "VVE Clean van and cleaning equipment" },
-};
 const PAGE_PATHS: Record<string, string> = {
   "homepage-hero-image": "/", "homepage-equipment-image": "/",
   "carpet-main-results": "/carpet-cleaning-london#results",
+  "carpet-process-results": "/how-we-clean-carpets#results",
   "sofa-main-results": "/sofa-cleaning-london",
   "end-of-tenancy-main-results": "/end-of-tenancy-cleaning-london",
   "gallery-carpet": "/gallery?category=carpet",
@@ -72,6 +74,7 @@ const categories: { value: MediaCategory; label: string }[] = [
   { value: "carpet", label: "Carpet" },
   { value: "sofa-upholstery", label: "Sofa & upholstery" },
   { value: "end-of-tenancy", label: "End of tenancy" },
+  { value: "property-services", label: "Property services" },
 ];
 
 const positionTypes: { value: GallerySlot["kind"]; label: string }[] = [
@@ -85,9 +88,8 @@ const explain = (error: unknown) =>
     ? error.message
     : "The request could not be completed. Please retry.";
 
-const usesPhotographsOnly = (usages: MediaUsage[]) => usages.some((usage) =>
-  WEBSITE_PHOTO_PAGE_KEYS.includes(usage.pageKey),
-);
+const registeredPosition = (usages: MediaUsage[]) => usages.map(usage => findWebsiteMediaPosition(usage.pageKey)).find(Boolean);
+const connectedWebsite = (usages: MediaUsage[]) => registeredPosition(usages)?.targetType === "website";
 
 type Target = {
   type: "gallery" | "website";
@@ -125,7 +127,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
   const [showUnconnected, setShowUnconnected] = useState(false);
   const [library, setLibrary] = useState<MediaLibrary | null>(null);
 
-  const [tab, setTab] = useState("uploads");
+  const [tab, setTab] = useState("live");
   const [bulkIds, setBulkIds] = useState<string[]>([]);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkDirty, setBulkDirty] = useState(false);
@@ -139,6 +141,8 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
   const [busy, setBusy] = useState(false);
 
   const [files, setFiles] = useState<File[]>([]);
+  const [rejected, setRejected] = useState<{ name: string; reason: string }[]>([]);
+  const [uploadIssues, setUploadIssues] = useState<{ file: File; reason: string }[]>([]);
 
   const [stage, setStage] = useState<BeforeAfter>("none");
 
@@ -164,15 +168,16 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
   const editorContainer = useRef<HTMLDivElement>(null);
 
   const controller = useRef<AbortController | null>(null);
+  const cancelRequested = useRef(false);
+  const uploadingBatch = useRef(false);
 
   const libraryRef = useRef<MediaLibrary | null>(null);
   const loadVersion = useRef(0);
   const targetVersion = useRef(0);
+  const targetOrigin = useRef("live");
   const selectionVersion = useRef(0);
 
   const inFlight = useRef(false);
-  const editing = useRef(false);
-  editing.current = Boolean(target || editor || bulkOpen);
   const retryIds = useRef(new Map<string, string>());
 
   const topicRef = useRef(topic);
@@ -224,6 +229,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
   }, [load, topic]);
 
   useEffect(() => () => {
+    cancelRequested.current = true;
     controller.current?.abort();
     targetVersion.current += 1;
     selectionVersion.current += 1;
@@ -236,7 +242,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
 
 
   function leaveEditor(action: () => void) {
-    if (editor && busy) return;
+    if ((editor && busy) || uploadingBatch.current || controller.current) return;
     if (editorDirty && !window.confirm("Discard your unsaved media details? Choose Cancel to keep editing, or OK to discard them.")) return;
     if (editor) clearMediaDetailsDraft(ownerId, editor.id);
     setSavedDraft(readMediaDetailsDraft(ownerId));
@@ -247,45 +253,50 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
 
   useEffect(() => {
     let running = false;
-
+    let active = true;
+    let pass = 0;
+    const checked = new Map<string, number>();
     const timer = setInterval(async () => {
-      if (running || inFlight.current || editing.current || document.hidden)
-        return;
-      const processing =
-        libraryRef.current?.assets.filter(
-          (asset) => asset.status === "processing",
-        ) || [];
-
-      if (!processing.length) return;
-
+      if (running || inFlight.current || document.hidden) return;
+      const pending = (libraryRef.current?.assets ?? []).filter(asset => asset.mediaType === "video" && asset.status === "processing");
+      if (!pending.length) return;
+      // Let later uploads progress even if the first few clips take longer.
+      const batch = pending.sort((a, b) => (checked.get(a.id) ?? 0) - (checked.get(b.id) ?? 0)).slice(0, 5);
       running = true;
-
+      pass++;
       try {
-        const results = await Promise.allSettled(
-          processing
-            .slice(0, 5)
-            .map((asset) =>
-              authFetch(`${api}&id=${asset.id}`, {
-                method: "POST",
-                body: JSON.stringify({ action: "sync" }),
-              }),
-            ),
-        );
-
-        const failure = results.find((result) => result.status === "rejected");
-
-        if (failure?.status === "rejected") setError(explain(failure.reason));
-
-        await load();
-      } catch (err) {
-        setError(explain(err));
+        const results = await Promise.allSettled(batch.map(async asset => {
+          checked.set(asset.id, pass);
+          const url = `${api}&id=${asset.id}`;
+          const post = (action: string) => authFetch<{ asset?: MediaAsset }>(url, { method: "POST", body: JSON.stringify({ action }) });
+          try {
+            return (await post("sync")).asset;
+          } catch {
+            // The provider may have finished via its callback during this check.
+            return (await post("details")).asset;
+          }
+        }));
+        if (!active) return;
+        const changes = new Map(results.flatMap(result => result.status === "fulfilled" && result.value ? [[result.value.id, result.value] as const] : []));
+        if (!changes.size) return;
+        setLibrary(previous => {
+          if (!previous) return previous;
+          // Only merge processing fields. Keep loaded pages, captions and the active selection.
+          const assets = previous.assets.map(asset => {
+            const update = changes.get(asset.id);
+            if (!update || asset.status !== "processing") return asset;
+            return { ...asset, status: update.status, processingError: update.processingError, muxPlaybackId: update.muxPlaybackId, updatedAt: update.updatedAt };
+          });
+          const next = { ...previous, assets };
+          libraryRef.current = next;
+          return next;
+        });
       } finally {
         running = false;
       }
     }, 12_000);
-
-    return () => clearInterval(timer);
-  }, [load]);
+    return () => { active = false; clearInterval(timer); };
+  }, [topic]);
 
   const allAssets = useMemo(
     () => [
@@ -305,24 +316,21 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
 
   const gallerySlots =
     library?.gallerySlots.filter(
-      (slot) =>
+      (slot) => !slot.code.startsWith("BUILTIN_") &&
         slot.topicKey === (topic === "sofa-upholstery" ? "sofa" : topic),
     ) || [];
 
-  const targetUnavailable = target?.type === "website" && !usesPhotographsOnly(target.usages);
+  const targetUnavailable = target?.type === "website" && !connectedWebsite(target.usages);
 
-  const visible = (library?.assets || []).filter(
-    (asset) =>
-      filter === "all" ||
-      (filter === "unassigned"
-        ? !asset.usages.length && asset.status !== "archived"
-        : asset.status === filter),
+  const visible = (library?.assets || []).filter((asset) =>
+    matchesMediaFilter(asset, filter),
   );
 
   async function run(work: () => Promise<void>) {
     if (inFlight.current) return;
 
     inFlight.current = true;
+    cancelRequested.current = false;
     setBusy(true);
     setError("");
     setNotice("");
@@ -338,15 +346,19 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
   }
 
   async function transfer(file: File, existing?: MediaAsset) {
-    const key = `${file.name}:${file.size}:${file.lastModified}`;
+    const key = JSON.stringify([topic, stage, file.name, file.size, file.lastModified]);
 
     const oldId = existing?.id || retryIds.current.get(key);
+
+    const check = checkMediaFile(file);
+    if (!check.ok) throw new Error(`${file.name}: ${check.reason}`);
+    const contentType = check.contentType;
 
     if (
       existing &&
       (existing.filename !== file.name ||
         Number(existing.size) !== file.size ||
-        existing.contentType !== file.type)
+        existing.contentType !== contentType)
     )
       throw new Error(
         "Select the same original file, name, type and size. Upload a different file as a new item.",
@@ -354,37 +366,44 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
 
     setProgress({ name: file.name, percent: 0, stage: "Preparing upload" });
 
-    const plan = await authFetch<{
-      id: string;
-      uploadUrl: string;
-      alreadyStored?: boolean;
-    }>(oldId ? `${api}&id=${oldId}` : api, {
-      method: "POST",
-      body: JSON.stringify(
-        oldId
-          ? { action: "retry-upload" }
-          : {
-              filename: file.name,
-              size: file.size,
-              contentType: file.type,
-              category: topic,
-              beforeAfter: stage,
-            },
-      ),
-    });
-    retryIds.current.set(key, plan.id);
-
-    controller.current = new AbortController();
+    const control = new AbortController();
+    controller.current = control;
+    let originalStored = false;
+    let plannedId: string | undefined;
 
     try {
+      const plan = await authFetch<{
+        id: string;
+        uploadUrl: string;
+        alreadyStored?: boolean;
+      }>(oldId ? `${api}&id=${oldId}` : api, {
+        method: "POST",
+        body: JSON.stringify(
+          oldId
+            ? { action: "retry-upload" }
+            : {
+                filename: file.name,
+                size: file.size,
+                contentType,
+                category: topic,
+                beforeAfter: stage,
+              },
+        ),
+      });
+      retryIds.current.set(key, plan.id);
+      plannedId = plan.id;
+      originalStored = Boolean(plan.alreadyStored);
+      if (control.signal.aborted) throw new Error("Upload cancelled. This file remains selected for retry.");
       if (!plan.alreadyStored)
         await uploadMediaFile(
           plan.uploadUrl,
           file,
           (percent) =>
             setProgress({ name: file.name, percent, stage: "Uploading" }),
-          controller.current.signal,
+          control.signal,
+          contentType,
         );
+      originalStored = true;
       setProgress({
         name: file.name,
         percent: 100,
@@ -398,11 +417,14 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
 
       retryIds.current.delete(key);
     } catch (err) {
-      await authFetch(`${api}&id=${plan.id}`, {
+      // Verification may fail after storage accepted the original. Keep its
+      // recovery state, and let retry-upload/complete check the same record.
+      if (plannedId && !originalStored) await authFetch(`${api}&id=${plannedId}`, {
         method: "POST",
         body: JSON.stringify({ action: "fail" }),
       }).catch(() => undefined);
-
+      if (originalStored && !control.signal.aborted)
+        throw new Error(`The transfer finished, but the final check did not complete. ${explain(err)}`);
       throw err;
     } finally {
       controller.current = null;
@@ -414,20 +436,35 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
 
     await run(async () => {
       if (!files.length) throw new Error("Choose a photo or video first.");
-
+      const selected = [...files];
+      const issues: { file: File; reason: string }[] = [];
+      let stored = 0;
+      setUploadIssues([]);
+      uploadingBatch.current = true;
       try {
-        for (const file of files) {
-          await transfer(file);
-
-          setFiles((previous) => previous.filter((item) => item !== file));
+        for (const file of selected) {
+          if (cancelRequested.current) break;
+          try {
+            await transfer(file);
+            stored += 1;
+            setFiles((previous) => previous.filter((item) => item !== file));
+          } catch (err) {
+            if (!cancelRequested.current) {
+              issues.push({ file, reason: explain(err) });
+              setUploadIssues([...issues]);
+            }
+          }
         }
-
-        if (fileInput.current) fileInput.current.value = "";
-
+        const remaining = selected.length - stored;
+        if (!remaining) {
+          if (fileInput.current) fileInput.current.value = "";
+          setRejected([]);
+        }
         setNotice(
-          "Files stored. Add a caption and description, then choose a position. Videos finish processing automatically while this page is open.",
+          `${stored} ${stored === 1 ? "file" : "files"} uploaded and checked. ${cancelRequested.current ? "Upload stopped. " : ""}${remaining ? `${remaining} ${remaining === 1 ? "file remains" : "files remain"} selected; retry when ready. ` : ""}${stored ? "Add captions in the library, then choose a position to publish. Videos may still be processing." : ""}`,
         );
       } finally {
+        uploadingBatch.current = false;
         setProgress(null);
         await load();
       }
@@ -444,9 +481,15 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
   }
 
   function chooseTarget(next: Target) {
+    if (uploadingBatch.current || controller.current) return;
+    if (files.length && next.category && next.category !== topic) {
+      setError("Finish or remove your queued files in Upload & library before opening a different service.");
+      return;
+    }
     if (selectionDirty && !window.confirm("Discard this unpublished position selection?")) return;
     const version = ++targetVersion.current;
     selectionVersion.current += 1;
+    if (tab !== "uploads") targetOrigin.current = tab;
     setTarget(next);
     setRemoval(null);
     setSelection(next.assignments.map((assignment) => ({ ...assignment })));
@@ -576,6 +619,31 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
     });
   }
 
+  function chooseMedia(role: MediaAssignment["role"], assetId: string) {
+    selectionVersion.current += 1;
+    setSelection((previous) => [
+      ...previous.filter((item) => item.role !== role),
+      { role, assetId },
+    ]);
+    setReview(null);
+    setRemoval(null);
+  }
+
+  // Ready media that fits this position: same service, right file type and,
+  // for a pair, the matching before/after stage.
+  const choicesFor = (role: string) =>
+    target
+      ? allAssets.filter(
+          (asset) =>
+            asset.status === "ready" &&
+            (!target.category || asset.category === target.category) &&
+            (target.kind === "video"
+              ? asset.mediaType === "video"
+              : target.kind === "website" || asset.mediaType === "image") &&
+            (target.kind !== "before_after" || asset.beforeAfter === role),
+        )
+      : [];
+
   const selectionDirty = target !== null && JSON.stringify([...selection].sort((a,b) => a.role.localeCompare(b.role)))
     !== JSON.stringify([...target.assignments].sort((a,b) => a.role.localeCompare(b.role)));
   const unsaved = editorDirty || selectionDirty || files.length > 0 || bulkDirty || removal !== null;
@@ -605,32 +673,9 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
           }}>Discard saved details</button>
         </div>
       </section>}
-      <header className="mb-6">
-        <p className="text-sm font-semibold text-sky-700">
-          Your shared photo and video library
-        </p>
-        <h1 className="mt-1 text-3xl font-semibold text-navy-950">
-          Gallery & website media
-        </h1>
-        <p className="mt-2 max-w-3xl text-navy-700">
-          Add your photos or videos, give them a caption, then choose where
-          they appear on the website.
-        </p>
-        <ol aria-label="How to publish your media" className="mt-5 grid gap-3 sm:grid-cols-3">
-          {[
-            ["1", "Upload", "Choose a service and cleaning stage, then add your files below."],
-            ["2", "Describe", "Open Edit caption & details. Use a suggestion or write your own."],
-            ["3", "Preview & publish", "Choose a shared gallery position, review the affected pages, then publish."],
-          ].map(([number, title, description]) => (
-            <li key={number} className="rounded-xl border border-silver-300 bg-white p-4">
-              <p className="flex items-center gap-2 font-semibold text-navy-950">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sm text-sky-800">{number}</span>
-                {title}
-              </p>
-              <p className="mt-2 text-sm leading-6 text-navy-700">{description}</p>
-            </li>
-          ))}
-        </ol>
+      <header className="mb-5">
+        <h1 className="text-2xl font-semibold tracking-tight text-navy-950 sm:text-3xl">Photos & videos</h1>
+        <p className="mt-2 text-sm text-navy-700">See what is on your website, or add something new.</p>
       </header>
 
       {error && (
@@ -654,16 +699,15 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
         </p>
       )}
 
-      <nav aria-label="Media sections" className="mb-5 flex flex-wrap gap-2">
+      <nav aria-label="Media sections" className="mb-3 grid max-w-xl grid-cols-2 gap-1 rounded-2xl border border-silver-200 bg-silver-100 p-1">
         {[
+          ["live", "Website media"],
           ["uploads", "Upload & library"],
-          ["gallery", "Shared gallery positions"],
-          ["website", "Other website positions"],
         ].map(([key, label]) => (
           <button
             key={key}
             aria-current={tab === key ? "page" : undefined}
-            className={tab === key ? primary : button}
+            className={`min-h-12 rounded-xl px-3 py-3 text-sm font-semibold leading-5 focus-visible:ring-2 focus-visible:ring-sky-500 ${tab === key ? "bg-white text-navy-950 shadow-sm" : "text-navy-700 hover:bg-white/60"}`}
             onClick={() => { if (key !== tab) leaveEditor(() => setTab(key)); }}
           >
             {label}
@@ -671,10 +715,21 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
         ))}
       </nav>
 
-      <label className="mb-6 block max-w-sm font-semibold text-navy-950">
+      <details className="mb-6 text-sm text-navy-700" open={tab === "gallery" || tab === "website" ? true : undefined}>
+        <summary className="w-fit cursor-pointer rounded py-2 font-medium focus-visible:ring-2 focus-visible:ring-sky-500">More media tools</summary>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {[["gallery", "Shared gallery positions"], ["website", "Other website positions"]].map(([key, label]) => <button key={key} type="button" aria-current={tab === key ? "page" : undefined} className={tab === key ? primary : button} onClick={() => { if (key !== tab) leaveEditor(() => setTab(key)); }}>{label}</button>)}
+        </div>
+        <details className="mt-3"><summary className="w-fit cursor-pointer py-1">How publishing works</summary><ol aria-label="How to publish your media" className="mt-2 list-inside list-decimal space-y-1 leading-6"><li>Upload a file to your library.</li><li>Add a caption, using a suggestion or your own words.</li><li>Choose where it goes, preview the change, then publish.</li></ol></details>
+      </details>
+
+      <label className={`mb-6 max-w-sm font-semibold text-navy-950 ${tab === "live" ? "hidden" : "block"}`}>
         Service
         <select
           value={topic}
+          disabled={busy || files.length > 0}
+          title={files.length ? "Finish or remove queued files before changing service." : undefined}
+          aria-describedby={files.length ? "queued-service-note" : undefined}
           onChange={(event) => {
             const category = event.target.value as MediaCategory;
             if (selectionDirty && !window.confirm("Discard this unpublished position selection?")) return;
@@ -699,11 +754,43 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
           ))}
         </select>
       </label>
+      {files.length > 0 && <p id="queued-service-note" className={`-mt-4 mb-6 text-xs text-navy-700 ${tab === "live" ? "hidden" : ""}`}>Upload or remove your queued files before changing service.</p>}
 
       {!library ? (
         <p role="status">Loading your media…</p>
       ) : (
         <>
+          {tab === "live" && (
+            <LiveNowPanel
+              library={library}
+              assets={byId}
+              isConnected={connectedWebsite}
+              renderUsages={(usages) => <UsageList usages={usages} heading="Shown on" />}
+              onReplaceGallery={(slot, serviceLabel) =>
+                chooseTarget({
+                  type: "gallery",
+                  id: slot.id,
+                  label: `${serviceLabel} · ${slot.label}`,
+                  kind: slot.kind,
+                  category: slot.topicKey === "sofa" ? "sofa-upholstery" : slot.topicKey,
+                  assignments: slot.assignments,
+                  usages: slot.usages,
+                })
+              }
+              onReplaceWebsite={(slot) =>
+                chooseTarget({
+                  type: "website",
+                  id: slot.id,
+                  label: `${slot.pageLabel} · ${slot.purposeLabel}`,
+                  kind: registeredPosition(slot.usages)?.kind ?? "website",
+                  category: registeredPosition(slot.usages)?.category,
+                  assignments: slot.assignments,
+                  usages: slot.usages,
+                })
+              }
+            />
+          )}
+
           {tab === "gallery" && (
             <section>
               <h2 className="text-xl font-semibold text-navy-950">
@@ -721,8 +808,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
               <details className="mb-5 rounded-xl border border-silver-300 bg-white p-4">
                 <summary className="cursor-pointer font-semibold">How this changes the existing website photos</summary>
                 <p className="my-3 text-sm text-navy-700">The first published service result can also supply its opening photo. Sofa and end-of-tenancy opening photos are reused in the homepage carousel. A video is not used as a still hero photo. Built-in gallery items remain separate: these positions add to the gallery, rather than replacing a similarly numbered built-in item.</p>
-                <p className="mb-3 text-sm font-semibold">Built-in service opening photo (used when no suitable managed result is available)</p>
-                <div className="max-w-sm"><DefaultPhoto usages={[{key:"service-default",pageKey:topic === "carpet" ? "carpet-main-results" : topic === "sofa-upholstery" ? "sofa-main-results" : "end-of-tenancy-main-results",pageLabel:"Service page",componentLabel:"Opening photo"}]} /></div>
+                <p className="mb-3 text-sm">Use Live on website to find the original for each position.</p>
               </details>
               <div role="group" aria-label="Position type" className="mb-5 flex flex-wrap gap-2">
                 {positionTypes.map(({ value, label }) => (
@@ -771,17 +857,19 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
               <p className="mb-4 text-navy-700">Compare the current website photo with your replacement. Built-in defaults stay in use until you publish.</p>
               <label className="mb-5 flex items-center gap-2"><input type="checkbox" checked={showUnconnected} onChange={e => setShowUnconnected(e.target.checked)} />Show unconnected positions (not publishable)</label>
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {library.websiteSlots.filter(slot => showUnconnected || usesPhotographsOnly(slot.usages)).map((slot) => (
+                {library.websiteSlots.filter(slot => showUnconnected || connectedWebsite(slot.usages)).map((slot) => (
                   <WebsiteCard
                     key={slot.id}
                     slot={slot}
                     asset={byId.get(slot.assignments[0]?.assetId)}
+                    library={library} assets={byId}
                     onChoose={() =>
                       chooseTarget({
                         type: "website",
                         id: slot.id,
                         label: `${slot.pageLabel} · ${slot.purposeLabel}`,
-                        kind: usesPhotographsOnly(slot.usages) ? "photo" : "website",
+                        kind: registeredPosition(slot.usages)?.kind ?? "website",
+                        category: registeredPosition(slot.usages)?.category,
                         assignments: slot.assignments,
                         usages: slot.usages,
                       })
@@ -804,7 +892,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                       ? "Choose both photographs from the same job. Both change together after publication."
                       : "Choose one ready item, then preview where it will appear."}
                   </p>
-                  <UsageList usages={target.usages} heading={targetUnavailable ? "Planned placement" : "Used on"} />
+                  <details className="mt-3 text-sm text-navy-700"><summary className="w-fit cursor-pointer py-1 font-semibold">Where this is shown</summary><UsageList usages={target.usages} heading={targetUnavailable ? "Planned placement" : "Used on"} /></details>
                   {targetUnavailable && (
                     <div className="mt-4 rounded-xl border border-amber-300 bg-white p-4 text-sm text-navy-800">
                       <p className="font-semibold">This position is not connected to a website page yet.</p>
@@ -816,14 +904,14 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                     <div className="mt-4 text-sm leading-6 text-navy-700">
                       <p>Replace the selection below or preview an earlier version from position history.</p>
                       {library?.unpublishEnabled && <button className={button + ' mt-2'} disabled={busy}
-                        onClick={() => void reviewRemoval()}>Remove this position from the website</button>}
+                        onClick={() => void reviewRemoval()}>{registeredPosition(target.usages)?.defaultMedia ? "Restore website default" : "Remove this position from the website"}</button>}
                     </div>
                   )}
 
                   <div className="mt-5 rounded-xl border border-silver-300 bg-white p-4">
                     <h3 className="mb-3 font-semibold">Current published selection</h3>
-                    {target.assignments.length ? <div className="grid gap-3 sm:grid-cols-2">{target.assignments.map(assignment => <Preview key={assignment.role} asset={byId.get(assignment.assetId)} label={assignment.role} />)}</div> : target.type === "website" ? <DefaultPhoto usages={target.usages} /> : <p className="text-sm text-navy-700">This is an additional gallery position. Existing built-in gallery photos remain. Publishing may also change the leading service photo; review every connected page below.</p>}
-                    <UsageList usages={target.usages} heading="Check these pages" />
+                    {target.assignments.length ? <div className="grid gap-3 sm:grid-cols-2">{target.assignments.map(assignment => <Preview key={assignment.role} asset={byId.get(assignment.assetId)} label={assignment.role} />)}</div> : target.type === "website" || registeredPosition(target.usages) ? <DefaultPhoto usages={target.usages} library={library} assets={byId} /> : <p className="text-sm text-navy-700">This is an additional gallery position. Existing built-in gallery photos remain. Publishing may also change the leading service photo; review every connected page below.</p>}
+
                   </div>
                   {removal && <section aria-label="Remove published position" className="mt-4 rounded-xl border border-amber-300 bg-white p-4">
                     <h3 className="font-semibold">Review removal</h3>
@@ -834,53 +922,33 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                       <button className={primary} disabled={busy} onClick={() => void removePublication()}>Confirm removal</button>
                     </div>
                   </section>}
-                  <h3 className="mt-5 font-semibold">Your proposed replacement or addition</h3>
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-x-3">
+                    <h3 className="font-semibold">Choose your replacement</h3>
+                    <button type="button" className="min-h-11 text-sm font-semibold text-sky-800 underline underline-offset-4" onClick={() => { fileInput.current?.scrollIntoView?.({ block: "center" }); fileInput.current?.focus({ preventScroll: true }); }}>Upload a new file</button>
+                  </div>
                   {(target.kind === "before_after"
                     ? ["before", "after"]
                     : ["primary"]
                   ).map((role) => (
+                    <div key={role}>
                     <label
-                      key={role}
                       className="mt-4 block font-semibold capitalize text-navy-950"
                     >
                       {role === "primary"
-                        ? target.kind === "photo" ? "Photograph" : "Photo or video"
+                        ? target.kind === "photo" ? "Photograph" : target.kind === "video" ? "Video" : "Photo or video"
                         : `${role} photograph`}
                       <select
-                        aria-label={role === "primary" ? target.kind === "photo" ? "Photograph" : "Photo or video" : `${role} photograph`}
+                        aria-label={role === "primary" ? target.kind === "photo" ? "Photograph" : target.kind === "video" ? "Video" : "Photo or video" : `${role} photograph`}
                         disabled={targetUnavailable}
                         className={field}
                         value={
                           selection.find((item) => item.role === role)
                             ?.assetId || ""
                         }
-                        onChange={(event) => {
-                          selectionVersion.current += 1;
-                          setSelection((previous) => [
-                            ...previous.filter((item) => item.role !== role),
-                            {
-                              role: role as MediaAssignment["role"],
-                              assetId: event.target.value,
-                            },
-                          ]);
-                          setReview(null);
-                          setRemoval(null);
-                        }}
+                        onChange={(event) => chooseMedia(role as MediaAssignment["role"], event.target.value)}
                       >
                         <option value="">Choose ready media…</option>
-                        {allAssets
-                          .filter(
-                            (asset) =>
-                              asset.status === "ready" &&
-                              (!target.category ||
-                                asset.category === target.category) &&
-                              (target.kind === "video"
-                                ? asset.mediaType === "video"
-                                : target.kind === "website" ||
-                                  asset.mediaType === "image") &&
-                              (target.kind !== "before_after" ||
-                                asset.beforeAfter === role),
-                          )
+                        {choicesFor(role)
                           .map((asset) => (
                             <option key={asset.id} value={asset.id}>
                               {asset.title || "Add a caption first"} —{" "}
@@ -888,21 +956,19 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                             </option>
                           ))}
                       </select>
-                      {selection.find((item) => item.role === role)
-                        ?.assetId && (
-                        <div className="mt-3 max-w-sm">
-                          <Preview
-                            asset={byId.get(
-                              selection.find((item) => item.role === role)
-                                ?.assetId || "",
-                            )}
-                            label={role}
-                          />
-                        </div>
-                      )}
                     </label>
+                    <MediaThumbnailPicker
+                      label={role === "primary" ? target.kind === "photo" ? "Photograph" : target.kind === "video" ? "Video" : "Photo or video" : `${role} photograph`}
+                      assets={choicesFor(role)}
+                      selectedId={selection.find((item) => item.role === role)?.assetId || ""}
+                      currentId={target.assignments.find((item) => item.role === role)?.assetId}
+                      disabled={targetUnavailable}
+                      onSelect={(assetId) => chooseMedia(role as MediaAssignment["role"], assetId)}
+                    />
+                    </div>
                   ))}
 
+                  {library.nextPage != null && <button className={button + " mt-4"} disabled={busy} onClick={() => void run(() => load(true))}>Load more library files</button>}
                   <div className="mt-4 flex flex-wrap gap-3">
                     <button
                       disabled={busy || targetUnavailable}
@@ -914,7 +980,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                     <button
                       className={button}
                       onClick={() => {
-                        if (!selectionDirty || window.confirm("Discard this unpublished position selection?")) clearTarget();
+                        if (!selectionDirty || window.confirm("Discard this unpublished position selection?")) { clearTarget(); setTab(targetOrigin.current); }
                       }}
                     >
                       Close position
@@ -926,7 +992,17 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                       <h3 className="font-semibold text-navy-950">
                         Ready to publish this complete position
                       </h3>
-                      <UsageList usages={review.impact} />
+                      <div className="mt-3">
+                        <ReplacementComparison
+                          current={review.expected}
+                          next={review.selections}
+                          assets={byId}
+                          whenEmpty={target.type === "website" || registeredPosition(target.usages)
+                            ? <DefaultPhoto usages={target.usages} library={library} assets={byId} />
+                            : "No library media here yet. The built-in gallery photos stay as they are; this is added ahead of them."}
+                        />
+                      </div>
+                      <UsageList usages={review.impact} heading="Pages that will change" />
                       <p className="my-3 text-sm text-navy-700">
                         Previous media stays in your library. Other staff
                         changes are checked before this version is saved.
@@ -978,23 +1054,33 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                   {categories.find((item) => item.value === topic)?.label}
                 </h2>
                 <p className="mt-2 text-sm text-navy-700">
-                  Photos up to 40 MB; videos up to 500 MB. Files appear on
+                  Photos up to 20 MB; videos up to 500 MB. Files appear on
                   website pages only after you choose a position and publish. Interrupted files can be retried from
                   the library after refresh.
                 </p>
+                <p className="mt-2 text-sm text-navy-700">
+                  On a phone, keep this page open until the upload and final check finish.
+                  If a cloud-library file cannot be read, download it to your device before trying again.
+                </p>
+                <p className="mt-2 text-sm text-navy-700">
+                  Use this library for photos and videos you have permission to share publicly.
+                  Unpublished files can still be opened by someone with their media link.
+                  Keep private customer evidence in Completion reports.
+                </p>
                 <label className="mt-4 block font-semibold text-navy-950">
-                  Cleaning stage
+                  {topic === "property-services" ? "Work stage" : "Cleaning stage"}
                   <select
                     className={field}
                     value={stage}
+                    disabled={busy}
                     onChange={(event) =>
                       setStage(event.target.value as BeforeAfter)
                     }
                   >
                     <option value="none">General work photo / video</option>
-                    <option value="before">Before cleaning</option>
-                    <option value="after">After cleaning</option>
-                    <option value="during">During cleaning</option>
+                    <option value="before">Before {topic === "property-services" ? "work" : "cleaning"}</option>
+                    <option value="after">After {topic === "property-services" ? "work" : "cleaning"}</option>
+                    <option value="during">During {topic === "property-services" ? "work" : "cleaning"}</option>
                   </select>
                 </label>
                 <label className="mt-4 block font-semibold text-navy-950">
@@ -1005,15 +1091,87 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                     multiple
                     disabled={busy}
                     className={field}
-                    accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif,video/mp4,video/quicktime,video/webm"
-                    onChange={(event) =>
-                      setFiles(Array.from(event.target.files || []))
-                    }
+                    accept={MEDIA_ACCEPT}
+                    onChange={(event) => {
+                      const chosen = Array.from(event.target.files || []);
+                      const valid = chosen.filter((file) => checkMediaFile(file).ok);
+                      setFiles((previous) => {
+                        const queued = new Map(previous.map((file) => [`${file.name}:${file.size}:${file.lastModified}`, file]));
+                        for (const file of valid) {
+                          const key = `${file.name}:${file.size}:${file.lastModified}`;
+                          // Keep the original File object so its retry message
+                          // and saved upload ID still refer to the same entry.
+                          if (!queued.has(key)) queued.set(key, file);
+                        }
+                        return [...queued.values()];
+                      });
+                      setRejected(chosen.flatMap((file) => {
+                        const check = checkMediaFile(file);
+                        return check.ok ? [] : [{ name: file.name, reason: check.reason }];
+                      }));
+                    }}
                   />
                 </label>
 
                 {files.length > 0 && (
-                  <p className="mt-2 text-sm">{files.length} files waiting.</p>
+                  <div className="mt-3 text-sm">
+                    <p className="font-semibold text-navy-950">
+                      {files.length === 1 ? "1 file ready to upload" : `${files.length} files ready to upload`}
+                    </p>
+                    <p className="mt-1 text-navy-700">Choose more files to add to this queue.</p>
+                    <ul aria-label="Files ready to upload" className="mt-1 list-disc pl-5 text-navy-700">
+                      {files.map((file) => {
+                        const check = checkMediaFile(file);
+                        return (
+                          <li key={`${file.name}:${file.size}:${file.lastModified}`} className="break-words">
+                            {file.name} — {check.ok ? check.kind : "file"}, {formatFileSize(file.size)}
+                            <button
+                              type="button"
+                              disabled={busy}
+                              className="ml-2 rounded px-2 py-1 font-semibold text-navy-900 underline disabled:opacity-50"
+                              aria-label={`Remove ${file.name} from upload queue`}
+                              onClick={() => {
+                                setFiles((previous) => previous.filter((item) => item !== file));
+                                setUploadIssues((previous) => previous.filter((item) => item.file !== file));
+                                if (fileInput.current) fileInput.current.value = "";
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+
+                {rejected.length > 0 && (
+                  <div role="alert" aria-label="Files that cannot be uploaded" className="mt-3 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-900">
+                    <p className="font-semibold">
+                      {rejected.length === 1 ? "1 file cannot be uploaded" : `${rejected.length} files cannot be uploaded`}
+                    </p>
+                    <ul className="mt-1 list-disc pl-5">
+                      {rejected.map((item) => (
+                        <li key={item.name} className="break-words">
+                          <span className="font-semibold">{item.name}:</span> {item.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {uploadIssues.length > 0 && (
+                  <div role="alert" aria-label="Files to retry" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-navy-950">
+                    <p className="font-semibold">Some files need another try</p>
+                    <p className="mt-1">Other files continued uploading. Only the remaining files will be retried.</p>
+                    <ul className="mt-2 space-y-2">
+                      {uploadIssues.map(({ file, reason }) => (
+                        <li key={`${file.name}:${file.size}:${file.lastModified}`} className="break-words">
+                          <span className="font-semibold">{file.name}:</span> {reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
 
                 {progress && (
@@ -1030,7 +1188,10 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                     <button
                       type="button"
                       className={button}
-                      onClick={() => controller.current?.abort()}
+                      onClick={() => {
+                        cancelRequested.current = true;
+                        controller.current?.abort();
+                      }}
                     >
                       Cancel transfer
                     </button>
@@ -1042,7 +1203,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                   className={`${primary} mt-4`}
                   type="submit"
                 >
-                  {busy ? "Working…" : "Upload selected files"}
+                  {busy ? "Working…" : uploadIssues.length ? "Retry remaining files" : "Upload selected files"}
                 </button>
               </form>
 
@@ -1091,15 +1252,8 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                       value={filter}
                       onChange={(event) => setFilter(event.target.value)}
                     >
-                      {[
-                        "all",
-                        "unassigned",
-                        "ready",
-                        "processing",
-                        "failed",
-                        "archived",
-                      ].map((value) => (
-                        <option key={value}>{value}</option>
+                      {MEDIA_FILTERS.map(({ value, label }) => (
+                        <option key={value} value={value}>{label}</option>
                       ))}
                     </select>
                   </label>
@@ -1132,12 +1286,12 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                         <p className="mt-1 break-words text-xs text-navy-700">
                           {asset.filename}
                         </p>
-                        <p className="mt-2 text-sm font-semibold">
-                          {asset.status}
-                          {asset.usages.length
-                            ? ` · Used in ${asset.usages.length} places`
-                            : " · Unassigned"}
+                        <p className="mt-1 text-xs text-navy-700">
+                          Uploaded {formatMediaDate(asset.createdAt)} · {formatFileSize(Number(asset.size))}
                         </p>
+                        <p className="mt-2"><MediaStatusBadge asset={asset} /></p>
+                        <p className="mt-1 text-sm text-navy-700">{mediaStatusSummary(asset).help}</p>
+                        {asset.usages.length > 0 && <UsageList usages={asset.usages} heading="Shown on" />}
                         {asset.processingError && (
                           <p className="mt-2 text-sm text-red-800">
                             {asset.processingError}
@@ -1158,6 +1312,7 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                                 <input
                                   type="file"
                                   className="sr-only"
+                                  accept={MEDIA_ACCEPT}
                                   disabled={busy}
                                   onChange={(event) => {
                                     const file = event.target.files?.[0];
@@ -1191,6 +1346,24 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
                                 Retry processing
                               </button>
                             </>
+                          )}
+                          {asset.status === "processing" && (
+                            <button
+                              className={button}
+                              disabled={busy}
+                              onClick={() => void run(async () => {
+                                const result = await authFetch<{ status?: string; message?: string }>(`${api}&id=${asset.id}`, {
+                                  method: "POST",
+                                  body: JSON.stringify({ action: "sync" }),
+                                });
+                                await load();
+                                setNotice(result.message || (result.status === "ready"
+                                  ? "Your video is ready. You can now choose a position."
+                                  : "Processing checked. This does not upload your file again. If it still needs attention, check the message on the video."));
+                              })}
+                            >
+                              Check processing
+                            </button>
                           )}
                           {["ready", "archived"].includes(asset.status) &&
                             !asset.usages.length && (
@@ -1252,56 +1425,29 @@ function MediaManagerContent({ ownerId }: { ownerId: string }) {
   );
 }
 
-function Preview({ asset, label }: { asset?: MediaAsset; label: string }) {
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const playing = Boolean(asset?.id && playingId === asset.id);
-  const src =
-    asset?.imageUrl ||
-    (asset?.muxPlaybackId
-      ? `https://image.mux.com/${asset.muxPlaybackId}/thumbnail.jpg?time=1&width=480`
-      : null);
-
-  return (
-    <figure className="relative aspect-video bg-silver-100">
-      {playing && asset?.muxPlaybackId ? <iframe className="h-full w-full" src={`https://player.mux.com/${encodeURIComponent(asset.muxPlaybackId)}`} title={`Video preview: ${asset.title || label}`} allow="fullscreen" allowFullScreen /> : src ? (
-        <img
-          src={src}
-          alt={asset?.altText || ""}
-          loading="lazy"
-          decoding="async"
-          className="h-full w-full object-contain"
-        />
-      ) : (
-        <div className="flex h-full items-center justify-center p-4 text-center text-sm text-navy-700">
-          {asset ? asset.status : "No media assigned"}
-        </div>
-      )}
-      {asset?.muxPlaybackId && !playing && <button type="button" className="absolute inset-x-8 top-1/3 rounded-lg bg-white p-3 font-semibold text-navy-950 shadow" onClick={() => setPlayingId(asset.id)}>Play video</button>}
-      {!playing && <figcaption className="absolute bottom-2 left-2 rounded bg-navy-950 px-2 py-1 text-xs capitalize text-white">
-        {label}
-      </figcaption>}
-    </figure>
-  );
-}
-
-function DefaultPhoto({ usages }: { usages: MediaUsage[] }) {
-  const photo = usages.map(usage => DEFAULT_PHOTOS[usage.pageKey]).find(Boolean);
-  return photo ? <figure className="bg-silver-100 p-3"><img src={`${PUBLIC_SITE}${photo.src}`} alt={photo.alt} className="aspect-video w-full object-contain" /><figcaption className="mt-2 text-sm text-navy-700">Built-in website photo — used when no CRM photo is published. Open the website to check its current appearance.</figcaption></figure> : <p className="p-4 text-sm text-navy-700">No CRM media assigned. Check the linked page for existing built-in content.</p>;
+function DefaultPhoto({ usages, library, assets }: { usages: MediaUsage[]; library?: MediaLibrary; assets?: Map<string, MediaAsset> }) {
+  const position = registeredPosition(usages);
+  const inherited = position?.fallbackService && library && assets ? serviceOpeningPhoto(library, assets, position.fallbackService) : null;
+  const item = inherited || position?.defaultMedia;
+  if (!item) return <p className="p-4 text-sm text-navy-700">{position ? "This position is waiting for its first upload." : "No CRM media assigned."}</p>;
+  return <div className="max-w-sm overflow-hidden rounded-lg bg-silver-100 p-3"><InventoryMedia item={item} /><p className="mt-2 text-sm text-navy-700">{inherited ? "From the first published service result." : "Original website media."}</p></div>;
 }
 
 function UsageList({ usages, heading = "Used on" }: { usages: MediaUsage[]; heading?: string }) {
-  const visibleUsages = [...new Map(usages.map((usage) => [
-    JSON.stringify([positionPageLabel(usage), usage.componentLabel]), usage,
-  ])).values()];
+  const destinations = usages.flatMap(usage => {
+    const entry = findWebsiteMediaPosition(usage.pageKey);
+    return entry ? entry.pages : [{ path: PAGE_PATHS[usage.pageKey], label: positionPageLabel(usage), section: usage.componentLabel }];
+  });
+  const visibleUsages = [...new Map(destinations.map(page => [JSON.stringify(page), page])).values()];
   return (
     <div className="mt-3">
       <h3 className="text-sm font-semibold text-navy-950">{heading}</h3>
       {usages.length ? (
         <ul className="mt-1 list-disc pl-5 text-sm text-navy-700">
-          {visibleUsages.map((usage) => (
-            <li key={usage.key}>
-              {positionPageLabel(usage)} · {usage.componentLabel}
-              {PAGE_PATHS[usage.pageKey] && <a className="ml-2 inline-block underline" href={`${PUBLIC_SITE}${PAGE_PATHS[usage.pageKey]}`} target="_blank" rel="noopener noreferrer">View on website</a>}
+          {visibleUsages.map((page) => (
+            <li key={JSON.stringify(page)}>
+              {page.label} · {page.section}
+              {page.path && <a className="ml-2 inline-block underline" href={`${PUBLIC_SITE}${page.path}`} target="_blank" rel="noopener noreferrer">View on website</a>}
             </li>
           ))}
         </ul>
@@ -1326,6 +1472,11 @@ function SlotCard({
       <div className="p-4">
         <h3 className="font-semibold text-navy-950">{slot.label}</h3>
         <p className="text-xs text-navy-700">{slot.code} · {slot.assignments.length ? "Replace published media" : "Add to gallery"}</p>
+        <p className={`mt-2 text-xs font-semibold ${slot.assignments.length ? "text-emerald-800" : "text-navy-700"}`}>
+          {slot.assignments.length
+            ? `● Live on website${formatMediaDate(slot.publishedAt) ? ` since ${formatMediaDate(slot.publishedAt)}` : ""}`
+            : "○ Empty — nothing from your library is shown here"}
+        </p>
       </div>
       <div
         className={slot.kind === "before_after" ? "grid grid-cols-2" : "block"}
@@ -1359,10 +1510,14 @@ function SlotCard({
 function WebsiteCard({
   slot,
   asset,
+  library,
+  assets,
   onChoose,
 }: {
   slot: WebsiteSlot;
   asset?: MediaAsset;
+  library: MediaLibrary;
+  assets: Map<string, MediaAsset>;
   onChoose: () => void;
 }) {
   return (
@@ -1371,13 +1526,13 @@ function WebsiteCard({
         <p className="text-sm text-sky-700">{slot.pageLabel}</p>
         <h3 className="font-semibold text-navy-950">{slot.purposeLabel}</h3>
       </div>
-      {asset ? <Preview asset={asset} label="Current published photo" /> : <DefaultPhoto usages={slot.usages} />}
+      {asset ? <Preview asset={asset} label="Current selection" /> : <DefaultPhoto usages={slot.usages} library={library} assets={assets} />}
       <div className="p-4">
-        <UsageList usages={slot.usages} heading={usesPhotographsOnly(slot.usages) ? "Used on" : "Planned placement"} />
-        {!usesPhotographsOnly(slot.usages) && <p className="mt-3 text-sm font-medium text-amber-900">Not connected to a website page yet. You can view the saved selection, but publishing is unavailable.</p>}
-        {usesPhotographsOnly(slot.usages) && <p className="mt-3 text-sm text-navy-700">This position displays photographs only.</p>}
+        <UsageList usages={slot.usages} heading={connectedWebsite(slot.usages) ? "Used on" : "Planned placement"} />
+        {!connectedWebsite(slot.usages) && <p className="mt-3 text-sm font-medium text-amber-900">Not connected to a website page yet. You can view the saved selection, but publishing is unavailable.</p>}
+        {connectedWebsite(slot.usages) && <p className="mt-3 text-sm text-navy-700">{registeredPosition(slot.usages)?.kind === "video" ? "Choose a video for this position." : "This position displays photographs only."}</p>}
         <button className={`${button} mt-4`} onClick={onChoose}>
-          {usesPhotographsOnly(slot.usages) ? "Choose / replace media" : "View position"}
+          {connectedWebsite(slot.usages) ? "Choose / replace media" : "View position"}
         </button>
       </div>
     </article>
@@ -1496,7 +1651,7 @@ function MetadataEditor({
         </select>
       </label>
       <label className="mt-3 block font-semibold text-navy-950">
-        Cleaning stage
+        {values.category === "property-services" ? "Work stage" : "Cleaning stage"}
         <select
           className={field}
           value={values.beforeAfter}
@@ -1511,9 +1666,9 @@ function MetadataEditor({
         >
           {[
             ["none", "General work photo / video"],
-            ["before", "Before cleaning"],
-            ["after", "After cleaning"],
-            ["during", "During cleaning"],
+            ["before", `Before ${values.category === "property-services" ? "work" : "cleaning"}`],
+            ["after", `After ${values.category === "property-services" ? "work" : "cleaning"}`],
+            ["during", `During ${values.category === "property-services" ? "work" : "cleaning"}`],
           ].map(([value, label]) => (
             <option key={value} value={value}>
               {label}

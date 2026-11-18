@@ -16,6 +16,7 @@ vi.mock("../api/_lib/supabaseAdmin.js", () => ({
 vi.mock("../api/_lib/mediaConfig.js", () => ({
   getMediaConfig: mocks.config,
   originalExists: mocks.exists,
+  inspectOriginal: async (...args) => ({ status: await mocks.exists(...args) ? 'verified' : 'missing' }),
   createUploadUrl: mocks.upload,
   createDownloadUrl: vi.fn(),
   createImageDeliveryTemplate: vi.fn(
@@ -122,6 +123,19 @@ describe("authenticated atomic media publication", () => {
     const result = await call(request);
     expect(result.statusCode).toBe(400);
     expect(result.body.error).toContain("photographs only");
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it("accepts a ready video for an original website film and rejects a still photo in the same position", async () => {
+    const key = "builtin-carpet-carpet-stairs";
+    db._tables.media_website_slots = [{ id: T, slot_key: key }];
+    db._tables.media_page_references = [{ website_slot_id: T, active: true, page_key: key, reference_key: "stairs" }];
+    const request = { action: "assign", targetType: "website", targetId: T, assignments: [{ assetId: A, role: "primary" }], preview: true };
+    expect((await call(request)).statusCode).toBe(400);
+    Object.assign(db._tables.media_assets[0], { media_type: "video", mux_playback_id: "synthetic-playback" });
+    const preview = await call(request);
+    expect(preview.statusCode).toBe(200);
+    expect(preview.body.assets[0].mediaType).toBe("video");
     expect(db.rpc).not.toHaveBeenCalled();
   });
 
@@ -306,7 +320,9 @@ describe("authenticated atomic media publication", () => {
   it("completed retries are idempotent and cannot overwrite a ready original", async () => {
     expect((await call({ action: "complete" })).statusCode).toBe(200);
     expect(mocks.config).not.toHaveBeenCalled();
-    expect((await call({ action: "retry-upload" })).statusCode).toBe(409);
+    const retry = await call({ action: "retry-upload" });
+    expect(retry.statusCode).toBe(200);
+    expect(retry.body).toEqual({ id: A, alreadyStored: true });
     expect(mocks.upload).not.toHaveBeenCalled();
   });
   it("keeps a failed transfer recoverable in the saved library", async () => {

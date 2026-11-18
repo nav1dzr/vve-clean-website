@@ -3,6 +3,7 @@ import VideoTile from './VideoTile';
 import { GALLERY_MEDIA, type GalleryItem, type GalleryVideoItem } from '../../data/galleryMedia';
 import { CARPET_RESULT_VIDEOS, CARPET_PROCESS_VIDEO, type CarpetVideo } from '../../data/carpetMedia';
 import { matchesNamedArea } from '../../lib/areaMatch';
+import { useResolvedWebsiteMedia } from '../../lib/websiteMediaPositions';
 
 const DEFAULT_MEDIA: GalleryItem[] = Object.values(GALLERY_MEDIA).flat();
 const DEFAULT_CARPET_CLIPS: CarpetVideo[] = [
@@ -52,7 +53,9 @@ export interface RecentJobsByAreaProps {
  * that implies a local job that hasn't actually happened.
  */
 export default function RecentJobsByArea({ areaName }: RecentJobsByAreaProps) {
-  const items = collectAreaJobs(areaName);
+  const resolved = useResolvedWebsiteMedia(DEFAULT_MEDIA);
+  // A newly chosen job must not inherit the original photograph's location.
+  const items = collectAreaJobs(areaName, resolved, []);
   if (items.length === 0) return null;
 
   return (

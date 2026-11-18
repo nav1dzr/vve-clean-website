@@ -2,9 +2,14 @@ import ServiceLandingLayout, { type ServiceLandingData } from '../components/Ser
 import { Moon, FileText, Zap, Calendar } from 'lucide-react';
 import BeforeAfterTile from '../components/gallery/BeforeAfterTile';
 import { GALLERY_MEDIA, type GalleryBeforeAfterItem } from '../data/galleryMedia';
+import { useResolvedWebsiteMedia } from '../lib/websiteMediaPositions';
 
 const WA = 'https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20commercial%20carpet%20clean%20please.%20Address%3A%20';
 const officeResult = GALLERY_MEDIA.carpet.find((item): item is GalleryBeforeAfterItem => item.id === 'carpet-office' && item.type === 'before-after');
+function CommercialProof() {
+  const [result] = useResolvedWebsiteMedia(officeResult ? [officeResult] : []);
+  return result ? <section className="bg-surface px-4 py-16" aria-label="Commercial carpet cleaning result"><div className="mx-auto max-w-3xl"><h2 className="mb-6 font-display text-3xl font-bold text-navy-900">An office carpet before and after cleaning</h2><BeforeAfterTile entry={result} placeholderLabel="Office carpet" /></div></section> : null;
+}
 
 // Single source for the visible accordion and the FAQPage schema — see the
 // same note in EndOfTenancyPage.tsx. The schema previously carried an
@@ -143,7 +148,7 @@ const DATA: ServiceLandingData = {
   },
 
   faqs: FAQS,
-  proofSection: officeResult ? <section className="bg-surface px-4 py-16" aria-label="Commercial carpet cleaning result"><div className="mx-auto max-w-3xl"><h2 className="mb-6 font-display text-3xl font-bold text-navy-900">An office carpet before and after cleaning</h2><BeforeAfterTile entry={officeResult} placeholderLabel="Office carpet" /></div></section> : undefined,
+  proofSection: <CommercialProof />,
   sectionOrder: ['intro', 'proof', 'benefits', 'why', 'pricing', 'faq', 'related'],
 
   relatedLinks: [

@@ -4,7 +4,7 @@ import { corsHeaders } from "./cors.js";
 import { readJsonBody } from "./body.js";
 import { getMediaServiceClient } from "./supabaseAdmin.js";
 import { createR2Key, createUploadUrl, getMediaConfig } from "./mediaConfig.js";
-import { toMediaSummary, validateNewAsset } from "./mediaFields.js";
+import { CATEGORY_VALUES, toMediaSummary, validateNewAsset } from "./mediaFields.js";
 import {
   MEDIA_ASSETS_TABLE,
   MEDIA_ASSIGNMENTS_TABLE,
@@ -59,7 +59,7 @@ async function listMedia(req, res, headers, supabase) {
     0,
     Math.min(10000, Number.parseInt(req.query?.page, 10) || 0),
   );
-  const category = ["carpet", "sofa-upholstery", "end-of-tenancy"].includes(
+  const category = CATEGORY_VALUES.includes(
     req.query?.category,
   )
     ? req.query.category
@@ -165,6 +165,13 @@ async function listMedia(req, res, headers, supabase) {
     usages.push(...(referencesByTarget.get(target) || []));
     usagesByAsset.set(assignment.asset_id, usages);
   }
+  // The newest assignment timestamp is when the live selection was published.
+  const publishedAt = (targetId) =>
+    (assignmentsByTarget.get(targetId) || [])
+      .map((assignment) => assignment.updated_at)
+      .filter(Boolean)
+      .sort()
+      .at(-1) || null;
   res.writeHead(200, headers);
   return res.end(
     JSON.stringify({
@@ -196,6 +203,7 @@ async function listMedia(req, res, headers, supabase) {
           }),
         ),
         usages: referencesByTarget.get(slot.id) || [],
+        publishedAt: publishedAt(slot.id),
       })),
       websiteSlots: (websiteSlots || []).map((slot) => ({
         id: slot.id,
@@ -211,6 +219,7 @@ async function listMedia(req, res, headers, supabase) {
           }),
         ),
         usages: referencesByTarget.get(slot.id) || [],
+        publishedAt: publishedAt(slot.id),
       })),
       references: (references || []).map((reference) => ({
         id: reference.id,

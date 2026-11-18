@@ -1,5 +1,5 @@
 import { isPrivatePage } from './privatePage';
-import { getStoredConsent } from './consent';
+import type { StoredConsent } from './consent';
 // Campaign measurement waits for advertising consent. The requested leaflet offer
 // is separate essential storage; rejecting cookies never removes the discount.
 export interface AttributionData {
@@ -89,6 +89,7 @@ interface EntrySnapshot {
 let entry: EntrySnapshot | null = null;
 let leafletVisit = false;
 let advertisingConsent = false;
+let consentRecord: StoredConsent | null = null;
 
 /**
  * Records where this visit started, in memory only.
@@ -154,8 +155,15 @@ export function setLeafletOffer(): void {
  */
 export function setAdvertisingConsent(granted: boolean): void {
   advertisingConsent = granted;
+  consentRecord = null;
   if (granted) persistIfConsented();
   else clearAdvertisingAttribution();
+}
+
+/** Publish one complete choice before a booking can read it. */
+export function setConsentRecord(record: StoredConsent | null): void {
+  setAdvertisingConsent(record?.advertising === true);
+  consentRecord = record ? { ...record } : null;
 }
 
 /** True once advertising consent has been granted in this page load. */
@@ -277,6 +285,7 @@ export function resetAttributionMemory(): void {
   entry = null;
   leafletVisit = false;
   advertisingConsent = false;
+  consentRecord = null;
 }
 
 /** The advertising half of the payload, blanked. */
@@ -304,17 +313,16 @@ const NO_ADVERTISING_ATTRIBUTION = {
  * them to honour it.
  */
 export function getAttribution(): AttributionData {
+  const measurementConsent = {
+    advertising: advertisingConsent,
+    version: consentRecord?.version ?? null,
+    recorded_at: consentRecord?.timestamp ?? null,
+  };
   try {
     const pct = localStorage.getItem(KEYS.discount_percent);
     const essential = {
       offer_code:       localStorage.getItem(KEYS.offer_code),
       discount_percent: pct !== null ? Number(pct) : null,
-    };
-    const storedConsent = getStoredConsent();
-    const measurementConsent = {
-      advertising: advertisingConsent,
-      version: storedConsent?.version ?? null,
-      recorded_at: storedConsent?.timestamp ?? null,
     };
 
     if (!advertisingConsent) return { ...NO_ADVERTISING_ATTRIBUTION, ...essential, measurement_consent: measurementConsent };
@@ -337,6 +345,6 @@ export function getAttribution(): AttributionData {
       measurement_consent: measurementConsent,
     };
   } catch {
-    return { ...NO_ADVERTISING_ATTRIBUTION, offer_code: null, discount_percent: null, measurement_consent: { advertising: false, version: null, recorded_at: null } };
+    return { ...NO_ADVERTISING_ATTRIBUTION, offer_code: null, discount_percent: null, measurement_consent: measurementConsent };
   }
 }

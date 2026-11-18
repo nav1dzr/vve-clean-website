@@ -13,13 +13,13 @@ import LazyVideo from '../media/LazyVideo';
 import { CARPET_FEATURED_BEFORE_AFTER } from '../../data/galleryMedia';
 import { CARPET_RESULT_VIDEOS } from '../../data/carpetMedia';
 import ManagedServiceMedia from '../media/ManagedServiceMedia';
+import { useResolvedWebsiteMedia } from '../../lib/websiteMediaPositions';
 
 // All six halves of the three approved pairs, in reading order, so Previous/
 // Next in the lightbox walks the section exactly as it appears on screen.
-const LIGHTBOX_PHOTOS = toLightboxPhotos(CARPET_FEATURED_BEFORE_AFTER);
-
-export default function CarpetResultsSection() {
-  const pairs = CARPET_FEATURED_BEFORE_AFTER;
+export default function CarpetResultsSection({ pageKey = 'carpet-main-results' }: { pageKey?: string }) {
+  const pairs = useResolvedWebsiteMedia(CARPET_FEATURED_BEFORE_AFTER);
+  const lightboxPhotos = toLightboxPhotos(pairs);
   const lightbox = useLightbox();
   if (pairs.length === 0) return null;
 
@@ -57,13 +57,13 @@ export default function CarpetResultsSection() {
           })}
         </div>
 
-        <ManagedServiceMedia pageKey="carpet-main-results" />
+        <ManagedServiceMedia pageKey={pageKey} />
 
         <GalleryInstagramCta galleryCategory="carpet" />
       </div>
 
       <PhotoLightbox
-        photos={LIGHTBOX_PHOTOS}
+        photos={lightboxPhotos}
         index={lightbox.index}
         onClose={lightbox.close}
         onNavigate={lightbox.setIndex}

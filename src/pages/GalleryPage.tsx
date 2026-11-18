@@ -11,6 +11,7 @@ import { toLightboxPhotos, useLightbox } from '../components/gallery/useLightbox
 import { GALLERY_CATEGORIES, GALLERY_MEDIA, type GalleryCategory, type GalleryItem } from '../data/galleryMedia';
 import { useManagedGalleryMedia } from '../lib/managedGalleryMedia';
 import { suspendViewportVideos } from '../components/media/useViewportVideo';
+import { useResolvedWebsiteMedia } from '../lib/websiteMediaPositions';
 
 function isGalleryCategory(value: string | null): value is GalleryCategory {
   return !!value && GALLERY_CATEGORIES.some((category) => category.key === value);
@@ -98,9 +99,10 @@ export default function GalleryPage() {
     tabRefs.current[next.key]?.focus();
   };
 
-  // Published CRM positions still lead, in their approved order. Local media
-  // remain the fallback; no asset, pairing or service-page source is replaced.
-  const items = useMemo(() => [...managedMedia[active], ...GALLERY_MEDIA[active]], [managedMedia, active]);
+  const builtInMedia = useResolvedWebsiteMedia(GALLERY_MEDIA[active]);
+  // Shared gallery additions still lead. A named original position replaces
+  // its existing tile and lightbox entry rather than adding a duplicate tile.
+  const items = useMemo(() => [...managedMedia[active], ...builtInMedia], [managedMedia, active, builtInMedia]);
   const filtered = useMemo(() => items.filter((item) => format === 'all' || item.type === format), [items, format]);
   const lightboxPhotos = useMemo(() => toLightboxPhotos(filtered), [filtered]);
   const activeMeta = GALLERY_CATEGORIES.find((category) => category.key === active)!;

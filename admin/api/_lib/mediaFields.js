@@ -7,13 +7,14 @@ const IMAGE_TYPES = new Set([
   "image/heif",
 ]);
 const VIDEO_TYPES = new Set(["video/mp4", "video/quicktime", "video/webm"]);
-export const CATEGORY_VALUES = ["end-of-tenancy", "carpet", "sofa-upholstery"];
+export const CATEGORY_VALUES = ["end-of-tenancy", "carpet", "sofa-upholstery", "property-services"];
 export const BEFORE_AFTER_VALUES = ["before", "after", "during", "none"];
 export const PLACEMENT_VALUES = [
   "main-home",
   "gallery-end-of-tenancy",
   "gallery-carpet",
   "gallery-sofa",
+  "gallery-property-services",
   "carpet-page",
   "sofa-page",
   "end-of-tenancy-page",
@@ -25,6 +26,7 @@ const PLACEMENT_DEFAULTS = {
     service: "End of tenancy cleaning",
   },
   "gallery-carpet": { category: "carpet", service: "Carpet cleaning" },
+  "gallery-property-services": { category: "property-services", service: "Property services" },
   "gallery-sofa": {
     category: "sofa-upholstery",
     service: "Sofa & upholstery cleaning",
@@ -43,6 +45,9 @@ const MAX_TITLE = 120;
 const MAX_TEXT = 300;
 const MAX_PAIR_KEY = 64;
 const MAX_SIZE_BYTES = 500 * 1024 * 1024;
+// Cloudflare's Images binding input limit applies before transformation.
+// This only limits new admissions; existing originals are never rewritten.
+const MAX_PHOTO_BYTES = 20_000_000;
 const EXTENSIONS = {
   "image/jpeg": ["jpg", "jpeg"],
   "image/png": ["png"],
@@ -82,12 +87,12 @@ export function validateNewAsset(body) {
     !Number.isSafeInteger(size) ||
     size < 1 ||
     size > MAX_SIZE_BYTES ||
-    (mediaType === "image" && size > 40 * 1024 * 1024)
+    (mediaType === "image" && size > MAX_PHOTO_BYTES)
   ) {
     return {
       ok: false,
       error:
-        "Choose a supported photo up to 40 MB or video up to 500 MB, with its original file extension.",
+        "Choose a supported photo up to 20 MB or video up to 500 MB, with its original file extension.",
     };
   }
   return {
@@ -107,6 +112,7 @@ export function normaliseMetadata(body) {
     carpet: "gallery-carpet",
     "sofa-upholstery": "gallery-sofa",
     "end-of-tenancy": "gallery-end-of-tenancy",
+    "property-services": "gallery-property-services",
   };
   const chosenCategory = CATEGORY_VALUES.includes(body.category) ? body.category : "end-of-tenancy";
   const placement = PLACEMENT_VALUES.includes(body.placement)

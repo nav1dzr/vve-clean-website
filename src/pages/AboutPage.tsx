@@ -6,6 +6,7 @@ import Footer from '../components/Footer';
 import MobileStickyFooter from '../components/MobileStickyFooter';
 import TeamSection from '../components/TeamSection';
 import { COVERAGE_SUMMARY, COVERAGE_POSTCODE_LIST } from '../data/pricing';
+import { useWebsiteMediaPosition } from '../lib/websiteMediaPositions';
 
 const principles = [
   'A written scope and clear price before work starts',
@@ -26,6 +27,7 @@ const atAGlance = [
 ];
 
 export default function AboutPage() {
+  const photo = useWebsiteMediaPosition('about-equipment-image', { type: 'photo' as const, id: 'about-equipment', src: '/gallery/van-equipment.webp', alt: 'VVE Clean van and cleaning equipment', label: 'VVE Clean van and cleaning equipment' })!;
   return (
     <div className="mobile-page-bottom min-h-screen bg-white lg:pb-0">
       <Navbar />
@@ -45,8 +47,8 @@ export default function AboutPage() {
         <section className="border-b border-line bg-surface px-4 py-14 sm:py-16">
           <div className="mx-auto grid max-w-5xl gap-6 rounded-3xl border border-sky-200 bg-white p-7 shadow-[0_18px_55px_rgba(16,80,130,0.10)] sm:p-10 lg:grid-cols-[0.8fr_1fr] lg:items-center">
             <figure className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-              <img src="/gallery/van-equipment.webp" alt="VVE Clean van and cleaning equipment" width={800} height={600} loading="lazy" decoding="async" className="h-auto w-full" />
-              <figcaption className="px-4 py-3 text-xs leading-relaxed text-slate-600">VVE Clean van and cleaning equipment.</figcaption>
+              <img src={photo.src} alt={photo.alt} width={800} height={600} loading="lazy" decoding="async" className="h-auto w-full" />
+              <figcaption className="px-4 py-3 text-xs leading-relaxed text-slate-600">{photo.label}</figcaption>
             </figure>
             <div>
               <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-royal-700">Our story</p>

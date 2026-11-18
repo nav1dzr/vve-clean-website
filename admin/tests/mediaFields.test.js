@@ -10,6 +10,7 @@ describe("media upload fields", () => {
     ["carpet", "Carpet cleaning", "gallery-carpet"],
     ["sofa-upholstery", "Sofa & upholstery cleaning", "gallery-sofa"],
     ["end-of-tenancy", "End of tenancy cleaning", "gallery-end-of-tenancy"],
+    ["property-services", "Property services", "gallery-property-services"],
   ])("derives %s upload service and placement from the chosen category", (category, service, placement) => {
     const result = validateNewAsset({ filename: "photo.jpg", contentType: "image/jpeg", size: 100, category });
     expect(result.value).toMatchObject({ category, service, placement });
@@ -50,6 +51,14 @@ describe("media upload fields", () => {
 });
 
 describe("media integrity limits", () => {
+  it('matches the 20 MB image-processing admission limit without changing the video limit', () => {
+    const photo = { filename: 'photo.jpg', contentType: 'image/jpeg' };
+    expect(validateNewAsset({ ...photo, size: 20_000_000 }).ok).toBe(true);
+    const oversized = validateNewAsset({ ...photo, size: 20_000_001 });
+    expect(oversized.ok).toBe(false);
+    expect(oversized.error).toContain('20 MB');
+    expect(validateNewAsset({ filename: 'video.mp4', contentType: 'video/mp4', size: 500 * 1024 * 1024 }).ok).toBe(true);
+  });
   it("rejects file extension/type mismatch, traversal and oversized originals", () => {
     for (const row of [
       { filename: "photo.svg", contentType: "image/jpeg", size: 100 },

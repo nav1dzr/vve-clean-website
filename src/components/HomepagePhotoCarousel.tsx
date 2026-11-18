@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 import { useManagedServiceHeroMedia, useManagedWebsiteMedia } from '../lib/managedGalleryMedia';
 import type { GalleryItem } from '../data/galleryMedia';
 import ServiceHeroPhoto from './ServiceHeroPhoto';
+import { useWebsiteMediaPosition } from '../lib/websiteMediaPositions';
 
 const slides = [
   {
@@ -41,6 +42,8 @@ export default function HomepagePhotoCarousel() {
   const homepageMedia = useManagedWebsiteMedia('homepage-hero-image');
   const sofaMedia = useManagedServiceHeroMedia('sofa-upholstery');
   const tenancyMedia = useManagedServiceHeroMedia('end-of-tenancy');
+  const sofaPosition = useWebsiteMediaPosition('homepage-sofa-image', null);
+  const tenancyPosition = useWebsiteMediaPosition('homepage-end-of-tenancy-image', null);
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -80,11 +83,12 @@ export default function HomepagePhotoCarousel() {
     setAnnouncement(`${slides[next].service}, photo ${next + 1} of ${slides.length}`);
   };
   const slide = slides[active];
-  const managedPhotos = [stillImage(homepageMedia?.type === 'photo' ? homepageMedia : null), stillImage(sofaMedia), stillImage(tenancyMedia)];
+  const managedPhotos = [stillImage(homepageMedia?.type === 'photo' ? homepageMedia : null), stillImage(sofaPosition ?? sofaMedia), stillImage(tenancyPosition ?? tenancyMedia)];
   const photo = managedPhotos[active] ?? slide;
 
   return (
     <section
+      id="cleaning-photos"
       aria-label="Cleaning photos"
       aria-roledescription="carousel"
       className="min-w-0 overflow-hidden rounded-[1.25rem] border border-slate-200 bg-white shadow-lg shadow-slate-900/5"

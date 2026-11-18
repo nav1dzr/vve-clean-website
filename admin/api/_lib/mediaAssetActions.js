@@ -7,7 +7,7 @@ import {
   createImageDeliveryTemplate,
   getMediaConfig,
   muxAuthHeader,
-  originalExists,
+  inspectOriginal,
   createUploadUrl,
 } from "../_lib/mediaConfig.js";
 import {
@@ -22,7 +22,8 @@ import {
   MEDIA_REFERENCES_TABLE,
   MEDIA_WEBSITE_SLOTS_TABLE,
 } from "../_lib/mediaTables.js";
-import { WEBSITE_PHOTO_PAGE_KEYS } from "../../shared/mediaWebsitePositions.js";
+import { findWebsiteMediaPosition } from "../../shared/mediaWebsitePositions.js";
+import { applyMuxVideoState, findMuxVideoByPassthrough } from './mediaVideoState.js';
 
 export const config = { api: { bodyParser: false } };
 const MAX_BODY_BYTES = 16 * 1024;
@@ -191,6 +192,10 @@ function reply(res, headers, status, body) {
 }
 
 async function retryUpload(res, headers, supabase, asset) {
+  // Completion may have succeeded after the browser stopped waiting. Reuse
+  // that result (or sync an existing video handoff), never sign another PUT.
+  if (asset.status === 'ready' || (asset.media_type === 'video' && asset.status === 'processing'))
+    return reply(res, headers, 200, { id: asset.id, alreadyStored: true });
   if (
     !["uploading", "failed"].includes(asset.status) ||
     asset.mux_asset_id ||
@@ -205,22 +210,34 @@ async function retryUpload(res, headers, supabase, asset) {
     return reply(res, headers, 503, {
       error: "Hosting for this media type is not configured.",
     });
-  if (await originalExists(mediaConfig, asset.r2_key, asset))
+  const original = await inspectOriginal(mediaConfig, asset.r2_key, asset);
+  if (original.status === 'verified')
     return reply(res, headers, 200, { id: asset.id, alreadyStored: true });
+  if (original.status !== 'missing')
+    return originalVerificationFailure(res, headers, supabase, asset, original);
   const uploadUrl = await createUploadUrl(
     mediaConfig,
     asset.r2_key,
     asset.original_content_type,
   );
-  const { error } = await supabase
+  // Preparing a retry URL can overlap the original transfer's completion.
+  // A stale retry must not reopen a claimed/processed video for another create.
+  const { data: retryable, error } = await supabase
     .from(MEDIA_ASSETS_TABLE)
     .update({
       status: "uploading",
       processing_error: "",
       updated_at: new Date().toISOString(),
     })
-    .eq("id", asset.id);
+    .eq("id", asset.id)
+    .in('status', ['uploading', 'failed'])
+    .is('mux_asset_id', null)
+    .select('id')
+    .maybeSingle();
   if (error) throw error;
+  if (!retryable) return reply(res, headers, 409, {
+    error: 'This upload has moved on. Refresh the library and check its processing status before retrying.',
+  });
   return reply(res, headers, 200, {
     id: asset.id,
     uploadUrl,
@@ -229,11 +246,15 @@ async function retryUpload(res, headers, supabase, asset) {
 }
 
 async function failUpload(res, headers, supabase, asset) {
-  if (asset.status === "uploading")
+  // Completion may already have recorded a useful verification/delivery error.
+  // The browser's catch-all transfer callback must not replace it with a false
+  // claim that uploading was interrupted.
+  if (asset.status === "uploading" && !asset.processing_error)
     await markFailed(
       supabase,
       asset.id,
       "Transfer interrupted. Choose the same file and retry, or check whether the original finished uploading.",
+      { expectedStatus: 'uploading', expectedUpdatedAt: asset.updated_at },
     );
   return reply(res, headers, 200, { saved: true });
 }
@@ -269,8 +290,62 @@ async function positionHistory(res, headers, supabase, body) {
   return reply(res, headers, 200, { history: data || [] });
 }
 
+async function changedUploadResponse(res, headers, db, id) {
+  const latest = await db.from(MEDIA_ASSETS_TABLE).select('*').eq('id', id).maybeSingle();
+  if (latest.error) throw latest.error;
+  if (latest.data?.status === 'ready')
+    return reply(res, headers, 200, { id: latest.data.id, alreadyStored: true, asset: toMediaSummary(latest.data, []) });
+  return reply(res, headers, 409, {
+    code: 'MEDIA_UPLOAD_CHANGED',
+    error: 'This media changed while it was being checked. Refresh the library before trying again.',
+  });
+}
+
+async function savePendingFailure(db, asset, message, failed = true) {
+  return db.from(MEDIA_ASSETS_TABLE).update({
+    ...(failed ? { status: 'failed' } : {}),
+    processing_error: message,
+    updated_at: new Date().toISOString(),
+  }).eq('id', asset.id).in('status', ['uploading', 'failed'])
+    .eq('updated_at', asset.updated_at).select('*').maybeSingle();
+}
+
+async function originalVerificationFailure(res, headers, db, asset, result) {
+  const failures = {
+    missing: {
+      status: 422, code: 'MEDIA_ORIGINAL_MISSING',
+      error: 'No stored original was found for this item. Choose the same file and retry the upload.',
+    },
+    mismatch: {
+      status: 409, code: 'MEDIA_ORIGINAL_MISMATCH',
+      error: 'The stored file does not match the expected size or file type. It has been kept unchanged. Upload the correct file as a new item, or ask support to check this original.',
+    },
+    unavailable: {
+      status: 503, code: 'MEDIA_ORIGINAL_UNAVAILABLE',
+      error: result.reason === 'access'
+        ? 'Storage access could not be verified. Your file may already be stored. Use Retry processing; if this continues, storage access needs checking. Do not upload another copy yet.'
+        : 'Storage could not be checked just now. Your file may already be stored. Use Retry processing in a moment; you do not need to upload another copy.',
+    },
+  };
+  const failure = failures[result.status] || failures.unavailable;
+  const saved = await savePendingFailure(db, asset, failure.error, ['missing', 'mismatch'].includes(result.status));
+  if (saved.error) throw saved.error;
+  if (!saved.data) return changedUploadResponse(res, headers, db, asset.id);
+  return reply(res, headers, failure.status, { error: failure.error, code: failure.code });
+}
+
+async function photoDeliveryFailure(res, headers, db, asset) {
+  const message = 'The original photo is stored safely, but its preview could not be prepared. Use Retry processing; do not upload another copy.';
+  const saved = await savePendingFailure(db, asset, message);
+  if (saved.error) throw saved.error;
+  if (!saved.data) return changedUploadResponse(res, headers, db, asset.id);
+  return reply(res, headers, 503, { error: message, code: 'MEDIA_PHOTO_DELIVERY_UNAVAILABLE' });
+}
+
 async function completeUpload(res, headers, supabase, asset) {
-  if (["ready", "processing"].includes(asset.status))
+  if (asset.media_type === 'video' && asset.status === 'processing')
+    return syncVideo(res, headers, supabase, asset);
+  if (asset.status === 'ready')
     return reply(res, headers, 200, { asset: toMediaSummary(asset, []) });
   if (!["uploading", "failed"].includes(asset.status)) {
     res.writeHead(409, headers);
@@ -288,41 +363,28 @@ async function completeUpload(res, headers, supabase, asset) {
     );
   }
   if (asset.media_type === "image") {
-    if (!(await originalExists(mediaConfig, asset.r2_key, asset))) {
-      await markFailed(
-        supabase,
-        asset.id,
-        "The private R2 original was not found after upload.",
-      );
-      res.writeHead(422, headers);
-      return res.end(
-        JSON.stringify({
-          error:
-            "The private original was not found after upload. Please upload the photo again.",
-        }),
-      );
-    }
+    const original = await inspectOriginal(mediaConfig, asset.r2_key, asset);
+    if (original.status !== 'verified')
+      return originalVerificationFailure(res, headers, supabase, asset, original);
     const deliveryUrl = createImageDeliveryTemplate(
       mediaConfig,
       asset.id,
       asset.r2_key,
     );
-    const delivery = await fetch(deliveryUrl.replace("{width}", "480"), {
-      signal: AbortSignal.timeout(12000),
-    });
+    let delivery;
+    try {
+      delivery = await fetch(deliveryUrl.replace("{width}", "480"), {
+        signal: AbortSignal.timeout(10000),
+      });
+    } catch {
+      return photoDeliveryFailure(res, headers, supabase, asset);
+    }
     if (
       !delivery.ok ||
       !delivery.headers.get("content-type")?.startsWith("image/")
     ) {
-      await markFailed(
-        supabase,
-        asset.id,
-        "The original is stored, but photo delivery failed. Retry processing after checking image hosting.",
-      );
-      return reply(res, headers, 422, {
-        error:
-          "Photo uploaded but could not be displayed. Check image hosting, then retry processing.",
-      });
+      await delivery.body?.cancel();
+      return photoDeliveryFailure(res, headers, supabase, asset);
     }
     await delivery.body?.cancel();
     const { data: updated, error } = await supabase
@@ -342,29 +404,39 @@ async function completeUpload(res, headers, supabase, asset) {
         processing_error: "",
       })
       .eq("id", asset.id)
+      .in('status', ['uploading', 'failed'])
+      .eq('updated_at', asset.updated_at)
       .select("*")
-      .single();
+      .maybeSingle();
     if (error) throw error;
+    if (!updated) return changedUploadResponse(res, headers, supabase, asset.id);
     res.writeHead(200, headers);
     return res.end(JSON.stringify({ asset: toMediaSummary(updated, []) }));
   }
 
-  if (!(await originalExists(mediaConfig, asset.r2_key, asset)))
-    return reply(res, headers, 422, {
-      error: "The complete original was not found. Retry this upload.",
+  const original = await inspectOriginal(mediaConfig, asset.r2_key, asset);
+  if (original.status !== 'verified')
+    return originalVerificationFailure(res, headers, supabase, asset, original);
+  if (asset.mux_asset_id)
+    return reply(res, headers, 409, {
+      error: 'This original has already been sent for video processing. Upload a replacement if it could not be processed.',
     });
+  // Signing is local preparation: a failure here must not strand a claimed row.
+  const sourceUrl = await createDownloadUrl(mediaConfig, asset.r2_key);
   // An atomic claim prevents repeated Complete clicks creating two Mux assets.
   const { data: claimed, error: claimError } = await supabase
     .from(MEDIA_ASSETS_TABLE)
     .update({ status: "processing", updated_at: new Date().toISOString() })
     .eq("id", asset.id)
     .in("status", ["uploading", "failed"])
-    .select("id")
+    .is('mux_asset_id', null)
+    .select("*")
     .maybeSingle();
   if (claimError) throw claimError;
   if (!claimed) return reply(res, headers, 202, { status: "processing" });
-  const sourceUrl = await createDownloadUrl(mediaConfig, asset.r2_key);
-  const response = await fetch("https://api.mux.com/video/v1/assets", {
+  let response, payload;
+  try {
+    response = await fetch("https://api.mux.com/video/v1/assets", {
     method: "POST",
     signal: AbortSignal.timeout(12000),
     headers: {
@@ -377,13 +449,22 @@ async function completeUpload(res, headers, supabase, asset) {
       video_quality: "plus",
       passthrough: asset.id,
     }),
-  });
-  const payload = await response.json();
+    });
+    payload = await response.json();
+  } catch {
+    return uncertainVideoHandoff(res, headers, supabase, asset.id);
+  }
   if (!response.ok || !payload.data?.id) {
+    // Only definite request rejection may reopen the create path. A 5xx,
+    // timeout, malformed response or ambiguous result might already have
+    // created a billable asset, so recovery must remain read-only.
+    if (![400, 401, 403, 404, 413, 415, 422].includes(response.status))
+      return uncertainVideoHandoff(res, headers, supabase, asset.id);
     await markFailed(
       supabase,
       asset.id,
       "Mux could not start processing this video.",
+      { expectedStatus: 'processing', noMuxAsset: true },
     );
     res.writeHead(422, headers);
     return res.end(
@@ -393,23 +474,30 @@ async function completeUpload(res, headers, supabase, asset) {
       }),
     );
   }
-  const { data: updated, error } = await supabase
-    .from(MEDIA_ASSETS_TABLE)
-    .update({
-      status: "processing",
-      mux_asset_id: payload.data.id,
-      updated_at: new Date().toISOString(),
-      processing_error: "",
-    })
-    .eq("id", asset.id)
-    .select("*")
-    .single();
-  if (error) throw error;
-  res.writeHead(202, headers);
+  // A ready webhook may arrive before this response; the conditional helper
+  // reads its winning state rather than downgrading the video to processing.
+  const updated = await applyMuxVideoState(supabase, claimed, {
+    ...payload.data,
+    passthrough: asset.id,
+    status: payload.data.status || 'preparing',
+  });
+  res.writeHead(updated.status === 'ready' ? 200 : 202, headers);
   return res.end(JSON.stringify({ asset: toMediaSummary(updated, []) }));
 }
 
+async function uncertainVideoHandoff(res, headers, db, id) {
+  const result = await db.from(MEDIA_ASSETS_TABLE).update({
+    processing_error: 'The video is stored, but the processing handoff is not yet confirmed. Use Check processing; this will not upload or charge for another copy.',
+  }).eq('id', id).eq('status', 'processing').is('mux_asset_id', null).select('*').maybeSingle();
+  if (result.error) throw result.error;
+  const current = result.data || (await db.from(MEDIA_ASSETS_TABLE).select('*').eq('id', id).maybeSingle()).data;
+  return reply(res, headers, current?.status === 'ready' ? 200 : 202, current
+    ? { asset: toMediaSummary(current, []) } : { status: 'processing' });
+}
+
 async function syncVideo(res, headers, supabase, asset) {
+  if (asset.media_type === 'video' && asset.status === 'ready')
+    return reply(res, headers, 200, { asset: toMediaSummary(asset, []) });
   if (asset.media_type !== "video" || asset.status !== "processing") {
     res.writeHead(409, headers);
     return res.end(
@@ -428,35 +516,21 @@ async function syncVideo(res, headers, supabase, asset) {
   if (!asset.mux_asset_id) {
     // Recover an accepted Mux create whose response was lost, without another
     // create request. The original remains stored and unpublished throughout.
-    const recent = await fetch(
-      "https://api.mux.com/video/v1/assets?limit=100",
-      {
-        headers: { Authorization: muxAuthHeader(mediaConfig) },
-        signal: AbortSignal.timeout(12000),
-      },
-    );
-    const payload = await recent.json();
-    if (!recent.ok) throw new Error("Could not check video processing");
-    const recovered = payload.data?.find(
-      (entry) => entry.passthrough === asset.id,
-    );
+    const recovered = await findMuxVideoByPassthrough(mediaConfig, asset.id, muxAuthHeader);
     if (!recovered) {
       const { error } = await supabase
         .from(MEDIA_ASSETS_TABLE)
         .update({
           processing_error:
-            "Video handoff could not yet be verified. No duplicate processing request will be sent. Refresh processing, or ask support to check this original.",
+            "Video handoff is still unconfirmed. Check processing again later. Your original is stored; no second processing request has been sent. If this continues, support must check the provider before retrying.",
         })
-        .eq("id", asset.id);
+        .eq("id", asset.id).eq('status', 'processing').is('mux_asset_id', null);
       if (error) throw error;
       return reply(res, headers, 202, { status: "processing" });
     }
-    const { error } = await supabase
-      .from(MEDIA_ASSETS_TABLE)
-      .update({ mux_asset_id: recovered.id, processing_error: "" })
-      .eq("id", asset.id);
-    if (error) throw error;
-    asset = { ...asset, mux_asset_id: recovered.id };
+    const updated = await applyMuxVideoState(supabase, asset, recovered);
+    return reply(res, headers, updated.status === 'ready' ? 200 : updated.status === 'failed' ? 422 : 202,
+      { asset: toMediaSummary(updated, []), ...(updated.status === 'failed' ? { error: updated.processing_error } : {}) });
   }
   const response = await fetch(
     `https://api.mux.com/video/v1/assets/${asset.mux_asset_id}`,
@@ -467,39 +541,9 @@ async function syncVideo(res, headers, supabase, asset) {
   );
   const payload = await response.json();
   if (!response.ok || !payload.data) throw new Error("Mux asset lookup failed");
-  if (payload.data.status === "errored") {
-    await markFailed(supabase, asset.id, "Mux could not process this video.");
-    res.writeHead(422, headers);
-    return res.end(
-      JSON.stringify({
-        error:
-          "Mux could not process this video. The original remains safely stored in R2.",
-      }),
-    );
-  }
-  if (payload.data.status !== "ready") {
-    res.writeHead(202, headers);
-    return res.end(JSON.stringify({ status: "processing" }));
-  }
-  const playbackId = payload.data.playback_ids?.find(
-    (entry) => entry.policy === "public",
-  )?.id;
-  if (!playbackId) throw new Error("Mux ready asset has no public playback ID");
-  const { data: updated, error } = await supabase
-    .from(MEDIA_ASSETS_TABLE)
-    .update({
-      status: "ready",
-      mux_playback_id: playbackId,
-      ready_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      processing_error: "",
-    })
-    .eq("id", asset.id)
-    .select("*")
-    .single();
-  if (error) throw error;
-  res.writeHead(200, headers);
-  return res.end(JSON.stringify({ asset: toMediaSummary(updated, []) }));
+  const updated = await applyMuxVideoState(supabase, asset, payload.data);
+  return reply(res, headers, updated.status === 'ready' ? 200 : updated.status === 'failed' ? 422 : 202,
+    { asset: toMediaSummary(updated, []), ...(updated.status === 'failed' ? { error: updated.processing_error } : {}) });
 }
 
 function sortedAssignments(rows) {
@@ -626,19 +670,17 @@ async function assignMedia(res, headers, supabase, asset, body, adminId) {
     .eq("active", true)
     .order("sort_order");
   if (referencesError) throw referencesError;
-  const needsPhoto = references?.some((row) =>
-    WEBSITE_PHOTO_PAGE_KEYS.includes(row.page_key),
-  );
-  if (body.targetType === "website" && !needsPhoto)
-    return reply(res, headers, 409, {
-      error: "This position is not connected to a website page yet. Choose a shared gallery position or another connected position.",
+  if (body.targetType === "website") {
+    const kinds = new Set((references || []).map(row => findWebsiteMediaPosition(row.page_key))
+      .filter(position => position?.targetType === "website").map(position => position.kind));
+    if (kinds.size !== 1) return reply(res, headers, 409, {
+      error: "This position is not connected to a website page yet. Choose another connected position.",
     });
-  // These public components render still images, so accepting a video here
-  // would report a successful publication while the page keeps its fallback.
-  if (body.targetType === "website" && needsPhoto && chosen.some((row) => row.media_type !== "image"))
-    return reply(res, headers, 400, {
-      error: "This website position displays photographs only. Choose a ready photo; videos belong in a gallery video position.",
+    const requiresVideo = kinds.has("video");
+    if (chosen.some(row => row.media_type !== (requiresVideo ? "video" : "image"))) return reply(res, headers, 400, {
+      error: requiresVideo ? "This website position displays videos only. Choose a ready video." : "This website position displays photographs only. Choose a ready photo.",
     });
+  }
   const expected = sortedAssignments(current || []);
   const impact = (references || []).map((row) => ({
     key: row.reference_key,
@@ -675,8 +717,8 @@ async function assignMedia(res, headers, supabase, asset, body, adminId) {
   return reply(res, headers, 200, { ...data, impact });
 }
 
-async function markFailed(supabase, assetId, message) {
-  const { error } = await supabase
+async function markFailed(supabase, assetId, message, { expectedStatus, noMuxAsset = false, expectedUpdatedAt } = {}) {
+  let query = supabase
     .from(MEDIA_ASSETS_TABLE)
     .update({
       status: "failed",
@@ -684,6 +726,10 @@ async function markFailed(supabase, assetId, message) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", assetId);
+  if (expectedStatus) query = query.eq('status', expectedStatus);
+  if (noMuxAsset) query = query.is('mux_asset_id', null);
+  if (typeof expectedUpdatedAt === 'string') query = query.eq('updated_at', expectedUpdatedAt);
+  const { error } = await query;
   if (error)
     console.error("[admin/media] failed status write failed:", error.code);
 }
