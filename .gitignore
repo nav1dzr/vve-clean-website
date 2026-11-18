@@ -24,3 +24,6 @@ dist-ssr
 
 # Local CRM previews, test evidence and disposable database clusters.
 /admin/output/
+
+# Private customer review media must never enter source or hosted builds.
+/admin/public/__hart_review__/
