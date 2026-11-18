@@ -1,4 +1,8 @@
 import { verifyAdminRequest } from '../_lib/adminAuth.js';
+import { previewIsolation } from '../_lib/previewIsolation.js';
+import {
+  invoiceEmailQueueEnabled, isInvoiceEmailWorker, processDueInvoiceEmails, listOpenInvoiceEmails,
+} from '../_lib/invoiceEmailOutbox.js';
 import { corsHeaders } from '../_lib/cors.js';
 import { getServiceClient } from '../_lib/supabaseAdmin.js';
 import { readJsonBody } from '../_lib/body.js';
@@ -29,6 +33,16 @@ function buildQuery(supabase, filters) {
 
   if (filters.documentStatus) query = query.eq('document_status', filters.documentStatus);
   if (filters.paymentStatus) query = query.eq('payment_status', filters.paymentStatus);
+  // Quick filters used by the Home "Needs attention" links. Both ignore
+  // invoices replaced by a revision, which are no longer owed.
+  if (filters.delivery === 'unsent') {
+    query = query.eq('document_status', 'issued').neq('payment_status', 'paid')
+      .is('superseded_by_invoice_id', null).is('sent_at', null);
+  }
+  if (filters.overdue) {
+    query = query.eq('document_status', 'issued').gt('amount_due', 0)
+      .is('superseded_by_invoice_id', null).lt('due_date', filters.overdue);
+  }
   if (filters.dueFrom) query = query.gte('due_date', filters.dueFrom);
   if (filters.dueTo) query = query.lte('due_date', filters.dueTo);
   if (filters.bookingId) query = query.eq('booking_id', filters.bookingId);
@@ -106,6 +120,13 @@ async function handleList(req, res, headers) {
     return res.end(JSON.stringify({ error: 'q filter is invalid' }));
   }
 
+  const delivery = params.get('delivery') === 'unsent' ? 'unsent' : null;
+  // "Overdue" means due before today in UK time; the date itself is computed
+  // here, never taken from the browser.
+  const overdue = params.get('overdue') === '1'
+    ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+    : null;
+
   const dueFrom = params.get('dueFrom') || null;
   if (dueFrom && !isValidDateString(dueFrom)) {
     res.writeHead(400, headers);
@@ -128,7 +149,7 @@ async function handleList(req, res, headers) {
     const to = from + pageSize - 1;
 
     const { data, error, count } = await buildQuery(supabase, {
-      documentStatus, paymentStatus, bookingId, q, dueFrom, dueTo, sort,
+      documentStatus, paymentStatus, bookingId, q, dueFrom, dueTo, sort, delivery, overdue,
     }).range(from, to);
 
     if (error) {
@@ -209,6 +230,11 @@ export default async function handler(req, res) {
     return res.end();
   }
 
+  // The scheduler's own entry point. It carries a worker secret instead of an
+  // admin login, so it is handled before the admin check and nowhere else.
+  const routeParams = new URL(req.url, 'https://x').searchParams;
+  if (routeParams.get('action') === 'process-scheduled') return handleProcessScheduled(req, res, headers);
+
   if (req.method !== 'GET' && req.method !== 'POST') {
     res.writeHead(405, headers);
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
@@ -220,6 +246,37 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: auth.error }));
   }
 
+  if (req.method === 'GET' && routeParams.get('view') === 'emailQueue') return handleOpenEmailQueue(res, headers);
   if (req.method === 'GET') return handleList(req, res, headers);
   return handleCreate(req, res, headers, auth);
+}
+
+// POST /api/invoices?action=process-scheduled — sends invoice emails whose
+// time has come. Called by the database scheduler every few minutes. It can
+// send customer email, so it must never be used as a diagnostic.
+async function handleProcessScheduled(req, res, headers) {
+  const send = (status, body) => { res.writeHead(status, headers); return res.end(JSON.stringify(body)); };
+  if (req.method !== 'POST' || !isInvoiceEmailWorker(req)) return send(401, { error: 'Unauthorised' });
+  if (!previewIsolation().ok) return send(403, { error: 'Not available on this deployment' });
+  if (!invoiceEmailQueueEnabled()) return send(200, { status: 'disabled' });
+  const supabase = getServiceClient();
+  if (!supabase) return send(500, { error: 'Server misconfiguration' });
+  try {
+    const result = await processDueInvoiceEmails(supabase);
+    return result.ok ? send(200, { status: 'ok', ...result }) : send(503, { error: 'Queue unavailable' });
+  } catch (err) {
+    console.error('[admin/api] scheduled invoice email run failed:', err?.name || 'error');
+    return send(503, { error: 'Queue unavailable' });
+  }
+}
+
+// GET /api/invoices?view=emailQueue — every invoice email still waiting for
+// its time or for the owner's decision.
+async function handleOpenEmailQueue(res, headers) {
+  const send = (status, body) => { res.writeHead(status, headers); return res.end(JSON.stringify(body)); };
+  if (!invoiceEmailQueueEnabled()) return send(200, { enabled: false, emails: [] });
+  const supabase = getServiceClient();
+  if (!supabase) return send(500, { error: 'Server misconfiguration' });
+  const listed = await listOpenInvoiceEmails(supabase);
+  return listed.ok ? send(200, { enabled: true, emails: listed.emails }) : send(listed.status, { error: listed.error });
 }

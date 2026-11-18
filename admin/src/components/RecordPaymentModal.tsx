@@ -19,7 +19,9 @@ interface Props {
 }
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  // The owner's working day is UK time; a UTC date is a day behind between
+  // midnight and 1am during British Summer Time.
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
 
 // "Record payment" opens a form, never a one-click action — the amount

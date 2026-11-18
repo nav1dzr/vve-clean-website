@@ -14,6 +14,8 @@ export interface InvoiceCard {
   dueDate: string | null;
   issueDate: string | null;
   createdAt: string;
+  supersededByInvoiceId?: string | null;
+  sentAt?: string | null;
 }
 
 export interface InvoiceCustomer {
@@ -41,8 +43,44 @@ export interface PaymentInstructionsSnapshot {
   stripePaymentLinkUrl: string | null;
 }
 
+// One queued, scheduled or past invoice email (admin/api/_lib/invoiceEmailOutbox.js toOutboxView).
+export interface InvoiceEmail {
+  id: string;
+  invoiceId: string;
+  recipient: string;
+  message: string | null;
+  scheduledFor: string;
+  status: 'scheduled' | 'sending' | 'sent' | 'uncertain' | 'held' | 'cancelled';
+  attempts: number;
+  sentAt: string | null;
+  attemptedAt: string | null;
+  reason: string | null;
+  reasonCode: string | null;
+  expectedAmountDue: number;
+  createdAt: string;
+  // Present on the cross-invoice queue view only.
+  invoiceNumber?: string | null;
+  customerName?: string | null;
+  amountDue?: number | null;
+}
+
+export interface InvoiceEmailActionResponse {
+  ok: true;
+  email: InvoiceEmail;
+  outcome: 'sent' | 'held' | 'uncertain' | 'cancelled' | 'retry_later' | 'skipped' | null;
+  warning?: string;
+}
+
+export interface InvoiceEmailQueueResponse {
+  enabled: boolean;
+  emails: InvoiceEmail[];
+}
+
 export interface InvoiceDetail {
   bookingPaymentAllocationEnabled?: boolean;
+  /** Present only when scheduled sending is switched on for this deployment. */
+  emailQueueEnabled?: boolean;
+  emailQueue?: InvoiceEmail[];
   id: string;
   bookingId: string | null;
   invoiceNumber: string | null;

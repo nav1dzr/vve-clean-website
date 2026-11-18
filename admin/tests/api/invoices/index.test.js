@@ -188,3 +188,41 @@ describe('POST /api/invoices', () => {
     expect(res.statusCode).toBe(400);
   });
 });
+
+describe('GET /api/invoices quick filters', () => {
+  beforeEach(() => {
+    verifyAdminRequestMock.mockReset();
+    getServiceClientMock.mockReset();
+    verifyAdminRequestMock.mockResolvedValue(ADMIN);
+  });
+
+  const rows = [
+    { id: 'i-unsent', document_status: 'issued', payment_status: 'unpaid', amount_due: 100, due_date: '2999-01-01', sent_at: null, superseded_by_invoice_id: null },
+    { id: 'i-overdue', document_status: 'issued', payment_status: 'unpaid', amount_due: 80, due_date: '2020-01-01', sent_at: '2019-12-25T09:00:00Z', superseded_by_invoice_id: null },
+    { id: 'i-replaced', document_status: 'issued', payment_status: 'unpaid', amount_due: 80, due_date: '2020-01-01', sent_at: null, superseded_by_invoice_id: 'i-overdue' },
+    { id: 'i-paid', document_status: 'issued', payment_status: 'paid', amount_due: 0, due_date: '2020-01-01', sent_at: null, superseded_by_invoice_id: null },
+    { id: 'i-draft', document_status: 'draft', payment_status: 'unpaid', amount_due: 50, due_date: '2020-01-01', sent_at: null, superseded_by_invoice_id: null },
+  ];
+  const ids = async (query) => {
+    getServiceClientMock.mockReturnValue(createFakeSupabase({ invoices: rows }));
+    const res = makeRes();
+    await handler(makeReq({ url: '/api/invoices?' + query }), res);
+    expect(res.statusCode).toBe(200);
+    return JSON.parse(res.body).results.map((r) => r.id).sort();
+  };
+
+  it('"not emailed yet" lists issued, unpaid, live invoices that were never sent', async () => {
+    expect(await ids('delivery=unsent')).toEqual(['i-unsent']);
+  });
+
+  it('"overdue" lists live invoices with a balance and a past due date', async () => {
+    expect(await ids('overdue=1')).toEqual(['i-overdue']);
+  });
+
+  it('marks a replaced invoice so the list can label it', async () => {
+    getServiceClientMock.mockReturnValue(createFakeSupabase({ invoices: rows }));
+    const res = makeRes();
+    await handler(makeReq({ url: '/api/invoices' }), res);
+    expect(JSON.parse(res.body).results.find((r) => r.id === 'i-replaced').supersededByInvoiceId).toBe('i-overdue');
+  });
+});

@@ -167,13 +167,15 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
 
   return (
     <div className="px-4 py-6 pb-32 sm:px-6 sm:pb-6">
-      <Link to="/bookings" className="mb-3 inline-block text-sm text-sky-600 hover:text-sky-700">
+      <Link to="/bookings" className="mb-1 inline-flex min-h-11 items-center text-sm text-sky-600 hover:text-sky-700">
         ← Bookings
       </Link>
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <h1 className="truncate font-semibold text-xl text-navy-950">{b.bookingRef || 'Reference not recorded'}</h1>
+          <h1 className="truncate font-semibold text-xl text-navy-950">{b.fullName || 'Name not recorded'}</h1>
+          <p className="text-sm text-navy-800">{dateLabel}{b.preferredTime && b.serviceDate ? ` · ${b.preferredTime}` : ''}{b.postcode ? ` · ${b.postcode}` : ''}</p>
+          <p className="truncate text-sm text-navy-700">{b.bookingRef || 'Reference not recorded'}</p>
           {b.attribution.firstSource === 'admin_manual' && <p className="text-sm text-navy-700">
             Booking source · {typeof enquiryId === 'string' ? 'Website enquiry' : manualBookingSourceLabel(b.quoteConfig?.manualBookingSource)}
           </p>}

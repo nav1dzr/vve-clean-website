@@ -276,3 +276,30 @@ describe('Vercel-style query param routing (req.query.id)', () => {
     expect(res.statusCode).toBe(201);
   });
 });
+
+describe('customer balance ignores invoices replaced by a revision', () => {
+  beforeEach(() => {
+    verifyAdminRequestMock.mockReset();
+    getServiceClientMock.mockReset();
+    verifyAdminRequestMock.mockResolvedValue(ADMIN);
+  });
+
+  it('counts only the replacement invoice as owed', async () => {
+    const supabase = createFakeSupabase({
+      customers: [{ id: VALID_UUID, name: 'Sample Customer', email: 'fixture@example.invalid', customer_type: 'individual', source: 'other' }],
+      invoices: [
+        { id: 'inv-old', billing_customer_id: VALID_UUID, document_status: 'issued', payment_status: 'unpaid', total: 240, amount_due: 240, superseded_by_invoice_id: 'inv-new' },
+        { id: 'inv-new', billing_customer_id: VALID_UUID, document_status: 'issued', payment_status: 'unpaid', total: 255, amount_due: 255 },
+      ],
+    });
+    getServiceClientMock.mockReturnValue(supabase);
+
+    const res = makeRes();
+    await handler(makeReq({ url: `/api/customers/${VALID_UUID}` }), res);
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.invoices).toHaveLength(2);
+    expect(body.outstandingBalance).toBe(255);
+    expect(body.invoices.find((i) => i.id === 'inv-old').supersededByInvoiceId).toBe('inv-new');
+  });
+});

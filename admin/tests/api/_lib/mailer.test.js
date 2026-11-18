@@ -37,3 +37,23 @@ describe('invoice and receipt reply address', () => {
     }));
   });
 });
+
+describe('failure classification for automatic retries', () => {
+  it.each([
+    ['sign-in refused', { code: 'EAUTH' }, false],
+    ['recipient refused', { code: 'EENVELOPE' }, false],
+    ['connection never opened', { code: 'ETIMEDOUT', command: 'CONN' }, false],
+    ['timeout while sending the message', { code: 'ETIMEDOUT', command: 'DATA' }, true],
+    ['connection dropped', { code: 'ESOCKET' }, true],
+    ['unknown error', {}, true],
+  ])('%s', async (_label, error, uncertain) => {
+    transportSend.mockRejectedValue(Object.assign(new Error('synthetic'), error));
+    await expect(sendMail(message)).resolves.toMatchObject({ ok: false, uncertain });
+  });
+
+  it('reports configuration problems as definitely not sent', async () => {
+    vi.stubEnv('GMAIL_APP_PASSWORD', '');
+    await expect(sendMail(message)).resolves.toMatchObject({ ok: false, uncertain: false });
+    expect(transportSend).not.toHaveBeenCalled();
+  });
+});

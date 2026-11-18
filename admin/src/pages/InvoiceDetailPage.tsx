@@ -6,13 +6,15 @@ import { openPdfBlob } from '../lib/pdf';
 import type {
   InvoiceDetail, InvoiceDraftInput, IssueResponse, DownloadUrlResponse,
   RecordPaymentInput, RecordPaymentResponse, DuplicateResponse, ReviseResponse, InvoiceEvent, InvoiceEventsResponse, SendResponse,
-  ReceiptListResponse,
+  ReceiptListResponse, InvoiceEmail,
 } from '../types/invoice';
 import InvoiceItemsForm, { emptyFormValue } from '../components/InvoiceItemsForm';
 import BookingBalancePaymentNotice from '../components/BookingBalancePaymentNotice';
 import RecordPaymentModal from '../components/RecordPaymentModal';
 import VoidInvoiceModal from '../components/VoidInvoiceModal';
 import SendDocumentModal from '../components/SendDocumentModal';
+import SendInvoiceSheet from '../components/SendInvoiceSheet';
+import InvoiceEmailPanel from '../components/InvoiceEmailPanel';
 import CorrectInvoiceDetailsModal, { type InvoiceContactCorrectionInput } from '../components/CorrectInvoiceDetailsModal';
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
@@ -55,7 +57,12 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState<null | 'payment' | 'void' | 'send' | 'remind' | 'revise' | 'correctDetails'>(null);
-  const [pendingAction, setPendingAction] = useState<null | 'issue' | 'delete'>(null);
+  const [pendingAction, setPendingAction] = useState<null | 'issue' | 'issueSchedule' | 'delete'>(null);
+  const [rescheduleEmail, setRescheduleEmail] = useState<InvoiceEmail | null>(null);
+  const [sendScheduled, setSendScheduled] = useState(false);
+  // Set by "Issue and schedule email": open the send sheet once the issued
+  // invoice has loaded. Issuing and emailing remain two separate steps.
+  const scheduleAfterIssue = useRef(false);
   const requestVersion = useRef(0);
   const receiptRequestVersion = useRef(0);
   const historyRequestVersion = useRef(0);
@@ -111,6 +118,13 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
         setDraftDirty(false);
         setDraftConflict(false);
         setState({ status: 'success', data });
+        if (scheduleAfterIssue.current) {
+          scheduleAfterIssue.current = false;
+          if (data.documentStatus === 'issued' && data.emailQueueEnabled) {
+            setSendScheduled(true);
+            setModal('send');
+          }
+        }
         void loadHistory();
         // Fully paid — the "send invoice" flow is retired in favour of the
         // receipt (see handleSend's paid-invoice block on the server); look
@@ -164,8 +178,9 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
     load();
   }
 
-  async function handleIssue() {
+  async function handleIssue(thenSchedule = false) {
     if (!id || draftDirty || draftConflict || busy || state.status !== 'success') return;
+    scheduleAfterIssue.current = thenSchedule;
     setBusy(true);
     setActionError(null);
     try {
@@ -175,6 +190,7 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
       setPendingAction(null);
       load();
     } catch (err) {
+      scheduleAfterIssue.current = false;
       setActionError(err instanceof ApiError ? err.message : 'Could not issue this invoice.');
       setPendingAction(null);
       if (err instanceof ApiError && err.status === 409) {
@@ -235,9 +251,11 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
     load();
   }
 
-  async function handleVoid(reason: string) {
+  async function handleVoid(reason: string, acknowledgePayments: boolean) {
     if (!id) return;
-    await authFetch(`/api/invoices/${id}?action=void`, { method: 'POST', body: JSON.stringify({ reason }) });
+    await authFetch(`/api/invoices/${id}?action=void`, {
+      method: 'POST', body: JSON.stringify({ reason, ...(acknowledgePayments ? { acknowledgePayments: true } : {}) }),
+    });
     setModal(null);
     load();
   }
@@ -375,6 +393,9 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
   const isSuperseded = !!(inv.supersededByInvoiceId);
   const isRevision = !!(inv.revisedFromInvoiceId);
   const overdue = isInvoiceOverdue(inv.documentStatus, inv.amountDue, inv.dueDate);
+  const openEmail = inv.emailQueueEnabled
+    ? (inv.emailQueue || []).find((e) => ['scheduled', 'sending', 'held', 'uncertain'].includes(e.status)) || null
+    : null;
   const hasUnrecordedZeroBalance = inv.documentStatus === 'issued'
     && inv.paymentStatus !== 'paid'
     && inv.amountDue <= 0
@@ -471,6 +492,16 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
           >
             Issue invoice
           </button>
+          {inv.emailQueueEnabled && (
+            <button
+              type="button"
+              onClick={() => setPendingAction('issueSchedule')}
+              disabled={busy || draftDirty || draftConflict}
+              className="min-h-11 flex-1 rounded-lg bg-navy-950 px-4 text-sm font-semibold text-white hover:bg-navy-900 disabled:opacity-60"
+            >
+              Issue and schedule email
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setPendingAction('delete')}
@@ -487,6 +518,14 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
             confirmLabel="Issue invoice"
             onCancel={() => setPendingAction(null)}
             onConfirm={() => void handleIssue()}
+          />
+        )}
+        {pendingAction === 'issueSchedule' && (
+          <ConfirmBox
+            message="Issue this invoice now and then choose when to email it? It receives its permanent number straight away and is dated with the issue date on this draft (today if left blank). Nothing is emailed until you confirm the time on the next screen."
+            confirmLabel="Issue and choose send time"
+            onCancel={() => setPendingAction(null)}
+            onConfirm={() => void handleIssue(true)}
           />
         )}
         {pendingAction === 'delete' && (
@@ -524,6 +563,27 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
       )}
 
       {allocationNotice && <p role="status" className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900">{allocationNotice}</p>}
+
+      {inv.documentStatus === 'issued' && !isSuperseded && (
+        <div className="mb-4 grid grid-cols-2 gap-2" role="group" aria-label="Main actions">
+          {inv.paymentStatus !== 'paid' && (!openEmail ? (
+            <ActionButton label={inv.sentAt ? 'Resend' : 'Send'} onClick={() => { setSendScheduled(false); setModal('send'); }} disabled={busy} />
+          ) : (
+            <p className="flex min-h-11 items-center rounded-lg bg-sky-50 px-3 text-sm text-navy-900">
+              {openEmail.status === 'scheduled' ? 'Email scheduled — see below' : 'Email needs attention — see below'}
+            </p>
+          ))}
+          <ActionButton label="Record payment" onClick={() => setModal('payment')} disabled={busy || inv.amountDue <= 0} primary />
+        </div>
+      )}
+
+      {inv.emailQueueEnabled && inv.emailQueue && inv.documentStatus !== 'draft' && (
+        <InvoiceEmailPanel
+          invoiceId={inv.id} invoiceNumber={inv.invoiceNumber || 'this invoice'} emails={inv.emailQueue}
+          onChanged={(notice) => { setAllocationNotice(notice); load(); }}
+          onEditTime={(email) => setRescheduleEmail(email)}
+        />
+      )}
 
       {inv.bookingId && inv.documentStatus === 'issued' && !isSuperseded && (
         <BookingBalancePaymentNotice bookingId={inv.bookingId} accountId={adminId} invoice={inv} />
@@ -640,9 +700,7 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
                     <ActionButton label="Check for receipt" onClick={() => void loadReceipt()} disabled={busy} />
                   </div>
                 )
-              ) : (
-                <ActionButton label={inv.sentAt ? 'Resend' : 'Send'} onClick={() => setModal('send')} disabled={busy} />
-              )
+              ) : null
             )}
             </ActionGroup>
 
@@ -651,9 +709,6 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
                 {inv.bookingId && inv.bookingPaymentAllocationEnabled && adminId && (
                   <ActionButton label="Apply existing booking payment" onClick={() => setAllocationOpen(true)} disabled={busy} />
                 )}
-            {!isSuperseded && (
-              <ActionButton label="Record payment" onClick={() => setModal('payment')} disabled={busy || inv.amountDue <= 0} primary />
-            )}
             {!isSuperseded && inv.amountDue > 0 && (
               <ActionButton label="Send payment reminder" onClick={() => setModal('remind')} disabled={busy} />
             )}
@@ -754,7 +809,10 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
           <ul className="space-y-1.5 text-sm">
             {events.map((e) => (
               <li key={e.id} className="flex justify-between gap-2 text-navy-700">
-                <span>{invoiceEventLabel(e.eventType)}</span>
+                <span className="min-w-0 break-words">
+                  {invoiceEventLabel(e.eventType)}
+                  {typeof e.metadata?.to === 'string' && <span className="block text-xs text-navy-500">To {e.metadata.to}</span>}
+                </span>
                 <span className="text-xs text-navy-500">{formatDateTime(e.createdAt)}</span>
               </li>
             ))}
@@ -780,14 +838,41 @@ function InvoiceDetailContent({ id }: { id: string | undefined }) {
           onClose={() => { setModal(null); load(); }} onConfirm={handleRecordPayment}
         />
       )}
-      {modal === 'void' && <VoidInvoiceModal onClose={() => setModal(null)} onConfirm={handleVoid} />}
-      {modal === 'send' && (
+      {modal === 'void' && (
+        <VoidInvoiceModal
+          onClose={() => setModal(null)} onConfirm={handleVoid}
+          hasPayments={inv.amountPaid > 0 || inv.paymentStatus !== 'unpaid' || inv.payments.some((p) => !p.reversedAt)}
+        />
+      )}
+      {modal === 'send' && inv.emailQueueEnabled && (
+        <SendInvoiceSheet
+          invoice={inv} startScheduled={sendScheduled}
+          onClose={() => setModal(null)}
+          onDone={(_result, summary) => { setModal(null); setAllocationNotice(summary); load(); }}
+        />
+      )}
+      {rescheduleEmail && inv.emailQueueEnabled && (
+        <SendInvoiceSheet
+          invoice={inv} reschedule={rescheduleEmail}
+          onClose={() => setRescheduleEmail(null)}
+          onDone={(_result, summary) => { setRescheduleEmail(null); setAllocationNotice(summary); load(); }}
+        />
+      )}
+      {modal === 'send' && !inv.emailQueueEnabled && (
         <SendDocumentModal
           titleId="send-invoice-title"
           title={inv.sentAt ? 'Resend invoice' : 'Send invoice'}
           defaultRecipient={inv.invoiceRecipientEmail || inv.customer.email || ''}
           onClose={() => setModal(null)}
           onSend={handleSend}
+          summary={
+            <dl className="space-y-1">
+              <Row label="Invoice" value={inv.invoiceNumber || '—'} />
+              <Row label="Amount due" value={formatMoney(inv.amountDue)} strong />
+              <Row label="Due date" value={inv.dueDate || '—'} />
+              <Row label="Attached" value={`${inv.invoiceNumber || 'Invoice'}.pdf`} />
+            </dl>
+          }
         />
       )}
       {modal === 'remind' && (

@@ -3,11 +3,14 @@ import Modal from './Modal';
 
 interface Props {
   onClose: () => void;
-  onConfirm: (reason: string) => Promise<void>;
+  onConfirm: (reason: string, acknowledgePayments: boolean) => Promise<void>;
+  /** True when money or a receipt is recorded against the invoice. */
+  hasPayments?: boolean;
 }
 
-export default function VoidInvoiceModal({ onClose, onConfirm }: Props) {
+export default function VoidInvoiceModal({ onClose, onConfirm, hasPayments = false }: Props) {
   const [reason, setReason] = useState('');
+  const [acknowledged, setAcknowledged] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,10 +22,14 @@ export default function VoidInvoiceModal({ onClose, onConfirm }: Props) {
       setError('A reason is required to void an invoice.');
       return;
     }
+    if (hasPayments && !acknowledged) {
+      setError('Tick the box to confirm you have checked the payment history.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      await onConfirm(trimmed);
+      await onConfirm(trimmed, hasPayments && acknowledged);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not void this invoice.');
       setSubmitting(false);
@@ -46,6 +53,13 @@ export default function VoidInvoiceModal({ onClose, onConfirm }: Props) {
           rows={3}
           className="w-full rounded-lg border border-silver-300 px-3 py-2 text-base text-navy-950 outline-none focus:border-sky-500"
         />
+
+        {hasPayments && (
+          <label className="mt-3 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            <input type="checkbox" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0" />
+            <span>This invoice has a recorded payment or receipt. Voiding does not refund the customer or reverse the payment, and the receipt can no longer be emailed. I have checked the payment history.</span>
+          </label>
+        )}
 
         {error && (
           <p role="alert" className="mt-2 text-sm text-red-600">

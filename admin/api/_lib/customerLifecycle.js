@@ -297,7 +297,9 @@ export async function getCustomerDetail(supabase, customerId) {
     receipts = (receiptRows || []).map(toReceiptCard);
   }
 
-  const billableInvoices = invoices.filter((i) => i.documentStatus === 'issued');
+  // An invoice replaced by a revised one remains on record as "issued", but
+  // only the replacement is owed. Counting both would double the balance.
+  const billableInvoices = invoices.filter((i) => i.documentStatus === 'issued' && !i.supersededByInvoiceId);
   const outstandingBalance = Math.round(billableInvoices.reduce((sum, i) => sum + (i.amountDue || 0), 0) * 100) / 100;
   const totalPaid = Math.round(billableInvoices.reduce((sum, i) => sum + (i.total - i.amountDue), 0) * 100) / 100;
 

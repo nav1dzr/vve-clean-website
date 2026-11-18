@@ -2,6 +2,7 @@ import { verifyAdminRequest } from './_lib/adminAuth.js';
 import { corsHeaders } from './_lib/cors.js';
 import { getServiceClient } from './_lib/supabaseAdmin.js';
 import { CARD_SELECT, toCard, applyJourneyReadState } from './_lib/bookingFields.js';
+import { attentionSummary } from './_lib/attentionSummary.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -54,6 +55,19 @@ export default async function handler(req, res) {
   }
 
   const today = todayIsoDate();
+
+  // GET /api/dashboard-summary?view=attention — the Home "Needs attention"
+  // counts. A separate, read-only view so the main summary is unchanged.
+  if (new URL(req.url, 'https://x').searchParams.get('view') === 'attention') {
+    try {
+      res.writeHead(200, headers);
+      return res.end(JSON.stringify(await attentionSummary(supabase, today)));
+    } catch {
+      console.error('[admin/api] attention summary unexpected error');
+      res.writeHead(500, headers);
+      return res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+  }
 
   try {
     const [

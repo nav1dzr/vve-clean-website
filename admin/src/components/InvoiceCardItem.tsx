@@ -4,7 +4,9 @@ import { invoiceDocumentStatusBadge, invoicePaymentStatusBadge, formatMoney, isI
 import StatusBadge from './StatusBadge';
 
 export default function InvoiceCardItem({ invoice }: { invoice: InvoiceCard }) {
-  const overdue = isInvoiceOverdue(invoice.documentStatus, invoice.amountDue, invoice.dueDate);
+  const superseded = Boolean(invoice.supersededByInvoiceId);
+  const overdue = !superseded && isInvoiceOverdue(invoice.documentStatus, invoice.amountDue, invoice.dueDate);
+  const awaitingSend = !superseded && invoice.documentStatus === 'issued' && invoice.paymentStatus !== 'paid' && invoice.sentAt === null;
 
   return (
     <Link
@@ -18,14 +20,17 @@ export default function InvoiceCardItem({ invoice }: { invoice: InvoiceCard }) {
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <StatusBadge {...invoiceDocumentStatusBadge(invoice.documentStatus)} />
-          <StatusBadge {...invoicePaymentStatusBadge(invoice.paymentStatus)} />
+          {superseded
+            ? <StatusBadge label="Replaced" className="bg-slate-200 text-slate-600" />
+            : <StatusBadge {...invoicePaymentStatusBadge(invoice.paymentStatus)} />}
+          {awaitingSend && <StatusBadge label="Not emailed yet" className="bg-amber-100 text-amber-900" />}
           {overdue && <StatusBadge label="Overdue" className="bg-red-100 text-red-700" />}
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-navy-700">
         <span>Due {invoice.dueDate || 'not set'}</span>
         <span className="font-medium text-navy-900">
-          {formatMoney(invoice.amountDue)} due of {formatMoney(invoice.total)}
+          {superseded ? 'Replaced by a revised invoice' : `${formatMoney(invoice.amountDue)} due of ${formatMoney(invoice.total)}`}
         </span>
       </div>
     </Link>
