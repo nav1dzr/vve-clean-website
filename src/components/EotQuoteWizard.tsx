@@ -333,12 +333,8 @@ function makeInitialState(restore?: EotBookingResult['quoteConfig'] | null): Eot
     carpetMode: hasCarpet ? (isManualRestore ? 'manual' : 'whole') : 'unset',
     rooms,
     manualCarpetCounts,
-    extras: restore?.addOnCounts
-      ? { ...defaultExtras(), ...(restore.addOnCounts as Partial<ExtrasState>) }
-      : defaultExtras(),
-    upholsteryCounts: restore?.addOnCounts
-      ? { ...defaultUpholsteryCounts(), ...(restore.addOnCounts as Partial<UpholsteryCounts>) }
-      : defaultUpholsteryCounts(),
+    extras: restoreShape(defaultExtras(), restore?.addOnCounts),
+    upholsteryCounts: restoreShape(defaultUpholsteryCounts(), restore?.addOnCounts),
     condition: restore?.condition ?? 'normal',
   };
 }
@@ -743,7 +739,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
         isHouse: state.propertyType !== 'flat',
         eotPackage: state.pkg,
         tailoredAddOns: state.tailoredAddOns,
-        addOnCounts: { ...state.extras, ...state.upholsteryCounts } as unknown as Record<string, number>,
+        addOnCounts: { ...state.extras, ...state.upholsteryCounts },
         rooms: activeCarpetRooms.map((r) => ({ id: r.id, addonKey: r.addonKey, floor: r.floor, stairFlights: r.stairFlights })),
         carpetRoomIds: activeCarpetRoomIds,
         windowSize: 'small',

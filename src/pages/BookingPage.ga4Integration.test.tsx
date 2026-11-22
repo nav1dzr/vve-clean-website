@@ -7,6 +7,7 @@ import * as ga4Context from '../lib/ga4Context';
 import { CONSENT_STORAGE_KEY } from '../lib/consent';
 import { CONSENT_VERSION } from '../lib/consentVersion';
 import { clearSubmissionIdentity } from '../lib/submissionIdentity';
+import { setAdvertisingConsent, writeAdvertisingAttribution } from '../lib/attribution';
 
 // This suite controls request/payment measurement responses, not the optional
 // public rating refresh. Keep its lost-response fixture scoped to booking POSTs.
@@ -31,6 +32,7 @@ beforeEach(() => {
   vi.stubEnv('VITE_GA4_MEASUREMENT_ID', 'G-TEST123');
 });
 afterEach(() => {
+  setAdvertisingConsent(false);
   cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs();
   clearSubmissionIdentity('booking');
 });
@@ -52,25 +54,30 @@ async function fillForm(user: ReturnType<typeof userEvent.setup>) {
 const send = () => screen.getByRole('button', { name: /^Send request — no payment$/ });
 
 describe('optional GA4 context never controls booking acceptance or retry identity', () => {
-  it('reuses the request key after a lost response even when GA4 session and capture time change', async () => {
+  it('reuses the request key after a lost response when advertising consent, attribution and the GA4 session change', async () => {
+    setAdvertisingConsent(true);
+    writeAdvertisingAttribution('?gclid=synthetic-click', '/booking');
     const first: ga4Context.Ga4BookingContext = {
       measurement_id: 'G-TEST123', client_id: '123.456', session_id: '100',
       captured_at: '2026-10-04T10:00:00.000Z', consent_version: CONSENT_VERSION,
-      consent_recorded_at: '2026-10-04T09:00:00.000Z', analytics: true, advertising: false,
+      consent_recorded_at: '2026-10-04T09:00:00.000Z', analytics: true, advertising: true,
     };
-    const second = { ...first, session_id: '101', captured_at: '2026-10-04T10:01:00.000Z' };
+    const second = { ...first, advertising: false, session_id: '101', captured_at: '2026-10-04T10:01:00.000Z' };
     vi.spyOn(ga4Context, 'getGa4BookingContext').mockResolvedValueOnce(first).mockResolvedValueOnce(second);
     const fetch = vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(savedResponse());
     vi.stubGlobal('fetch', fetch);
     const user = userEvent.setup(); await fillForm(user);
     await user.click(send());
     expect(await screen.findByRole('alert')).toHaveTextContent(/try again/i);
+    setAdvertisingConsent(false);
     await user.click(send());
     expect(await screen.findByText('VVE-TEST-GA4-RETRY')).toBeInTheDocument();
     expect(fetch).toHaveBeenCalledTimes(2);
     const attempts = fetch.mock.calls.map(([, init]) => JSON.parse(init.body));
     expect(attempts[0].ga4_context).toEqual(first);
     expect(attempts[1].ga4_context).toEqual(second);
+    expect(attempts[0]).toMatchObject({ gclid: 'synthetic-click', measurement_consent: { advertising: true } });
+    expect(attempts[1]).toMatchObject({ gclid: null, measurement_consent: { advertising: false } });
     expect(attempts[0].requestKey).toMatch(/^[a-f0-9-]{36}$/i);
     expect(attempts[1].requestKey).toBe(attempts[0].requestKey);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();

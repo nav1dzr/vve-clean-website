@@ -10,13 +10,20 @@ function createId(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-// An essential retry key, not an advertising identifier. No form values are stored.
-export async function submissionIdentity(scope: string, payload: unknown): Promise<string> {
+async function fingerprintOf(payload: unknown): Promise<string> {
   const body = JSON.stringify(payload);
   const bytes = new TextEncoder().encode(body);
-  const fingerprint = globalThis.crypto?.subtle
+  return globalThis.crypto?.subtle
     ? Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), (n) => n.toString(16).padStart(2, '0')).join('')
     : body; // Older test/browser runtimes keep this fallback in memory only.
+}
+
+// An essential retry key. Store only a digest and random ID in session storage.
+export async function submissionIdentity(scope: string, content: unknown, previousPayload?: unknown): Promise<string> {
+  const [fingerprint, previousFingerprint] = await Promise.all([
+    fingerprintOf(content),
+    previousPayload === undefined ? null : fingerprintOf(previousPayload),
+  ]);
   let existing = memory.get(scope);
   if (!existing && globalThis.crypto?.subtle) {
     try { existing = JSON.parse(sessionStorage.getItem(`vve_retry_${scope}`) || 'null'); } catch { /* Storage may be disabled. */ }
@@ -25,7 +32,11 @@ export async function submissionIdentity(scope: string, payload: unknown): Promi
     memory.set(scope, existing);
     return existing.id;
   }
-  const id = createId();
+  // A request started on the previous release may still be waiting for a reply.
+  // Upgrade its matching full-payload digest to the stable content digest once.
+  const id = existing && UUID.test(existing.id) && existing.fingerprint === previousFingerprint
+    ? existing.id
+    : createId();
   const value = { fingerprint, id };
   memory.set(scope, value);
   if (globalThis.crypto?.subtle) {

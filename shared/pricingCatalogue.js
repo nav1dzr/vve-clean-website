@@ -1,5 +1,27 @@
 // Prices remain unchanged by default. Each published version creates its own immutable catalogue.
 // Server requests must call createPricingCatalogue(version.overrides), never mutate this module.
+// TfL suspends the charge from Christmas Day through the New Year's Day
+// bank holiday, inclusive. A weekend New Year's Day is observed on Monday.
+export function isCongestionChargeFreeDate(serviceDate) {
+  if (typeof serviceDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(serviceDate)) return false;
+  const [year, month, day] = serviceDate.split('-').map(Number);
+  if (month === 12) return day >= 25 && day <= 31;
+  if (month !== 1 || day < 1) return false;
+  const weekday = new Date(Date.UTC(year, 0, 1)).getUTCDay();
+  const observedDay = weekday === 6 ? 3 : weekday === 0 ? 2 : 1;
+  return day <= observedDay;
+}
+
+// Older calculators allowed multiple copies of a whole-property upgrade.
+// Normalise a new or restored quote before displaying, pricing or saving it.
+export function normaliseMoveInCarpetBundle(config) {
+  if (config?.service !== 'deep' || config.deepService !== 'move_in' || config.addOnCounts?.carpet_bundle == null) return config;
+  const count = Number(config.addOnCounts.carpet_bundle);
+  const selected = Number.isFinite(count) && count > 0 ? 1 : 0;
+  if (config.addOnCounts.carpet_bundle === selected) return config;
+  return { ...config, addOnCounts: { ...config.addOnCounts, carpet_bundle: selected } };
+}
+
 export const PRICEBOOK_PRICE_KEYS = Object.freeze([
   "CARPET_MIN_BOOKING_P",
   "CARPET_ITEM_PRICES_P",
@@ -827,12 +849,12 @@ const PARKING_CHARGED_AT_ACTUAL_COST_NOTE =
   'Parking is charged at the actual cost. The final balance will be adjusted if it costs less or more.';
 
 /** @param {{parkingAvailable?: string, congestionZone?: string}} quoteConfig */
-function accessSurchargeP(quoteConfig) {
+function accessSurchargeP(quoteConfig, serviceDate = undefined) {
   let addP = 0;
   if (quoteConfig.parkingAvailable === 'no' || quoteConfig.parkingAvailable === 'not_sure') {
     addP += PARKING_ESTIMATE_P;
   }
-  if (quoteConfig.congestionZone === 'yes' || quoteConfig.congestionZone === 'not_sure') {
+  if ((quoteConfig.congestionZone === 'yes' || quoteConfig.congestionZone === 'not_sure') && !isCongestionChargeFreeDate(serviceDate)) {
     addP += CONGESTION_CHARGE_P;
   }
   return addP;
@@ -923,7 +945,7 @@ function computeBasePrice(quoteConfig) {
     rooms, carpetRoomIds,
     addOnCounts, windowSize, gutterType, officeHours,
     carpetCounts, carpetCondition,
-  } = quoteConfig;
+  } = normaliseMoveInCarpetBundle(quoteConfig);
 
   if (service === 'deep') {
     if (deepService === 'carpet_upholstery' && carpetCounts) {
@@ -1010,10 +1032,10 @@ function computeBasePrice(quoteConfig) {
  * which apply once per booking regardless of service — see accessSurchargeP.
  * @param {Record<string, unknown>} quoteConfig
  */
-function computePrice(quoteConfig) {
+function computePrice(quoteConfig, serviceDate = undefined) {
   const base = computeBasePrice(quoteConfig);
   if (base === null) return null;
-  return base + accessSurchargeP(quoteConfig) / 100;
+  return base + accessSurchargeP(quoteConfig, serviceDate) / 100;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

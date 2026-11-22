@@ -52,7 +52,10 @@ export const createAfterBuildersEnquiry = (): AfterBuildersEnquiryState => ({
 const choice = <T extends string>(value: unknown, options: Record<T, unknown>, fallback: T): T =>
   typeof value === 'string' && Object.prototype.hasOwnProperty.call(options, value) ? value as T : fallback;
 const count = (value: unknown) => typeof value === 'string' && /^(?:0|[1-5]|6\+)$/.test(value) ? value : '';
-const quantity = (value: unknown) => typeof value === 'string' && /^\d{1,5}$/.test(value) && Number(value) > 0 ? value : '';
+export function enquiryQuantity(value: unknown, squareMetres = false): string {
+  const format = squareMetres ? /^(?:\d{1,5}(?:\.\d{1,5})?|\.\d{1,5})$/ : /^\d{1,5}$/;
+  return typeof value === 'string' && format.test(value) && Number(value) > 0 ? value : '';
+}
 
 // Whitelist fixed choices and numeric quantities only. Free text can contain personal
 // information, so never retain it, postcode, contact details or preferred dates.
@@ -65,11 +68,11 @@ export function nonPersonalAfterBuildersChoices(input: unknown): AfterBuildersCh
   next.trades = choice(value.trades, TRADES_STATUS, 'unsure');
   next.parking = choice(value.parking, PARKING_OPTIONS, 'unsure');
   next.photos = choice(value.photos, PHOTO_OPTIONS, 'unsure');
-  next.bedrooms = count(value.bedrooms); next.bathrooms = count(value.bathrooms); next.floorArea = quantity(value.floorArea);
+  next.bedrooms = count(value.bedrooms); next.bathrooms = count(value.bathrooms); next.floorArea = enquiryQuantity(value.floorArea, true);
   next.extras = Array.isArray(value.extras) ? [...new Set(value.extras.filter((key): key is ExtraService => typeof key === 'string' && Object.prototype.hasOwnProperty.call(EXTRA_SERVICES, key)))] : [];
   next.assessment = Array.isArray(value.assessment) ? [...new Set(value.assessment.filter((key): key is keyof typeof ASSESSMENT_ITEMS => typeof key === 'string' && Object.prototype.hasOwnProperty.call(ASSESSMENT_ITEMS, key)))] : [];
   if (value.quantities && typeof value.quantities === 'object') {
-    for (const extra of next.extras) next.quantities[extra] = quantity((value.quantities as Record<string, unknown>)[extra]);
+    for (const extra of next.extras) next.quantities[extra] = enquiryQuantity((value.quantities as Record<string, unknown>)[extra], extra === 'pressure_washing');
   }
   return {
     cleaningArea: next.cleaningArea, propertyType: next.propertyType, workType: next.workType,
@@ -105,19 +108,44 @@ export function isEnquiryPostcodeValid(value: string): boolean {
   return !value.trim() || /^(?:GIR\s?0AA|[A-Z]{1,2}\d[A-Z\d]?(?:\s?\d[A-Z]{2})?)$/i.test(value.trim());
 }
 const supplied = (text: string) => text.trim() || 'Not sure yet';
+function projectScopeLines(state: AfterBuildersChoices) {
+  return [
+    `Cleaning area: ${CLEANING_AREAS[state.cleaningArea]}`,
+    `Property: ${PROPERTY_TYPES[state.propertyType]}`,
+    `Bedrooms: ${supplied(state.bedrooms)}; bathrooms: ${supplied(state.bathrooms)}`,
+    `Approximate floor area: ${state.floorArea ? `${state.floorArea} m²` : 'Not known'}`,
+    `Building work: ${WORK_TYPES[state.workType]}`,
+  ];
+}
+function extraServiceLines(state: AfterBuildersChoices) {
+  if (!state.extras.length) return ['No optional services selected.'];
+  return state.extras.map(key => {
+    const { label, unit } = EXTRA_SERVICES[key];
+    return state.quantities[key] && unit ? `${label}: ${state.quantities[key]} ${unit}` : `${label} — quantity and work to agree`;
+  });
+}
+
+export function afterBuildersPhotoMessage(state: AfterBuildersEnquiryState, submitted: boolean): string {
+  const choices = nonPersonalAfterBuildersChoices(state);
+  return [
+    submitted ? 'Hello, I’ve sent an after-builders enquiry on your website. Here are photos for that enquiry.'
+      : 'Hello, I’d like a quote for an after-builders clean. Here are photos and the details I’ve selected so far.',
+    projectScopeLines(choices).join('\n'),
+    extraServiceLines(choices).join('\n'),
+    ...choices.assessment.map(key => ASSESSMENT_ITEMS[key]),
+    'Please assess the work and confirm the cleaning list and final price in writing.',
+  ].join('\n\n');
+}
+
 export function afterBuildersEnquirySections(state: AfterBuildersEnquiryState) {
   return [
     { title: 'Your project', lines: [
-      `Cleaning area: ${CLEANING_AREAS[state.cleaningArea]}`,
-      `Property: ${PROPERTY_TYPES[state.propertyType]}`,
+      ...projectScopeLines(state),
       `Postcode: ${supplied(state.postcode.toUpperCase())}`,
-      `Bedrooms: ${supplied(state.bedrooms)}; bathrooms: ${supplied(state.bathrooms)}`,
-      `Approximate floor area: ${state.floorArea ? `${state.floorArea} m²` : 'Not known'}`,
-      `Building work: ${WORK_TYPES[state.workType]}`,
       ...(state.workDetails.trim() ? [`Project details: ${state.workDetails.trim()}`] : []),
     ] },
     { title: 'Core cleaning to confirm in your quote', lines: CORE_CLEANING },
-    { title: 'Optional services requested', lines: state.extras.length ? state.extras.map(key => `${EXTRA_SERVICES[key].label}${state.quantities[key] && EXTRA_SERVICES[key].unit ? `: ${state.quantities[key]} ${EXTRA_SERVICES[key].unit}` : ' — quantity and work to agree'}`) : ['No optional services selected.'] },
+    { title: 'Optional services requested', lines: extraServiceLines(state) },
     { title: 'Condition and finishes', lines: [state.assessment.length ? state.assessment.map(key => ASSESSMENT_ITEMS[key]).join('; ') : 'Please assess the dust, residue and surfaces.'] },
     { title: 'Timing, access and photos', lines: [
       `Trades: ${TRADES_STATUS[state.trades]}`,

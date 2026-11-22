@@ -45,7 +45,7 @@ describe('AfterBuildersPage — budget guide and assessed enquiry', () => {
     const hero = within(container.querySelector<HTMLElement>('.service-hero')!);
     expect(hero.getByRole('link', { name: 'Get my cleaning quote' })).toHaveAttribute('href', '#builders-quote');
     const photoLink = hero.getByRole('link', { name: 'Send photos on WhatsApp' });
-    expect(photoLink).toHaveAttribute('href', expect.stringContaining('after-builders%20clean%20quote'));
+    expect(photoLink).toHaveAttribute('href', expect.stringContaining('quote%20for%20an%20after-builders%20clean'));
     expect(photoLink).toHaveAttribute('target', '_blank');
     expect(photoLink).toHaveAttribute('rel', expect.stringContaining('noopener'));
     const target = container.querySelector('#builders-quote');
@@ -67,7 +67,7 @@ describe('AfterBuildersPage — budget guide and assessed enquiry', () => {
     expect(header.getByRole('link', { name: 'Get my cleaning quote' })).toHaveAttribute('href', '#builders-quote');
     const bar = within(screen.getByRole('navigation', { name: 'Quick booking and help' }));
     expect(bar.getByRole('link', { name: 'Get my cleaning quote' })).toHaveAttribute('href', '#builders-quote');
-    expect(bar.getByRole('link', { name: 'WhatsApp — send after-builders photos' })).toHaveAttribute('href', expect.stringContaining('after-builders%20clean%20quote'));
+    expect(bar.getByRole('link', { name: 'WhatsApp — send after-builders photos' })).toHaveAttribute('href', expect.stringContaining('quote%20for%20an%20after-builders%20clean'));
     expect(bar.getAllByRole('link')).toHaveLength(2);
     expect(bar.queryByRole('button', { name: 'Get my price' })).not.toBeInTheDocument();
     await user.click(header.getByRole('button', { name: 'Open menu' }));
@@ -85,6 +85,26 @@ describe('AfterBuildersPage — budget guide and assessed enquiry', () => {
     expect(service).toHaveValue('After builders cleaning');
     await user.selectOptions(service, 'Carpet cleaning');
     expect(service).toHaveValue('Carpet cleaning');
+  });
+
+  it('keeps the hero, mobile bar and sole form photo link on the same draft as the customer edits', async () => {
+    const user = userEvent.setup();
+    const { container } = renderPage();
+    const form = within(container.querySelector<HTMLElement>('#builders-quote')!);
+    const hero = within(container.querySelector<HTMLElement>('.service-hero')!);
+    const sticky = within(screen.getByRole('navigation', { name: 'Quick booking and help' }));
+    await user.type(form.getByLabelText(/Postcode \(if known\)/), 'E17 3AA');
+    await user.click(form.getByRole('button', { name: 'Continue' }));
+    await user.click(form.getByLabelText('Pressure washing'));
+    await user.type(form.getByLabelText(/^Pressure washing: quantity/), '7.25');
+    const formLink = form.getByRole('link', { name: 'Send photos on WhatsApp' }) as HTMLAnchorElement;
+    const href = formLink.href;
+    expect(new URL(href).searchParams.get('text')).toContain('Pressure washing: 7.25 m²');
+    expect(new URL(href).searchParams.get('text')).not.toContain('E17 3AA');
+    expect(hero.getByRole('link', { name: 'Send photos on WhatsApp' })).toHaveAttribute('href', href);
+    expect(sticky.getByRole('link', { name: 'WhatsApp — send after-builders photos' })).toHaveAttribute('href', href);
+    await user.click(form.getByRole('button', { name: 'Continue' }));
+    expect(form.getAllByRole('link', { name: 'Send photos on WhatsApp' })).toHaveLength(1);
   });
 
   it('ignores unrecognised service query values rather than echoing URL input', () => {

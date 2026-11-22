@@ -3,12 +3,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { renderToString } from 'react-dom/server';
 import userEvent from '@testing-library/user-event';
 import Contact from './Contact';
+import { setAdvertisingConsent, writeAdvertisingAttribution } from '../lib/attribution';
 
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) }));
 });
 
 afterEach(() => {
+  setAdvertisingConsent(false);
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -70,6 +72,30 @@ describe('Contact form — service selector', () => {
 });
 
 describe('Contact form — entered information is preserved on failure', () => {
+  it('retains its request key after a lost response and sends the updated consent on retry', async () => {
+    setAdvertisingConsent(true);
+    writeAdvertisingAttribution('?gclid=synthetic-contact-click', '/contact');
+    const sendRequest = vi.fn().mockRejectedValueOnce(new TypeError('Response lost')).mockResolvedValueOnce({
+      ok: true, json: async () => ({ ok: true, replayed: true, enquiryId: 'ae21325d-e86d-46dd-87bd-050b7b5b8e19' }),
+    });
+    vi.stubGlobal('fetch', sendRequest);
+    const user = userEvent.setup();
+    render(<Contact />);
+    await user.type(screen.getByLabelText(/full name/i), 'Test Customer');
+    await user.type(screen.getByLabelText(/email address/i), 'test@example.test');
+    await user.type(screen.getByLabelText(/message/i), 'Please quote one room.');
+    await user.click(submit());
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    setAdvertisingConsent(false);
+    await user.click(submit());
+    expect(await screen.findByRole('heading', { name: 'Enquiry received' })).toBeInTheDocument();
+    expect(sendRequest).toHaveBeenCalledTimes(2);
+    const [first, retry] = sendRequest.mock.calls.map(([, init]) => JSON.parse(init.body));
+    expect(first.attribution).toMatchObject({ gclid: 'synthetic-contact-click', measurement_consent: { advertising: true } });
+    expect(retry.attribution).toMatchObject({ gclid: null, measurement_consent: { advertising: false } });
+    expect(first.requestKey).toMatch(/^[a-f0-9-]{36}$/i);
+    expect(retry.requestKey).toBe(first.requestKey);
+  });
   it('keeps every field when the request fails', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network')));
     const user = userEvent.setup();

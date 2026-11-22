@@ -20,6 +20,19 @@ describe('essential submission retry identity', () => {
     clearSubmissionIdentity('test'); sessionStorage.setItem('vve_retry_test', JSON.stringify({ ...stored, id: 'invalid' }));
     expect(await submissionIdentity('test', payload)).toMatch(UUID);
   });
+  it('carries an in-flight full-payload key across the upgrade, then ignores attribution edits', async () => {
+    const content = { message: 'Please quote.' };
+    const original = { ...content, attribution: { advertising: true } };
+    const id = await submissionIdentity('test', original);
+    const stored = sessionStorage.getItem('vve_retry_test')!;
+    clearSubmissionIdentity('test');
+    sessionStorage.setItem('vve_retry_test', stored);
+    expect(await submissionIdentity('test', content, original)).toBe(id);
+    const retry = { ...content, attribution: { advertising: false } };
+    expect(await submissionIdentity('test', content, retry)).toBe(id);
+    const edited = { message: 'One more room.' };
+    expect(await submissionIdentity('test', edited, { ...retry, ...edited })).not.toBe(id);
+  });
   it('still produces secure UUIDs in browsers with getRandomValues but no randomUUID', async () => {
     vi.stubGlobal('crypto', { getRandomValues: webcrypto.getRandomValues.bind(webcrypto) });
     const id = await submissionIdentity('test', { message: 'Please quote.' });

@@ -69,8 +69,9 @@ export default function Contact({ standalone = false, initialService }: { standa
     setError('');
 
     try {
-      const payload = { fullName: name.trim(), email: email.trim(), phone: phone.trim(), service: service || '', message: message.trim(), marketingOptIn: subscribe, sourcePage: window.location.pathname, _honeypot: honeypot, attribution: getAttribution() };
-      const requestKey = await submissionIdentity('contact', payload);
+      const content = { fullName: name.trim(), email: email.trim(), phone: phone.trim(), service: service || '', message: message.trim(), marketingOptIn: subscribe, sourcePage: window.location.pathname, _honeypot: honeypot };
+      const payload = { ...content, attribution: getAttribution() };
+      const requestKey = await submissionIdentity('contact', content, payload);
       const res = await fetch('/api/contact', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...payload, requestKey }), signal: AbortSignal.timeout(45000),

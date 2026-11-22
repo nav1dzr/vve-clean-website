@@ -20,6 +20,22 @@ const booking = {
 const empty = { enabled: true, journey: null, notifications: [], events: [] };
 beforeEach(() => { authFetchMock.mockReset(); });
 describe("CRM booking agreement controls", () => {
+  it.each([
+    ['1 × Exterior windows', 374],
+    ['Professional carpet cleaning — 1 × Bedroom', 424],
+  ] as const)('opens an EOT request with %s and its saved estimate in the staff form', async (extra, total) => {
+    authFetchMock.mockResolvedValue(empty);
+    render(<BookingJourneyPanel booking={{
+      ...booking,
+      service: `End of tenancy (Complete Agency-Ready Clean) — 2 Bed, 1 bathroom\nInside oven (included free)\n${extra}\nParking: free parking available — £0`,
+      quoteConfig: { service: 'deep', deepService: 'end_of_tenancy', eotPackage: 'complete' },
+      totalPrice: total,
+    }} onChanged={() => {}} />);
+    await screen.findByText('Draft agreement');
+    expect((screen.getByLabelText(/^Your cleaning includes/) as HTMLTextAreaElement).value).toContain(extra);
+    expect(screen.getByLabelText('Total (£)')).toHaveValue(total);
+  });
+
   it.each(['completed', 'cancelled'])('explains a %s booking without inviting another deposit request', async (state) => {
     authFetchMock.mockResolvedValue({ ...empty, journey: { revision: 2, offer_version: 1, state, draft: {}, snapshot: null, paid_pence: 3000, refunded_pence: 0, customer_request: null } });
     render(<BookingJourneyPanel booking={booking} onChanged={() => {}} />);

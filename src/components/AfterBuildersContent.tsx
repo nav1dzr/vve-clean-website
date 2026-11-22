@@ -1,8 +1,8 @@
-import AfterBuildersEnquiry from './AfterBuildersEnquiry';
+import type { ReactNode } from 'react';
 import { AfterBuildersResults } from './AfterBuildersPhoto';
-import { ArrowRight, Camera, Check, ChevronDown, ClipboardCheck, MapPin, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, ClipboardCheck, MapPin, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { BUILDERS_FAQS, BUILDERS_BUDGET_GUIDE, BUILDERS_LEVELS, formatBuildersRange, BUILDERS_ROOMS, BUILDERS_WHATSAPP } from '../data/afterBuildersContent';
+import { BUILDERS_FAQS, BUILDERS_BUDGET_GUIDE, BUILDERS_LEVELS, formatBuildersRange, BUILDERS_ROOMS } from '../data/afterBuildersContent';
 import { CONDITIONAL_DEPOSIT_NOTE } from '../data/businessPolicy';
 import { AFTER_BUILDERS_START_FROM_P, PRESSURE_WASHING_FROM_P, GARDEN_SERVICES_FROM_P, GARDEN_SERVICES_MIN_P, WINDOW_CLEANING_FROM_P, WINDOW_CLEANING_MIN_P, penceToDisplay } from '../data/pricing';
 import { AREAS } from '../data/areas';
@@ -13,10 +13,6 @@ const NAV = [
   ['builders-extras', 'Optional extras'], ['builders-process', 'How it works'],
   ['builders-faq', 'Questions'], ['builders-quote', 'Get a quote'],
 ];
-
-function PhotoQuoteLink({ children = 'Send photos for a fixed quote', location }: { children?: React.ReactNode; location: string }) {
-  return <a href={BUILDERS_WHATSAPP} target="_blank" rel="noopener noreferrer" className="builders-button" data-track-location={location}><Camera size={19} aria-hidden="true" />{children}<ArrowRight size={18} aria-hidden="true" /></a>;
-}
 
 export function AfterBuildersQuoteCard() {
   const flat = BUILDERS_BUDGET_GUIDE[0];
@@ -95,16 +91,27 @@ function ClientsAndAreas() {
   </>;
 }
 
-function QuestionsAndQuote() {
+function QuestionsAndQuote({ enquiry }: { enquiry: ReactNode }) {
   return <>
     <section id="builders-faq" className="builders-section bg-white" aria-labelledby="builders-faq-title"><div className="builders-wrap builders-split"><div><span className="builders-kicker">Before you book</span><h2 id="builders-faq-title">The practical questions</h2><p className="builders-lead">If your project has an unusual finish or access requirement, include it in your enquiry. It is easier to plan for it before the visit.</p><a className="builders-link mt-4" href="tel:02080502233">Call 020 8050 2233</a></div><div>{BUILDERS_FAQS.map((faq) => <details className="builders-accordion" key={faq.q}><summary><span className="faq-question">{faq.q}</span><ChevronDown size={19} aria-hidden="true" /></summary><p className="faq-answer builders-accordion-body text-sm text-slate-600">{faq.a}</p></details>)}</div></div></section>
-    <section id="builders-quote" className="builders-section builders-soft" aria-labelledby="builders-quote-title"><div className="builders-wrap builders-enquiry-layout"><div><span className="builders-kicker">Your project</span><h2 id="builders-quote-title">Tell us what needs cleaning.</h2><p className="builders-lead">A few choices help us understand the job. You can leave anything you’re unsure about and send photos later.</p><div className="builders-note mt-6"><strong>A quote request, not a booking.</strong><p className="mt-2 text-sm">We’ll check the work, price and date with you. {CONDITIONAL_DEPOSIT_NOTE}</p></div><div className="mt-5"><PhotoQuoteLink location="after_builders_enquiry_photos" children="Send photos on WhatsApp" /><p className="mt-3 text-sm text-slate-600">You can also ask for a quote entirely on WhatsApp. Send the postcode, a view of each affected room and a close-up of any residue. Keep people and personal documents out of the photos.</p></div></div><AfterBuildersEnquiry /></div></section>
+    <section id="builders-quote" className="builders-section builders-soft" aria-labelledby="builders-quote-title">
+      <div className="builders-wrap builders-enquiry-layout">
+        <div>
+          <span className="builders-kicker">Your project</span>
+          <h2 id="builders-quote-title">Tell us what needs cleaning.</h2>
+          <p className="builders-lead">A few choices help us understand the job. You can leave anything you’re unsure about and send photos later.</p>
+          <div className="builders-note mt-6"><strong>A quote request, not a booking.</strong><p className="mt-2 text-sm">We’ll check the work, price and date with you. {CONDITIONAL_DEPOSIT_NOTE}</p></div>
+          <p className="mt-5 text-sm text-slate-600">Prefer WhatsApp? Use “Send photos on WhatsApp” with a view of each affected room and a close-up of any residue. Keep people and personal documents out of the photos.</p>
+        </div>
+        {enquiry}
+      </div>
+    </section>
   </>;
 }
 
-export default function AfterBuildersContent() {
+export default function AfterBuildersContent({ enquiry }: { enquiry: ReactNode }) {
   return <>
     <nav className="builders-nav" aria-label="After-builders page sections"><div className="builders-wrap"><span className="mr-2 text-xs font-bold uppercase tracking-widest text-slate-500">On this page</span>{NAV.map(([id, label]) => <a key={id} href={`#${id}`}>{label}</a>)}</div></nav>
-    <PricingGuide /><AfterBuildersResults /><CleaningChecklist /><Extras /><Process /><ClientsAndAreas /><QuestionsAndQuote />
+    <PricingGuide /><AfterBuildersResults /><CleaningChecklist /><Extras /><Process /><ClientsAndAreas /><QuestionsAndQuote enquiry={enquiry} />
   </>;
 }
