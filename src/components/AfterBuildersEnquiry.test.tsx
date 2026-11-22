@@ -26,6 +26,55 @@ async function contactDetails(user: ReturnType<typeof userEvent.setup>) {
 const bodies = () => vi.mocked(fetch).mock.calls.map(call => JSON.parse(String(call[1]?.body)));
 
 describe('AfterBuildersEnquiry', () => {
+  it('preserves decimal square metres and whole item counts from a saved draft through the submitted review', async () => {
+    const user = userEvent.setup();
+    const first = render(<AfterBuildersEnquiry />);
+    await user.click(screen.getByText('More about the property (optional)'));
+    await user.type(screen.getByLabelText(/Approximate floor area/), '12.5');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await user.click(screen.getByLabelText('Pressure washing'));
+    await user.type(screen.getByLabelText(/^Pressure washing: quantity/), '7.25');
+    await user.click(screen.getByLabelText('Exterior or specialist window cleaning'));
+    const windows = screen.getByLabelText(/^Exterior or specialist window cleaning: quantity/);
+    await user.type(windows, '3.5');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('whole number');
+    expect(windows).toHaveValue('3.5');
+    await user.clear(windows);
+    await user.type(windows, '3');
+    first.unmount();
+
+    render(<AfterBuildersEnquiry />);
+    await user.selectOptions(screen.getByLabelText('Property type'), 'house');
+    await user.type(screen.getByLabelText(/Postcode \(if known\)/), 'E17 3AA');
+    await user.click(screen.getByText('More about the property (optional)'));
+    await user.type(screen.getByLabelText('Rooms or work to tell us about'), 'Private kitchen note');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.change(screen.getByLabelText(/Preferred date/), { target: { value: '2027-04-15' } });
+    await user.type(screen.getByLabelText(/Access notes/), 'Private gate code');
+
+    const lines = ['Property: House', 'Approximate floor area: 12.5 m²', 'Pressure washing: 7.25 m²', 'Exterior or specialist window cleaning: 3 windows'];
+    const checkWhatsApp = () => {
+      const link = screen.getByRole('link', { name: 'Send photos on WhatsApp' }) as HTMLAnchorElement;
+      const message = new URL(link.href).searchParams.get('text')!;
+      for (const line of lines) expect(message).toContain(line);
+      expect(message).toContain('assess the work');
+      expect(message).toContain('final price in writing');
+      expect(message).not.toMatch(/E17 3AA|Private kitchen note|Private gate code|2027-04-15|VVE TEST|test@example\.com/);
+      return message;
+    };
+    expect(checkWhatsApp()).toContain('details I’ve selected so far');
+    expect(fetch).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Review my enquiry' }));
+    for (const line of lines) expect(screen.getByText(line)).toBeVisible();
+    await contactDetails(user);
+    await user.click(screen.getByRole('button', { name: 'Send my enquiry' }));
+    await screen.findByRole('heading', { name: 'Your enquiry is saved' });
+    for (const line of lines) expect(bodies()[0].message).toContain(line);
+    expect(checkWhatsApp()).toContain('I’ve sent an after-builders enquiry');
+  });
+
   it('allows unsure project answers and optional phone, then sends one complete contact enquiry', async () => {
     const user = userEvent.setup(); render(<AfterBuildersEnquiry />);
     await openReview(user); expect(fetch).not.toHaveBeenCalled();

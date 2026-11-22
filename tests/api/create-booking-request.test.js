@@ -184,6 +184,23 @@ describe("POST /api/create-booking-request", () => {
     sendMailMock.mockResolvedValue({ accepted: ["ok"] });
   }
 
+  it.each([["12-24", 118], ["12-28", 100]])("uses the requested date %s for the stored total and staff scope", async (monthDay, expected) => {
+    const date = `${new Date().getFullYear() + 1}-${monthDay}`;
+    const body = payload({ service: 'Carpet cleaning', date, price: expected,
+      quoteConfig: { service: 'deep', deepService: 'carpet_upholstery', carpetCounts: { bedroom: 1 },
+        parkingAvailable: 'no', congestionZone: 'yes', serviceDate: '2026-12-29' } });
+    const response = res();
+    await handler(req(body), response);
+    expect(response.statusCode).toBe(201);
+    const row = insertSingleMock.mock.calls[0][0];
+    expect(row.total_price).toBe(expected);
+    expect(row.quote_config.serviceDate).toBe(date);
+    expect(row.service).toContain('1 × Bedroom');
+    expect(row.service).toContain('£15');
+    expect(row.service.includes('£18')).toBe(monthDay === '12-24');
+    expect(JSON.parse(response.body).total).toBe(expected);
+  });
+
   it.each([249, 399, 1, 9999])('rejects an unassessed after-builders request even with a client price of %s', async price => {
     const response = res();
     const fetchMock = vi.fn();
@@ -315,6 +332,38 @@ describe("POST /api/create-booking-request", () => {
     expect(updateGa4ContextMock.mock.invocationCallOrder[0]).toBeLessThan(claimNotificationsMock.mock.invocationCallOrder[0]);
   });
 
+  it('saves the £424 EOT carpet quote in the CRM and includes the selected bedroom in all three notifications', async () => {
+    const telegram = configureGa4AndNotifications();
+    claimNotificationsMock.mockImplementation(async () => {
+      const saved = insertSingleMock.mock.calls[0][0];
+      const data = notificationClaims().map(claim => ({
+        ...claim, booking: { ...claim.booking, service: saved.service, totalPrice: saved.total_price },
+      }));
+      return { data, error: null };
+    });
+    const response = res();
+    await handler(req(payload({
+      service: 'End of tenancy',
+      quoteConfig: {
+        service: 'deep', deepService: 'end_of_tenancy', deepSize: 'bed2', deepBaths: 1,
+        eotPackage: 'complete', addOnCounts: {}, parkingAvailable: 'yes', congestionZone: 'no',
+        rooms: [{ id: 'manual-bed-1', addonKey: 'bedroom', floor: 'carpet' }], carpetRoomIds: ['manual-bed-1'],
+      },
+    })), response);
+    expect(response.statusCode).toBe(201);
+    expect(JSON.parse(response.body).total).toBe(424);
+    const scope = 'Professional carpet cleaning — 1 × Bedroom';
+    expect(insertSingleMock.mock.calls[0][0]).toMatchObject({ total_price: 424, service: expect.stringContaining(scope) });
+    expect(sendMailMock).toHaveBeenCalledTimes(2);
+    for (const [mail] of sendMailMock.mock.calls) {
+      expect(mail.text).toContain(scope);
+      expect(mail.html).toContain(`<br>${scope}<br>`);
+    }
+    const alert = JSON.parse(telegram.mock.calls[0][1].body).text;
+    expect(alert).toContain(scope);
+    expect(alert).toContain('Estimated total: £424');
+  });
+
   it.each(["database error", "rejected write"])("accepts the request and sends notifications after an optional GA4 %s", async failure => {
     const fetchMock = configureGa4AndNotifications();
     const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -344,14 +393,23 @@ describe("POST /api/create-booking-request", () => {
 
   it("ignores changed analytics metadata in retry identity without overwriting first saved context or resending notifications", async () => {
     const fetchMock = configureGa4AndNotifications();
-    const context = ga4Context();
-    const original = payload({ ga4_context: context });
+    const context = ga4Context({ advertising: true });
+    const original = payload({
+      gclid: "synthetic-click", first_touch_at: context.captured_at,
+      measurement_consent: { advertising: true, version: context.consent_version, recorded_at: context.consent_recorded_at },
+      ga4_context: context,
+    });
     const first = res();
     await handler(req(original), first);
     expectAcceptedWithNotifications(first, fetchMock);
     selectRequestMock.mockResolvedValue({ data: { ...insertSingleMock.mock.calls[0][0], id: "booking-1" }, error: null });
     const retry = res();
-    await handler(req({ ...original, ga4_context: ga4Context({ client_id: "987654321.1791000001", advertising: true }) }), retry);
+    await handler(req({
+      ...original,
+      measurement_consent: { advertising: false, version: context.consent_version, recorded_at: new Date().toISOString() },
+      gclid: null,
+      ga4_context: ga4Context({ client_id: "987654321.1791000001", advertising: false }),
+    }), retry);
     expect(retry.statusCode).toBe(200);
     expect(JSON.parse(retry.body)).toEqual({ ...JSON.parse(first.body), replayed: true });
     expect(insertSingleMock).toHaveBeenCalledOnce();
@@ -746,6 +804,25 @@ describe("POST /api/create-booking-request", () => {
     const response = res();
     await handler(req(payload({ price: 9999 })), response);
     expect(insertSingleMock.mock.calls[0][0].total_price).toBe(85);
+  });
+
+  it("saves one whole-property move-in carpet upgrade and its matching price when an old draft requests two", async () => {
+    const response = res();
+    await handler(req(payload({
+      service: "Move-in deep clean — 2 Bed",
+      price: 449,
+      quoteConfig: {
+        service: "deep", deepService: "move_in", deepSize: "bed2", deepBaths: 1,
+        addOnCounts: { carpet_bundle: 2 }, parkingAvailable: "yes", congestionZone: "no",
+      },
+    })), response);
+    expect(response.statusCode).toBe(201);
+    const row = insertSingleMock.mock.calls[0][0];
+    expect(row.total_price).toBe(349);
+    expect(row.service).toContain("1 × 2 bedroom carpets + hallway");
+    expect(row.service).not.toContain("2 × 2 bedroom carpets + hallway");
+    expect(row.quote_config.addOnCounts.carpet_bundle).toBe(1);
+    expect(JSON.parse(response.body).total).toBe(349);
   });
 
   // The move-in calculator shows £344 for a 2-bed with a 3-seater sofa. The

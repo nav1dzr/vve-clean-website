@@ -1,3 +1,5 @@
+import { normaliseMoveInCarpetBundle } from '../../shared/pricingCatalogue.js';
+import { computePrice } from './runtimePriceCatalogue';
 import type { BookingSelection } from '../components/QuoteCalculator';
 
 const BOOKING_KEY = 'vve_booking';
@@ -46,6 +48,13 @@ export function isBookingSelection(value: unknown): value is BookingSelection {
   return true;
 }
 
+function restoreSelection(selection: BookingSelection): BookingSelection | null {
+  const quoteConfig = normaliseMoveInCarpetBundle(selection.quoteConfig);
+  if (quoteConfig === selection.quoteConfig) return selection;
+  const price = computePrice(quoteConfig);
+  return price !== null ? { ...selection, quoteConfig, price } : null;
+}
+
 export interface BookingHandoff {
   selection: BookingSelection;
   quoteOrigin: string;
@@ -61,7 +70,8 @@ export function readBookingHandoff(state: unknown): BookingHandoff | null {
   if (!isRecord(state) || !isRecord(state.vveBooking)) return null;
   const handoff = state.vveBooking;
   if (!isBookingSelection(handoff.selection) || typeof handoff.quoteOrigin !== 'string') return null;
-  return { selection: handoff.selection, quoteOrigin: handoff.quoteOrigin, restoreQuote: handoff.restoreQuote === true };
+  const selection = restoreSelection(handoff.selection);
+  return selection ? { selection, quoteOrigin: handoff.quoteOrigin, restoreQuote: handoff.restoreQuote === true } : null;
 }
 
 export function storeBookingSelection(selection: BookingSelection): void {
@@ -78,7 +88,7 @@ function readStoredBooking(): unknown {
 
 export function readStoredBookingSelection(): BookingSelection | null {
   const value = readStoredBooking();
-  return isBookingSelection(value) ? value : null;
+  return isBookingSelection(value) ? restoreSelection(value) : null;
 }
 
 /** Old quotes may contain only their inputs. The calculator recalculates them;

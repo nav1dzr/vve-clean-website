@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import BookingPage from "./BookingPage";
@@ -112,6 +112,33 @@ describe("BookingPage — mobile scheduling and access charges", () => {
     );
   });
 
+  it("keeps the cleaning list and WhatsApp estimate aligned when the travel date changes", async () => {
+    const user = userEvent.setup();
+    sessionStorage.setItem("vve_booking", JSON.stringify({
+      serviceName: "Carpet cleaning", price: 85,
+      quoteConfig: { service: "deep", deepService: "carpet_upholstery", carpetCounts: { bedroom: 1 } },
+    }));
+    renderBookingPage();
+    await user.click(screen.getAllByRole("button", { name: "No" })[0]);
+    await user.click(screen.getAllByRole("button", { name: "Yes" })[1]);
+    const date = screen.getByLabelText(/preferred date/i);
+    const year = new Date().getFullYear() + 1;
+    for (const [day, total] of [["12-24", "£118"], ["12-28", "£100"], ["12-23", "£118"]]) {
+      fireEvent.change(date, { target: { value: `${year}-${day}` } });
+      expect(screen.getByText(total)).toBeVisible();
+      const href = screen.getByRole("link", { name: /^WhatsApp us/i }).getAttribute("href")!;
+      expect(screen.getByRole("link", { name: "Need help? Chat on WhatsApp" })).toHaveAttribute("href", href);
+      const message = new URL(href).searchParams.get("text");
+      expect(message).toContain(`Estimated total: ${total}`);
+      expect(message).toContain(screen.getByText("1 × Bedroom").textContent);
+      expect(message).toContain("£15");
+      if (day === "12-28") {
+        expect(message).not.toContain("£18");
+        expect(message).toContain("£0");
+      } else expect(message).toContain("£18");
+    }
+  });
+
   it("requires both access questions before sending the request", async () => {
     const user = userEvent.setup();
     renderBookingPage();
@@ -147,7 +174,7 @@ describe("BookingPage — mobile scheduling and access charges", () => {
     const user = userEvent.setup();
     renderBookingPage();
     await fillContactDetails(user);
-    await user.type(screen.getByLabelText(/preferred date/i), FUTURE_DATE);
+    await user.type(screen.getByLabelText(/preferred date/i), `${new Date().getFullYear() + 1}-02-15`);
     await user.selectOptions(
       screen.getByLabelText(/preferred arrival window/i),
       "Flexible",

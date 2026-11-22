@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, CheckCircle2, MessageCircle } from 'lucide-react';
-import { BUILDERS_FOLLOWUP_WHATSAPP, BUILDERS_WHATSAPP } from '../data/afterBuildersContent';
+import { buildersWhatsAppLink } from '../data/afterBuildersContent';
 import { CONDITIONAL_DEPOSIT_NOTE } from '../data/businessPolicy';
 import { getAttribution } from '../lib/attribution';
 import { trackContactFormSubmitted } from '../lib/analytics';
@@ -8,8 +8,8 @@ import { clearSubmissionIdentity, submissionIdentity } from '../lib/submissionId
 import {
   AFTER_BUILDERS_SUBMISSION_SCOPE, ASSESSMENT_ITEMS, CLEANING_AREAS, CORE_CLEANING, EXTRA_SERVICES,
   PARKING_OPTIONS, PHOTO_OPTIONS, PROPERTY_TYPES, TRADES_STATUS, WORK_TYPES,
-  afterBuildersEnquirySections, buildAfterBuildersEnquiryMessage, clearAfterBuildersDraft,
-  createAfterBuildersEnquiry, isEnquiryPostcodeValid, readAfterBuildersDraft, saveAfterBuildersDraft,
+  afterBuildersEnquirySections, afterBuildersPhotoMessage, buildAfterBuildersEnquiryMessage, clearAfterBuildersDraft,
+  createAfterBuildersEnquiry, enquiryQuantity, isEnquiryPostcodeValid, readAfterBuildersDraft, saveAfterBuildersDraft,
   type AfterBuildersEnquiryState, type ExtraService,
 } from '../lib/afterBuildersEnquiry';
 import '../pages/after-builders-enquiry.css';
@@ -52,22 +52,41 @@ export default function AfterBuildersEnquiry() {
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; activeRequest.current?.abort(); }; }, []);
 
   const change = <K extends keyof AfterBuildersEnquiryState>(key: K, value: AfterBuildersEnquiryState[K]) => setState(current => ({ ...current, [key]: value }));
-  const goTo = (next: number) => { setError(''); setInvalidField(''); setStep(next); setFurthestStep(current => Math.max(current, next)); };
   const toggleExtra = (extra: ExtraService) => setState(current => {
     const selected = current.extras.includes(extra);
     const quantities = { ...current.quantities };
     if (selected) delete quantities[extra];
     return { ...current, extras: selected ? current.extras.filter(key => key !== extra) : [...current.extras, extra], quantities };
   });
-  const validateProject = () => {
-    if (!isEnquiryPostcodeValid(state.postcode)) { setInvalidField('postcode'); setError('Check the postcode, or leave it blank if you do not know it yet.'); return false; }
+  const validateThrough = (next: number) => {
+    const invalid = (index: number, field: string, message: string) => {
+      setStep(index); setInvalidField(field); setError(message); return false;
+    };
+    if (next > 0) {
+      if (!isEnquiryPostcodeValid(state.postcode)) return invalid(0, 'postcode', 'Check the postcode, or leave it blank if you do not know it yet.');
+      if (state.floorArea && !enquiryQuantity(state.floorArea, true)) return invalid(0, 'floorArea', 'Enter a floor area in square metres, such as 12.5, or leave it blank.');
+    }
+    if (next > 1) {
+      for (const extra of state.extras) {
+        const amount = state.quantities[extra];
+        const area = extra === 'pressure_washing';
+        if (amount && !enquiryQuantity(amount, area)) {
+          return invalid(1, extra, area ? 'Enter a pressure washing area in square metres, such as 12.5, or leave it blank.'
+            : `Enter a positive whole number for ${EXTRA_SERVICES[extra].label.toLowerCase()}, or leave it blank.`);
+        }
+      }
+    }
     return true;
+  };
+  const goTo = (next: number) => {
+    if (next > step && !validateThrough(next)) return;
+    setError(''); setInvalidField(''); setStep(next); setFurthestStep(current => Math.max(current, next));
   };
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (inFlight.current || honeypot) return;
-    if (step < 3) { if (step !== 0 || validateProject()) goTo(step + 1); return; }
-    if (!validateProject()) { setStep(0); return; }
+    if (step < 3) { goTo(step + 1); return; }
+    if (!validateThrough(3)) return;
     if (name.trim().length < 2) { setInvalidField('name'); setError('Please enter your name (at least two characters).'); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setInvalidField('email'); setError('Please enter a valid email address so we can reply.'); return; }
     const message = buildAfterBuildersEnquiryMessage(state);
@@ -97,7 +116,7 @@ export default function AfterBuildersEnquiry() {
       if (mounted.current) setLoading(false);
     }
   };
-  const whatsapp = <a href={submitted ? BUILDERS_FOLLOWUP_WHATSAPP : BUILDERS_WHATSAPP} target="_blank" rel="noopener noreferrer" className="builders-enquiry-whatsapp" data-track-location="after_builders_enquiry_photos"><MessageCircle size={19} aria-hidden="true" />Send photos on WhatsApp</a>;
+  const whatsapp = <a href={buildersWhatsAppLink(afterBuildersPhotoMessage(state, submitted))} target="_blank" rel="noopener noreferrer" className="builders-enquiry-whatsapp" data-track-location="after_builders_enquiry_photos"><MessageCircle size={19} aria-hidden="true" />Send photos on WhatsApp</a>;
 
   if (submitted) return <div className="builders-enquiry builders-enquiry-success" ref={successPanel} tabIndex={-1} role="status" aria-labelledby="builders-enquiry-success"><CheckCircle2 size={40} aria-hidden="true" /><h3 id="builders-enquiry-success">Your enquiry is saved</h3><p>We’ll review the work and contact you during opening hours to agree the cleaning list, final price and a suitable time. Your appointment is not confirmed yet.</p><p>No payment has been taken. {CONDITIONAL_DEPOSIT_NOTE}</p>{whatsapp}<p className="builders-enquiry-privacy">When you send photos, include the name you used on this form and the property postcode if you know it. We’ll match them to this enquiry.</p></div>;
 
@@ -116,11 +135,11 @@ export default function AfterBuildersEnquiry() {
             <ChoiceSelect label="Bedrooms to clean" value={state.bedrooms} options={Object.fromEntries(COUNTS.map(n => [n, n || 'Not sure yet']))} onChange={value => change('bedrooms', value)} />
             <ChoiceSelect label="Bathrooms to clean" value={state.bathrooms} options={Object.fromEntries(COUNTS.map(n => [n, n || 'Not sure yet']))} onChange={value => change('bathrooms', value)} />
           </div>
-          <details data-disclosure="project-details"><summary>More about the property (optional)</summary><label className="builders-enquiry-field">Approximate floor area (m²)<input type="text" inputMode="numeric" value={state.floorArea} maxLength={5} onChange={event => change('floorArea', event.target.value.replace(/\D/g, ''))} /><small>Leave blank if you do not know.</small></label><label className="builders-enquiry-field">Rooms or work to tell us about<textarea value={state.workDetails} maxLength={600} onChange={event => change('workDetails', event.target.value)} placeholder="For example, a kitchen refit with dust in the hall." /></label></details>
+          <details data-disclosure="project-details"><summary>More about the property (optional)</summary><label className="builders-enquiry-field">Approximate floor area (m²)<input type="text" inputMode="decimal" value={state.floorArea} aria-invalid={invalidField === 'floorArea'} aria-describedby={invalidField === 'floorArea' ? 'builders-enquiry-error' : undefined} onChange={event => change('floorArea', event.target.value)} /><small>Leave blank if you do not know.</small></label><label className="builders-enquiry-field">Rooms or work to tell us about<textarea value={state.workDetails} maxLength={600} onChange={event => change('workDetails', event.target.value)} placeholder="For example, a kitchen refit with dust in the hall." /></label></details>
         </>}
         {step === 1 && <>
           <div className="builders-enquiry-note"><h4>Your core cleaning list</h4><ul>{CORE_CLEANING.map(line => <li key={line}>{line}</li>)}</ul><p>We’ll confirm the rooms and tasks in your written quote. This is not an unlimited or fixed-price package.</p></div>
-          <fieldset><legend>Optional services — choose only what you need</legend><div className="builders-enquiry-grid">{(Object.keys(EXTRA_SERVICES) as ExtraService[]).map(key => <div key={key} className="builders-enquiry-extra"><label className="builders-enquiry-choice"><input type="checkbox" checked={state.extras.includes(key)} onChange={() => toggleExtra(key)} />{EXTRA_SERVICES[key].label}</label>{state.extras.includes(key) && EXTRA_SERVICES[key].unit && <label className="builders-enquiry-field">{EXTRA_SERVICES[key].label}: quantity (optional)<input inputMode="numeric" type="text" maxLength={5} value={state.quantities[key] || ''} onChange={event => change('quantities', { ...state.quantities, [key]: event.target.value.replace(/\D/g, '') })} /><small>{EXTRA_SERVICES[key].unit}. Leave blank for advice. {key === 'windows' ? 'Tell us an approximate window count; we’ll confirm size, reach and work from photos.' : 'The work and price will be agreed separately.'}</small></label>}</div>)}</div></fieldset>
+          <fieldset><legend>Optional services — choose only what you need</legend><div className="builders-enquiry-grid">{(Object.keys(EXTRA_SERVICES) as ExtraService[]).map(key => <div key={key} className="builders-enquiry-extra"><label className="builders-enquiry-choice"><input type="checkbox" checked={state.extras.includes(key)} onChange={() => toggleExtra(key)} />{EXTRA_SERVICES[key].label}</label>{state.extras.includes(key) && EXTRA_SERVICES[key].unit && <label className="builders-enquiry-field">{EXTRA_SERVICES[key].label}: quantity (optional)<input inputMode={key === 'pressure_washing' ? 'decimal' : 'numeric'} type="text" value={state.quantities[key] || ''} aria-invalid={invalidField === key} aria-describedby={invalidField === key ? 'builders-enquiry-error' : undefined} onChange={event => change('quantities', { ...state.quantities, [key]: event.target.value })} /><small>{EXTRA_SERVICES[key].unit}. Leave blank for advice. {key === 'windows' ? 'Tell us an approximate window count; we’ll confirm size, reach and work from photos.' : 'The work and price will be agreed separately.'}</small></label>}</div>)}</div></fieldset>
           <fieldset><legend>Anything that needs assessment? (optional)</legend><div className="builders-enquiry-grid">{Object.entries(ASSESSMENT_ITEMS).map(([key, label]) => <label className="builders-enquiry-choice" key={key}><input type="checkbox" checked={state.assessment.includes(key as keyof typeof ASSESSMENT_ITEMS)} onChange={() => change('assessment', state.assessment.includes(key as keyof typeof ASSESSMENT_ITEMS) ? state.assessment.filter(item => item !== key) : [...state.assessment, key as keyof typeof ASSESSMENT_ITEMS])} />{label}</label>)}</div></fieldset>
           <p className="builders-enquiry-privacy">Paint, plaster and adhesive removal depends on the surface. Building waste clearance and repairs are not included.</p>
         </>}

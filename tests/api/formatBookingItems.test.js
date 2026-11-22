@@ -113,6 +113,29 @@ describe('formatBookingItemLines — end of tenancy / deep clean', () => {
     ]);
   });
 
+  it('itemises only selected, priced EOT carpet areas and preserves stair flights and upholstery labels', () => {
+    const rooms = [
+      { id: 'bedroom-2', addonKey: 'bedroom' },
+      { id: 'manual-lr-1', addonKey: 'living_room' },
+      { id: 'manual-dr-1', addonKey: 'living_room' },
+      { id: 'manual-dr-2', addonKey: 'living_room' },
+      { id: 'stairs', addonKey: 'stairs', stairFlights: 3 },
+      { id: 'hallway', addonKey: 'hallway' },
+      { id: 'rug', addonKey: 'rug' },
+    ];
+    const lines = formatBookingItemLines({
+      service: 'deep', deepService: 'end_of_tenancy', deepSize: 'bed2', deepBaths: 1, rooms,
+      carpetRoomIds: ['bedroom-2', 'manual-lr-1', 'manual-dr-1', 'manual-dr-2', 'stairs', 'rug', 'unknown'],
+      addOnCounts: { sofa_3: 1 },
+    });
+    expect(lines).toEqual([
+      'End of tenancy (Complete Agency-Ready Clean) — 2 Bed, 1 bathroom', 'Inside oven (included free)',
+      'Professional carpet cleaning — 1 × Bedroom 2', 'Professional carpet cleaning — 1 × Living room',
+      'Professional carpet cleaning — 2 × Dining room', 'Professional carpet cleaning — 3 × Stair flight',
+      '1 × 3-seater sofa',
+    ]);
+  });
+
   it('names move-in upholstery and mattress extras as the customer chose them', () => {
     const lines = formatBookingItemLines({
       service: 'deep', deepService: 'move_in', deepSize: 'bed2', deepBaths: 1,
@@ -200,7 +223,7 @@ describe('formatBookingItemLines — access charges (parking / Congestion Charge
     });
     expect(lines).toEqual([
       'Window cleaning — 3 Bed',
-      'Congestion Charge zone — +£18 pass-through Congestion Charge',
+      'Congestion Charge zone — £18 estimated, subject to confirmation for the visit',
     ]);
   });
 
@@ -221,7 +244,7 @@ describe('formatBookingItemLines — access charges (parking / Congestion Charge
     expect(lines).toEqual([
       'Gutter clearing — Semi-Detached',
       'Parking: not available on-site — +£15 estimated parking allowance (charged at actual cost)',
-      'Congestion Charge zone — +£18 pass-through Congestion Charge',
+      'Congestion Charge zone — £18 estimated, subject to confirmation for the visit',
     ]);
   });
 
@@ -229,6 +252,12 @@ describe('formatBookingItemLines — access charges (parking / Congestion Charge
     expect(formatBookingItemLines({
       service: 'unknown_future_service', parkingAvailable: 'no', congestionZone: 'yes',
     })).toEqual([]);
+  });
+
+  it.each(['yes', 'not_sure'])('shows £0 for a charge-free date when the zone answer is %s', congestionZone => {
+    expect(formatBookingItemLines({
+      service: 'window', windowSize: 'medium', congestionZone, serviceDate: '2026-12-25',
+    })).toEqual(['Window cleaning — 3 Bed', 'Congestion Charge: £0 — charge-free travel date']);
   });
 });
 

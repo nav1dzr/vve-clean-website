@@ -1,4 +1,5 @@
 import PriceTaxNote from './PriceTaxNote';
+import { normaliseMoveInCarpetBundle } from '../../shared/pricingCatalogue.js';
 import { PROPERTY_CARPET_BUNDLE_SCOPE } from '../../shared/carpetBundleScope.js';
 import { BUILDERS_GUIDE_HREF, BUILDERS_QUOTE_HREF } from '../../shared/afterBuildersGuide.js';
 import GoogleBadge from './GoogleBadge';
@@ -382,7 +383,7 @@ function QuoteCalculatorForm({
     // An explicit service choice starts that selection; ordinary navigation and
     // the basket's resume link still restore the saved quote.
     if (homepageService !== null) return null;
-    const saved = getRestoreConfig(location.state);
+    const saved = normaliseMoveInCarpetBundle(getRestoreConfig(location.state));
     if (mode === 'eot' && saved?.deepService !== 'end_of_tenancy') return null;
     if ((mode === 'carpet' || mode === 'upholstery') && saved?.deepService !== 'carpet_upholstery') return null;
     return saved;
@@ -1469,6 +1470,7 @@ function QuoteCalculatorForm({
                                     <Counter
                                       itemLabel={label}
                                       value={addOnCounts[a.key]}
+                                      max={deepService === 'move_in' && a.key === 'carpet_bundle' ? 1 : undefined}
                                       onChange={(value) => setAddOnCounts((previous) => ({ ...previous, [a.key]: value }))}
                                     />
                                   </div>

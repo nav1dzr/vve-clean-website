@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
+import { buildAfterBuildersEnquiryMessage, createAfterBuildersEnquiry } from '../../src/lib/afterBuildersEnquiry';
 
 const { find, insert, db } = vi.hoisted(() => {
   const find = vi.fn(); const insert = vi.fn();
@@ -68,6 +69,20 @@ describe('durable contact enquiries', () => {
     expect([first.status, second.status].sort()).toEqual([200, 201]);
     expect(first.body.enquiryId).toBe(second.body.enquiryId);
     expect(deliverEnquiry).toHaveBeenCalledOnce();
+  });
+  it('passes assessed after-builders areas and whole-item quantities unchanged to the CRM', async () => {
+    const message = buildAfterBuildersEnquiryMessage({
+      ...createAfterBuildersEnquiry(), floorArea: '12.5',
+      extras: ['pressure_washing', 'windows'], quantities: { pressure_washing: '7.25', windows: '3' },
+    });
+    const res = response();
+    await handler({ method: 'POST', headers: {}, body: { ...body, service: 'After builders cleaning', message } }, res);
+    expect(res.status).toBe(201);
+    const saved = insert.mock.calls[0][0];
+    expect(saved.message).toBe(message);
+    expect(saved.message).toContain('Approximate floor area: 12.5 m²');
+    expect(saved.message).toContain('Pressure washing: 7.25 m²');
+    expect(saved.message).toContain('Exterior or specialist window cleaning: 3 windows');
   });
   it('preserves UTF-8 characters even when a streamed body splits inside a character', async () => {
     const request = new EventEmitter(); request.method = 'POST'; request.headers = {}; request.destroy = vi.fn();

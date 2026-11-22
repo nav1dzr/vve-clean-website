@@ -3,6 +3,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import QuoteCalculator, { type BookingSelection } from './QuoteCalculator';
 import { BookingProvider } from '../context/BookingContext';
+import { readBookingHandoff, readStoredBookingSelection } from '../lib/bookingHandoff';
+import { computePrice } from '../../shared/pricingCatalogue.js';
 import { priceBookingRequest } from '../../shared/requestPricing.js';
 import { formatBookingItemLines } from '../../api/_lib/formatBookingItems.js';
 
@@ -67,6 +69,36 @@ describe('move-in clean: shown price equals the saved request price', () => {
       '2-seater sofa steam clean', '3-seater sofa steam clean', 'Corner / L-shaped sofa steam clean',
       'Single mattress steam clean', 'Double mattress steam clean',
     ]));
+  });
+
+  it('prices, saves and describes a whole-property carpet upgrade once, including older quotes with duplicate upgrades', () => {
+    const onBook = renderMoveIn();
+    const scope = '2 bedroom carpets + hallway';
+    const increase = screen.getByRole('button', { name: `Increase ${scope} quantity` });
+    fireEvent.click(increase);
+    expect(increase).toBeDisabled();
+    fireEvent.click(increase);
+    const selection = requestSelection(onBook);
+    expect(selection.price).toBe(349);
+    expect(selection.quoteConfig?.addOnCounts.carpet_bundle).toBe(1);
+    const link = screen.getAllByRole('link', { name: /Chat on WhatsApp/i })[0] as HTMLAnchorElement;
+    const message = new URL(link.href).searchParams.get('text')!;
+    expect(message).toContain(scope);
+    expect(message).toContain('£349');
+    expect(message).not.toContain(`${scope} ×2`);
+
+    const legacyConfig = { ...selection.quoteConfig!, addOnCounts: { ...selection.quoteConfig!.addOnCounts, carpet_bundle: 2 } };
+    expect(computePrice(legacyConfig)).toBe(349);
+    const priced = priceBookingRequest({ ...legacyConfig, ...ACCESS });
+    expect(priced?.total).toBe(349);
+    expect(priced?.quoteConfig.addOnCounts.carpet_bundle).toBe(1);
+    expect(formatBookingItemLines(priced?.quoteConfig)).toContain(`1 × ${scope}`);
+
+    const legacy = { ...selection, quoteConfig: legacyConfig, price: 449 };
+    sessionStorage.setItem('vve_booking', JSON.stringify(legacy));
+    expect(readStoredBookingSelection()).toEqual(selection);
+    expect(readBookingHandoff({ vveBooking: { selection: legacy, quoteOrigin: '/' } })?.selection).toEqual(selection);
+    sessionStorage.removeItem('vve_booking');
   });
 
   it('matches with no extras selected', () => {

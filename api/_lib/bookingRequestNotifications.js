@@ -89,7 +89,7 @@ function emailHtml(data, business = false) {
   )
     .map(
       ([label, value]) =>
-        `<tr><td style="padding:8px 12px;border-top:1px solid #e3e7ee;color:#667085;font-size:13px">${esc(label)}</td><td style="padding:8px 12px;border-top:1px solid #e3e7ee;color:#020b24;font-size:13px;font-weight:600">${esc(value || "—")}</td></tr>`,
+        `<tr><td style="padding:8px 12px;border-top:1px solid #e3e7ee;color:#667085;font-size:13px">${esc(label)}</td><td style="padding:8px 12px;border-top:1px solid #e3e7ee;color:#020b24;font-size:13px;font-weight:600">${esc(value || "—").replace(/\r?\n/g, "<br>")}</td></tr>`,
     )
     .join("");
 

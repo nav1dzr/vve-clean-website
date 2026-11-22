@@ -445,6 +445,7 @@ export default async function handler(req, res) {
     quoteConfig,
     offer_code,
     pricebook.catalogue,
+    date,
   );
   const validatedPrice = priced?.total ?? null;
   if (validatedPrice === null)
@@ -466,6 +467,7 @@ export default async function handler(req, res) {
     );
   }
   priced.quoteConfig.pricebookVersion = pricebook.version;
+  priced.quoteConfig.serviceDate = date;
 
   let bookingRef;
   try {
@@ -490,7 +492,7 @@ export default async function handler(req, res) {
       "A valid postcode and preferred date are required",
     );
 
-  const serviceDetail = formatServiceDetail(quoteConfig, service);
+  const serviceDetail = formatServiceDetail(priced.quoteConfig, service);
   const consentRecordedAt = validIsoTimestamp(measurement_consent?.recorded_at);
   const hasMeasurementConsent =
     measurement_consent?.advertising === true &&

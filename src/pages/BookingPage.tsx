@@ -14,6 +14,8 @@ import { getGa4BookingContext } from '../lib/ga4Context';
 import { getQuoteOriginHref } from "../lib/quoteOrigin";
 import { bookingRouteState, readBookingHandoff, readStoredBookingSelection, storeBookingSelection, markQuoteRestore } from "../lib/bookingHandoff";
 import { PRICEBOOK_VERSION } from "../data/pricing";
+import { isCongestionChargeFreeDate } from '../../shared/pricingCatalogue.js';
+import { formatBookingItemLines } from '../../shared/formatBookingItems.js';
 import { isValidBookingName, isValidBookingEmail, isValidBookingDate, todayLondonIsoDate } from '../../shared/bookingRequestValidation.js';
 import { clearBookingAcknowledgement, hasBookingAcknowledgement, rememberBookingAcknowledgement } from '../lib/bookingRequestAcknowledgement';
 import {
@@ -117,7 +119,11 @@ function validPostcode(v: string) {
 const BOOKING_WA =
   "https://wa.me/447845451111?text=Hi%20VVE%20Clean%2C%20I%27d%20like%20help%20with%20my%20booking.";
 
-function BookingHeader({ isLeaflet = false, selection = null }: { isLeaflet?: boolean; selection?: BookingSelection | null }) {
+function BookingHeader({ isLeaflet = false, selection = null, whatsappHref = BOOKING_WA }: {
+  isLeaflet?: boolean;
+  selection?: BookingSelection | null;
+  whatsappHref?: string;
+}) {
   // Where the quote was actually built — the Carpet page, the Sofa page, the
   // homepage, /leaflet, or a service page. Falls back to the previous
   // hard-coded destination when nothing was recorded.
@@ -171,7 +177,7 @@ function BookingHeader({ isLeaflet = false, selection = null }: { isLeaflet?: bo
 
           {/* Need help */}
           <a
-            href={BOOKING_WA}
+            href={whatsappHref}
             target="_blank"
             rel="noopener noreferrer"
             className="flex min-h-[44px] items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-colors btn-whatsapp sm:text-sm"
@@ -299,9 +305,11 @@ function StepIndicator({ current }: { current: 1 | 2 }) {
 
 function ServiceCard({
   selection,
+  cleaningLines,
   onChangeService,
 }: {
   selection: BookingSelection;
+  cleaningLines: string[];
   onChangeService: () => void;
 }) {
   const hasOffer = !!selection.offerCode && (selection.discountAmount ?? 0) > 0;
@@ -383,7 +391,7 @@ function ServiceCard({
             <span>−{money(selection.discountAmount ?? 0)}</span>
           </div>
           <div className="flex justify-between text-xs font-bold text-navy-900 border-t border-green-200 pt-1 mt-1">
-            <span>Final price</span>
+            <span>Cleaning price after discount</span>
             <span>{money(selection.price)}</span>
           </div>
           {isLeaflet && (
@@ -394,9 +402,15 @@ function ServiceCard({
         </div>
       )}
 
-      {/* Minimum booking charge breakdown — shown instead of the offer
-          breakdown above when the £85 floor is what actually set the price,
-          so no discount is claimed that the customer didn't receive. */}
+      {cleaningLines.length > 0 && (
+        <div className="border-t border-[#E3E7EE] px-5 py-3 text-sm text-navy-900">
+          <p className="font-semibold">Your cleaning list</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5">
+            {cleaningLines.map((line, index) => <li key={index}>{line}</li>)}
+          </ul>
+        </div>
+      )}
+      {/* Only show the minimum breakdown when it sets the price. */}
       {!hasOffer && selection.minimumApplied && (
         <div
           className="px-5 py-3 border-t border-[#E3E7EE] space-y-1"
@@ -413,7 +427,7 @@ function ServiceCard({
             <span>{money(CARPET_MIN_BOOKING)}</span>
           </div>
           <div className="flex justify-between text-xs font-bold text-navy-900 border-t border-amber-200 pt-1 mt-1">
-            <span>Final price</span>
+            <span>Cleaning price</span>
             <span>{money(selection.price)}</span>
           </div>
           {isLeaflet && (
@@ -474,9 +488,6 @@ const REQUIRED_CONGESTION_ERROR =
 // api/servicePrices.js's accessSurcharge, the server-side authority).
 function parkingSurcharge(answer: ParkingAnswer): number {
   return answer === "no" || answer === "not_sure" ? PARKING_ESTIMATE : 0;
-}
-function congestionSurcharge(answer: CongestionAnswer): number {
-  return answer === "yes" || answer === "not_sure" ? CONGESTION_CHARGE : 0;
 }
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
@@ -716,7 +727,7 @@ export default function BookingPage() {
     setSubmitError("");
 
     const attribution = getAttribution();
-    const payload = {
+    const content = {
       pricebookVersion: PRICEBOOK_VERSION,
       service: selection.serviceName,
       price: totalWithAccessCharges,
@@ -744,7 +755,9 @@ export default function BookingPage() {
             final_total_after_discount: selection.price,
           }
         : {}),
-      // Attribution
+    };
+    const payload = {
+      ...content,
       first_source: attribution.first_source,
       last_source: attribution.last_source,
       landing_page: attribution.landing_page,
@@ -761,9 +774,7 @@ export default function BookingPage() {
     };
 
     try {
-      const requestKey = await submissionIdentity("booking", payload);
-      // Optional IDs are not part of the retry identity: a refreshed analytics
-      // session must not create a second booking for the same submitted form.
+      const requestKey = await submissionIdentity("booking", content, payload);
       const ga4Context = await getGa4BookingContext().catch(() => null);
       const res = await fetch(BACKEND_URL, {
         method: "POST",
@@ -828,19 +839,24 @@ export default function BookingPage() {
     }
   };
 
-  const waLink = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(
-    selection
-      ? `Hi VVE Clean, I'd like to book: ${selection.serviceName} (${money(selection.price)}).`
-      : "Hi VVE Clean, I'd like to book a cleaning service.",
-  )}`;
-
   // Access charges (parking / Congestion Charge) are answered on this page,
   // after the quote calculator already produced selection.price — so the
   // displayed estimate must account for them here.
   const parkingCharge = parkingSurcharge(form.parkingAvailable);
-  const congestionCharge = congestionSurcharge(form.congestionZone);
+  const chargeFreeDate = isCongestionChargeFreeDate(form.date);
+  const inZoneOrUnsure = form.congestionZone === 'yes' || form.congestionZone === 'not_sure';
+  const congestionCharge = inZoneOrUnsure && !chargeFreeDate ? CONGESTION_CHARGE : 0;
   const totalWithAccessCharges =
     (selection?.price ?? 0) + parkingCharge + congestionCharge;
+  const cleaningConfig = { ...selection?.quoteConfig, parkingAvailable: '', congestionZone: '' };
+  const cleaningLines = formatBookingItemLines(cleaningConfig);
+  const message = selection ? [
+    `Hi VVE Clean, I'd like to request ${selection.serviceName}.`,
+    ...formatBookingItemLines({ ...cleaningConfig, parkingAvailable: form.parkingAvailable, congestionZone: form.congestionZone, serviceDate: form.date }),
+    `Estimated total: ${money(totalWithAccessCharges)}`,
+    ...(!form.parkingAvailable || !form.congestionZone ? ['Outstanding access costs to be confirmed.'] : []),
+  ].join('\n') : "Hi VVE Clean, I'd like to book a cleaning service.";
+  const waLink = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(message)}`;
 
   // ── CSS helpers ────────────────────────────────────────────────────────────
   const inputCls = (field: keyof FormData) =>
@@ -954,7 +970,7 @@ export default function BookingPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
-      <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} selection={selection} />
+      <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} selection={selection} whatsappHref={waLink} />
       <nav aria-label="Booking progress">
         <StepIndicator current={2} />
       </nav>
@@ -977,6 +993,7 @@ export default function BookingPage() {
 
         {/* Selected service card */}
         <ServiceCard
+          cleaningLines={cleaningLines}
           selection={selection}
           onChangeService={handleChangeService}
         />
@@ -1452,8 +1469,7 @@ export default function BookingPage() {
                 ))}
               </div>
               <p className="text-silver-600 text-xs mt-1.5">
-                This is a pass-through Congestion Charge, not a cleaning-service
-                fee.
+                {chargeFreeDate ? 'TfL does not charge on your chosen date.' : 'We confirm any Congestion Charge at the actual cost for the visit.'}
               </p>
               {congestionCharge > 0 && (
                 <p
@@ -1463,7 +1479,7 @@ export default function BookingPage() {
                   +{money(congestionCharge)}{" "}
                   {form.congestionZone === "not_sure"
                     ? "estimated pending address confirmation"
-                    : "Congestion Charge"}
+                    : "estimated Congestion Charge"}
                 </p>
               )}
               {errors.congestionZone && (

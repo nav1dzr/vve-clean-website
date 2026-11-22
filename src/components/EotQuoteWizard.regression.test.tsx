@@ -9,6 +9,7 @@ import { BookingProvider } from '../context/BookingContext';
 import { CookieConsentProvider } from '../context/CookieConsentContext';
 import { clearQuoteBasket, readQuoteBasket, saveQuoteBasket } from '../lib/quoteBasket';
 import { EOT_PRICES_P } from '../data/pricing';
+import { priceBookingRequest } from '../../shared/requestPricing.js';
 
 const baseQuote: EotBookingResult['quoteConfig'] = {
   service: 'deep', deepService: 'end_of_tenancy', deepSize: 'bed2', deepBaths: 1, deepWcs: 0, isHouse: false,
@@ -44,9 +45,8 @@ beforeEach(() => {
 });
 
 describe('EOT return-to-quote preserves selected additional areas', () => {
-  it('retains added reception, hallway and landing IDs, totals and hand-off after the real Back to quote link', async () => {
-    const user = userEvent.setup();
-    render(
+  function renderBookingFlow() {
+    return render(
       <MemoryRouter initialEntries={['/end-of-tenancy-cleaning-london']}>
         <CookieConsentProvider><BookingProvider><Routes>
           <Route path="/end-of-tenancy-cleaning-london" element={<QuoteCalculator mode="eot" />} />
@@ -54,6 +54,62 @@ describe('EOT return-to-quote preserves selected additional areas', () => {
         </Routes></BookingProvider></CookieConsentProvider>
       </MemoryRouter>,
     );
+  }
+
+  function whatsappMessage() {
+    const link = screen.getByRole('link', { name: /WhatsApp us →/ });
+    return new URL(link.getAttribute('href')!).searchParams.get('text');
+  }
+
+  it('adds and removes windows after returning and keeps the visible, WhatsApp and server prices together', async () => {
+    const user = userEvent.setup();
+    renderBookingFlow();
+    await user.click(screen.getByRole('button', { name: /^2 beds$/ }));
+    await floorCare(user);
+    await next(user);
+    await user.click(screen.getByRole('button', { name: /Request a time/ }));
+    for (const [action, quantity, total] of [['Increase', 1, 374], ['Decrease', 0, 339]] as const) {
+      await user.click(screen.getByRole('link', { name: 'Back to quote' }));
+      await user.click(screen.getByRole('button', { name: new RegExp(`^${action} Exterior windows`) }));
+      expect(screen.getByTestId('final-total')).toHaveTextContent(`£${total}`);
+      await user.click(screen.getByRole('button', { name: /Request a time/ }));
+      const { price, quoteConfig } = JSON.parse(sessionStorage.getItem('vve_booking')!);
+      expect(price).toBe(total);
+      expect(quoteConfig.addOnCounts.ext_windows).toBe(quantity);
+      expect(priceBookingRequest(quoteConfig)?.total).toBe(total);
+      expect(whatsappMessage()).toContain(`Estimated total: £${total}`);
+      if (quantity) {
+        expect(screen.getByText('1 × Exterior windows')).toBeVisible();
+        expect(whatsappMessage()).toContain('1 × Exterior windows');
+      } else {
+        expect(screen.queryByText('1 × Exterior windows')).not.toBeInTheDocument();
+        expect(whatsappMessage()).not.toContain('Exterior windows');
+      }
+    }
+  });
+
+  it('carries a £424 quote and its professional bedroom carpet clean through checkout and WhatsApp', async () => {
+    const user = userEvent.setup();
+    renderBookingFlow();
+    await user.click(screen.getByRole('button', { name: /^2 beds$/ }));
+    await floorCare(user);
+    await professional(user);
+    await user.click(screen.getByRole('button', { name: /Choose areas individually/ }));
+    await user.click(screen.getByRole('button', { name: 'Increase Bedrooms' }));
+    await next(user);
+    expect(screen.getByTestId('final-total')).toHaveTextContent('£424');
+    await user.click(screen.getByRole('button', { name: /Request a time/ }));
+    const { price, quoteConfig } = JSON.parse(sessionStorage.getItem('vve_booking')!);
+    expect(price).toBe(424);
+    expect(priceBookingRequest(quoteConfig)?.total).toBe(424);
+    expect(screen.getByText('Professional carpet cleaning — 1 × Bedroom')).toBeVisible();
+    expect(whatsappMessage()).toContain('Professional carpet cleaning — 1 × Bedroom');
+    expect(whatsappMessage()).toContain('Estimated total: £424');
+  });
+
+  it('retains added reception, hallway and landing IDs, totals and hand-off after the real Back to quote link', async () => {
+    const user = userEvent.setup();
+    renderBookingFlow();
     await user.click(screen.getByRole('button', { name: /^2 beds$/ }));
     await floorCare(user);
     await professional(user);
