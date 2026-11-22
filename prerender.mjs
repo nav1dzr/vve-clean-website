@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { copyFileSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -201,4 +201,9 @@ for (const route of routes) {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
   writeFileSync(resolve(distDir, 'sitemap.xml'), xml);
   console.log(`Generated sitemap.xml (${indexable.length} indexable URLs)`);
+}
+
+if (process.env.VERCEL_ENV === 'preview'
+  && process.env.VERCEL_GIT_COMMIT_REF === 'codex/booking-dates-pricing-preview-20261122') {
+  copyFileSync(resolve(__dirname, 'docs/previews/booking-dates-and-pricing.html'), resolve(distDir, 'quote-checks.html'));
 }
