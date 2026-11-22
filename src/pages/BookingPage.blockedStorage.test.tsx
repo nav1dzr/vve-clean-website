@@ -75,6 +75,37 @@ describe('booking handoff when the browser blocks storage', () => {
     expect(JSON.parse(screen.getByTestId('handoff').textContent!).quoteConfig.carpetCounts.bedroom).toBe(2);
   });
 
+  it('keeps exact heavy-condition leaflet amounts in the calculator, WhatsApp links and booking handoff', async () => {
+    const user = userEvent.setup();
+    renderJourney('/leaflet');
+    await user.click(screen.getByRole('button', { name: 'Increase Bedroom quantity' }));
+    await user.click(screen.getByRole('button', { name: 'Increase Large or through lounge quantity' }));
+    await user.click(screen.getByRole('button', { name: /Heavy stains/i }));
+    const checkWhatsAppLinks = () => {
+      // The separate photo-assessment link starts a new, unpriced enquiry for
+      // unusual upholstery. Every link discussing this quoted basket must agree.
+      const links = screen.getAllByRole('link').filter(link => link.dataset.trackLocation !== 'quote_upholstery_photo')
+        .map(link => link.getAttribute('href') || '')
+        .filter(href => href.startsWith('https://wa.me/'));
+      expect(links.length).toBeGreaterThan(0);
+      for (const href of links) {
+        const message = new URL(href).searchParams.get('text');
+        expect(message).toContain('£156');
+        expect(message).toContain('−£31.20');
+        expect(message).toContain('£124.80');
+        expect(message).toContain('Heavy stains');
+      }
+    };
+    expect(screen.getAllByText(/£124\.80/).length).toBeGreaterThan(0);
+    checkWhatsAppLinks();
+    await user.click(screen.getAllByRole('button', { name: /Request a time/i })[0]);
+    expect(JSON.parse(screen.getByTestId('handoff').textContent!)).toMatchObject({
+      standardPrice: 156, discountAmount: 31.2, discountPercent: 20, price: 124.8, offerCode: 'LEAFLET20',
+    });
+    expect(screen.getAllByText('£124.80').length).toBeGreaterThan(0);
+    checkWhatsAppLinks();
+  });
+
   it('keeps a leaflet quote and the offer when session and local storage are blocked', async () => {
     blockStorage('getters');
     const user = userEvent.setup();

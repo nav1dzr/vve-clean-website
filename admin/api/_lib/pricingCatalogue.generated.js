@@ -252,39 +252,39 @@ function computeCarpetPrice(counts, condition, multiplier = 1, promoCode) {
   const isPhotoQuote = condition === 'delicate' || Number(counts?.rug) > 0;
 
   const lines = [];
-  let subtotal = 0;
+  let subtotalP = 0;
   let totalItems = 0;
 
   for (const key of CARPET_ITEM_ORDER) {
     const qty = Number((counts || {})[key]) || 0;
     if (qty <= 0) continue;
     totalItems += qty;
-    const raw = key === 'stairs' ? stairsLinePricePence(qty) / 100 : (CARPET_ITEM_PRICES_P[key] / 100) * qty;
-    const lineTotal = Math.round(raw * multiplier);
-    subtotal += lineTotal;
-    lines.push({ key, label: CARPET_ITEM_LABELS[key] ?? key, qty, lineTotal });
+    const itemTotalP = key === 'stairs' ? stairsLinePricePence(qty) : CARPET_ITEM_PRICES_P[key] * qty;
+    const lineTotalP = Math.round(itemTotalP * multiplier);
+    subtotalP += lineTotalP;
+    lines.push({ key, label: CARPET_ITEM_LABELS[key] ?? key, qty, lineTotal: lineTotalP / 100 });
   }
 
   // Heavy condition: transparently disclosed +20% estimate, always confirmed
   // before work starts (never a silent/undisclosed multiplier).
-  const heavySurcharge = condition === 'heavy' ? Math.round(subtotal * 0.2) : 0;
-  const adjustedSubtotal = subtotal + heavySurcharge;
+  const heavySurchargeP = condition === 'heavy' ? Math.round(subtotalP * 20 / 100) : 0;
+  const adjustedSubtotalP = subtotalP + heavySurchargeP;
 
   const promoPct = promoCode ? (PROMO_CODES[String(promoCode).toUpperCase()] ?? 0) : 0;
   const bandResult = calculateBundleDiscount(totalItems);
-  const bundleSave = Math.round((bandResult.amountP / 100) * multiplier);
-  const promoSave = promoPct > 0 ? Math.round(adjustedSubtotal * promoPct / 100) : 0;
-  const finalSaving = Math.max(bundleSave, promoSave);
-  const bundleSource = finalSaving === 0 ? 'none' : promoSave > bundleSave ? 'promo' : 'bundle';
+  const bundleSaveP = Math.round(bandResult.amountP * multiplier);
+  const promoSaveP = Math.round(adjustedSubtotalP * promoPct / 100);
+  const finalSavingP = Math.max(bundleSaveP, promoSaveP);
+  const bundleSource = finalSavingP === 0 ? 'none' : promoSaveP > bundleSaveP ? 'promo' : 'bundle';
 
   const bandsAsc = [...CARPET_BUNDLE_BANDS].reverse();
   const nextBand = bandsAsc.find((b) => b.minItems > totalItems) ?? null;
   const toNextBand = nextBand ? nextBand.minItems - totalItems : 0;
 
   const bundle = {
-    saving: finalSaving,
+    saving: finalSavingP / 100,
     source: bundleSource,
-    preDiscount: adjustedSubtotal,
+    preDiscount: adjustedSubtotalP / 100,
     itemCount: totalItems,
     display: bundleSource === 'promo' ? `${promoPct}% off` : bandResult.display,
     nextBandItems: nextBand ? nextBand.minItems : null,
@@ -292,19 +292,16 @@ function computeCarpetPrice(counts, condition, multiplier = 1, promoCode) {
     nextBandSaving: nextBand ? nextBand.amountP / 100 : 0,
   };
 
-  const discountedSubtotal = adjustedSubtotal - finalSaving;
-  const minApplied = !isPhotoQuote && discountedSubtotal > 0 && discountedSubtotal < CARPET_MIN_BOOKING_P / 100;
-  const minAdjustment = minApplied ? (CARPET_MIN_BOOKING_P / 100) - discountedSubtotal : 0;
-  const finalTotal = isPhotoQuote
-    ? 0
-    : discountedSubtotal > 0
-      ? Math.max(discountedSubtotal, CARPET_MIN_BOOKING_P / 100)
-      : 0;
-  const showSaving = finalSaving > 0 && !minApplied;
+  const discountedSubtotalP = adjustedSubtotalP - finalSavingP;
+  const minApplied = !isPhotoQuote && discountedSubtotalP > 0 && discountedSubtotalP < CARPET_MIN_BOOKING_P;
+  const minAdjustmentP = minApplied ? CARPET_MIN_BOOKING_P - discountedSubtotalP : 0;
+  const finalTotalP = isPhotoQuote || discountedSubtotalP <= 0 ? 0 : Math.max(discountedSubtotalP, CARPET_MIN_BOOKING_P);
+  const showSaving = finalSavingP > 0 && !minApplied;
 
   return {
-    lines, subtotal, heavySurcharge, adjustedSubtotal,
-    bundle, discountedSubtotal, minAdjustment, finalTotal, minApplied, showSaving,
+    lines, subtotal: subtotalP / 100, heavySurcharge: heavySurchargeP / 100, adjustedSubtotal: adjustedSubtotalP / 100,
+    bundle, discountedSubtotal: discountedSubtotalP / 100, minAdjustment: minAdjustmentP / 100,
+    finalTotal: finalTotalP / 100, minApplied, showSaving,
     totalItems, isPhotoQuote,
   };
 }
@@ -1055,7 +1052,7 @@ function computeBasePrice(quoteConfig) {
 function computePrice(quoteConfig, serviceDate = undefined) {
   const base = computeBasePrice(quoteConfig);
   if (base === null) return null;
-  return base + accessSurchargeP(quoteConfig, serviceDate) / 100;
+  return (Math.round(base * 100) + accessSurchargeP(quoteConfig, serviceDate)) / 100;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

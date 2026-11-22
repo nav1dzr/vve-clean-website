@@ -1,8 +1,11 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import QuoteCalculator, { type BookingSelection } from './QuoteCalculator';
 import { BookingProvider } from '../context/BookingContext';
+import { CookieConsentProvider } from '../context/CookieConsentContext';
+import BookingPage from '../pages/BookingPage';
+import { clearQuoteBasket, readQuoteBasket } from '../lib/quoteBasket';
 import { readBookingHandoff, readStoredBookingSelection } from '../lib/bookingHandoff';
 import { computePrice } from '../../shared/pricingCatalogue.js';
 import { priceBookingRequest } from '../../shared/requestPricing.js';
@@ -104,6 +107,48 @@ describe('move-in clean: shown price equals the saved request price', () => {
   it('matches with no extras selected', () => {
     const selection = requestSelection(renderMoveIn());
     expect(serverTotal(selection)).toBe(selection.price);
+  });
+
+  it('keeps separate WC quantities through quote edits, checkout, WhatsApp and basket recovery', () => {
+    clearQuoteBasket();
+    const flow = () => render(
+      <MemoryRouter><CookieConsentProvider><BookingProvider><Routes>
+        <Route path="/" element={<QuoteCalculator aboveFold />} />
+        <Route path="/booking" element={<BookingPage />} />
+      </Routes></BookingProvider></CookieConsentProvider></MemoryRouter>,
+    );
+    const first = flow();
+    fireEvent.click(screen.getByRole('button', { name: 'Move-in deep clean' }));
+    for (const [action, quantity, total] of [
+      ['Increase', 1, 264], ['Increase', 2, 279], ['Decrease', 1, 264], ['Decrease', 0, 249],
+    ] as const) {
+      fireEvent.click(screen.getByRole('button', { name: `${action} Additional separate WC quantity` }));
+      const quoteWhatsapp = screen.getAllByRole('link', { name: /Chat on WhatsApp/i })[0] as HTMLAnchorElement;
+      const draft = new URL(quoteWhatsapp.href).searchParams.get('text')!;
+      expect(draft).toContain(`£${total}`);
+      if (quantity) expect(draft).toContain(`${quantity} × Additional separate WC`);
+      else expect(draft).not.toContain('Additional separate WC');
+      fireEvent.click(screen.getAllByRole('button', { name: 'Request a time — no payment' })[0]);
+      const selection = readStoredBookingSelection()!;
+      expect(selection.price).toBe(total);
+      expect(selection.quoteConfig?.deepWcs).toBe(quantity);
+      const checkoutWhatsapp = screen.getByRole('link', { name: /^WhatsApp us/i }) as HTMLAnchorElement;
+      const checkoutText = new URL(checkoutWhatsapp.href).searchParams.get('text')!;
+      expect(checkoutText).toContain(`Estimated total: £${total}`);
+      if (quantity) {
+        expect(screen.getByText(`${quantity} × Additional separate WC`)).toBeVisible();
+        expect(checkoutText).toContain(`${quantity} × Additional separate WC`);
+      } else expect(checkoutText).not.toContain('Additional separate WC');
+      fireEvent.click(screen.getByRole('link', { name: 'Back to quote' }));
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Increase Additional separate WC quantity' }));
+    expect(readQuoteBasket()?.config.deepWcs).toBe(1);
+    first.unmount();
+    flow();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Request a time — no payment' })[0]);
+    expect(readStoredBookingSelection()?.price).toBe(264);
+    expect(screen.getByText('1 × Additional separate WC')).toBeVisible();
+    clearQuoteBasket();
   });
 
   it.each(MOVE_IN_EXTRAS)('matches when "%s" is added', (name) => {

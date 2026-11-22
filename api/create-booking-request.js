@@ -3,7 +3,7 @@ import { randomBytes, createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { loadWebsitePricebook } from "./_lib/websitePricebook.js";
 import { priceBookingRequest, requiresAfterBuildersAssessment, AFTER_BUILDERS_ASSESSMENT_REQUIRED } from "../shared/requestPricing.js";
-import { isValidBookingName, isValidBookingEmail, isValidBookingDate, todayLondonIsoDate } from '../shared/bookingRequestValidation.js';
+import { ARRIVAL_WINDOW_ERROR, availableBookingWindows, isValidBookingName, isValidBookingEmail, isValidBookingDate, todayLondonIsoDate } from '../shared/bookingRequestValidation.js';
 import { formatServiceDetail } from "./_lib/formatBookingItems.js";
 import { saveGa4Context } from './_lib/ga4Context.js';
 import { finishRequestNotifications } from './_lib/requestNotificationBackground.js';
@@ -423,13 +423,16 @@ export default async function handler(req, res) {
 
   // A saved request remains replayable even after its preferred date or the
   // current pricebook changes. New requests still pass both checks below.
-  if (date < todayLondonIsoDate())
+  const now = new Date();
+  if (date < todayLondonIsoDate(now))
     return errorResponse(
       res,
       headers,
       400,
       "The preferred date has already passed",
     );
+  if (!availableBookingWindows(date, now).includes(time))
+    return errorResponse(res, headers, 400, ARRIVAL_WINDOW_ERROR);
   let pricebook;
   try {
     pricebook = await loadWebsitePricebook();
@@ -454,7 +457,7 @@ export default async function handler(req, res) {
     process.env.WEBSITE_PRICEBOOK_ENABLED === "true" &&
     (pricebookVersion !== pricebook.version ||
       (Number.isFinite(payload.price) &&
-        Math.abs(payload.price - validatedPrice) > 0.01))
+        Math.round(payload.price * 100) !== Math.round(validatedPrice * 100)))
   ) {
     res.writeHead(409, { ...headers, "Content-Type": "application/json" });
     return res.end(

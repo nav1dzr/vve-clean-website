@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import BookingPage from "./BookingPage";
@@ -392,15 +392,35 @@ describe("BookingPage — required preferred date and arrival window", () => {
     }
   });
 
+  it('removes elapsed windows from an open form and rechecks at submission', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2027-03-28T10:59:59Z'));
+    try {
+      const { container } = renderBookingPage();
+      const date = screen.getByLabelText(/preferred date/i);
+      const time = screen.getByLabelText(/preferred arrival window/i);
+      fireEvent.change(date, { target: { value: '2027-03-28' } });
+      fireEvent.change(time, { target: { value: 'Morning (8am–12pm)' } });
+      expect(time).toHaveValue('Morning (8am–12pm)');
+      act(() => vi.advanceTimersByTime(1000));
+      expect(screen.queryByRole('option', { name: /^Morning/ })).toBeNull();
+      expect(time).toHaveValue('');
+      fireEvent.submit(container.querySelector('form')!);
+      expect(screen.getByText('Please choose an available arrival window for your preferred date.')).toBeVisible();
+      fireEvent.change(date, { target: { value: '2027-03-29' } });
+      expect(screen.getByRole('option', { name: /^Morning/ })).toBeInTheDocument();
+      fireEvent.change(time, { target: { value: 'Morning (8am–12pm)' } });
+      fireEvent.change(date, { target: { value: '2027-03-28' } });
+      expect(time).toHaveValue('');
+    } finally { vi.useRealTimers(); }
+  });
+
   it("blocks submission and shows an error when the typed date has already passed", async () => {
     const user = userEvent.setup();
     renderBookingPage();
     await fillContactDetails(user);
     await user.type(screen.getByLabelText(/preferred date/i), "2020-01-01");
-    await user.selectOptions(
-      screen.getByLabelText(/preferred arrival window/i),
-      "Flexible",
-    );
+    expect(screen.queryByRole('option', { name: 'Flexible' })).toBeNull();
 
     await user.click(
       screen.getByRole("button", { name: /^Send request — no payment$/ }),
@@ -576,6 +596,24 @@ describe("BookingPage — no-payment request submission", () => {
     expect(
       screen.getByRole("link", { name: "Privacy Policy" }),
     ).toHaveAttribute("href", "/privacy-policy");
+  });
+
+  it("sends the leaflet eligibility on an £85 minimum quote without claiming a saving", async () => {
+    sessionStorage.setItem("vve_booking", JSON.stringify({
+      serviceName: 'Carpet cleaning', price: 85, minimumApplied: true, subtotalBeforeMinimum: 80,
+      quoteConfig: { ...VALID_SELECTION.quoteConfig, service: 'deep', deepService: 'carpet_upholstery',
+        carpetCounts: { bedroom: 2 }, carpetCondition: 'normal', promoCode: 'LEAFLET20' },
+    }));
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, bookingRef: 'TEST-FLOOR', total: 85 }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    renderBookingPage();
+    await fillAllRequiredFields(user);
+    await user.click(screen.getByRole('button', { name: /^Send request — no payment$/ }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body).toMatchObject({ price: 85, offer_code: 'LEAFLET20' });
+    expect(body).not.toHaveProperty('discount_amount');
   });
 
   it("sends a manager-visible request, preserves scheduling details and never redirects to Stripe", async () => {

@@ -21,6 +21,41 @@ beforeEach(() => {
   deliverEnquiry.mockResolvedValue({ customerEmail: { status: 'unconfigured' } });
 });
 describe('durable contact enquiries', () => {
+  it('checks new and cached After Builders preferred dates before saving, respecting London midnight and saved retries', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2027-07-04T23:00:00Z'));
+    const submit = async payload => {
+      const res = response();
+      await handler({ method: 'POST', headers: {}, body: payload }, res);
+      return res;
+    };
+    const guided = date => ({ ...body, service: 'After builders cleaning',
+      message: buildAfterBuildersEnquiryMessage({ ...createAfterBuildersEnquiry(), preferredDate: date }) });
+    try {
+      for (const request of [guided('2027-07-04'), { ...guided('2027-07-04'), preferredDate: '2027-07-04' },
+        { ...guided('2027-07-05'), preferredDate: '2027-07-04' }, { ...guided(''), preferredDate: '2027-02-30' }]) {
+        expect(await submit(request)).toMatchObject({ status: 400, body: { error: expect.stringContaining('today or a future date') } });
+      }
+      expect(insert).not.toHaveBeenCalled();
+      expect(deliverEnquiry).not.toHaveBeenCalled();
+      for (const date of ['', '2027-07-05']) expect((await submit({ ...guided(date), preferredDate: date })).status).toBe(201);
+      const saved = guided('2027-07-04');
+      find.mockResolvedValue({ data: { ...validateEnquiry(saved), id: 'existing' }, error: null });
+      expect(await submit(saved)).toMatchObject({ status: 200, body: { replayed: true } });
+      expect(insert).toHaveBeenCalledTimes(2);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('checks the stored service and message when a cached After Builders form includes surrounding whitespace', async () => {
+    const message = buildAfterBuildersEnquiryMessage({ ...createAfterBuildersEnquiry(), preferredDate: '2001-01-01' });
+    const request = { ...body, service: 'After builders cleaning ', message: `  ${message}\n` };
+    const res = response();
+    await handler({ method: 'POST', headers: {}, body: request }, res);
+    expect(res).toMatchObject({ status: 400, body: { error: expect.stringContaining('today or a future date') } });
+    expect(insert).not.toHaveBeenCalled();
+    expect(deliverEnquiry).not.toHaveBeenCalled();
+  });
+
   it('never reports success or sends notifications when persistence fails', async () => {
     insert.mockResolvedValue({ data: null, error: { code: 'failure' } });
     const res = response(); await handler({ method: 'POST', headers: {}, body }, res);

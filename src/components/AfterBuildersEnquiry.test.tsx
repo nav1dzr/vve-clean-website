@@ -26,6 +26,35 @@ async function contactDetails(user: ReturnType<typeof userEvent.setup>) {
 const bodies = () => vi.mocked(fetch).mock.calls.map(call => JSON.parse(String(call[1]?.body)));
 
 describe('AfterBuildersEnquiry', () => {
+  it('checks the optional date at review and again when sending after London midnight', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2027-07-04T22:59:59Z'));
+    try {
+      const user = userEvent.setup();
+      render(<AfterBuildersEnquiry />);
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+      await user.click(screen.getByRole('button', { name: 'Continue' }));
+      const date = screen.getByLabelText(/Preferred date/);
+      expect(date).toHaveAttribute('min', '2027-07-04');
+      fireEvent.change(date, { target: { value: '2027-07-03' } });
+      await user.click(screen.getByRole('button', { name: 'Review my enquiry' }));
+      expect(screen.getByRole('alert')).toHaveTextContent('today or a future date');
+      expect(date).toHaveAttribute('aria-invalid', 'true');
+      fireEvent.change(date, { target: { value: '2027-07-04' } });
+      await user.click(screen.getByRole('button', { name: 'Review my enquiry' }));
+      await contactDetails(user);
+      vi.setSystemTime(new Date('2027-07-04T23:00:00Z'));
+      await user.click(screen.getByRole('button', { name: 'Send my enquiry' }));
+      expect(fetch).not.toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toHaveTextContent('today or a future date');
+      fireEvent.change(screen.getByLabelText(/Preferred date/), { target: { value: '' } });
+      await user.click(screen.getByRole('button', { name: 'Review my enquiry' }));
+      await user.click(screen.getByRole('button', { name: 'Send my enquiry' }));
+      await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      expect(bodies()[0]).toMatchObject({ preferredDate: '', message: expect.stringContaining('Preferred date: Flexible / to agree') });
+    } finally { vi.useRealTimers(); }
+  });
+
   it('preserves decimal square metres and whole item counts from a saved draft through the submitted review', async () => {
     const user = userEvent.setup();
     const first = render(<AfterBuildersEnquiry />);
@@ -51,7 +80,8 @@ describe('AfterBuildersEnquiry', () => {
     await user.type(screen.getByLabelText('Rooms or work to tell us about'), 'Private kitchen note');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     await user.click(screen.getByRole('button', { name: 'Continue' }));
-    fireEvent.change(screen.getByLabelText(/Preferred date/), { target: { value: '2027-04-15' } });
+    const futureDate = `${new Date().getUTCFullYear() + 1}-04-15`;
+    fireEvent.change(screen.getByLabelText(/Preferred date/), { target: { value: futureDate } });
     await user.type(screen.getByLabelText(/Access notes/), 'Private gate code');
 
     const lines = ['Property: House', 'Approximate floor area: 12.5 m²', 'Pressure washing: 7.25 m²', 'Exterior or specialist window cleaning: 3 windows'];
@@ -61,7 +91,8 @@ describe('AfterBuildersEnquiry', () => {
       for (const line of lines) expect(message).toContain(line);
       expect(message).toContain('assess the work');
       expect(message).toContain('final price in writing');
-      expect(message).not.toMatch(/E17 3AA|Private kitchen note|Private gate code|2027-04-15|VVE TEST|test@example\.com/);
+      expect(message).not.toMatch(/E17 3AA|Private kitchen note|Private gate code|VVE TEST|test@example\.com/);
+      expect(message).not.toContain(futureDate);
       return message;
     };
     expect(checkWhatsApp()).toContain('details I’ve selected so far');

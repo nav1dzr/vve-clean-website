@@ -7,7 +7,8 @@ export function formatCurrency(value: number | null | undefined): string {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: 'GBP',
-    maximumFractionDigits: 0,
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+    maximumFractionDigits: 2,
   }).format(value);
 }
 
@@ -203,9 +204,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-// formatCurrency() above rounds to whole pounds (fine for a booking's
-// headline total) — invoice/receipt amounts need pence precision since
-// partial payments and deposits are routinely non-whole-pound values.
+// Invoice/receipt amounts always show two decimal places, even for whole pounds.
 export function formatMoney(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return 'Not recorded';
   return new Intl.NumberFormat('en-GB', {

@@ -29,7 +29,7 @@ export function validateEnquiry(body) {
     request_fingerprint: createHash('sha256').update(JSON.stringify(row)).digest('hex') };
 }
 
-export async function saveEnquiry(supabase, row) {
+export async function saveEnquiry(supabase, row, validateNewRequest) {
   // A retry must not become a second enquiry when measurement consent changes.
   // Compare only actual enquiry content as a fallback for attribution-only
   // differences, preserving existing fingerprint values and stored records.
@@ -45,6 +45,9 @@ export async function saveEnquiry(supabase, row) {
   };
   const existing = await find();
   if (existing) return { row: existing, replayed: true };
+  // A previously saved enquiry can still be acknowledged after its visit date.
+  const newRequestError = validateNewRequest?.();
+  if (newRequestError) return { error: newRequestError };
   const { data, error } = await supabase.from('contact_enquiries').insert(row).select('*').single();
   if (error || !data) {
     const concurrent = await find();

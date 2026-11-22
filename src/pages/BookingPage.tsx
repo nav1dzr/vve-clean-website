@@ -1,4 +1,5 @@
 import PriceTaxNote from '../components/PriceTaxNote';
+import { formatQuotePrice as money } from '../lib/formatQuotePrice';
 import ServiceDecisionTrust from '../components/ServiceDecisionTrust';
 import { clearQuoteBasket } from '../lib/quoteBasket';
 import { useState, useEffect, useRef } from "react";
@@ -16,7 +17,8 @@ import { bookingRouteState, readBookingHandoff, readStoredBookingSelection, stor
 import { PRICEBOOK_VERSION } from "../data/pricing";
 import { isCongestionChargeFreeDate } from '../../shared/pricingCatalogue.js';
 import { formatBookingItemLines } from '../../shared/formatBookingItems.js';
-import { isValidBookingName, isValidBookingEmail, isValidBookingDate, todayLondonIsoDate } from '../../shared/bookingRequestValidation.js';
+import { ARRIVAL_WINDOW_ERROR, availableBookingWindows, isValidBookingName, isValidBookingEmail, isValidBookingDate, todayLondonIsoDate } from '../../shared/bookingRequestValidation.js';
+import { useScheduleClock } from '../hooks/useScheduleClock';
 import { clearBookingAcknowledgement, hasBookingAcknowledgement, rememberBookingAcknowledgement } from '../lib/bookingRequestAcknowledgement';
 import {
   submissionIdentity,
@@ -92,20 +94,6 @@ const WA_NUMBER = "447845451111";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function money(n: number) {
-  // Guard against float noise (e.g. 47.500000000001) without ever rounding a
-  // genuine .50 to a whole pound — every EOT/carpet total must display the
-  // exact pence value the customer is actually charged.
-  const rounded = Math.round(n * 100) / 100;
-  const hasPence = Math.abs(rounded % 1) > 1e-9;
-  return (
-    "£" +
-    rounded.toLocaleString("en-GB", {
-      minimumFractionDigits: hasPence ? 2 : 0,
-      maximumFractionDigits: 2,
-    })
-  );
-}
 
 function validPhone(v: string) {
   return v.replace(/\D/g, "").length >= 10;
@@ -530,6 +518,8 @@ export default function BookingPage() {
   const [showSelector, setShowSelector] = useState(false);
   const [requestedService, setRequestedService] = useState<HomepageQuoteService | null>(null);
   const [form, setForm] = useState<FormData>({ ...EMPTY_FORM });
+  const scheduleClock = useScheduleClock();
+  const arrivalWindows = availableBookingWindows(form.date, scheduleClock);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -619,6 +609,7 @@ export default function BookingPage() {
       >,
     ) => {
       const next = { ...form, [field]: e.target.value };
+      if (field === 'date' && !availableBookingWindows(next.date).includes(next.time)) next.time = '';
       setForm(next);
       saveDraft(next);
       setErrors((err) => ({ ...err, [field]: undefined, contact: undefined }));
@@ -656,6 +647,7 @@ export default function BookingPage() {
     else if (!isValidBookingDate(form.date)) e.date = "Please choose a valid date.";
     else if (form.date < todayLondonIsoDate()) e.date = PAST_DATE_ERROR;
     if (!form.time) e.time = REQUIRED_TIME_ERROR;
+    else if (!availableBookingWindows(form.date).includes(form.time)) e.time = ARRIVAL_WINDOW_ERROR;
     if (!form.parkingAvailable) e.parkingAvailable = REQUIRED_PARKING_ERROR;
     if (!form.congestionZone) e.congestionZone = REQUIRED_CONGESTION_ERROR;
     setErrors(e);
@@ -745,10 +737,11 @@ export default function BookingPage() {
       time: form.time,
       message: form.message.trim(),
       _honeypot: honeypot,
-      // Offer data (present when a discount was applied)
+      // Eligibility also travels with a minimum-priced basket so the server
+      // applies the floor after the same promotion as the calculator.
+      offer_code: selection.quoteConfig?.promoCode ?? selection.offerCode,
       ...(selection.offerCode
         ? {
-            offer_code: selection.offerCode,
             discount_percent: selection.discountPercent ?? null,
             standard_total: selection.standardPrice ?? null,
             discount_amount: selection.discountAmount ?? null,
@@ -783,6 +776,12 @@ export default function BookingPage() {
         signal: AbortSignal.timeout(45000),
       });
       const data = await res.json();
+      if (res.status === 400 && data.error === ARRIVAL_WINDOW_ERROR) {
+        setErrors({ time: ARRIVAL_WINDOW_ERROR });
+        setShowErrorSummary(true);
+        setSubmitting(false);
+        return;
+      }
       if (res.status === 409 && data.code === 'price_changed') {
         setQuoteNeedsReview(true);
         setCurrentEstimate(
@@ -846,13 +845,22 @@ export default function BookingPage() {
   const chargeFreeDate = isCongestionChargeFreeDate(form.date);
   const inZoneOrUnsure = form.congestionZone === 'yes' || form.congestionZone === 'not_sure';
   const congestionCharge = inZoneOrUnsure && !chargeFreeDate ? CONGESTION_CHARGE : 0;
-  const totalWithAccessCharges =
-    (selection?.price ?? 0) + parkingCharge + congestionCharge;
+  const totalWithAccessCharges = (
+    Math.round((selection?.price ?? 0) * 100) + Math.round(parkingCharge * 100) + Math.round(congestionCharge * 100)
+  ) / 100;
   const cleaningConfig = { ...selection?.quoteConfig, parkingAvailable: '', congestionZone: '' };
   const cleaningLines = formatBookingItemLines(cleaningConfig);
   const message = selection ? [
     `Hi VVE Clean, I'd like to request ${selection.serviceName}.`,
     ...formatBookingItemLines({ ...cleaningConfig, parkingAvailable: form.parkingAvailable, congestionZone: form.congestionZone, serviceDate: form.date }),
+    ...(selection.offerCode === 'LEAFLET20' && selection.discountAmount && selection.standardPrice ? [
+      `Cleaning before discount: ${money(selection.standardPrice)}`,
+      `Leaflet discount ${selection.discountPercent ?? 20}%: −${money(selection.discountAmount)}`,
+    ] : []),
+    ...(selection.minimumApplied && selection.subtotalBeforeMinimum != null ? [
+      `Subtotal before minimum: ${money(selection.subtotalBeforeMinimum)}`,
+      `${money(CARPET_MIN_BOOKING)} minimum booking charge applies.`,
+    ] : []),
     `Estimated total: ${money(totalWithAccessCharges)}`,
     ...(!form.parkingAvailable || !form.congestionZone ? ['Outstanding access costs to be confirmed.'] : []),
   ].join('\n') : "Hi VVE Clean, I'd like to book a cleaning service.";
@@ -1282,7 +1290,7 @@ export default function BookingPage() {
                   type="date"
                   value={form.date}
                   onChange={setField("date")}
-                  min={todayLondonIsoDate()}
+                  min={todayLondonIsoDate(scheduleClock)}
                   required
                   aria-required="true"
                   aria-invalid={!!errors.date}
@@ -1315,7 +1323,7 @@ export default function BookingPage() {
                 </label>
                 <select
                   id="booking-time"
-                  value={form.time}
+                  value={arrivalWindows.includes(form.time) ? form.time : ''}
                   onChange={setField("time")}
                   required
                   aria-required="true"
@@ -1328,11 +1336,7 @@ export default function BookingPage() {
                   }`}
                 >
                   <option value="">Select a window</option>
-                  <option value="Morning (8am–12pm)">Morning (8am–12pm)</option>
-                  <option value="Afternoon (12pm–5pm)">
-                    Afternoon (12pm–5pm)
-                  </option>
-                  <option value="Flexible">Flexible</option>
+                  {arrivalWindows.map(window => <option key={window} value={window}>{window}</option>)}
                 </select>
                 {errors.time && (
                   <p

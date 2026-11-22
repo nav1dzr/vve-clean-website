@@ -17,6 +17,7 @@ import BookingJourneyPanel from '../components/BookingJourneyPanel';
 import {
   bookingPaymentBadge,
   formatServiceDate,
+  formatCurrency,
   formatPreferred,
   formatDateTime,
   telHref,
@@ -289,6 +290,14 @@ function BookingDetailContent({ id }: { id: string | undefined }) {
           <dd className="truncate text-right text-navy-950">{b.attribution.landingPage || 'Not recorded'}</dd>
           <dt className="text-navy-700">Offer code</dt>
           <dd className="text-right text-navy-950">{b.attribution.offerCode || 'None'}</dd>
+          {b.attribution.offerCode === 'LEAFLET20' && b.attribution.discountAmount != null && b.attribution.discountAmount > 0 && <>
+            <dt className="text-navy-700">Website estimate before discount</dt>
+            <dd className="text-right text-navy-950">{formatCurrency(b.attribution.standardTotal)}</dd>
+            <dt className="text-navy-700">Leaflet discount</dt>
+            <dd className="text-right text-navy-950">−{formatCurrency(b.attribution.discountAmount)}</dd>
+            <dt className="text-navy-700">Website estimate after discount</dt>
+            <dd className="text-right text-navy-950">{formatCurrency(b.attribution.finalTotalAfterDiscount)}</dd>
+          </>}
         </dl>
       </Section>
 

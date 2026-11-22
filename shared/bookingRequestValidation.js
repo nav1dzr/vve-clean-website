@@ -21,3 +21,26 @@ export function todayLondonIsoDate(now = new Date()) {
   const part = (type) => parts.find((item) => item.type === type)?.value;
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
+
+const arrivalWindows = [
+  { label: 'Morning (8am–12pm)', endHour: 12 },
+  { label: 'Afternoon (12pm–5pm)', endHour: 17 },
+  { label: 'Flexible', endHour: 24 },
+];
+const londonHour = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/London', hour: '2-digit', hourCycle: 'h23',
+});
+
+export function availableBookingWindows(date, now = new Date()) {
+  const today = todayLondonIsoDate(now);
+  if (date && date < today) return [];
+  const hour = date === today ? Number(londonHour.format(now)) : -1;
+  return arrivalWindows.filter(window => hour < window.endHour).map(window => window.label);
+}
+
+export const ARRIVAL_WINDOW_ERROR = 'Please choose an available arrival window for your preferred date.';
+export const ENQUIRY_DATE_ERROR = 'Choose today or a future date, or leave the preferred date blank.';
+
+export function isValidOptionalVisitDate(value, now = new Date()) {
+  return value === '' || (isValidBookingDate(value) && value >= todayLondonIsoDate(now));
+}
