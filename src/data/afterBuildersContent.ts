@@ -12,7 +12,6 @@ export {
 export function buildersWhatsAppLink(message: string): string {
   return `https://wa.me/447845451111?text=${encodeURIComponent(message)}`;
 }
-export const BUILDERS_WHATSAPP = buildersWhatsAppLink("Hi VVE Clean, I'd like an after-builders clean quote. Sending photos now.");
 
 // One source for the visible FAQ and FAQPage structured data.
 export const BUILDERS_FAQS = [

@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import ServiceLandingLayout, { type ServiceLandingData } from '../components/ServiceLandingLayout';
 import AfterBuildersContent, { AfterBuildersQuoteCard } from '../components/AfterBuildersContent';
 import AfterBuildersPhoto from '../components/AfterBuildersPhoto';
-import { BUILDERS_FAQS, BUILDERS_WHATSAPP } from '../data/afterBuildersContent';
+import AfterBuildersEnquiry from '../components/AfterBuildersEnquiry';
+import { BUILDERS_FAQS, buildersWhatsAppLink } from '../data/afterBuildersContent';
+import { afterBuildersPhotoMessage, createAfterBuildersEnquiry } from '../lib/afterBuildersEnquiry';
 import './after-builders.css';
 import { WhatsAppActionIcon } from '../components/MobileActionBar';
 
@@ -34,7 +37,7 @@ const SCHEMA = JSON.stringify({
   ],
 });
 
-const DATA: ServiceLandingData = {
+const DATA: Omit<ServiceLandingData, 'secondaryHref'> = {
   schema: SCHEMA,
   breadcrumb: 'After Builders Cleaning London',
   eyebrow: 'After renovation · East & North London',
@@ -50,11 +53,8 @@ const DATA: ServiceLandingData = {
   heroCompactMobile: true,
   primaryHref: '#builders-quote',
   primaryLabel: 'Get my cleaning quote',
-  secondaryHref: BUILDERS_WHATSAPP,
   secondaryLabel: 'Send photos on WhatsApp',
   secondaryIsWa: true,
-  mobileSecondaryAction: <a href={BUILDERS_WHATSAPP} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp — send after-builders photos" data-track-location="after_builders_sticky_whatsapp" className="builders-mobile-whatsapp"><WhatsAppActionIcon /><span>WhatsApp</span></a>,
-  afterHeroSection: <AfterBuildersContent />,
   // This page uses the shared conversion shell with its own detailed sections.
   // Empty middle slots avoid a second price list or duplicated FAQ.
   introH2: '', introText: '', benefitsH2: '', benefits: [], whyH2: '', whyPoints: [],
@@ -75,5 +75,12 @@ const DATA: ServiceLandingData = {
 };
 
 export default function AfterBuildersPage() {
-  return <div className="builders-page"><ServiceLandingLayout data={DATA} /></div>;
+  const [photoHref, setPhotoHref] = useState(() => buildersWhatsAppLink(afterBuildersPhotoMessage(createAfterBuildersEnquiry(), false)));
+  const data = {
+    ...DATA,
+    secondaryHref: photoHref,
+    mobileSecondaryAction: <a href={photoHref} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp — send after-builders photos" data-track-location="after_builders_sticky_whatsapp" className="builders-mobile-whatsapp"><WhatsAppActionIcon /><span>WhatsApp</span></a>,
+    afterHeroSection: <AfterBuildersContent enquiry={<AfterBuildersEnquiry onPhotoLinkChange={setPhotoHref} />} />,
+  };
+  return <div className="builders-page"><ServiceLandingLayout data={data} /></div>;
 }

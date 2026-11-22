@@ -23,7 +23,7 @@ function ChoiceSelect({ label, value, onChange, options }: { label: string; valu
   return <label className="builders-enquiry-field">{label}<select value={value} onChange={event => onChange(event.target.value)}>{Object.entries(options).map(([key, text]) => <option key={key} value={key}>{text}</option>)}</select></label>;
 }
 
-export default function AfterBuildersEnquiry() {
+export default function AfterBuildersEnquiry({ onPhotoLinkChange }: { onPhotoLinkChange?: (href: string) => void }) {
   const [state, setState] = useState(createAfterBuildersEnquiry);
   const [restored, setRestored] = useState(false);
   const [step, setStep] = useState(0);
@@ -34,6 +34,8 @@ export default function AfterBuildersEnquiry() {
   const [invalidField, setInvalidField] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const photoHref = buildersWhatsAppLink(afterBuildersPhotoMessage(state, submitted));
+  useEffect(() => { onPhotoLinkChange?.(photoHref); }, [photoHref, onPhotoLinkChange]);
   const heading = useRef<HTMLHeadingElement>(null);
   const errorPanel = useRef<HTMLDivElement>(null);
   const successPanel = useRef<HTMLDivElement>(null);
@@ -116,7 +118,7 @@ export default function AfterBuildersEnquiry() {
       if (mounted.current) setLoading(false);
     }
   };
-  const whatsapp = <a href={buildersWhatsAppLink(afterBuildersPhotoMessage(state, submitted))} target="_blank" rel="noopener noreferrer" className="builders-enquiry-whatsapp" data-track-location="after_builders_enquiry_photos"><MessageCircle size={19} aria-hidden="true" />Send photos on WhatsApp</a>;
+  const whatsapp = <a href={photoHref} target="_blank" rel="noopener noreferrer" className="builders-enquiry-whatsapp" data-track-location="after_builders_enquiry_photos"><MessageCircle size={19} aria-hidden="true" />Send photos on WhatsApp</a>;
 
   if (submitted) return <div className="builders-enquiry builders-enquiry-success" ref={successPanel} tabIndex={-1} role="status" aria-labelledby="builders-enquiry-success"><CheckCircle2 size={40} aria-hidden="true" /><h3 id="builders-enquiry-success">Your enquiry is saved</h3><p>We’ll review the work and contact you during opening hours to agree the cleaning list, final price and a suitable time. Your appointment is not confirmed yet.</p><p>No payment has been taken. {CONDITIONAL_DEPOSIT_NOTE}</p>{whatsapp}<p className="builders-enquiry-privacy">When you send photos, include the name you used on this form and the property postcode if you know it. We’ll match them to this enquiry.</p></div>;
 
@@ -159,6 +161,7 @@ export default function AfterBuildersEnquiry() {
       {error && <div id="builders-enquiry-error" className="builders-enquiry-error" role="alert" tabIndex={-1} ref={errorPanel}>{error}</div>}
       <div className="builders-enquiry-actions">{step > 0 && <button type="button" className="builders-enquiry-back" disabled={loading} onClick={() => goTo(step - 1)}>Back</button>}<button type="submit" className="builders-enquiry-primary" disabled={loading}>{loading ? 'Sending your enquiry…' : step === 3 ? 'Send my enquiry' : step === 2 ? 'Review my enquiry' : 'Continue'}{!loading && <ArrowRight size={18} aria-hidden="true" />}</button></div>
       <p className="builders-enquiry-privacy">Only cleaning choices are saved on this device when storage is available. Contact details, postcode, dates and notes are not saved. Nothing is sent to us before you submit.</p>
+      {step !== 2 && whatsapp}
     </form>
   </div>;
 }
