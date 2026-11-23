@@ -20,6 +20,9 @@ export function priceBookingRequest(config, offerCode, catalogue = defaultCatalo
   const promoCode = typeof offerCode === 'string' && Object.hasOwn(PROMO_CODES, offerCode.toUpperCase())
     ? offerCode.toUpperCase() : undefined;
   const quoteConfig = defaultCatalogue.normaliseMoveInCarpetBundle({ ...config, promoCode });
+  if (quoteConfig.service === 'deep' && quoteConfig.deepService === 'move_in' && quoteConfig.deepWcs !== undefined) {
+    if (!Number.isInteger(quoteConfig.deepWcs) || quoteConfig.deepWcs < 0 || quoteConfig.deepWcs > 100) return null;
+  }
   const counts = quoteConfig.carpetCounts;
   if (counts && (typeof counts !== 'object' || Object.values(counts).some((n) => !Number.isInteger(n) || n < 0 || n > 100))) return null;
   const total = computePrice(quoteConfig, serviceDate);
@@ -31,10 +34,10 @@ export function priceBookingRequest(config, offerCode, catalogue = defaultCatalo
   if (quoteConfig.service === 'deep' && quoteConfig.deepService === 'carpet_upholstery' && counts) {
     const carpet = computeCarpetPrice(counts, quoteConfig.carpetCondition || 'normal', 1, promoCode);
     if (carpet.showSaving) {
-      const access = accessSurchargeP(quoteConfig, serviceDate) / 100;
+      const accessP = accessSurchargeP(quoteConfig, serviceDate);
       result.offer_code = carpet.bundle.source === 'promo' ? promoCode : 'BUNDLE';
       result.discount_percent = carpet.bundle.source === 'promo' ? PROMO_CODES[promoCode] : null;
-      result.standard_total = carpet.bundle.preDiscount + access;
+      result.standard_total = (Math.round(carpet.bundle.preDiscount * 100) + accessP) / 100;
       result.discount_amount = carpet.bundle.saving;
       result.final_total_after_discount = total;
     }

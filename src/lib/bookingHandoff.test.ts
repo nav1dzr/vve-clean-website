@@ -11,6 +11,23 @@ const selection: BookingSelection = {
 afterEach(() => { vi.restoreAllMocks(); sessionStorage.clear(); });
 
 describe('booking handoff trust and fallback', () => {
+  it('recalculates an older whole-pound leaflet quote from its original selection', () => {
+    const legacy = { ...selection, price: 125, offerCode: 'LEAFLET20', discountAmount: 31, standardPrice: 156,
+      quoteConfig: { ...selection.quoteConfig!, carpetCounts: { sofa_corner: 1 }, carpetCondition: 'heavy' as const } };
+    for (const mode of ['router', 'session']) {
+      storeBookingSelection(legacy);
+      const restored = mode === 'router' ? readBookingHandoff(bookingRouteState(legacy, '/leaflet'))?.selection : readStoredBookingSelection();
+      expect(restored).toMatchObject({ standardPrice: 156, discountAmount: 31.2, price: 124.8, quoteConfig: { promoCode: 'LEAFLET20' } });
+    }
+  });
+  it('preserves leaflet eligibility under the minimum when reopening an older request', () => {
+    const legacy = { ...selection, price: 85, minimumApplied: true, subtotalBeforeMinimum: 80 };
+    const restored = readBookingHandoff(bookingRouteState(legacy, '/leaflet'))?.selection;
+    expect(restored?.quoteConfig?.promoCode).toBe('LEAFLET20');
+    expect(restored?.price).toBe(85);
+    expect(restored?.discountAmount).toBeUndefined();
+    expect(readBookingHandoff(bookingRouteState(legacy, '/carpet-cleaning-london'))?.selection.quoteConfig?.promoCode).toBeUndefined();
+  });
   it('accepts a valid router handoff and an explicit return-to-quote selection', () => {
     expect(readBookingHandoff(bookingRouteState(selection, '/carpet-cleaning-london', true))).toEqual({ selection, quoteOrigin: '/carpet-cleaning-london', restoreQuote: true });
   });
@@ -40,6 +57,7 @@ describe('booking handoff trust and fallback', () => {
   });
   it.each([
     { service: 'deep', carpetCounts: { bedroom: 2 } },
+    { service: 'deep', deepService: 'move_in', deepWcs: 1.5 },
     { service: 'deep', deepService: 'carpet_upholstery', carpetCounts: { bedroom: '2' } },
     { service: 'window', windowSize: {} },
     { service: 'office', officeHours: -1 },

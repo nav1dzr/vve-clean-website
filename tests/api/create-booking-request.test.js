@@ -177,6 +177,40 @@ describe("POST /api/create-booking-request", () => {
     recordNotificationMock.mockResolvedValue({ data: true, error: null });
   });
 
+  it.each([
+    [{ sofa_corner: 1 }, 'heavy', 'yes', 124.80, 'LEAFLET20', 156, 31.20],
+    [{ sofa_corner: 1 }, 'heavy', 'no', 139.80, 'LEAFLET20', 171, 31.20],
+    [{ bedroom: 2 }, 'normal', 'yes', 85, null, null, null],
+    [{ landing: 7 }, 'normal', 'yes', 105, 'BUNDLE', 140, 35],
+  ])('recomputes and saves leaflet request %j with exact prices and discounts', async (counts, condition, parking, expected, code, standard, saving) => {
+    vi.stubEnv('WEBSITE_PRICEBOOK_ENABLED', 'true');
+    const body = payload({ service: 'Carpet and upholstery cleaning', pricebookVersion: 'pricebook-v1',
+      price: expected, offer_code: 'LEAFLET20', discount_amount: 999,
+      quoteConfig: { service: 'deep', deepService: 'carpet_upholstery', carpetCounts: counts,
+        carpetCondition: condition, parkingAvailable: parking, congestionZone: 'no' } });
+    const response = res();
+    await handler(req(body), response);
+    expect(response.statusCode).toBe(201);
+    expect(JSON.parse(response.body).total).toBe(expected);
+    const row = insertSingleMock.mock.calls[0][0];
+    expect(row).toMatchObject({ total_price: expected, offer_code: code, standard_total: standard,
+      discount_amount: saving, final_total_after_discount: saving ? expected : null });
+    if (condition === 'heavy') expect(row.service).toContain('Heavy stains / pet odour');
+  });
+
+  it('requires a fresh price when a changed carpet rate differs by even one penny', async () => {
+    vi.stubEnv('WEBSITE_PRICEBOOK_ENABLED', 'true');
+    loadPricebookMock.mockResolvedValue({ version: 'pricebook-v2',
+      catalogue: createPricingCatalogue({ CARPET_ITEM_PRICES_P: { sofa_corner: 13003 } }) });
+    const response = res();
+    await handler(req(payload({ pricebookVersion: 'pricebook-v2', offer_code: 'LEAFLET20', price: 124.82,
+      quoteConfig: { service: 'deep', deepService: 'carpet_upholstery', carpetCounts: { sofa_corner: 1 }, carpetCondition: 'heavy',
+        parkingAvailable: 'yes', congestionZone: 'no' } })), response);
+    expect(response.statusCode).toBe(409);
+    expect(JSON.parse(response.body).currentTotal).toBe(124.83);
+    expect(insertSingleMock).not.toHaveBeenCalled();
+  });
+
   function configureEmails() {
     process.env.GMAIL_SENDER = "sender@example.com";
     process.env.GMAIL_APP_PASSWORD = "app-password";
@@ -287,6 +321,29 @@ describe("POST /api/create-booking-request", () => {
       const today = res();
       await handler(req(payload({ date: '2026-06-16' })), today);
       expect(today.statusCode).toBe(201);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('rejects elapsed/unknown windows before writes but acknowledges an already saved request', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2027-10-31T11:59:59Z'));
+    try {
+      const original = payload({ date: '2027-10-31', time: 'Morning (8am–12pm)' });
+      const accepted = res();
+      await handler(req(original), accepted);
+      expect(accepted.statusCode).toBe(201);
+      vi.setSystemTime(new Date('2027-10-31T12:00:00Z'));
+      for (const time of [original.time, 'Unknown arrival time']) {
+        const rejected = res();
+        await handler(req({ ...original, time }), rejected);
+        expect(rejected.statusCode).toBe(400);
+        expect(JSON.parse(rejected.body).error).toContain('available arrival window');
+      }
+      selectRequestMock.mockResolvedValue({ data: { ...insertSingleMock.mock.calls[0][0], id: 'booking-1' }, error: null });
+      const replay = res();
+      await handler(req(original), replay);
+      expect(JSON.parse(replay.body)).toMatchObject({ ok: true, replayed: true });
+      expect(insertSingleMock).toHaveBeenCalledTimes(1);
     } finally { vi.useRealTimers(); }
   });
 
@@ -823,6 +880,32 @@ describe("POST /api/create-booking-request", () => {
     expect(row.service).not.toContain("2 × 2 bedroom carpets + hallway");
     expect(row.quote_config.addOnCounts.carpet_bundle).toBe(1);
     expect(JSON.parse(response.body).total).toBe(349);
+  });
+
+  it("saves separate move-in WCs in the CRM scope and prices each once", async () => {
+    const response = res();
+    await handler(req(payload({
+      service: "Move-in deep clean — 2 Bed", price: 264,
+      quoteConfig: { service: "deep", deepService: "move_in", deepSize: "bed2",
+        deepBaths: 1, deepWcs: 1, parkingAvailable: "yes", congestionZone: "no" },
+    })), response);
+    expect(response.statusCode).toBe(201);
+    const row = insertSingleMock.mock.calls[0][0];
+    expect(row.quote_config.deepWcs).toBe(1);
+    expect(row.service.split("\n")).toContain("1 × Additional separate WC");
+    expect(row.total_price).toBe(264);
+    expect(JSON.parse(response.body).total).toBe(264);
+  });
+
+  it.each([-1, 1.5, 101])("refuses an invalid WC quantity (%s) before storing the request", async count => {
+    const response = res();
+    await handler(req(payload({
+      service: "Move-in deep clean — 2 Bed",
+      quoteConfig: { service: "deep", deepService: "move_in", deepSize: "bed2",
+        deepBaths: 1, deepWcs: count, parkingAvailable: "yes", congestionZone: "no" },
+    })), response);
+    expect(response.statusCode).toBe(400);
+    expect(insertSingleMock).not.toHaveBeenCalled();
   });
 
   // The move-in calculator shows £344 for a 2-bed with a 3-seater sofa. The

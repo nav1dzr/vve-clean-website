@@ -1,4 +1,5 @@
 import PriceTaxNote from './PriceTaxNote';
+import { formatQuotePrice } from '../lib/formatQuotePrice';
 import { normaliseMoveInCarpetBundle } from '../../shared/pricingCatalogue.js';
 import { PROPERTY_CARPET_BUNDLE_SCOPE } from '../../shared/carpetBundleScope.js';
 import { BUILDERS_GUIDE_HREF, BUILDERS_QUOTE_HREF } from '../../shared/afterBuildersGuide.js';
@@ -12,7 +13,7 @@ import { useQuoteCalculated } from '../hooks/useQuoteCalculated';
 import { Calculator, CheckCircle2, Plus, Minus, Info, AlertCircle, ChevronDown, ShieldCheck } from 'lucide-react';
 import { useBookingCtx } from '../context/BookingContext';
 import { rememberQuoteOrigin } from '../lib/quoteOrigin';
-import { bookingRouteState, readBookingHandoff, readStoredQuoteConfig, storeBookingSelection, hasQuoteRestoreFlag, clearQuoteRestoreFlag } from '../lib/bookingHandoff';
+import { bookingRouteState, carpetBookingAmounts, readBookingHandoff, readStoredQuoteConfig, storeBookingSelection, hasQuoteRestoreFlag, clearQuoteRestoreFlag } from '../lib/bookingHandoff';
 import { useReveal } from '../hooks/useReveal';
 import type { HomepageQuoteService } from './HomeServiceSelector';
 import EotQuoteWizard, { type EotBookingResult } from './EotQuoteWizard';
@@ -32,8 +33,9 @@ import {
   EOT_EXTRA_WC_P,
   EOT_EXTRA_AREAS_P,
   EOT_CARPET_BUNDLE_P,
-  MOVEIN_BASE_PRICES_P,
+  calculateMoveInQuote,
   MOVEIN_EXTRA_BATH_P,
+  MOVEIN_EXTRA_WC_P,
   AFTER_BUILDERS_FROM_PRICES_P,
   ADDON_PRICES_P,
   EOT_CARPET_ADDON_PRICES_P,
@@ -67,7 +69,7 @@ const DEEP_SERVICE_LABELS: Record<DeepServiceType, string> = {
 };
 
 // Prices in £ derived from the canonical pence values in pricing.ts.
-const BASE_PRICES: Record<DeepServiceType, Record<SizeKey, number>> = {
+const BASE_PRICES: Record<Exclude<DeepServiceType, 'move_in'>, Record<SizeKey, number>> = {
   carpet_upholstery: { studio:  90, bed1: 150, bed2: 210, bed3: 270, bed4: 330 }, // unused — carpet uses computeCarpetPrice
   // unused — end_of_tenancy is priced entirely by EotQuoteWizard's
   // Complete/Tailored packages (see the `if (isEot)` early return above);
@@ -78,13 +80,6 @@ const BASE_PRICES: Record<DeepServiceType, Record<SizeKey, number>> = {
     bed2:   EOT_BASE_PRICES_P.bed2   / 100,  // 319
     bed3:   EOT_BASE_PRICES_P.bed3   / 100,  // 379
     bed4:   EOT_BASE_PRICES_P.bed4   / 100,  // 499
-  },
-  move_in: {
-    studio: MOVEIN_BASE_PRICES_P.studio / 100,  // 159
-    bed1:   MOVEIN_BASE_PRICES_P.bed1   / 100,  // 199
-    bed2:   MOVEIN_BASE_PRICES_P.bed2   / 100,  // 249
-    bed3:   MOVEIN_BASE_PRICES_P.bed3   / 100,  // 309
-    bed4:   MOVEIN_BASE_PRICES_P.bed4   / 100,  // 389
   },
   // after_builders uses "from" prices — BASE_PRICES is not used for quoting
   after_builders: {
@@ -177,6 +172,7 @@ export interface BookingSelection {
     deepService:      DeepServiceType;
     deepSize:         SizeKey;
     deepBaths:        number;
+    deepWcs?:         number;
     addOnCounts:      Record<string, number>;
     windowSize:       string;
     gutterType:       string;
@@ -185,9 +181,9 @@ export interface BookingSelection {
     // carpet-specific (optional, present only when deepService === 'carpet_upholstery')
     carpetCounts?:    CarpetCounts;
     carpetCondition?: CarpetCondition;
+    promoCode?:       string;
     // end-of-tenancy specific (optional, present only when deepService === 'end_of_tenancy') —
     // shape matches EotBookingResult['quoteConfig'] in EotQuoteWizard.tsx.
-    deepWcs?:         number;
     isHouse?:         boolean;
     eotPackage?:      'complete' | 'tailored';
     tailoredAddOns?:  Record<string, boolean | number>;
@@ -280,14 +276,14 @@ function CarpetItemRows({
                 <span className="text-navy-800 text-xs font-medium">{item.label}</span>
                 {qty > 0 && (
                   <span className="text-green-700 font-bold text-[10px] bg-green-100 border border-green-300 rounded-full px-1.5 py-0.5 leading-none">
-                    £{lp}
+                    {formatQuotePrice(lp)}
                   </span>
                 )}
               </div>
               <div className="text-royal-700 text-xs font-semibold mt-0.5">
                 {item.key === 'stairs'
-                  ? `£${item.stairsFirst} first flight · £${item.stairsExtra} each extra`
-                  : item.key === 'rug' ? 'Photo quote · add-on only' : `£${item.unitPrice} per item`}
+                  ? `${formatQuotePrice(item.stairsFirst!)} first flight · ${formatQuotePrice(item.stairsExtra!)} each extra`
+                  : item.key === 'rug' ? 'Photo quote · add-on only' : `${formatQuotePrice(item.unitPrice!)} per item`}
               </div>
               {item.helper && (
                 <p className="text-slate-600 text-xs mt-0.5 leading-relaxed">{item.helper}</p>
@@ -330,7 +326,7 @@ function getRestoreConfig(routeState: unknown): BookingSelection['quoteConfig'] 
   if (draft?.kind !== 'standard') return null;
   const config = draft.config;
   if (!['carpet_upholstery', 'move_in', 'after_builders'].includes(String(config.deepService))) return null;
-  return restoreShape({ service: 'deep', deepService: 'carpet_upholstery', deepSize: 'bed2', deepBaths: 1, addOnCounts: Object.fromEntries(addOnDefs.map(a => [a.key, 0])), carpetCounts: Object.fromEntries(CARPET_GROUPS.flatMap(g => g.items).map(i => [i.key, 0])), carpetCondition: 'normal', windowSize: 'small', gutterType: 'terraced', officeHours: 2, propertyType: 'flat' }, config) as BookingSelection['quoteConfig'];
+  return restoreShape({ service: 'deep', deepService: 'carpet_upholstery', deepSize: 'bed2', deepBaths: 1, deepWcs: 0, addOnCounts: Object.fromEntries(addOnDefs.map(a => [a.key, 0])), carpetCounts: Object.fromEntries(CARPET_GROUPS.flatMap(g => g.items).map(i => [i.key, 0])), carpetCondition: 'normal', windowSize: 'small', gutterType: 'terraced', officeHours: 2, propertyType: 'flat' }, config) as BookingSelection['quoteConfig'];
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -430,6 +426,10 @@ function QuoteCalculatorForm({
   const [deepBaths,     setDeepBaths]     = useState<1 | 2 | 3>(
     () => (_restore?.deepBaths as (1 | 2 | 3) | undefined) ?? 1,
   );
+  const [moveInWcs, setMoveInWcs] = useState(() => {
+    const count = _restore?.deepService === 'move_in' ? _restore.deepWcs ?? 0 : 0;
+    return Number.isInteger(count) ? count : 0;
+  });
   const [addOnCounts,   setAddOnCounts]   = useState<Record<string, number>>(
     () => {
       const defaults = Object.fromEntries(addOnDefs.map((a) => [a.key, 0]));
@@ -504,6 +504,9 @@ function QuoteCalculatorForm({
   const isEot           = deepService === 'end_of_tenancy';
   const isAfterBuilders = service === 'deep' && deepService === 'after_builders';
 
+  const isMoveIn = service === 'deep' && deepService === 'move_in';
+  const moveInWcSummary = isMoveIn && moveInWcs > 0 ? `${moveInWcs} separate WC${moveInWcs === 1 ? '' : 's'}` : '';
+
   // Carpet price (computed only when isCarpet). promoCode enables discount (e.g. LEAFLET20).
   const carpetResult = isCarpet
     ? computeCarpetPrice(carpetCounts, carpetCondition, 1, promoCode)
@@ -522,13 +525,14 @@ function QuoteCalculatorForm({
   const calcDeepOrOtherPrice = (): number => {
     if (isEot && eotTailoredQuote) return 0; // tailored quote — no fixed total
     if (service === 'deep') {
-      const base      = BASE_PRICES[deepService][deepSize];
-      const bathExtra = (deepBaths - 1) * BATH_SURCHARGE[deepService];
+      const propertyPrice = deepService === 'move_in'
+        ? calculateMoveInQuote({ size: deepSize, extraBathrooms: deepBaths - 1, extraWcs: moveInWcs }).totalP / 100
+        : BASE_PRICES[deepService][deepSize] + (deepBaths - 1) * BATH_SURCHARGE[deepService];
       const addOns    = addOnDefs.reduce((s, a) => {
         if (a.key === 'staircase') return s + STAIR_PRICES[Math.min(addOnCounts.staircase, 3)];
         return s + addOnCounts[a.key] * getAddOnPrice(a.key);
       }, 0);
-      return base + bathExtra + addOns;
+      return propertyPrice + addOns;
     }
     if (service === 'window') return Math.max(windowPrices[windowSize] ?? 35, MIN_CHARGE);
     if (service === 'gutter') return Math.max(gutterPrices[gutterType] ?? 75, MIN_CHARGE);
@@ -587,14 +591,14 @@ function QuoteCalculatorForm({
         return `${WA_BASE}?text=${encodeURIComponent(msg)}`;
       }
       const itemsText = (carpetResult?.lines ?? [])
-        .map((l) => `  - ${l.label} ×${l.qty}: £${l.lineTotal}`)
+        .map((l) => `  - ${l.label} ×${l.qty}: ${formatQuotePrice(l.lineTotal)}`)
         .join('\n');
       const condLabel = carpetCondition === 'heavy'
         ? 'Heavy stains / pet odour (+20% estimate)'
         : 'Normal';
       const totalLabel = carpetCondition === 'heavy'
-        ? `~£${carpetResult?.finalTotal ?? 0} (estimate — confirmed before work starts)`
-        : `£${carpetResult?.finalTotal ?? 0}`;
+        ? `~${formatQuotePrice(carpetResult?.finalTotal ?? 0)} (estimate — confirmed before work starts)`
+        : formatQuotePrice(carpetResult?.finalTotal ?? 0);
       const carpetBundle = carpetResult?.bundle;
       const bundleSummaryText = (() => {
         if (!carpetResult?.showSaving) {
@@ -602,14 +606,14 @@ function QuoteCalculatorForm({
           // overrode it — in the latter case, say so instead of quoting a
           // saving the customer won't actually receive.
           if (carpetResult?.minApplied) {
-            return `• Items subtotal: £${carpetBundle!.preDiscount}\n• £${CARPET_MIN_BOOKING} minimum booking charge applies\n`;
+            return `• Subtotal before minimum: ${formatQuotePrice(carpetResult.discountedSubtotal)}\n• £${CARPET_MIN_BOOKING} minimum booking charge applies\n`;
           }
           return '';
         }
         const label = carpetBundle!.source === 'promo' && promoCode
           ? `Leaflet offer (${carpetBundle!.display})`
           : 'Same-visit bundle saving';
-        return `• Items subtotal: £${carpetBundle!.preDiscount}\n• ${label}: −£${carpetBundle!.saving}\n`;
+        return `• Items subtotal: ${formatQuotePrice(carpetBundle!.preDiscount)}\n• ${label}: −${formatQuotePrice(carpetBundle!.saving)}\n`;
       })();
       const msg =
         `Hello VVE Clean, I would like to book carpet & upholstery cleaning:\n` +
@@ -657,8 +661,9 @@ function QuoteCalculatorForm({
       `• Service: ${serviceLabels[service]}\n` +
       `• Property: ${deepService === 'end_of_tenancy' ? `${propertyType}, ` : ''}${propertySize}\n` +
       `• Bathrooms: ${service === 'deep' ? bathLabel : 'n/a'}\n` +
+      (moveInWcSummary ? `• ${moveInWcs} × Additional separate WC\n` : '') +
       `• Extras: ${extrasLine}\n` +
-      `• Estimated Total: £${Math.round(price)}\n` +
+      `• Estimated Total: ${formatQuotePrice(price)}\n` +
       `My postcode is: `;
     return `${WA_BASE}?text=${encodeURIComponent(msg)}`;
   })();
@@ -684,38 +689,21 @@ function QuoteCalculatorForm({
     }
     saveQuoteBasket({ kind: 'standard', label: bookingServiceName, href: '', config: {
       service, deepService, deepSize, deepBaths, addOnCounts, windowSize, gutterType, officeHours,
+      ...(isMoveIn ? { deepWcs: moveInWcs } : {}),
       propertyType, carpetCounts, carpetCondition,
     } });
-  }, [isEot, isCarpet, carpetResult?.totalItems, bookingServiceName, service, deepService, deepSize, deepBaths, addOnCounts, windowSize, gutterType, officeHours, propertyType, carpetCounts, carpetCondition]);
+  }, [isEot, isCarpet, isMoveIn, moveInWcs, carpetResult?.totalItems, bookingServiceName, service, deepService, deepSize, deepBaths, addOnCounts, windowSize, gutterType, officeHours, propertyType, carpetCounts, carpetCondition]);
 
   const handleBookNow = () => {
-    const bundle = carpetResult?.bundle;
-    // Only claim a discount when the minimum booking charge hasn't overridden
-    // it — otherwise standardPrice - discountAmount would not equal price,
-    // and the booking summary would show a saving the customer didn't get.
-    const hasDiscount = carpetResult?.showSaving ?? false;
-    const minimumApplied = carpetResult?.minApplied ?? false;
     const sel: BookingSelection = {
       serviceName: bookingServiceName,
-      price:       Math.round(price),
-      ...(hasDiscount ? {
-        offerCode:      bundle!.source === 'promo' ? (promoCode ?? 'PROMO') : 'BUNDLE',
-        standardPrice:  bundle!.preDiscount,
-        discountAmount: bundle!.saving,
-        // Only a genuine percentage for the promo path — the bundle discount
-        // is a flat £ amount (item-count band), not a percentage.
-        ...(bundle!.source === 'promo' && bundle!.preDiscount > 0
-          ? { discountPercent: Math.round((bundle!.saving / bundle!.preDiscount) * 100) }
-          : {}),
-      } : {}),
-      ...(minimumApplied ? {
-        minimumApplied:         true,
-        subtotalBeforeMinimum:  carpetResult!.discountedSubtotal,
-      } : {}),
+      price,
+      ...(carpetResult ? carpetBookingAmounts(carpetResult, promoCode) : {}),
       quoteConfig: {
         service, deepService, deepSize, deepBaths, addOnCounts,
+        ...(isMoveIn ? { deepWcs: moveInWcs } : {}),
         windowSize, gutterType, officeHours, propertyType,
-        ...(isCarpet ? { carpetCounts, carpetCondition } : {}),
+        ...(isCarpet ? { carpetCounts, carpetCondition, promoCode } : {}),
       },
     };
     recordCalculatedQuoteStart();
@@ -749,7 +737,7 @@ function QuoteCalculatorForm({
   const quoteAnalyticsService: QuoteAnalyticsService | null = isEot ? null : service !== 'deep'
     ? service : isCarpet ? 'carpet_upholstery' : deepService === 'move_in' ? 'move_in' : isAfterBuilders ? 'after_builders' : null;
   const recordCalculatedQuoteStart = useQuoteCalculated(quoteAnalyticsService, Math.round(price * 100), !isEot && isReadyToBook,
-    JSON.stringify({ service, deepService, deepSize, deepBaths, addOnCounts,
+    JSON.stringify({ service, deepService, deepSize, deepBaths, ...(isMoveIn ? { deepWcs: moveInWcs } : {}), addOnCounts,
       windowSize, gutterType, officeHours, propertyType, carpetCounts, carpetCondition }));
 
   // Stable ref wrapper — lets context consumers call handleBookNow without stale closures
@@ -766,7 +754,7 @@ function QuoteCalculatorForm({
     // a second competing footer with stale state.
     setCtx({
       state:  isEot ? 'hidden' : isManualQuote ? 'manual' : isReadyToBook ? 'bookable' : 'none',
-      price:  Math.round(price),
+      price,
       waLink,
       onBook: stableBook,
     });
@@ -1349,7 +1337,7 @@ function QuoteCalculatorForm({
                       <>
                       {/* Bathrooms */}
                       <fieldset>
-                        <legend className="block text-navy-900 font-semibold text-sm mb-2">Bathrooms / WCs</legend>
+                        <legend className="block text-navy-900 font-semibold text-sm mb-2">Full bathrooms</legend>
                         <div className="flex gap-2">
                           {([1, 2, 3] as const).map((n) => (
                             <button key={n} type="button" onClick={() => setDeepBaths(n)}
@@ -1367,6 +1355,18 @@ function QuoteCalculatorForm({
                           </p>
                         )}
                       </fieldset>
+
+                      {isMoveIn && (
+                        <fieldset className="rounded-xl border border-silver-200 p-3">
+                          <legend className="px-1 text-sm font-semibold text-navy-900">Additional separate WCs</legend>
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-xs text-slate-600">
+                              {penceToDisplay(MOVEIN_EXTRA_WC_P)} each for a toilet in its own room.
+                            </p>
+                            <Counter itemLabel="Additional separate WC" value={moveInWcs} onChange={setMoveInWcs} max={100} />
+                          </div>
+                        </fieldset>
+                      )}
 
                       {isEot ? (
                         <>
@@ -1603,7 +1603,7 @@ function QuoteCalculatorForm({
                                 return `Carpet & upholstery · ${n} item${n !== 1 ? 's' : ''}`;
                               })()
                             : service === 'deep'
-                              ? `${DEEP_SERVICE_LABELS[deepService]} · ${deepSizeLabel} · ${deepBaths === 3 ? '3+' : deepBaths} Bath`
+                              ? `${DEEP_SERVICE_LABELS[deepService]} · ${deepSizeLabel} · ${deepBaths === 3 ? '3+' : deepBaths} Bath${moveInWcSummary ? ` · ${moveInWcSummary}` : ''}`
                               : serviceLabels[service]
                           }
                         </div>
@@ -1612,14 +1612,14 @@ function QuoteCalculatorForm({
                       {/* Bundle discount: original price with strikethrough */}
                       {isCarpet && carpetResult?.showSaving && (
                         <div className="text-center mb-1">
-                          <span className="line-through text-silver-600 text-lg">£{carpetResult!.bundle.preDiscount}</span>
+                          <span className="line-through text-silver-600 text-lg">{formatQuotePrice(carpetResult!.bundle.preDiscount)}</span>
                         </div>
                       )}
 
                       {/* Big price */}
                       <div className="text-center">
                         <div className="font-display font-bold leading-none" style={{ fontSize: '3.5rem', color: '#1a5c3a' }}>
-                          {isCarpet && carpetCondition === 'heavy' ? '~' : ''}£{Math.round(price)}
+                          {isCarpet && carpetCondition === 'heavy' ? '~' : ''}{formatQuotePrice(price)}
                         </div>
                         {/* "You save £X" is only ever shown when the minimum booking
                             charge did NOT override the discount — otherwise the
@@ -1627,8 +1627,8 @@ function QuoteCalculatorForm({
                         {isCarpet && carpetResult?.showSaving && (
                           <div className="mt-1.5 inline-flex items-center gap-1.5 bg-green-100 border border-green-300 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">
                             {carpetResult!.bundle.source === 'promo'
-                              ? `Leaflet offer — you save £${carpetResult!.bundle.saving}`
-                              : `Same-visit bundle saving — you save £${carpetResult!.bundle.saving}`}
+                              ? `Leaflet offer — you save ${formatQuotePrice(carpetResult!.bundle.saving)}`
+                              : `Same-visit bundle saving — you save ${formatQuotePrice(carpetResult!.bundle.saving)}`}
                           </div>
                         )}
                       </div>
@@ -1639,12 +1639,12 @@ function QuoteCalculatorForm({
                         <div className="mt-3 mx-auto max-w-[300px] rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 space-y-1">
                           <div className="flex justify-between text-xs text-navy-700">
                             <span>Service subtotal</span>
-                            <span>£{carpetResult.adjustedSubtotal}</span>
+                            <span>{formatQuotePrice(carpetResult.adjustedSubtotal)}</span>
                           </div>
                           {carpetResult.bundle.saving > 0 && (
                             <div className="flex justify-between text-xs text-navy-700">
                               <span>Discounted subtotal</span>
-                              <span>£{carpetResult.discountedSubtotal}</span>
+                              <span>{formatQuotePrice(carpetResult.discountedSubtotal)}</span>
                             </div>
                           )}
                           <div className="flex justify-between text-xs font-semibold text-amber-700">
@@ -1653,7 +1653,7 @@ function QuoteCalculatorForm({
                           </div>
                           <div className="flex justify-between text-xs font-bold text-navy-900 border-t border-amber-200 pt-1 mt-1">
                             <span>Final price</span>
-                            <span>£{carpetResult.finalTotal}</span>
+                            <span>{formatQuotePrice(carpetResult.finalTotal)}</span>
                           </div>
                           {promoCode && (
                             <p className="text-amber-700 text-[10px] leading-relaxed pt-1">{DISCOUNT_MIN_NOTE}</p>
@@ -1796,7 +1796,7 @@ function QuoteCalculatorForm({
               </h3>
               {isCarpet && carpetResult?.showSaving && (
                 <div className="text-silver-400 text-base line-through mb-0.5">
-                  £{carpetResult!.bundle.preDiscount}
+                  {formatQuotePrice(carpetResult!.bundle.preDiscount)}
                 </div>
               )}
               <div className="text-5xl font-bold font-display text-white mb-1 transition-all duration-300">
@@ -1810,11 +1810,11 @@ function QuoteCalculatorForm({
                       ? 'Photo quote'
                       : isCarpet && (carpetResult?.totalItems ?? 0) === 0
                         ? `From £${CARPET_MIN_BOOKING}`
-                        : `${isCarpet && carpetCondition === 'heavy' ? '~' : ''}£${Math.round(price)}`}
+                        : `${isCarpet && carpetCondition === 'heavy' ? '~' : ''}${formatQuotePrice(price)}`}
               </div>
               {isCarpet && carpetResult?.showSaving && (
                 <div className="text-green-400 text-xs font-semibold mb-1">
-                  {carpetResult!.bundle.source === 'promo' ? 'Leaflet offer' : 'Bundle saving'} — £{carpetResult!.bundle.saving} off
+                  {carpetResult!.bundle.source === 'promo' ? 'Leaflet offer' : 'Bundle saving'} — {formatQuotePrice(carpetResult!.bundle.saving)} off
                 </div>
               )}
               {minApplied && !isRugOnlySelection && (
@@ -1904,13 +1904,13 @@ function QuoteCalculatorForm({
                       {carpetResult!.lines.map((l) => (
                         <div key={l.key} className="flex justify-between text-xs">
                           <span className="text-silver-300">{l.label} {l.qty > 1 ? `×${l.qty}` : ''}</span>
-                          <span className="text-white font-semibold">£{l.lineTotal}</span>
+                          <span className="text-white font-semibold">{formatQuotePrice(l.lineTotal)}</span>
                         </div>
                       ))}
                       {carpetResult!.heavySurcharge > 0 && (
                         <div className="flex justify-between text-xs">
                           <span className="text-amber-300">Heavy stain surcharge</span>
-                          <span className="text-amber-300 font-semibold">+£{carpetResult!.heavySurcharge}</span>
+                          <span className="text-amber-300 font-semibold">+{formatQuotePrice(carpetResult!.heavySurcharge)}</span>
                         </div>
                       )}
                       {/* Discount line only shown when it genuinely reduced the
@@ -1922,7 +1922,7 @@ function QuoteCalculatorForm({
                           <span className="text-green-300">
                             {carpetResult!.bundle.source === 'promo' ? 'Leaflet offer' : 'Bundle saving'}
                           </span>
-                          <span className="text-green-300 font-semibold">−£{carpetResult!.bundle.saving}</span>
+                          <span className="text-green-300 font-semibold">−{formatQuotePrice(carpetResult!.bundle.saving)}</span>
                         </div>
                       )}
                       {carpetResult!.minApplied && (
@@ -1948,6 +1948,7 @@ function QuoteCalculatorForm({
                             {isEot ? `${propertyType === 'flat' ? 'Flat' : 'House'} · ` : ''}
                             {deepSizeLabel}
                             {` · ${deepBaths === 3 ? '3+' : deepBaths} bath`}
+                            {moveInWcSummary && ` · ${moveInWcSummary}`}
                           </span>
                         </>
                       )}

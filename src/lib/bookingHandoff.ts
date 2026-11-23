@@ -1,5 +1,7 @@
 import { normaliseMoveInCarpetBundle } from '../../shared/pricingCatalogue.js';
-import { computePrice } from './runtimePriceCatalogue';
+import { computePrice, PROMO_CODES } from './runtimePriceCatalogue';
+import { computeCarpetPrice, type CarpetPriceResult } from '../data/carpetPricing';
+import { getQuoteOriginHref } from './quoteOrigin';
 import type { BookingSelection } from '../components/QuoteCalculator';
 
 const BOOKING_KEY = 'vve_booking';
@@ -21,12 +23,14 @@ function isQuoteConfig(config: unknown): config is NonNullable<BookingSelection[
     if (config[key] !== undefined && (typeof config[key] !== 'number'
       || !Number.isFinite(config[key]) || config[key] < 0 || config[key] > 100)) return false;
   }
+  if (config.deepService === 'move_in' && config.deepWcs !== undefined && !Number.isInteger(config.deepWcs)) return false;
   for (const key of ['deepSize', 'windowSize', 'gutterType', 'propertyType', 'carpetCondition', 'eotPackage', 'condition']) {
     if (config[key] !== undefined && (typeof config[key] !== 'string' || config[key].length > 100)) return false;
   }
   for (const key of ['carpetCounts', 'addOnCounts']) {
     if (config[key] !== undefined && !isCountMap(config[key])) return false;
   }
+  if (config.promoCode !== undefined && (typeof config.promoCode !== 'string' || !Object.prototype.hasOwnProperty.call(PROMO_CODES, config.promoCode))) return false;
   if (config.rooms !== undefined && (!Array.isArray(config.rooms) || config.rooms.length > 100
     || !config.rooms.every(room => isRecord(room) && typeof room.id === 'string'
       && typeof room.addonKey === 'string' && typeof room.floor === 'string'))) return false;
@@ -48,8 +52,32 @@ export function isBookingSelection(value: unknown): value is BookingSelection {
   return true;
 }
 
-function restoreSelection(selection: BookingSelection): BookingSelection | null {
+export function carpetBookingAmounts(result: CarpetPriceResult, promoCode?: string) {
+  if (result.minApplied) {
+    return { minimumApplied: true, subtotalBeforeMinimum: result.discountedSubtotal };
+  }
+  if (!result.showSaving) return {};
+  const { bundle } = result;
+  return {
+    standardPrice: bundle.preDiscount,
+    discountAmount: bundle.saving,
+    offerCode: bundle.source === 'promo' ? promoCode : 'BUNDLE',
+    ...(bundle.source === 'promo' && promoCode === 'LEAFLET20' ? { discountPercent: PROMO_CODES.LEAFLET20 } : {}),
+  };
+}
+
+function restoreSelection(selection: BookingSelection, origin?: string): BookingSelection | null {
   const quoteConfig = normaliseMoveInCarpetBundle(selection.quoteConfig);
+  // Older leaflet handoffs rounded savings to pounds, or omitted the offer
+  // altogether when the minimum applied. Restore those from their item counts.
+  if (quoteConfig?.service === 'deep' && quoteConfig.deepService === 'carpet_upholstery'
+    && quoteConfig.carpetCounts && !quoteConfig.promoCode
+    && (selection.offerCode === 'LEAFLET20' || (selection.minimumApplied && origin === '/leaflet'))) {
+    const result = computeCarpetPrice(quoteConfig.carpetCounts, quoteConfig.carpetCondition ?? 'normal', 1, 'LEAFLET20');
+    if (!result.finalTotal) return null;
+    return { serviceName: selection.serviceName, price: result.finalTotal,
+      quoteConfig: { ...quoteConfig, promoCode: 'LEAFLET20' }, ...carpetBookingAmounts(result, 'LEAFLET20') };
+  }
   if (quoteConfig === selection.quoteConfig) return selection;
   const price = computePrice(quoteConfig);
   return price !== null ? { ...selection, quoteConfig, price } : null;
@@ -70,7 +98,7 @@ export function readBookingHandoff(state: unknown): BookingHandoff | null {
   if (!isRecord(state) || !isRecord(state.vveBooking)) return null;
   const handoff = state.vveBooking;
   if (!isBookingSelection(handoff.selection) || typeof handoff.quoteOrigin !== 'string') return null;
-  const selection = restoreSelection(handoff.selection);
+  const selection = restoreSelection(handoff.selection, handoff.quoteOrigin);
   return selection ? { selection, quoteOrigin: handoff.quoteOrigin, restoreQuote: handoff.restoreQuote === true } : null;
 }
 
@@ -88,7 +116,7 @@ function readStoredBooking(): unknown {
 
 export function readStoredBookingSelection(): BookingSelection | null {
   const value = readStoredBooking();
-  return isBookingSelection(value) ? restoreSelection(value) : null;
+  return isBookingSelection(value) ? restoreSelection(value, getQuoteOriginHref().split('#')[0]) : null;
 }
 
 /** Old quotes may contain only their inputs. The calculator recalculates them;

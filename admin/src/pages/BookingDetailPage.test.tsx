@@ -163,6 +163,16 @@ describe('BookingDetailPage', () => {
     expect(screen.getByRole('link', { name: /back to bookings/i })).toBeInTheDocument();
   });
 
+  it('shows the stored website leaflet saving and total to the penny', async () => {
+    setupAuthFetchMock({ booking: { ...fullBooking, totalPrice: 124.8,
+      attribution: { ...fullBooking.attribution, offerCode: 'LEAFLET20', discountAmount: 31.2,
+        discountPercent: 20, standardTotal: 156, finalTotalAfterDiscount: 124.8 } } });
+    renderDetail();
+    expect((await screen.findByText('Website estimate before discount')).nextElementSibling).toHaveTextContent('£156');
+    expect(screen.getByText('Leaflet discount').nextElementSibling).toHaveTextContent('−£31.20');
+    expect(screen.getByText('Website estimate after discount').nextElementSibling).toHaveTextContent('£124.80');
+  });
+
   it('shows a retryable error state for a non-404 failure', async () => {
     setupAuthFetchMock({ bookingError: new ApiError(500, 'Internal server error') });
     renderDetail();

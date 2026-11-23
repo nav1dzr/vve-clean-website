@@ -3,6 +3,8 @@ import { ArrowRight, CheckCircle2, MessageCircle } from 'lucide-react';
 import { buildersWhatsAppLink } from '../data/afterBuildersContent';
 import { CONDITIONAL_DEPOSIT_NOTE } from '../data/businessPolicy';
 import { getAttribution } from '../lib/attribution';
+import { ENQUIRY_DATE_ERROR, isValidOptionalVisitDate, todayLondonIsoDate } from '../../shared/bookingRequestValidation.js';
+import { useScheduleClock } from '../hooks/useScheduleClock';
 import { trackContactFormSubmitted } from '../lib/analytics';
 import { clearSubmissionIdentity, submissionIdentity } from '../lib/submissionIdentity';
 import {
@@ -25,6 +27,7 @@ function ChoiceSelect({ label, value, onChange, options }: { label: string; valu
 
 export default function AfterBuildersEnquiry({ onPhotoLinkChange }: { onPhotoLinkChange?: (href: string) => void }) {
   const [state, setState] = useState(createAfterBuildersEnquiry);
+  const scheduleClock = useScheduleClock();
   const [restored, setRestored] = useState(false);
   const [step, setStep] = useState(0);
   const [furthestStep, setFurthestStep] = useState(0);
@@ -78,6 +81,7 @@ export default function AfterBuildersEnquiry({ onPhotoLinkChange }: { onPhotoLin
         }
       }
     }
+    if (next > 2 && !isValidOptionalVisitDate(state.preferredDate)) return invalid(2, 'preferredDate', ENQUIRY_DATE_ERROR);
     return true;
   };
   const goTo = (next: number) => {
@@ -101,13 +105,15 @@ export default function AfterBuildersEnquiry({ onPhotoLinkChange }: { onPhotoLin
       // Consent may change between attempts. Keep the retry identity tied to
       // the enquiry itself, then read current consent immediately before sending.
       const requestKey = await submissionIdentity(AFTER_BUILDERS_SUBMISSION_SCOPE, content);
-      const payload = { ...content, attribution: getAttribution() };
+      const payload = { ...content, preferredDate: state.preferredDate, attribution: getAttribution() };
       const response = await fetch('/api/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, requestKey }), signal: controller.signal });
       const result = await response.json().catch(() => ({}));
       if (response.ok && result.ok === true) {
         clearSubmissionIdentity(AFTER_BUILDERS_SUBMISSION_SCOPE); clearAfterBuildersDraft();
         if (mounted.current) { setSubmitted(true); setName(''); setEmail(''); setPhone(''); }
         trackContactFormSubmitted(result.enquiryId);
+      } else if (mounted.current && response.status === 400 && result.error === ENQUIRY_DATE_ERROR) {
+        setStep(2); setInvalidField('preferredDate'); setError(ENQUIRY_DATE_ERROR);
       } else if (mounted.current) setError(response.status === 403 && result.error === 'This preview is read-only until approved isolated test resources are connected.'
         ? 'This preview is for checking the page and form. Sending enquiries is disabled here, so nothing has been sent or saved to the CRM. Your answers are still here.'
         : 'We could not confirm your enquiry was saved. Your answers are still here. Please try again, or contact us on WhatsApp.');
@@ -146,7 +152,7 @@ export default function AfterBuildersEnquiry({ onPhotoLinkChange }: { onPhotoLin
           <p className="builders-enquiry-privacy">Paint, plaster and adhesive removal depends on the surface. Building waste clearance and repairs are not included.</p>
         </>}
         {step === 2 && <>
-          <div className="builders-enquiry-grid builders-enquiry-select-grid"><ChoiceSelect label="Are the trades finished?" value={state.trades} options={TRADES_STATUS} onChange={value => change('trades', value as AfterBuildersEnquiryState['trades'])} /><label className="builders-enquiry-field">Preferred date (optional)<input type="date" value={state.preferredDate} onChange={event => change('preferredDate', event.target.value)} /><small>Leave blank if flexible. Availability will be confirmed with you.</small></label><ChoiceSelect label="Parking" value={state.parking} options={PARKING_OPTIONS} onChange={value => change('parking', value as AfterBuildersEnquiryState['parking'])} /><ChoiceSelect label="Photos" value={state.photos} options={PHOTO_OPTIONS} onChange={value => change('photos', value as AfterBuildersEnquiryState['photos'])} /></div>
+          <div className="builders-enquiry-grid builders-enquiry-select-grid"><ChoiceSelect label="Are the trades finished?" value={state.trades} options={TRADES_STATUS} onChange={value => change('trades', value as AfterBuildersEnquiryState['trades'])} /><label className="builders-enquiry-field">Preferred date (optional)<input type="date" min={todayLondonIsoDate(scheduleClock)} aria-invalid={invalidField === 'preferredDate'} aria-describedby={invalidField === 'preferredDate' ? 'builders-enquiry-error' : undefined} value={state.preferredDate} onChange={event => change('preferredDate', event.target.value)} /><small>Leave blank if flexible. Availability will be confirmed with you.</small></label><ChoiceSelect label="Parking" value={state.parking} options={PARKING_OPTIONS} onChange={value => change('parking', value as AfterBuildersEnquiryState['parking'])} /><ChoiceSelect label="Photos" value={state.photos} options={PHOTO_OPTIONS} onChange={value => change('photos', value as AfterBuildersEnquiryState['photos'])} /></div>
           <label className="builders-enquiry-field">Access notes (optional)<textarea value={state.accessNotes} maxLength={400} onChange={event => change('accessNotes', event.target.value)} placeholder="For example, stairs, lift access, permits or site opening hours." /></label>
           <div className="builders-enquiry-note"><h4>Photos can come later</h4><p>A view of each affected room and close-ups of residue will help. Please leave people and personal documents out. Photos are not uploaded by this form.</p>{whatsapp}<p className="builders-enquiry-privacy">Opening WhatsApp does not submit this enquiry. Return here when you are ready to send it.</p></div>
         </>}

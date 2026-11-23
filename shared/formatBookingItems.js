@@ -98,14 +98,14 @@ function deepCleanLines(deepService, deepSize, deepBaths, addOnCounts, extra) {
   const size  = sizeLabel(deepSize);
   const baths = Number(deepBaths) || 1;
   const isEot = deepService === 'end_of_tenancy';
+  const wcs = Number(extra.deepWcs) || 0;
+  const wcLines = wcs > 0 ? [`${wcs} × Additional separate WC`] : [];
 
   if (isEot) {
     const pkg = extra.eotPackage === 'tailored' ? 'Tailored Checklist Clean' : 'Complete Agency-Ready Clean';
     lines.push(`${DEEP_SERVICE_LABELS[deepService]} (${pkg}) — ${size}, ${baths} bathroom${baths !== 1 ? 's' : ''}`);
     if (extra.isHouse) lines.push('House / maisonette adjustment');
-    const wcs = Number(extra.deepWcs) || 0;
-    if (wcs > 0) lines.push(`${wcs} × Additional separate WC`);
-    lines.push('Inside oven (included free)');
+    lines.push(...wcLines, 'Inside oven (included free)');
     lines.push(...eotCarpetLines(extra));
 
     if (extra.eotPackage === 'tailored' && extra.tailoredAddOns && typeof extra.tailoredAddOns === 'object') {
@@ -120,6 +120,7 @@ function deepCleanLines(deepService, deepSize, deepBaths, addOnCounts, extra) {
     }
   } else {
     lines.push(`${DEEP_SERVICE_LABELS[deepService]} — ${size}, ${baths} bathroom${baths !== 1 ? 's' : ''}`);
+    if (deepService === 'move_in') lines.push(...wcLines);
   }
 
   const counts = addOnCounts && typeof addOnCounts === 'object' ? addOnCounts : {};
@@ -186,7 +187,11 @@ export function formatBookingItemLines(quoteConfig) {
 
   const serviceLines = (() => {
     if (service === 'deep' && deepService === 'carpet_upholstery') {
-      return carpetItemLines(carpetCounts);
+      const lines = carpetItemLines(carpetCounts);
+      if (quoteConfig.carpetCondition === 'heavy' && lines.length) {
+        lines.push('Heavy stains / pet odour (+20% estimate)');
+      }
+      return lines;
     }
 
     if (service === 'deep' && DEEP_SERVICE_LABELS[deepService]) {
