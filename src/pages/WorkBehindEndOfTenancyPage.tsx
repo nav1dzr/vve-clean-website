@@ -1,18 +1,16 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { BookingProvider } from '../context/BookingContext';
 import QuoteCalculator from '../components/QuoteCalculator';
 import GuaranteeTerms from '../components/GuaranteeTerms';
 import { WbDock, WbFooter, WbHeader, WbLink, WbPage, WB_PHONE_DISPLAY, WB_PHONE_HREF } from '../components/workbehind/WbChrome';
-import { HIGH_PRIORITY, WB_PHOTO, useEotHeroPhoto } from '../components/workbehind/wbMedia';
-import { FAQS, SCHEMA } from '../data/endOfTenancyContent';
+import { EotOpeningCheckout, EotOpeningRooms } from '../components/workbehind/EotOpenings';
+import { EOT_SIZES, FAQS, SCHEMA } from '../data/endOfTenancyContent';
 import { EOT_FEATURED_BEFORE_AFTER } from '../data/galleryMedia';
 import { useResolvedWebsiteMedia } from '../lib/websiteMediaPositions';
 import { BOOKING_REQUEST_NOTE, CONDITIONAL_DEPOSIT_NOTE, VAT_NOTE } from '../data/businessPolicy';
 import { REVIEWS } from '../data/reviews';
-import { GOOGLE_RATING_ARIA_LABEL, GOOGLE_RATING_LABEL, HAS_VERIFIED_RATING } from '../data/googleRating';
-import { GOOGLE_READ_REVIEWS_LINK } from '../components/GoogleBrand';
 import {
-  EOT_BASE_PRICES_P, EOT_TAILORED_START_PRICES_P, EOT_EXTRA_BATH_P, EOT_EXTRA_WC_P, EOT_GUARANTEE_HOURS,
+  EOT_TAILORED_START_PRICES_P, EOT_EXTRA_BATH_P, EOT_EXTRA_WC_P,
   penceToDisplay as gbp,
 } from '../data/pricing';
 
@@ -20,14 +18,6 @@ import {
 // End of Tenancy wizard (same prices, same booking handoff); only its look is
 // re-themed through .wb-legacy. FAQ text and schema come from one shared
 // module, so the visible answers and the structured data cannot drift.
-const DAYS = EOT_GUARANTEE_HOURS / 24;
-const SIZES = [
-  ['Studio', EOT_BASE_PRICES_P.studio],
-  ['1 bedroom', EOT_BASE_PRICES_P.bed1],
-  ['2 bedrooms', EOT_BASE_PRICES_P.bed2],
-  ['3 bedrooms', EOT_BASE_PRICES_P.bed3],
-  ['4 bedrooms', EOT_BASE_PRICES_P.bed4],
-] as const;
 const INCLUDED = [
   'Oven, hob, grill and extractor',
   'Microwave, emptied fridge/freezer, dishwasher and washing-machine interiors',
@@ -39,7 +29,9 @@ const INCLUDED = [
 const TENANCY_REVIEWS = REVIEWS.filter(review => /tenancy/i.test(review.service) || /end of tenancy/i.test(review.text)).slice(0, 3);
 
 export default function WorkBehindEndOfTenancyPage() {
-  const hero = useEotHeroPhoto(WB_PHOTO.jobOven);
+  // Design comparison only: ?opening=b shows the second candidate opening.
+  const [params] = useSearchParams();
+  const opening = params.get('opening') === 'b' ? 'b' : 'a';
   const pairs = useResolvedWebsiteMedia(EOT_FEATURED_BEFORE_AFTER);
 
   return (
@@ -48,32 +40,20 @@ export default function WorkBehindEndOfTenancyPage() {
       <WbPage>
         <WbHeader ctaHref="#quote" />
         <main id="main-content">
-          <section className="wb-hero" aria-labelledby="wb-eot-title">
-            <div className="wb-hero__stage">
-              <h1 id="wb-eot-title">End of tenancy <span className="wb-br">cleaning.</span></h1>
-              <img className="wb-hero__img" src={hero.src} srcSet={hero.srcSet} alt={hero.alt} {...HIGH_PRIORITY} />
-              <div className="wb-hero__pitch">
-                <p className="wb-hero__price">Studio flat {gbp(EOT_BASE_PRICES_P.studio)}</p>
-                <p>Complete clean: oven and empty cupboards included. Tell us within {DAYS} days if we missed agreed work and we come back once to re-clean it.</p>
-                <div className="wb-acts">
-                  <WbLink className="wb-btn" href="#quote">Get my price</WbLink>
-                  {HAS_VERIFIED_RATING && <a className="wb-rating" href={GOOGLE_READ_REVIEWS_LINK} target="_blank" rel="noopener noreferrer" aria-label={GOOGLE_RATING_ARIA_LABEL}>{GOOGLE_RATING_LABEL}</a>}
-                </div>
-              </div>
-            </div>
-            <div className="wb-under"><div className="wb-w">Our photo from a move-out clean. East and North London.</div></div>
-          </section>
+          {opening === 'b' ? <EotOpeningCheckout included={INCLUDED} /> : <EotOpeningRooms />}
 
-          <section className="wb-sec" id="prices" aria-labelledby="wb-eot-prices">
-            <div className="wb-w">
-              <h2 className="wb-h2" id="wb-eot-prices">Fixed prices</h2>
-              <p className="wb-sub">Complete clean, vacant flat, one bathroom. {VAT_NOTE}</p>
-              <table className="wb-table">
-                <caption>Each extra bathroom +{gbp(EOT_EXTRA_BATH_P)}. Each separate WC +{gbp(EOT_EXTRA_WC_P)}. Houses, Tailored (from {gbp(EOT_TAILORED_START_PRICES_P.studio)}) and 5+ bedrooms are priced in the quote below.</caption>
-                <tbody>{SIZES.map(([label, pence]) => <tr key={label}><th scope="row">{label}</th><td>{gbp(pence)}</td></tr>)}</tbody>
-              </table>
-            </div>
-          </section>
+          {opening !== 'b' && (
+            <section className="wb-sec" id="prices" aria-labelledby="wb-eot-prices">
+              <div className="wb-w">
+                <h2 className="wb-h2" id="wb-eot-prices">Fixed prices</h2>
+                <p className="wb-sub">Complete clean, vacant flat, one bathroom. {VAT_NOTE}</p>
+                <table className="wb-table">
+                  <caption>Each extra bathroom +{gbp(EOT_EXTRA_BATH_P)}. Each separate WC +{gbp(EOT_EXTRA_WC_P)}. Houses, Tailored (from {gbp(EOT_TAILORED_START_PRICES_P.studio)}) and 5+ bedrooms are priced in the quote below.</caption>
+                  <tbody>{EOT_SIZES.map(([label, pence]) => <tr key={label}><th scope="row">{label}</th><td>{gbp(pence)}</td></tr>)}</tbody>
+                </table>
+              </div>
+            </section>
+          )}
 
           <div className="wb-legacy"><QuoteCalculator mode="eot" /></div>
 

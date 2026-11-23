@@ -56,6 +56,7 @@ const INTENTIONAL_SUPPRESSIONS: Record<string, RegExp> = {
   // same booking context: price first, then request once a quote is ready.
   'WorkBehindHomePage.tsx': /<WbDock quoteHref="#services"/,
   'WorkBehindEndOfTenancyPage.tsx': /<WbDock quoteHref="#quote" watch="#quote"/,
+  'WorkBehindSofaPage.tsx': /<WbDock quoteHref="#quote"/,
 };
 
 /** Pages carrying their own fixed bottom bar instead of the shared one. */

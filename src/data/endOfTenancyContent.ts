@@ -85,3 +85,12 @@ export const SCHEMA = JSON.stringify({
     },
   ],
 });
+
+/** Fixed Complete prices by size, as listed on the page (vacant flat, one bathroom). */
+export const EOT_SIZES = [
+  ['Studio', EOT_BASE_PRICES_P.studio],
+  ['1 bedroom', EOT_BASE_PRICES_P.bed1],
+  ['2 bedrooms', EOT_BASE_PRICES_P.bed2],
+  ['3 bedrooms', EOT_BASE_PRICES_P.bed3],
+  ['4 bedrooms', EOT_BASE_PRICES_P.bed4],
+] as const;

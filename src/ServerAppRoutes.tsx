@@ -7,7 +7,7 @@ import LeafletPage from './pages/LeafletPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import CarpetCleaningPage from './pages/CarpetCleaningPage';
-import SofaCleaningPage from './pages/SofaCleaningPage';
+import SofaCleaningPage from './pages/WorkBehindSofaPage';
 import CommercialCarpetPage from './pages/CommercialCarpetPage';
 import EndOfTenancyPage from './pages/WorkBehindEndOfTenancyPage';
 import AfterBuildersPage from './pages/AfterBuildersPage';

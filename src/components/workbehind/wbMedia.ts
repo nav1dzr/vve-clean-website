@@ -64,5 +64,16 @@ export function useEotHeroPhoto(fallback: WbStill): WbStill {
   return toStill(named ?? service) ?? fallback;
 }
 
+/** The sofa page's CRM hero position, the same one the current sofa page reads. */
+export function useSofaHeroItem(): GalleryItem | null {
+  const named = useWebsiteMediaPosition('service-sofa-hero', null);
+  const service = useManagedServiceHeroMedia('sofa-upholstery');
+  return named ?? service;
+}
+
+export function useSofaHeroPhoto(fallback: WbStill): WbStill {
+  return toStill(useSofaHeroItem()) ?? fallback;
+}
+
 /** React 18 has no camelCase prop for this attribute; pass it through as-is. */
 export const HIGH_PRIORITY = { fetchpriority: 'high' } as Record<string, string>;
