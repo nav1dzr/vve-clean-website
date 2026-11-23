@@ -44,7 +44,7 @@ describe('hash navigation to #quote', () => {
     renderAt('/end-of-tenancy-cleaning-london');
 
     const hero = (await screen.findByRole('heading', { level: 1 }, { timeout: 5000 })).closest('section')!;
-    const heroCta = within(hero).getByRole('link', { name: 'Get my moving-out quote' });
+    const heroCta = within(hero).getByRole('link', { name: 'Get my price' });
     await user.click(heroCta);
 
     await waitFor(() => {
@@ -79,13 +79,14 @@ describe('hash navigation to #quote', () => {
 });
 
 describe('Navbar Gallery link', () => {
+  // The redesigned header names this link "Our work"; it must still open /gallery.
   it('routes to the /gallery page, not the old homepage "#gallery" anchor', async () => {
     const user = userEvent.setup();
     renderAt('/end-of-tenancy-cleaning-london');
 
     const galleryLink = (await screen.findAllByRole(
       'link',
-      { name: 'Gallery' },
+      { name: 'Our work' },
       { timeout: 5000 },
     ))[0];
     expect(galleryLink).toHaveAttribute('href', '/gallery');

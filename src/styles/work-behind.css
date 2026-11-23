@@ -1,0 +1,256 @@
+/* "The Work Behind" design (owner-selected concept, 23 November 2026).
+ *
+ * Colours are sampled from the opening job photograph: the bedroom wall
+ * (periwinkle), the carpet (deep blue), the uniform (ink) and its gold
+ * chevron. Condensed capitals echo the uniform and van lettering.
+ *
+ * Everything is scoped under .wb so pages that have not been redesigned yet
+ * are unaffected. .wb-legacy re-themes existing components (the quote wizard
+ * and booking form) without rewriting their markup or logic.
+ */
+
+.wb, .wb-legacy {
+  --wb-wall: #8aa1e6;
+  --wb-carpet: #0b4687;
+  --wb-ink: #141c2a;
+  --wb-tee: #1d2735;
+  --wb-gold: #f2ae1c;
+  --wb-gold-d: #db9a0c;
+  --wb-paper: #ffffff;
+  --wb-mist: #eef1f8;
+  --wb-rule: #c9d0de;
+  --wb-mute: #56617a;
+  --wb-soft: #2c3648;
+  --wb-disp: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
+  --wb-sans: 'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+.wb {
+  background: var(--wb-paper);
+  color: var(--wb-ink);
+  font-family: var(--wb-sans);
+  font-size: 17px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.wb :focus-visible { outline: 3px solid var(--wb-gold); outline-offset: 3px; }
+.wb img { display: block; max-width: 100%; }
+.wb-w { max-width: 1280px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+.wb-h2 { font: 800 clamp(36px, 9vw, 72px)/.92 var(--wb-disp); text-transform: uppercase; letter-spacing: -.005em; text-wrap: balance; margin: 0; }
+.wb-sub { font-size: 18px; max-width: 34em; margin: 12px 0 0; color: var(--wb-soft); }
+.wb-cap { font-size: 15px; line-height: 1.4; color: var(--wb-mute); margin: 8px 0 0; }
+
+/* Buttons. Gold is the one primary action; everything else is quieter. */
+.wb-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; background: var(--wb-gold); color: var(--wb-ink); font: 700 20px/1 var(--wb-disp); text-transform: uppercase; letter-spacing: .03em; padding: 14px 22px 13px; border: 0; border-radius: 3px; text-decoration: none; cursor: pointer; white-space: nowrap; }
+.wb-btn:hover { background: var(--wb-gold-d); }
+.wb-btn--line { background: none; color: #fff; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .8); }
+.wb-btn--line:hover { background: #fff; color: var(--wb-ink); }
+.wb-btn--dark { background: var(--wb-ink); color: #fff; }
+.wb-btn--dark:hover { background: var(--wb-tee); }
+.wb-link { font: 700 19px/1 var(--wb-disp); text-transform: uppercase; letter-spacing: .04em; text-underline-offset: 5px; text-decoration-thickness: 2px; color: inherit; display: inline-flex; align-items: center; min-height: 44px; }
+
+.wb-tape { position: absolute; left: 8px; top: 8px; background: var(--wb-gold); color: var(--wb-ink); font: 700 14px/1 var(--wb-disp); letter-spacing: .08em; text-transform: uppercase; padding: 6px 8px 5px; }
+.wb-fig { position: relative; margin: 0; }
+
+/* Header */
+.wb-top { position: sticky; top: 0; z-index: 40; background: var(--wb-ink); color: #fff; }
+.wb-top__bar { display: flex; align-items: center; gap: 22px; height: 60px; }
+.wb-top__logo { display: inline-flex; align-items: center; color: #fff; text-decoration: none; min-height: 44px; }
+.wb-top nav { display: none; gap: 24px; margin-left: auto; font-size: 16px; font-weight: 500; }
+.wb-top nav a, .wb-top__tel { color: #fff; text-decoration: none; }
+.wb-top nav a:hover { color: var(--wb-gold); }
+.wb-top__tel { display: none; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wb-top__cta { display: none; }
+.wb-top__menu { margin-left: auto; background: none; border: 0; color: #fff; font: 700 18px/1 var(--wb-disp); letter-spacing: .06em; text-transform: uppercase; min-height: 44px; min-width: 44px; padding: 0 4px; cursor: pointer; }
+.wb-top__panel { border-top: 1px solid rgba(255, 255, 255, .15); padding: 8px 0 20px; }
+.wb-top__panel a { display: flex; align-items: center; min-height: 48px; color: #fff; text-decoration: none; font: 700 24px/1 var(--wb-disp); text-transform: uppercase; letter-spacing: .02em; border-bottom: 1px solid rgba(255, 255, 255, .1); }
+.wb-top__panel .wb-btn { margin-top: 16px; width: 100%; }
+@media (min-width: 1001px) {
+  .wb-top__bar { height: 68px; }
+  .wb-top nav, .wb-top__tel { display: flex; }
+  .wb-top__cta { display: inline-flex; font-size: 18px; min-height: 44px; padding: 11px 16px 10px; }
+  .wb-top__menu, .wb-top__panel { display: none; }
+}
+
+/* Hero: headline on the wall, pitch on the carpet */
+.wb-hero { background: var(--wb-wall); }
+.wb-hero__stage { position: relative; max-width: 1600px; margin: 0 auto; container-type: inline-size; }
+.wb-hero__img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.wb-hero h1 { font: 800 clamp(44px, 13vw, 104px)/.9 var(--wb-disp); text-transform: uppercase; color: var(--wb-ink); letter-spacing: -.005em; margin: 0; padding: 22px max(16px, env(safe-area-inset-left, 0px)) 16px; }
+.wb-hero__pitch { background: var(--wb-carpet); color: #fff; padding: 20px max(16px, env(safe-area-inset-left, 0px)) 24px; }
+.wb-hero__pitch p { margin: 0; font-size: 18px; line-height: 1.42; max-width: 31em; }
+.wb-hero__price { font: 700 22px/1.1 var(--wb-disp); text-transform: uppercase; letter-spacing: .02em; color: var(--wb-gold); margin: 0 0 10px !important; }
+.wb-acts { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; margin-top: 18px; }
+.wb-acts .wb-btn { flex: 1 1 auto; }
+.wb-rating { color: #fff; font-weight: 600; text-underline-offset: 4px; display: inline-flex; align-items: center; min-height: 44px; }
+.wb-under { background: var(--wb-ink); color: #c8d0de; font-size: 14.5px; }
+.wb-under .wb-w { padding-top: 10px; padding-bottom: 10px; }
+@media (min-width: 1001px) {
+  .wb-hero__img { aspect-ratio: 16 / 9; }
+  .wb-hero h1 { position: absolute; left: 33.5cqw; top: 4.6cqw; font-size: 7cqw; padding: 0; }
+  .wb-hero h1 .wb-br { display: block; }
+  .wb-hero__pitch { position: absolute; left: 52cqw; right: 4cqw; bottom: 4.4cqw; background: none; padding: 0; }
+  .wb-hero__pitch p { font-size: max(17.5px, 1.5cqw); text-shadow: 0 1px 12px rgba(11, 70, 135, .55); }
+  .wb-acts .wb-btn { flex: 0 0 auto; }
+}
+
+/* Sections */
+.wb-sec { padding-top: 56px; padding-bottom: 56px; }
+.wb-sec--mist { background: var(--wb-mist); }
+.wb-sec--carpet { background: var(--wb-carpet); color: #fff; }
+.wb-sec--carpet .wb-sub { color: #d5e2f5; }
+.wb-sec--ink { background: var(--wb-ink); color: #fff; }
+.wb-sec--ink .wb-sub, .wb-sec--ink .wb-cap { color: #c8d0de; }
+.wb-sec--wall { background: var(--wb-wall); }
+@media (min-width: 1001px) { .wb-sec { padding-top: 88px; padding-bottom: 88px; } }
+
+/* One job, three moments. A swipeable row on phones. */
+.wb-frames { display: grid; grid-auto-flow: column; grid-auto-columns: 82%; gap: 10px; margin-top: 28px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; overscroll-behavior-x: contain; }
+.wb-frames figure { scroll-snap-align: start; }
+.wb-frames img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
+.wb-frames figcaption { font-size: 16px; line-height: 1.4; margin-top: 10px; }
+.wb-frames figcaption b { display: block; font: 700 20px/1.1 var(--wb-disp); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 2px; }
+.wb-swipe { font-size: 14px; color: var(--wb-mute); margin: 10px 0 0; }
+@media (min-width: 1001px) {
+  .wb-frames { grid-auto-flow: row; grid-template-columns: 1.3333fr .75fr .8fr; overflow: visible; }
+  .wb-frames .wb-f1 img { aspect-ratio: 4 / 3; } .wb-frames .wb-f2 img { aspect-ratio: 3 / 4; }
+  .wb-swipe { display: none; }
+}
+
+.wb-split { display: grid; gap: 24px; align-items: center; }
+.wb-split__img img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
+@media (min-width: 1001px) { .wb-split { grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 64px; } .wb-split--wide { grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); } }
+
+/* Jobs = services, each with its first listed price */
+.wb-grid { display: grid; gap: 36px; margin-top: 32px; }
+.wb-job { display: flex; flex-direction: column; }
+.wb-job__ph img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.wb-job h3 { font: 800 34px/.95 var(--wb-disp); text-transform: uppercase; margin: 12px 0 0; }
+.wb-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 8px 0 0; font-variant-numeric: tabular-nums; }
+.wb-price b { font: 700 28px/1 var(--wb-disp); letter-spacing: .01em; }
+.wb-price span { background: var(--wb-ink); color: #fff; font: 600 14px/1 var(--wb-sans); padding: 5px 8px; border-radius: 2px; }
+.wb-job p.wb-xs { color: var(--wb-soft); margin: 8px 0 0; }
+.wb-job .wb-link { margin-top: 6px; align-self: flex-start; }
+.wb-job--type { padding: 24px 20px 22px; }
+.wb-job--type h3 { font-size: 46px; margin-top: 0; }
+.wb-job--carpet { background: var(--wb-carpet); color: #fff; }
+.wb-job--carpet p.wb-xs { color: #d5e2f5; }
+.wb-job--carpet .wb-price span { background: #fff; color: var(--wb-ink); }
+.wb-job--wall { background: var(--wb-wall); }
+.wb-job--feature { outline: 3px solid var(--wb-gold); outline-offset: 6px; }
+@media (min-width: 700px) { .wb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 20px; } .wb-job__ph img { aspect-ratio: 4 / 5; } }
+@media (min-width: 1001px) { .wb-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } .wb-job--type { grid-column: span 2; padding: 28px 30px 30px; } .wb-job--type h3 { font-size: 60px; } }
+
+/* Before and after pairs */
+.wb-pairs { display: grid; gap: 32px; margin-top: 28px; }
+.wb-two { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.wb-two img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.wb-pair p { margin: 10px 0 0; font-size: 16px; max-width: 32em; }
+.wb-pair p b { font: 700 20px/1.1 var(--wb-disp); text-transform: uppercase; letter-spacing: .03em; margin-right: 6px; }
+@media (min-width: 1001px) { .wb-pairs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px 24px; } }
+
+/* Lists, steps, terms */
+.wb-list { list-style: none; margin: 20px 0 0; padding: 0; border-top: 2px solid currentColor; }
+.wb-list li { padding: 11px 0; border-bottom: 1px solid var(--wb-rule); font-weight: 500; }
+.wb-sec--ink .wb-list li, .wb-sec--carpet .wb-list li { border-bottom-color: rgba(255, 255, 255, .2); }
+.wb-list--price li { display: flex; justify-content: space-between; gap: 16px; }
+.wb-list--price li span:last-child { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.wb-steps { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 26px; }
+.wb-steps b { display: block; font: 800 80px/.8 var(--wb-disp); color: var(--wb-gold); }
+.wb-steps h3 { font: 700 26px/1 var(--wb-disp); text-transform: uppercase; margin: 12px 0 0; letter-spacing: .01em; }
+.wb-steps p { color: #d5e2f5; margin: 6px 0 0; max-width: 24em; }
+@media (min-width: 1001px) { .wb-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; } }
+.wb-terms { margin: 20px 0 0; border-top: 2px solid var(--wb-ink); }
+.wb-terms div { display: grid; gap: 4px; padding: 14px 0; border-bottom: 1px solid var(--wb-rule); }
+.wb-terms dt { font: 700 21px/1.15 var(--wb-disp); text-transform: uppercase; letter-spacing: .03em; }
+.wb-terms dd { margin: 0; }
+@media (min-width: 1001px) { .wb-terms div { grid-template-columns: 170px minmax(0, 1fr); gap: 20px; } }
+
+/* Reviews */
+.wb-quotes { display: grid; margin-top: 28px; border-top: 2px solid var(--wb-ink); }
+.wb-quotes blockquote { margin: 0; padding: 20px 0 16px; border-bottom: 1px solid var(--wb-rule); }
+.wb-quotes p { font-size: 20px; line-height: 1.4; font-weight: 500; margin: 0; }
+.wb-quotes cite { display: block; font-style: normal; font-weight: 600; font-size: 15px; color: var(--wb-mute); margin-top: 12px; }
+.wb-score { font: 800 64px/.8 var(--wb-disp); margin: 0; color: inherit; text-decoration: none; display: inline-block; }
+.wb-score small { font: 600 17px/1 var(--wb-sans); margin-left: 8px; }
+@media (min-width: 1001px) { .wb-quotes { grid-template-columns: repeat(3, minmax(0, 1fr)); } .wb-quotes blockquote { border-bottom: 0; padding-right: 28px; } .wb-quotes blockquote + blockquote { padding-left: 28px; border-left: 1px solid var(--wb-rule); } }
+
+/* Postcode check */
+.wb-pc { margin-top: 20px; }
+.wb-pc label { display: block; font-weight: 600; margin-bottom: 8px; }
+.wb-pc__row { display: flex; gap: 8px; max-width: 380px; }
+.wb-pc input { flex: 1; min-width: 0; min-height: 48px; font: 600 18px var(--wb-sans); padding: 10px 12px; border: 2px solid var(--wb-ink); border-radius: 3px; text-transform: uppercase; background: #fff; color: var(--wb-ink); }
+.wb-pc output { display: block; margin-top: 10px; font-weight: 600; min-height: 1.5em; }
+.wb-codes { font: 800 clamp(24px, 6vw, 34px)/1.3 var(--wb-disp); word-spacing: .3em; margin: 0; }
+.wb-codes span { display: block; }
+
+/* Price table on a service page */
+.wb-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-variant-numeric: tabular-nums; border-top: 2px solid var(--wb-ink); }
+.wb-table th, .wb-table td { padding: 12px 0; border-bottom: 1px solid var(--wb-rule); text-align: left; font-weight: 500; }
+.wb-table td { text-align: right; font: 700 24px/1 var(--wb-disp); }
+.wb-table caption { text-align: left; color: var(--wb-mute); font-size: 15px; caption-side: bottom; padding-top: 10px; }
+
+/* FAQ */
+.wb-faq { margin-top: 20px; border-top: 2px solid var(--wb-ink); }
+.wb-faq details { border-bottom: 1px solid var(--wb-rule); }
+.wb-faq summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 16px; align-items: center; min-height: 56px; padding: 10px 0; font: 700 20px/1.15 var(--wb-disp); text-transform: uppercase; letter-spacing: .02em; }
+.wb-faq summary::-webkit-details-marker { display: none; }
+.wb-faq summary::after { content: '+'; font-size: 28px; color: var(--wb-carpet); }
+.wb-faq details[open] summary::after { content: '−'; }
+.wb-faq p { margin: 0 0 16px; color: var(--wb-soft); }
+
+/* Last call */
+.wb-last .wb-h2 { font-size: clamp(52px, 14vw, 128px); }
+.wb-last__tel { color: #fff; font: 800 34px/1 var(--wb-disp); text-decoration: none; letter-spacing: .01em; display: inline-flex; align-items: center; min-height: 48px; }
+
+/* Footer */
+.wb-foot { background: var(--wb-ink); color: #c8d0de; padding: 40px 0 48px; font-size: 15px; }
+.wb-foot__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.wb-foot__grid > div:first-child { grid-column: 1 / -1; }
+.wb-foot b { display: block; color: #fff; font: 700 19px/1 var(--wb-disp); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+.wb-foot ul { list-style: none; margin: 0; padding: 0; }
+.wb-foot li { margin: 0; }
+.wb-foot a { color: #c8d0de; text-decoration: none; display: inline-flex; align-items: center; min-height: 36px; }
+.wb-foot a:hover, .wb-foot__btn:hover { color: #fff; text-decoration: underline; }
+.wb-foot__btn { background: none; border: 0; padding: 0; color: #c8d0de; font: inherit; cursor: pointer; display: inline-flex; align-items: center; min-height: 36px; }
+.wb-foot p { margin: 10px 0 0; }
+@media (min-width: 1001px) { .wb-foot__grid { grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 36px; } .wb-foot__grid > div:first-child { grid-column: auto; } }
+
+/* Mobile dock: one obvious action */
+.wb-dock { display: grid; grid-template-columns: 1fr auto; gap: 10px; position: fixed; left: 0; right: 0; bottom: var(--vve-cookie-banner-h, 0px); z-index: 45; background: var(--wb-ink); padding: 10px max(12px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); box-shadow: 0 -6px 20px rgba(20, 28, 42, .25); }
+.wb-dock .wb-btn { font-size: 19px; padding-left: 14px; padding-right: 14px; }
+.wb-with-dock { padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 1001px) { .wb-dock { display: none; } .wb-with-dock { padding-bottom: 0; } }
+
+@media (prefers-reduced-motion: reduce) { .wb * { scroll-behavior: auto !important; } }
+
+/* ─── Re-theme of existing components inside the redesign ───────────────────
+ * The quote wizard and booking form keep their markup, validation and pricing.
+ * These rules only change type, colour and corner radius so the journey reads
+ * as one design. Status colours (amber, green, red, purple) are untouched.
+ */
+.wb-legacy { font-family: var(--wb-sans); }
+.wb-legacy .font-display, .wb-legacy .font-hero { font-family: var(--wb-disp) !important; font-weight: 800 !important; text-transform: uppercase; letter-spacing: .01em; line-height: 1 !important; }
+.wb-legacy :is(.text-navy-950, .text-navy-900, .text-navy-800, .text-ink) { color: var(--wb-ink) !important; }
+.wb-legacy :is(.text-navy-700, .text-navy-600, .text-muted, .text-silver-600) { color: var(--wb-mute) !important; }
+.wb-legacy :is(.text-royal-700, .text-royal-600, .text-royal-800, .text-sky-700) { color: var(--wb-carpet) !important; }
+.wb-legacy :is(.bg-royal-500, .bg-royal-600) { background-color: var(--wb-carpet) !important; }
+.wb-legacy :is(.bg-royal-50, .bg-sky-50, .bg-surface) { background-color: var(--wb-mist) !important; }
+.wb-legacy :is(.border-royal-500, .border-royal-600) { border-color: var(--wb-carpet) !important; }
+.wb-legacy :is(.border-line, .border-silver-200, .border-silver-300, .border-sky-200, .border-slate-200) { border-color: var(--wb-rule) !important; }
+.wb-legacy :is(.hover\:border-royal-300, .hover\:border-royal-400, .hover\:border-sky-300):hover { border-color: var(--wb-carpet) !important; }
+.wb-legacy :is(.rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-lg) { border-radius: 4px !important; }
+.wb-legacy :is(.from-sky-50, .via-surface, .via-white, .to-royal-50, .to-white) { --tw-gradient-from: var(--wb-mist) !important; --tw-gradient-to: var(--wb-mist) !important; --tw-gradient-stops: var(--wb-mist), var(--wb-mist) !important; }
+.wb-legacy :is(.focus-visible\:outline-royal-600, .focus-visible\:outline-royal-500):focus-visible { outline-color: var(--wb-gold) !important; }
+.wb-legacy .text-gradient-metallic { background: none !important; -webkit-text-fill-color: currentColor !important; color: var(--wb-carpet) !important; }
+.wb-legacy [data-testid='final-total'] { font-size: 44px !important; }
+/* The single primary action in the quote and the booking form. */
+.wb-legacy .wb-cta { background: var(--wb-gold) !important; color: var(--wb-ink) !important; border-radius: 3px !important; font-family: var(--wb-disp) !important; font-weight: 700 !important; text-transform: uppercase; letter-spacing: .03em; font-size: 21px !important; }
+.wb-legacy .wb-cta:hover { background: var(--wb-gold-d) !important; }
+.wb-legacy .wb-cta svg { color: var(--wb-ink); }
+
+/* Booking request page: light header with a gold rule, paper background. */
+.wb-booking { background: var(--wb-paper) !important; }
+.wb-booking .wb-booking-head { background: #fff !important; border-bottom: 3px solid var(--wb-gold) !important; }
+.wb-legacy [class*='rounded-['], .wb-legacy [class*='rounded-b-['], .wb-legacy [class*='rounded-t-['] { border-radius: 4px !important; }
+.wb-legacy .bg-gradient-to-br.from-sky-700 { background-image: none !important; background-color: var(--wb-carpet) !important; }

@@ -1,3 +1,4 @@
+import '../styles/work-behind.css';
 import PriceTaxNote from '../components/PriceTaxNote';
 import ServiceDecisionTrust from '../components/ServiceDecisionTrust';
 import { clearQuoteBasket } from '../lib/quoteBasket';
@@ -131,7 +132,7 @@ function BookingHeader({ isLeaflet = false, selection = null, whatsappHref = BOO
   const backHref = getQuoteOriginHref(isLeaflet, readBookingHandoff(location.state)?.quoteOrigin);
   return (
     <header
-      className="sticky top-0 z-50 border-b border-black/[0.08]"
+      className="wb-booking-head sticky top-0 z-50 border-b border-black/[0.08]"
       style={{
         background: "rgba(249,249,245,0.96)",
         backdropFilter: "blur(10px)",
@@ -871,7 +872,7 @@ export default function BookingPage() {
   // A saved request takes precedence over the now-cleared quote selection.
   if (requestComplete) {
     return (
-      <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
+      <div className="wb-legacy wb-booking min-h-screen" style={{ background: "#f9f9f5" }}>
         <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} />
         <main id="main-content" ref={requestSuccessRef} tabIndex={-1} aria-labelledby="booking-request-heading" className="mx-auto max-w-xl px-4 py-16">
           <div className="rounded-3xl border border-green-200 bg-white p-7 text-center shadow-xl sm:p-10">
@@ -948,7 +949,7 @@ export default function BookingPage() {
   // ─── Show quote selector (no selection yet, or user clicked Change service) ─
   if (!selection || showSelector) {
     return (
-      <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
+      <div className="wb-legacy wb-booking min-h-screen" style={{ background: "#f9f9f5" }}>
         <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} selection={selection} />
         <main id="main-content">
           <StepIndicator current={1} />
@@ -969,7 +970,7 @@ export default function BookingPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "#f9f9f5" }}>
+    <div className="wb-legacy wb-booking min-h-screen" style={{ background: "#f9f9f5" }}>
       <BookingHeader isLeaflet={selection?.offerCode === "LEAFLET20"} selection={selection} whatsappHref={waLink} />
       <nav aria-label="Booking progress">
         <StepIndicator current={2} />
@@ -1586,7 +1587,7 @@ export default function BookingPage() {
           <button
             type="submit"
             disabled={submitting || quoteNeedsReview}
-            className="w-full py-4 min-h-[44px] rounded-full font-bold text-white text-base transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
+            className="wb-cta w-full py-4 min-h-[44px] rounded-full font-bold text-white text-base transition-all duration-300 hover:opacity-90 hover:shadow-lg active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7]"
             style={{ backgroundColor: "#0369a1" }}
           >
             {submitting ? (

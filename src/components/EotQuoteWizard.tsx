@@ -1507,7 +1507,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
 
               {!isQuoteReviewCondition && (
                 <button type="button" onClick={handleBook}
-                  className="flex items-center justify-center gap-2 w-full py-4 min-h-[44px] rounded-full font-bold text-white text-base bg-royal-500 hover:bg-royal-600 transition-all duration-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7] mt-4">
+                  className="wb-cta flex items-center justify-center gap-2 w-full py-4 min-h-[44px] rounded-full font-bold text-white text-base bg-royal-500 hover:bg-royal-600 transition-all duration-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7] mt-4">
                   Request a time — no payment
                 </button>
               )}
@@ -1540,7 +1540,7 @@ export default function EotQuoteWizard({ onBook, onChangeService, restoreConfig 
 
           {step < TOTAL_STEPS ? (
             <button type="button" onClick={goNext} disabled={step === 1 && (state.is5Plus || !state.propertySizeChosen)}
-              className="order-3 inline-flex items-center justify-center gap-1.5 text-sm font-bold text-white bg-royal-500 hover:bg-royal-600 rounded-xl px-5 min-h-[46px] min-w-[122px] shadow-[0_8px_20px_rgba(14,165,233,0.24)] transition-all duration-200 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none">
+              className="wb-cta order-3 inline-flex items-center justify-center gap-1.5 text-sm font-bold text-white bg-royal-500 hover:bg-royal-600 rounded-xl px-5 min-h-[46px] min-w-[122px] shadow-[0_8px_20px_rgba(14,165,233,0.24)] transition-all duration-200 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0284C7] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none">
               Continue <ChevronRight size={16} />
             </button>
           ) : (

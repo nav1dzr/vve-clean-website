@@ -1,4 +1,4 @@
-import HomePage from './pages/HomePage';
+import HomePage from './pages/WorkBehindHomePage';
 import PricingPage from './pages/PricingPage';
 import CommercialPage from './pages/CommercialPage';
 import BookingPage from './pages/BookingPage';
@@ -9,7 +9,7 @@ import TermsOfServicePage from './pages/TermsOfServicePage';
 import CarpetCleaningPage from './pages/CarpetCleaningPage';
 import SofaCleaningPage from './pages/SofaCleaningPage';
 import CommercialCarpetPage from './pages/CommercialCarpetPage';
-import EndOfTenancyPage from './pages/EndOfTenancyPage';
+import EndOfTenancyPage from './pages/WorkBehindEndOfTenancyPage';
 import AfterBuildersPage from './pages/AfterBuildersPage';
 import GalleryPage from './pages/GalleryPage';
 import AreaPage from './pages/AreaPage';

@@ -52,6 +52,10 @@ const INTENTIONAL_SUPPRESSIONS: Record<string, RegExp> = {
   'PricingPage.tsx': /fixed bottom-0[\s\S]*?lg:hidden/,
   'PrivacyPolicyPage.tsx': /fixed bottom-0[\s\S]*?lg:hidden/,
   'TermsOfServicePage.tsx': /fixed bottom-0[\s\S]*?lg:hidden/,
+  // "The Work Behind" redesign renders its own dock (WbDock), which follows the
+  // same booking context: price first, then request once a quote is ready.
+  'WorkBehindHomePage.tsx': /<WbDock quoteHref="#services"/,
+  'WorkBehindEndOfTenancyPage.tsx': /<WbDock quoteHref="#quote" watch="#quote"/,
 };
 
 /** Pages carrying their own fixed bottom bar instead of the shared one. */

@@ -4,7 +4,7 @@ import { createRouteElements, type RoutePages } from './routeDefinitions';
 
 // Each dynamic import is a page boundary. Unrelated pages remain unloaded.
 const loaders = {
-  HomePage: () => import('./pages/HomePage'),
+  HomePage: () => import('./pages/WorkBehindHomePage'),
   PricingPage: () => import('./pages/PricingPage'),
   CommercialPage: () => import('./pages/CommercialPage'),
   BookingPage: () => import('./pages/BookingPage'),
@@ -15,7 +15,7 @@ const loaders = {
   CarpetCleaningPage: () => import('./pages/CarpetCleaningPage'),
   SofaCleaningPage: () => import('./pages/SofaCleaningPage'),
   CommercialCarpetPage: () => import('./pages/CommercialCarpetPage'),
-  EndOfTenancyPage: () => import('./pages/EndOfTenancyPage'),
+  EndOfTenancyPage: () => import('./pages/WorkBehindEndOfTenancyPage'),
   AfterBuildersPage: () => import('./pages/AfterBuildersPage'),
   GalleryPage: () => import('./pages/GalleryPage'),
   AreaPage: () => import('./pages/AreaPage'),
