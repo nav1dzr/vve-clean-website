@@ -2,7 +2,7 @@ import type { GalleryItem } from '../../data/galleryMedia';
 import { useManagedServiceHeroMedia, useManagedWebsiteMedia } from '../../lib/managedGalleryMedia';
 import { useWebsiteMediaPosition } from '../../lib/websiteMediaPositions';
 
-export interface WbStill { src: string; srcSet?: string; alt: string }
+export interface WbStill { src: string; srcSet?: string; alt: string; caption?: string }
 
 const BASE = '/images/work-behind';
 /** The concept's own job photographs, used until a CRM selection replaces them. */
@@ -13,10 +13,10 @@ export const WB_PHOTO = {
   blueDuring: { src: `${BASE}/blue-during.webp`, alt: 'Close-up of the extraction tool on the blue carpet, spraying and lifting water' },
   blueAfter: { src: `${BASE}/blue-after.webp`, alt: 'The same blue carpet after cleaning, deep and even in colour with sunlight across it' },
   wasteWater: { src: `${BASE}/waste-water.webp`, alt: "Looking down into the extraction machine's tank, full of grey waste water" },
-  jobStairs: { src: `${BASE}/job-stairs.webp`, alt: 'A VVE Clean technician cleaning a stair carpet with a hand tool' },
-  jobSofa: { src: `${BASE}/job-sofa-hose.webp`, alt: 'A VVE Clean technician kneeling with the extraction hose beside a sofa with its cushions removed' },
-  jobOven: { src: `${BASE}/job-oven.webp`, alt: 'An oven interior, racks and door glass after cleaning' },
-  jobOffice: { src: `${BASE}/job-office.webp`, alt: 'An office with a dark blue carpet after cleaning' },
+  jobStairs: { src: `${BASE}/job-stairs.webp`, alt: 'A VVE Clean technician cleaning a stair carpet with a hand tool', caption: 'Stair carpet, one tread at a time.' },
+  jobSofa: { src: `${BASE}/job-sofa-hose.webp`, alt: 'A VVE Clean technician kneeling with the extraction hose beside a sofa with its cushions removed', caption: 'Cushions off before the extraction starts.' },
+  jobOven: { src: `${BASE}/job-oven.webp`, alt: 'An oven interior, racks and door glass after cleaning', caption: 'The oven is in the price of every move-out clean.' },
+  jobOffice: { src: `${BASE}/job-office.webp`, alt: 'An office with a dark blue carpet after cleaning', caption: 'Office carpet after hot-water extraction.' },
   van: { src: `${BASE}/van.webp`, alt: 'The VVE Clean van with extraction machine, vacuums and sprayers laid out beside it' },
 } satisfies Record<string, WbStill | string>;
 
@@ -30,6 +30,9 @@ export const WB_PAIRS = {
   oven: { title: 'Oven', body: 'Baked-on residue on the door and racks. Cleaning does not repair scratches or wear.',
     before: { src: `${BASE}/oven-before.webp`, alt: 'Oven door and racks before cleaning with baked-on residue' },
     after: { src: `${BASE}/oven-after.webp`, alt: 'The same oven after cleaning' } },
+  office: { title: 'Office carpet', body: 'An office carpet we cleaned.',
+    before: { src: `${BASE}/office-before.webp`, alt: 'Blue office carpet before cleaning, with dark traffic marks and spill stains' },
+    after: { src: `${BASE}/office-after.webp`, alt: 'The same office carpet after hot-water extraction' } },
   shower: { title: 'Shower screen', body: 'Staining along the seal, then the same bath and screen after cleaning.',
     before: { src: `${BASE}/shower-before.webp`, alt: 'Shower screen seal before cleaning with staining along the edge' },
     after: { src: `${BASE}/shower-after.webp`, alt: 'The same shower and bath area after cleaning' } },
@@ -37,8 +40,9 @@ export const WB_PAIRS = {
 
 function toStill(item: GalleryItem | null | undefined): WbStill | null {
   if (!item) return null;
-  if (item.type === 'photo') return { src: item.src, srcSet: item.srcSet, alt: item.alt };
-  if (item.type === 'before-after') return { src: item.after, alt: item.afterAlt };
+  // A CRM selection brings its own label, used as the caption under the photo.
+  if (item.type === 'photo') return { src: item.src, srcSet: item.srcSet, alt: item.alt, caption: item.label };
+  if (item.type === 'before-after') return { src: item.after, alt: item.afterAlt, caption: item.label };
   return null;
 }
 

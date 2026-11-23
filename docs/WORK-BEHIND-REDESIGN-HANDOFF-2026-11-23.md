@@ -40,6 +40,14 @@ For each page: carpet, sofa, after builders, commercial, pricing, gallery, about
 7. Update tests that assert old labels, and add the page to `INTENTIONAL_SUPPRESSIONS` in `MobileStickyFooter.coverage.test.tsx` with its `WbDock` call.
 8. Validate: root `lint`, `typecheck`, `test` and `build`, then a 390px phone check with no sideways scroll.
 
+## Homepage fidelity pass (23 November 2026)
+
+Homepage checked section by section against the owner's concept ZIP at 390px and 1280px (headless Chromium captures, concept left, preview right). Restored: concept section order (stacked before/during/after on phones, then the extraction-tank section); tall 4:5 captioned service photos with the stair job first; office before/after with caption and both actions in the commercial section; concept wording for the hero, strip, tank, services, pairs, crew and steps; two-column desktop layouts for terms, reviews, commercial and areas; concept type sizes; underlined card links.
+
+Deliberate differences from the ZIP: the real VVE logo instead of the concept's type mark; review quotes shown in full from `reviews.ts` rather than shortened; no "certificate available on request" or "furniture slides" claims (not on the current site); deposit wording from `CONDITIONAL_DEPOSIT_NOTE`; the six-question FAQ stays above the final call for its structured data; tablet widths (700–1000px) use two card columns.
+
+Captions under CRM-managed card photos use the CRM label when a CRM photo replaces the concept photo.
+
 ## Known gaps on the built journey
 
 - **Booking page:** a few inline colours are still the old blue — the selected price, "Change service" and step badges (`#0369a1` set inline in `BookingPage.tsx`). Move them to classes so the theme can reach them.

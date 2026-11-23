@@ -28,16 +28,18 @@
   background: var(--wb-paper);
   color: var(--wb-ink);
   font-family: var(--wb-sans);
-  font-size: 17px;
+  font-size: 17.5px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 .wb :focus-visible { outline: 3px solid var(--wb-gold); outline-offset: 3px; }
+/* The page heading receives focus after navigation for screen readers; keep it unringed as elsewhere on the site. */
+.wb .route-focus-target:focus, .wb .route-focus-target:focus-visible { outline: none; }
 .wb img { display: block; max-width: 100%; }
 .wb-w { max-width: 1280px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 
-.wb-h2 { font: 800 clamp(36px, 9vw, 72px)/.92 var(--wb-disp); text-transform: uppercase; letter-spacing: -.005em; text-wrap: balance; margin: 0; }
-.wb-sub { font-size: 18px; max-width: 34em; margin: 12px 0 0; color: var(--wb-soft); }
+.wb-h2 { font: 800 clamp(40px, 5.4vw, 76px)/.92 var(--wb-disp); text-transform: uppercase; letter-spacing: -.005em; text-wrap: balance; margin: 0; }
+.wb-sub { font-size: 19px; max-width: 34em; margin: 12px 0 0; color: var(--wb-soft); }
 .wb-cap { font-size: 15px; line-height: 1.4; color: var(--wb-mute); margin: 8px 0 0; }
 
 /* Buttons. Gold is the one primary action; everything else is quieter. */
@@ -47,7 +49,7 @@
 .wb-btn--line:hover { background: #fff; color: var(--wb-ink); }
 .wb-btn--dark { background: var(--wb-ink); color: #fff; }
 .wb-btn--dark:hover { background: var(--wb-tee); }
-.wb-link { font: 700 19px/1 var(--wb-disp); text-transform: uppercase; letter-spacing: .04em; text-underline-offset: 5px; text-decoration-thickness: 2px; color: inherit; display: inline-flex; align-items: center; min-height: 44px; }
+.wb-link { font: 700 19px/1 var(--wb-disp); text-transform: uppercase; letter-spacing: .04em; text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 2px; color: inherit; display: inline-flex; align-items: center; min-height: 44px; }
 
 .wb-tape { position: absolute; left: 8px; top: 8px; background: var(--wb-gold); color: var(--wb-ink); font: 700 14px/1 var(--wb-disp); letter-spacing: .08em; text-transform: uppercase; padding: 6px 8px 5px; }
 .wb-fig { position: relative; margin: 0; }
@@ -95,51 +97,54 @@
 }
 
 /* Sections */
-.wb-sec { padding-top: 56px; padding-bottom: 56px; }
+.wb-sec { padding-top: 60px; padding-bottom: 60px; }
 .wb-sec--mist { background: var(--wb-mist); }
 .wb-sec--carpet { background: var(--wb-carpet); color: #fff; }
 .wb-sec--carpet .wb-sub { color: #d5e2f5; }
 .wb-sec--ink { background: var(--wb-ink); color: #fff; }
 .wb-sec--ink .wb-sub, .wb-sec--ink .wb-cap { color: #c8d0de; }
 .wb-sec--wall { background: var(--wb-wall); }
-@media (min-width: 1001px) { .wb-sec { padding-top: 88px; padding-bottom: 88px; } }
+@media (min-width: 1001px) { .wb-sec { padding-top: 92px; padding-bottom: 96px; } }
 
-/* One job, three moments. A swipeable row on phones. */
-.wb-frames { display: grid; grid-auto-flow: column; grid-auto-columns: 82%; gap: 10px; margin-top: 28px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; overscroll-behavior-x: contain; }
-.wb-frames figure { scroll-snap-align: start; }
-.wb-frames img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
-.wb-frames figcaption { font-size: 16px; line-height: 1.4; margin-top: 10px; }
+/* One job, three moments: stacked on phones, three across on desktop. */
+.wb-frames { display: grid; grid-template-columns: minmax(0, 1fr); gap: 26px; margin-top: 28px; }
+.wb-frames img { width: 100%; height: auto; aspect-ratio: 4 / 5; object-fit: cover; }
+.wb-frames .wb-f1 img { aspect-ratio: 4 / 3; }
+.wb-frames figcaption { font-size: 16px; line-height: 1.4; margin-top: 10px; max-width: 26em; }
 .wb-frames figcaption b { display: block; font: 700 20px/1.1 var(--wb-disp); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 2px; }
-.wb-swipe { font-size: 14px; color: var(--wb-mute); margin: 10px 0 0; }
 @media (min-width: 1001px) {
-  .wb-frames { grid-auto-flow: row; grid-template-columns: 1.3333fr .75fr .8fr; overflow: visible; }
-  .wb-frames .wb-f1 img { aspect-ratio: 4 / 3; } .wb-frames .wb-f2 img { aspect-ratio: 3 / 4; }
-  .wb-swipe { display: none; }
+  .wb-frames { grid-template-columns: 1.3333fr .75fr .8fr; gap: 10px; margin-top: 40px; }
+  .wb-frames .wb-f2 img { aspect-ratio: 3 / 4; }
 }
 
 .wb-split { display: grid; gap: 24px; align-items: center; }
+.wb-split__img { max-width: 320px; }
 .wb-split__img img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
+.wb-big { font-size: 21px; line-height: 1.45; max-width: 30em; margin: 18px 0 0; }
+.wb-crew__img img { width: 100%; height: auto; }
+@media (min-width: 1001px) { .wb-split__img { max-width: none; } }
 @media (min-width: 1001px) { .wb-split { grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 64px; } .wb-split--wide { grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); } }
 
 /* Jobs = services, each with its first listed price */
-.wb-grid { display: grid; gap: 36px; margin-top: 32px; }
+.wb-grid { display: grid; gap: 40px; margin-top: 32px; }
 .wb-job { display: flex; flex-direction: column; }
-.wb-job__ph img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
-.wb-job h3 { font: 800 34px/.95 var(--wb-disp); text-transform: uppercase; margin: 12px 0 0; }
+.wb-job__ph img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
+.wb-job .wb-cap { margin-top: 9px; }
+.wb-job h3 { font: 800 34px/.95 var(--wb-disp); text-transform: uppercase; margin: 12px 0 0; text-wrap: balance; }
 .wb-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 8px 0 0; font-variant-numeric: tabular-nums; }
 .wb-price b { font: 700 28px/1 var(--wb-disp); letter-spacing: .01em; }
 .wb-price span { background: var(--wb-ink); color: #fff; font: 600 14px/1 var(--wb-sans); padding: 5px 8px; border-radius: 2px; }
 .wb-job p.wb-xs { color: var(--wb-soft); margin: 8px 0 0; }
 .wb-job .wb-link { margin-top: 6px; align-self: flex-start; }
-.wb-job--type { padding: 24px 20px 22px; }
-.wb-job--type h3 { font-size: 46px; margin-top: 0; }
+.wb-job--type { padding: 24px 22px 26px; }
+.wb-job--type h3 { font-size: 48px; margin-top: 0; }
 .wb-job--carpet { background: var(--wb-carpet); color: #fff; }
 .wb-job--carpet p.wb-xs { color: #d5e2f5; }
 .wb-job--carpet .wb-price span { background: #fff; color: var(--wb-ink); }
 .wb-job--wall { background: var(--wb-wall); }
-.wb-job--feature { outline: 3px solid var(--wb-gold); outline-offset: 6px; }
-@media (min-width: 700px) { .wb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 20px; } .wb-job__ph img { aspect-ratio: 4 / 5; } }
-@media (min-width: 1001px) { .wb-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } .wb-job--type { grid-column: span 2; padding: 28px 30px 30px; } .wb-job--type h3 { font-size: 60px; } }
+@media (min-width: 700px) { .wb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 20px; } }
+@media (min-width: 1001px) { .wb-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px 20px; margin-top: 44px; } .wb-job--type { grid-column: span 2; padding: 28px 30px 30px; } .wb-job--type h3 { font-size: 60px; } }
+@media (min-width: 1001px) and (max-width: 1180px) { .wb-grid { gap: 26px 14px; } .wb-job h3 { font-size: 28px; } .wb-price b { font-size: 23px; } }
 
 /* Before and after pairs */
 .wb-pairs { display: grid; gap: 32px; margin-top: 28px; }
@@ -164,16 +169,27 @@
 .wb-terms div { display: grid; gap: 4px; padding: 14px 0; border-bottom: 1px solid var(--wb-rule); }
 .wb-terms dt { font: 700 21px/1.15 var(--wb-disp); text-transform: uppercase; letter-spacing: .03em; }
 .wb-terms dd { margin: 0; }
-@media (min-width: 1001px) { .wb-terms div { grid-template-columns: 170px minmax(0, 1fr); gap: 20px; } }
+@media (min-width: 1001px) { .wb-terms div { grid-template-columns: 170px minmax(0, 1fr); gap: 20px; } .wb-terms-wrap { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 64px; align-items: start; } .wb-terms-wrap .wb-terms { margin-top: 0; } }
+.wb-inline { color: var(--wb-carpet); font-weight: 600; text-underline-offset: 3px; display: inline-block; padding: 10px 0; }
 
 /* Reviews */
 .wb-quotes { display: grid; margin-top: 28px; border-top: 2px solid var(--wb-ink); }
 .wb-quotes blockquote { margin: 0; padding: 20px 0 16px; border-bottom: 1px solid var(--wb-rule); }
-.wb-quotes p { font-size: 20px; line-height: 1.4; font-weight: 500; margin: 0; }
+.wb-quotes p { font-size: 21px; line-height: 1.4; font-weight: 500; margin: 0; }
 .wb-quotes cite { display: block; font-style: normal; font-weight: 600; font-size: 15px; color: var(--wb-mute); margin-top: 12px; }
-.wb-score { font: 800 64px/.8 var(--wb-disp); margin: 0; color: inherit; text-decoration: none; display: inline-block; }
+.wb-said-top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.wb-score { font: 800 64px/.8 var(--wb-disp); margin: 0; color: inherit; text-decoration: none; display: inline-flex; align-items: baseline; min-height: 48px; }
+@media (min-width: 1001px) { .wb-score { font-size: 76px; } }
 .wb-score small { font: 600 17px/1 var(--wb-sans); margin-left: 8px; }
 @media (min-width: 1001px) { .wb-quotes { grid-template-columns: repeat(3, minmax(0, 1fr)); } .wb-quotes blockquote { border-bottom: 0; padding-right: 28px; } .wb-quotes blockquote + blockquote { padding-left: 28px; border-left: 1px solid var(--wb-rule); } }
+
+/* Commercial: prices and actions beside the office before and after */
+.wb-trade { display: grid; gap: 32px; align-items: center; }
+.wb-trade .wb-list { border-top-color: #fff; }
+.wb-trade .wb-cap { color: #aeb8c8; }
+@media (min-width: 1001px) { .wb-trade { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; } }
+.wb-areas { display: grid; gap: 28px; align-items: start; }
+@media (min-width: 1001px) { .wb-areas { grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: 64px; } }
 
 /* Postcode check */
 .wb-pc { margin-top: 20px; }
@@ -181,7 +197,7 @@
 .wb-pc__row { display: flex; gap: 8px; max-width: 380px; }
 .wb-pc input { flex: 1; min-width: 0; min-height: 48px; font: 600 18px var(--wb-sans); padding: 10px 12px; border: 2px solid var(--wb-ink); border-radius: 3px; text-transform: uppercase; background: #fff; color: var(--wb-ink); }
 .wb-pc output { display: block; margin-top: 10px; font-weight: 600; min-height: 1.5em; }
-.wb-codes { font: 800 clamp(24px, 6vw, 34px)/1.3 var(--wb-disp); word-spacing: .3em; margin: 0; }
+.wb-codes { font: 800 clamp(27px, 7vw, 36px)/1.3 var(--wb-disp); word-spacing: .3em; margin: 0; }
 .wb-codes span { display: block; }
 
 /* Price table on a service page */
@@ -201,7 +217,8 @@
 
 /* Last call */
 .wb-last .wb-h2 { font-size: clamp(52px, 14vw, 128px); }
-.wb-last__tel { color: #fff; font: 800 34px/1 var(--wb-disp); text-decoration: none; letter-spacing: .01em; display: inline-flex; align-items: center; min-height: 48px; }
+.wb-last__tel { color: #fff; font: 800 40px/1 var(--wb-disp); text-decoration: none; letter-spacing: .01em; display: inline-flex; align-items: center; min-height: 48px; }
+@media (max-width: 1000px) { .wb-last__tel { display: flex; width: 100%; } }
 
 /* Footer */
 .wb-foot { background: var(--wb-ink); color: #c8d0de; padding: 40px 0 48px; font-size: 15px; }
