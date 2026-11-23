@@ -1,8 +1,8 @@
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { BookingProvider } from '../context/BookingContext';
 import QuoteCalculator from '../components/QuoteCalculator';
 import { WbDock, WbFooter, WbHeader, WbLink, WbPage, WB_PHONE_DISPLAY, WB_PHONE_HREF } from '../components/workbehind/WbChrome';
-import { SofaOpeningLine, SofaOpeningPair } from '../components/workbehind/SofaOpenings';
+import { SofaOpening } from '../components/workbehind/SofaOpenings';
 import { FAQS, SCHEMA } from '../data/sofaContent';
 import { SOFA_BEFORE_AFTER } from '../data/sofaMedia';
 import { useResolvedWebsiteMedia } from '../lib/websiteMediaPositions';
@@ -21,12 +21,7 @@ const INCLUDED = [
 ];
 
 export default function WorkBehindSofaPage() {
-  // Design comparison only: ?opening=b shows the second candidate opening.
-  const [params] = useSearchParams();
-  const opening = params.get('opening') === 'b' ? 'b' : 'a';
-  const resolved = useResolvedWebsiteMedia(SOFA_BEFORE_AFTER);
-  // Opening B already shows the first pair, so the results section starts at the second.
-  const pairs = opening === 'b' ? resolved.slice(1) : resolved;
+  const pairs = useResolvedWebsiteMedia(SOFA_BEFORE_AFTER);
 
   return (
     <BookingProvider>
@@ -34,7 +29,7 @@ export default function WorkBehindSofaPage() {
       <WbPage>
         <WbHeader ctaHref="#quote" />
         <main id="main-content">
-          {opening === 'b' ? <SofaOpeningPair /> : <SofaOpeningLine />}
+          <SofaOpening />
 
           <div className="wb-legacy"><QuoteCalculator mode="upholstery" /></div>
 
@@ -42,8 +37,9 @@ export default function WorkBehindSofaPage() {
             <div className="wb-w">
               <h2 className="wb-h2" id="wb-sofa-results">Sofas we have cleaned</h2>
               <div className="wb-pairs">
-                {pairs.map(pair => (
-                  <figure className="wb-fig wb-pair" key={pair.id}>
+                {pairs.map((pair, index) => (
+                  // Phones and tablets already saw the first pair at the top of the page.
+                  <figure className={`wb-fig wb-pair${index === 0 ? ' wbo-wide' : ''}`} key={pair.id}>
                     <div className="wb-two">
                       <div className="wb-fig"><img src={pair.before} alt={pair.beforeAlt} loading="lazy" decoding="async" /><span className="wb-tape">{pair.beforeLabel ?? 'Before'}</span></div>
                       <div className="wb-fig"><img src={pair.after} alt={pair.afterAlt} loading="lazy" decoding="async" /><span className="wb-tape">{pair.afterLabel ?? 'After'}</span></div>

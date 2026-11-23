@@ -1,9 +1,9 @@
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { BookingProvider } from '../context/BookingContext';
 import QuoteCalculator from '../components/QuoteCalculator';
 import GuaranteeTerms from '../components/GuaranteeTerms';
 import { WbDock, WbFooter, WbHeader, WbLink, WbPage, WB_PHONE_DISPLAY, WB_PHONE_HREF } from '../components/workbehind/WbChrome';
-import { EotOpeningCheckout, EotOpeningRooms } from '../components/workbehind/EotOpenings';
+import { EotOpening } from '../components/workbehind/EotOpenings';
 import { EOT_SIZES, FAQS, SCHEMA } from '../data/endOfTenancyContent';
 import { EOT_FEATURED_BEFORE_AFTER } from '../data/galleryMedia';
 import { useResolvedWebsiteMedia } from '../lib/websiteMediaPositions';
@@ -29,9 +29,6 @@ const INCLUDED = [
 const TENANCY_REVIEWS = REVIEWS.filter(review => /tenancy/i.test(review.service) || /end of tenancy/i.test(review.text)).slice(0, 3);
 
 export default function WorkBehindEndOfTenancyPage() {
-  // Design comparison only: ?opening=b shows the second candidate opening.
-  const [params] = useSearchParams();
-  const opening = params.get('opening') === 'b' ? 'b' : 'a';
   const pairs = useResolvedWebsiteMedia(EOT_FEATURED_BEFORE_AFTER);
 
   return (
@@ -40,20 +37,19 @@ export default function WorkBehindEndOfTenancyPage() {
       <WbPage>
         <WbHeader ctaHref="#quote" />
         <main id="main-content">
-          {opening === 'b' ? <EotOpeningCheckout included={INCLUDED} /> : <EotOpeningRooms />}
+          <EotOpening included={INCLUDED} />
 
-          {opening !== 'b' && (
-            <section className="wb-sec" id="prices" aria-labelledby="wb-eot-prices">
-              <div className="wb-w">
-                <h2 className="wb-h2" id="wb-eot-prices">Fixed prices</h2>
-                <p className="wb-sub">Complete clean, vacant flat, one bathroom. {VAT_NOTE}</p>
-                <table className="wb-table">
-                  <caption>Each extra bathroom +{gbp(EOT_EXTRA_BATH_P)}. Each separate WC +{gbp(EOT_EXTRA_WC_P)}. Houses, Tailored (from {gbp(EOT_TAILORED_START_PRICES_P.studio)}) and 5+ bedrooms are priced in the quote below.</caption>
-                  <tbody>{EOT_SIZES.map(([label, pence]) => <tr key={label}><th scope="row">{label}</th><td>{gbp(pence)}</td></tr>)}</tbody>
-                </table>
-              </div>
-            </section>
-          )}
+          {/* Phones and tablets show this ladder inside the opening, under the checklist. */}
+          <section className="wb-sec wbo-wide" id="prices" aria-labelledby="wb-eot-prices">
+            <div className="wb-w">
+              <h2 className="wb-h2" id="wb-eot-prices">Fixed prices</h2>
+              <p className="wb-sub">Complete clean, vacant flat, one bathroom. {VAT_NOTE}</p>
+              <table className="wb-table">
+                <caption>Each extra bathroom +{gbp(EOT_EXTRA_BATH_P)}. Each separate WC +{gbp(EOT_EXTRA_WC_P)}. Houses, Tailored (from {gbp(EOT_TAILORED_START_PRICES_P.studio)}) and 5+ bedrooms are priced in the quote below.</caption>
+                <tbody>{EOT_SIZES.map(([label, pence]) => <tr key={label}><th scope="row">{label}</th><td>{gbp(pence)}</td></tr>)}</tbody>
+              </table>
+            </div>
+          </section>
 
           <div className="wb-legacy"><QuoteCalculator mode="eot" /></div>
 

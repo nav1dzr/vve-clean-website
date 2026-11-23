@@ -1,112 +1,95 @@
-/* Candidate service-page openings in "The Work Behind" design (comparison,
- * 23 November 2026). Built on the tokens in work-behind.css; scoped under .wb.
+/* Service-page openings in "The Work Behind" design, as chosen on
+ * 23 November 2026. Built on the tokens in work-behind.css; scoped under .wb.
+ * Phones and tablets (up to 1000px) get one composition, desktop another.
  */
 
-.wb .wbo-h1 { font: 800 clamp(46px, 12.4vw, 104px)/.9 var(--wb-disp); text-transform: uppercase; letter-spacing: -.005em; text-wrap: balance; margin: 0; color: var(--wb-ink); }
+@media (max-width: 1000px) { .wb .wbo-wide { display: none !important; } }
+@media (min-width: 1001px) { .wb .wbo-narrow { display: none !important; } }
+
+.wb .wbo-h1 { font: 800 clamp(46px, 12.4vw, 96px)/.9 var(--wb-disp); text-transform: uppercase; letter-spacing: -.005em; text-wrap: balance; margin: 0; color: var(--wb-ink); }
 .wb .wbo-kick { display: block; font: 700 15px/1.2 var(--wb-sans); letter-spacing: .1em; text-transform: uppercase; margin: 0 0 12px; }
 .wb .wbo-price { font: 700 24px/1.1 var(--wb-disp); text-transform: uppercase; letter-spacing: .02em; color: var(--wb-gold); margin: 0 0 10px; font-variant-numeric: tabular-nums; }
 .wb .wbo-fine { font-size: 15.5px; line-height: 1.45; margin: 10px 0 0; }
-.wb .wbo-pitch p, .wb .wbo-line__pitch p, .wb .wbo-pair__pitch p { margin: 0; max-width: 31em; }
-.wb .wbo-pitch p + p, .wb .wbo-line__terms p + p { margin-top: 10px; }
+.wb .wbo-sheet__h { font: 700 21px/1 var(--wb-disp); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 10px; }
 
 /* Price ladder: label left, price right, on any background. */
 .wb .wbo-ladder { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; border-top: 2px solid currentColor; }
 .wb .wbo-ladder th, .wb .wbo-ladder td { padding: 9px 0; border-bottom: 1px solid rgba(127, 140, 165, .35); text-align: left; font-weight: 500; }
 .wb .wbo-ladder td { text-align: right; font: 700 23px/1 var(--wb-disp); white-space: nowrap; }
 
-/* ── End of Tenancy A: room by room ─────────────────────────────────────── */
-.wbo-rooms { background: var(--wb-wall); }
-.wbo-rooms__in { max-width: 1600px; margin: 0 auto; }
-.wbo-rooms__head { padding: 22px max(16px, env(safe-area-inset-left, 0px)) 18px; }
-.wbo-mosaic { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: var(--wb-ink); }
-.wbo-mosaic figure { position: relative; margin: 0; overflow: hidden; }
-.wbo-mosaic img { width: 100%; height: 100%; aspect-ratio: 1; object-fit: cover; }
-.wbo-mosaic figcaption { position: absolute; left: 0; bottom: 0; background: var(--wb-ink); color: #fff; font: 700 14.5px/1 var(--wb-disp); letter-spacing: .06em; text-transform: uppercase; padding: 7px 9px 6px; }
-.wbo-mosaic__t1 img { object-position: 50% 60%; }
-.wbo-mosaic__t2 img { object-position: 50% 45%; }
-.wbo-mosaic__t3 img { object-position: 50% 55%; }
-.wbo-mosaic__t4 img { object-position: 50% 45%; }
-.wbo-pitch { background: var(--wb-carpet); color: #fff; padding: 20px max(16px, env(safe-area-inset-left, 0px)) 24px; font-size: 18px; line-height: 1.42; }
+/* Checklist with drawn ticks. */
+.wb .wbo-ticks { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--wb-ink); }
+.wb .wbo-ticks li { position: relative; padding: 9px 0 9px 30px; border-bottom: 1px solid var(--wb-rule); font-weight: 500; line-height: 1.35; }
+.wb .wbo-ticks li::before { content: ''; position: absolute; left: 3px; top: 13px; width: 13px; height: 7px; border-left: 3px solid var(--wb-carpet); border-bottom: 3px solid var(--wb-carpet); transform: rotate(-45deg); }
+
+.wb .wbo-tag { position: absolute; left: 0; top: 0; background: var(--wb-gold); color: var(--wb-ink); font: 700 21px/1 var(--wb-disp); letter-spacing: .02em; text-transform: uppercase; padding: 10px 14px 9px; }
+
+/* ── End of Tenancy ─────────────────────────────────────────────────────── */
+/* Phones and tablets: headline, lead photo, then checklist and prices. */
+.wbo-eot { background: var(--wb-mist); }
+.wbo-eot__in { max-width: 1600px; margin: 0 auto; }
+.wbo-eot__head { padding: 22px max(16px, env(safe-area-inset-left, 0px)) 16px; }
+.wbo-eot figure { position: relative; margin: 0; }
+.wbo-eot__lead img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.wbo-eot__lead figcaption { background: var(--wb-ink); color: #c8d0de; font-size: 14.5px; line-height: 1.4; padding: 10px max(16px, env(safe-area-inset-left, 0px)); }
+.wbo-eot__sheet { display: grid; gap: 26px; padding: 22px max(16px, env(safe-area-inset-left, 0px)) 0; }
+.wbo-eot__sheet .wbo-fine { color: var(--wb-soft); }
+.wbo-eot__pitch { padding: 4px max(16px, env(safe-area-inset-left, 0px)) 30px; }
+.wbo-eot .wb-rating { color: var(--wb-ink); }
+@media (min-width: 700px) and (max-width: 1000px) {
+  .wbo-eot__head { padding-top: 30px; }
+  .wbo-eot__sheet { grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 36px; padding-top: 28px; }
+  .wbo-eot__pitch .wb-acts .wb-btn { flex: 0 0 auto; }
+}
+/* Desktop: room by room. Lead photo across the top, three details beneath. */
 @media (min-width: 1001px) {
-  .wbo-rooms__in { display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); grid-template-rows: auto 1fr; }
-  .wbo-rooms__head { grid-column: 1; grid-row: 1; padding: 56px 48px 32px max(32px, calc((100vw - 1280px) / 2 + 16px)); }
-  .wbo-rooms .wbo-h1 { font-size: clamp(64px, 6.2vw, 104px); }
-  .wbo-mosaic { grid-column: 2; grid-row: 1 / span 2; grid-template-columns: 1.05fr 1fr 1fr; grid-template-rows: 1fr 1fr; height: clamp(520px, 44vw, 700px); }
-  .wbo-mosaic img { aspect-ratio: auto; }
-  .wbo-mosaic__t1, .wbo-mosaic__t2 { grid-row: span 2; }
-  .wbo-pitch { grid-column: 1; grid-row: 2; padding: 28px 48px 32px max(32px, calc((100vw - 1280px) / 2 + 16px)); align-self: end; }
-  .wbo-pitch .wb-acts .wb-btn { flex: 0 0 auto; }
+  .wbo-eot { background: var(--wb-wall); }
+  .wbo-eot__in { display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); grid-template-rows: auto 1fr; }
+  .wbo-eot__head { grid-column: 1; grid-row: 1; padding: 56px 48px 32px max(32px, calc((100vw - 1280px) / 2 + 16px)); }
+  .wbo-eot .wbo-h1 { font-size: clamp(64px, 6.2vw, 104px); }
+  .wbo-eot__media { grid-column: 2; grid-row: 1 / span 2; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; background: var(--wb-ink); align-content: start; }
+  .wbo-eot__lead { grid-column: 1 / -1; }
+  .wbo-eot__lead img { aspect-ratio: 2 / 1; }
+  .wbo-eot__tile img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+  .wbo-eot__tile:nth-of-type(3) img { object-position: 50% 35%; }
+  /* Captions sit top-left: the cupboard photo carries its own Before/After labels along the bottom. */
+  .wbo-eot__lead figcaption, .wbo-eot__tile figcaption { position: absolute; left: 0; top: 0; background: var(--wb-ink); color: #fff; font: 700 14.5px/1 var(--wb-disp); letter-spacing: .06em; text-transform: uppercase; padding: 7px 9px 6px; }
+  .wbo-eot__pitch { grid-column: 1; grid-row: 2; align-self: end; background: var(--wb-carpet); color: #fff; font-size: 18px; line-height: 1.42; padding: 28px 48px 32px max(32px, calc((100vw - 1280px) / 2 + 16px)); }
+  .wbo-eot__pitch p { margin: 0; max-width: 31em; }
+  .wbo-eot__pitch .wb-acts .wb-btn { flex: 0 0 auto; }
+  .wbo-eot .wbo-eot__pitch .wb-rating { color: #fff; }
 }
 
-/* ── End of Tenancy B: the last look round ──────────────────────────────── */
-.wbo-check { background: var(--wb-mist); }
-.wbo-check__in { max-width: 1600px; margin: 0 auto; display: flex; flex-direction: column; }
-.wbo-check__ph { position: relative; margin: 0; order: 2; }
-.wbo-check__ph img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; object-position: 50% 30%; }
-.wbo-check__ph figcaption { background: var(--wb-ink); color: #c8d0de; font-size: 14.5px; padding: 10px max(16px, env(safe-area-inset-left, 0px)); }
-.wbo-tag { position: absolute; left: 0; top: 0; background: var(--wb-gold); color: var(--wb-ink); font: 700 21px/1 var(--wb-disp); letter-spacing: .02em; text-transform: uppercase; padding: 10px 14px 9px; }
-.wbo-check__body { display: contents; }
-.wbo-check__body > .wbo-h1 { order: 1; padding: 22px max(16px, env(safe-area-inset-left, 0px)) 18px; }
-.wbo-sheet { order: 3; display: grid; gap: 26px; padding: 26px max(16px, env(safe-area-inset-left, 0px)) 0; }
-.wbo-check__body > .wb-acts { order: 4; padding: 0 max(16px, env(safe-area-inset-left, 0px)) 30px; }
-.wbo-check .wb-rating { color: var(--wb-ink); }
-.wbo-sheet__h { font: 700 21px/1 var(--wb-disp); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 10px; }
-.wbo-ticks { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--wb-ink); }
-.wbo-ticks li { position: relative; padding: 9px 0 9px 30px; border-bottom: 1px solid var(--wb-rule); font-weight: 500; line-height: 1.35; }
-.wbo-ticks li::before { content: ''; position: absolute; left: 3px; top: 13px; width: 13px; height: 7px; border-left: 3px solid var(--wb-carpet); border-bottom: 3px solid var(--wb-carpet); transform: rotate(-45deg); }
-.wbo-check .wbo-fine { color: var(--wb-soft); }
-@media (min-width: 1001px) {
-  .wbo-check__in { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: stretch; }
-  .wbo-check__ph { order: 0; display: flex; flex-direction: column; }
-  .wbo-check__ph img { flex: 1; height: 100%; min-height: 0; aspect-ratio: auto; max-height: 760px; }
-  .wbo-tag { font-size: 24px; }
-  .wbo-check__body { display: block; padding: 52px max(32px, calc((100vw - 1280px) / 2 + 16px)) 48px 56px; }
-  .wbo-check__body > .wbo-h1 { padding: 0; font-size: clamp(64px, 6.2vw, 104px); }
-  .wbo-sheet { grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 40px; padding: 34px 0 0; }
-  .wbo-check__body > .wb-acts { padding: 0; margin-top: 28px; }
-  .wbo-check__body .wb-acts .wb-btn { flex: 0 0 auto; }
+/* ── Sofa & Upholstery ──────────────────────────────────────────────────── */
+/* Phones and tablets: the same cushion before and after, prices underneath. */
+.wbo-sofa { background: var(--wb-wall); }
+.wbo-sofa__stage { position: relative; max-width: 1600px; margin: 0 auto; container-type: inline-size; }
+.wbo-sofa__head { padding: 22px max(16px, env(safe-area-inset-left, 0px)) 16px; }
+.wb .wbo-sofa__first { color: var(--wb-ink); font-size: 22px; margin: 14px 0 0; }
+.wbo-sofa__pair { margin: 0; }
+.wbo-sofa__two { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: var(--wb-ink); }
+.wbo-sofa__two img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; }
+.wbo-sofa__pair figcaption { background: var(--wb-ink); color: #c8d0de; font-size: 14.5px; line-height: 1.4; padding: 10px max(16px, env(safe-area-inset-left, 0px)); }
+.wbo-sofa__pitch { background: var(--wb-carpet); color: #fff; padding: 20px max(16px, env(safe-area-inset-left, 0px)) 26px; font-size: 18px; line-height: 1.42; }
+.wbo-sofa__pitch .wbo-ladder__min th, .wbo-sofa__pitch .wbo-ladder__min td { color: var(--wb-gold); font-weight: 700; }
+.wbo-sofa__terms p { margin: 14px 0 0; max-width: 31em; }
+.wbo-sofa__terms .wbo-fine { color: #d5e2f5; margin-top: 8px; }
+@media (min-width: 700px) and (max-width: 1000px) {
+  .wbo-sofa__head { padding-top: 30px; }
+  .wbo-sofa__pitch { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 36px; align-items: start; }
+  .wbo-sofa__pitch .wbo-ladder { grid-row: 1 / span 2; }
+  .wbo-sofa__terms p:first-child { margin-top: 0; }
+  .wbo-sofa__pitch .wb-acts .wb-btn { flex: 0 0 auto; }
 }
-
-/* ── Sofa A: the clean line ─────────────────────────────────────────────── */
-.wbo-line { background: var(--wb-wall); }
-.wbo-line__stage { position: relative; max-width: 1600px; margin: 0 auto; container-type: inline-size; }
-.wbo-line__head { padding: 22px max(16px, env(safe-area-inset-left, 0px)) 16px; }
-.wbo-line__price { color: var(--wb-ink) !important; margin: 14px 0 0 !important; }
-.wbo-line__img { width: 100%; aspect-ratio: 1; object-fit: cover; object-position: 62% 64%; }
-.wbo-line__pitch { background: var(--wb-carpet); color: #fff; padding: 20px max(16px, env(safe-area-inset-left, 0px)) 24px; font-size: 18px; line-height: 1.42; }
-.wbo-line__pitch .wbo-price { display: none; }
-.wbo-line__pitch .wbo-fine { color: #d5e2f5; }
+/* Desktop: the half-cleaned velvet across the screen, prices in a band below. */
 @media (min-width: 1001px) {
-  .wbo-line__img { aspect-ratio: 16 / 6.6; object-position: 50% 70%; }
-  .wbo-line__head { position: absolute; left: 4cqw; top: 3.6cqw; width: 52cqw; padding: 0; }
-  .wbo-line .wbo-h1 { color: #fff; font-size: 6.6cqw; text-shadow: 0 2px 18px rgba(4, 24, 60, .45); }
-  .wbo-line .wbo-kick { color: #fff; }
-  .wbo-line__price { display: none; }
-  .wbo-line__pitch { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 40px; align-items: center; padding: 24px max(32px, calc((100vw - 1280px) / 2 + 16px)); }
-  .wbo-line__pitch .wbo-price { display: block; margin: 0; font-size: 30px; }
-  .wbo-line__pitch .wb-acts { margin-top: 0; }
-  .wbo-line__pitch .wb-acts .wb-btn { flex: 0 0 auto; }
-}
-
-/* ── Sofa B: same cushion, before and after ─────────────────────────────── */
-.wbo-pair { background: var(--wb-wall); }
-.wbo-pair__in { max-width: 1600px; margin: 0 auto; }
-.wbo-pair__head { padding: 22px max(16px, env(safe-area-inset-left, 0px)) 18px; }
-.wbo-pair__ph { margin: 0; }
-.wbo-pair__two { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: var(--wb-ink); }
-.wbo-pair__two img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; }
-.wbo-pair__ph figcaption { background: var(--wb-ink); color: #c8d0de; font-size: 14.5px; line-height: 1.4; padding: 10px max(16px, env(safe-area-inset-left, 0px)); }
-.wbo-pair__pitch { background: var(--wb-carpet); color: #fff; padding: 20px max(16px, env(safe-area-inset-left, 0px)) 24px; font-size: 18px; }
-.wbo-pair__pitch .wbo-fine { color: #d5e2f5; margin-top: 14px; }
-@media (min-width: 1001px) {
-  .wbo-pair__in { display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); grid-template-rows: auto 1fr; }
-  .wbo-pair__head { grid-column: 1; grid-row: 1; padding: 56px 48px 28px max(32px, calc((100vw - 1280px) / 2 + 16px)); }
-  .wbo-pair .wbo-h1 { font-size: clamp(64px, 6vw, 100px); }
-  .wbo-pair__ph { grid-column: 2; grid-row: 1 / span 2; }
-  .wbo-pair__two img { aspect-ratio: auto; height: clamp(520px, 44vw, 700px); }
-  .wbo-pair__pitch { grid-column: 1; grid-row: 2; background: none; color: var(--wb-ink); padding: 0 48px 40px max(32px, calc((100vw - 1280px) / 2 + 16px)); }
-  .wbo-pair__pitch .wbo-ladder { max-width: 440px; }
-  .wbo-pair__pitch .wbo-fine { color: var(--wb-soft); max-width: 30em; }
-  .wbo-pair .wb-rating { color: var(--wb-ink); }
-  .wbo-pair__pitch .wb-acts .wb-btn { flex: 0 0 auto; }
+  .wbo-sofa__stripe { display: block; width: 100%; aspect-ratio: 16 / 6.6; object-fit: cover; object-position: 50% 70%; }
+  .wbo-sofa__head { position: absolute; left: 4cqw; top: 3.6cqw; width: 52cqw; padding: 0; }
+  .wbo-sofa .wbo-h1 { color: #fff; font-size: 6.6cqw; text-shadow: 0 2px 18px rgba(4, 24, 60, .45); }
+  .wbo-sofa .wbo-kick { color: #fff; }
+  .wbo-sofa__pitch { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 40px; align-items: center; padding: 24px max(32px, calc((100vw - 1280px) / 2 + 16px)); }
+  .wbo-sofa__pitch .wbo-price { margin: 0; font-size: 28px; max-width: 11em; }
+  .wbo-sofa__terms p:first-child { margin-top: 0; }
+  .wbo-sofa__pitch .wb-acts { margin-top: 0; }
+  .wbo-sofa__pitch .wb-acts .wb-btn { flex: 0 0 auto; }
 }

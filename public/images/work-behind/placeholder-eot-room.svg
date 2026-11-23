@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1000" viewBox="0 0 1500 1000">
+  <!-- Preview placeholder only. Replaced by the CRM position
+       "End of tenancy · Opening photograph" (service-end-of-tenancy-hero). -->
+  <rect width="1500" height="1000" fill="#c9d0de"/>
+  <path d="M0 640 L1500 640 L1500 1000 L0 1000 Z" fill="#b5bfd1"/>
+  <path d="M520 640 L620 300 L880 300 L980 640 Z" fill="#d7dce6"/>
+  <rect x="83" y="0" width="1334" height="1000" fill="none" stroke="#0b4687" stroke-width="6" stroke-dasharray="22 14"/>
+  <rect x="0" y="125" width="1500" height="750" fill="none" stroke="#141c2a" stroke-width="6" stroke-dasharray="6 12"/>
+  <text x="105" y="40" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#0b4687">PHONE AND TABLET CROP (4:3)</text>
+  <text x="24" y="162" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#141c2a">DESKTOP CROP (2:1)</text>
+  <rect x="300" y="360" width="900" height="290" fill="#141c2a"/>
+  <text x="750" y="440" text-anchor="middle" font-family="Arial Narrow, Arial, sans-serif" font-size="64" font-weight="700" fill="#f2ae1c" letter-spacing="3">PLACEHOLDER</text>
+  <text x="750" y="510" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#ffffff">Wide photo of a finished, empty kitchen or living room</text>
+  <text x="750" y="562" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" fill="#c8d0de">Landscape 3:2. Keep the room's main features inside both dashed frames.</text>
+  <text x="750" y="608" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" fill="#c8d0de">CRM: Photos &amp; videos → End of tenancy · Opening photograph</text>
+</svg>
