@@ -12,24 +12,22 @@ import '../../styles/wb-openings.css';
 // underneath), the room-by-room layout on desktop (lead photo across the top,
 // three supporting photos, each a different part of the clean).
 //
-// One lead photo serves both layouts. It reads the CRM position
-// "End of tenancy · Opening photograph" (service-end-of-tenancy-hero); until a
-// wide photo of a finished, empty room is published there, a labelled preview
-// placeholder shows the crop.
+// Both layouts use the same CRM opening photo and the same built-in fallback.
 
 const DAYS = EOT_GUARANTEE_HOURS / 24;
 const HEADLINE_PRICE = `Studio ${gbp(EOT_BASE_PRICES_P.studio)} · 2 bedrooms ${gbp(EOT_BASE_PRICES_P.bed2)}`;
 const GUARANTEE = `Tell us within ${DAYS} days if we missed agreed work and we come back once to re-clean it.`;
 
-const LEAD_PLACEHOLDER: WbStill = {
-  src: '/images/work-behind/placeholder-eot-room.svg',
-  alt: 'Placeholder for a wide photo of a finished, empty kitchen or living room',
-  caption: 'Placeholder: your wide photo of a finished, empty room goes here.',
+const LEAD_PHOTO: WbStill = {
+  src: '/images/work-behind/eot-hob-1440.webp',
+  srcSet: '/images/work-behind/eot-hob-640.webp 640w, /images/work-behind/eot-hob-960.webp 960w, /images/work-behind/eot-hob-1440.webp 1440w',
+  alt: 'Clean black glass hob set into a wooden kitchen worktop',
+  caption: 'Kitchen hob after cleaning',
 };
 const SUPPORT: WbStill[] = [
   { ...WB_PHOTO.jobOven, caption: 'Oven, racks and glass' },
-  { src: '/end_of_tenancy/gallery/11.jpg', alt: 'The cupboard under a kitchen sink before and after cleaning, side by side', caption: 'Inside the cupboards' },
-  { src: '/end_of_tenancy/gallery/10.jpg', alt: 'A curved shower screen and fittings over a bath after cleaning', caption: 'Bathroom, descaled' },
+  { src: '/images/work-behind/eot-cupboard.webp', alt: 'The cupboard under a kitchen sink before and after cleaning, side by side', caption: 'Inside the cupboards' },
+  { src: '/images/work-behind/eot-shower.webp', alt: 'A curved shower screen and fittings over a bath after cleaning', caption: 'Bathroom, descaled' },
 ];
 
 function Rating() {
@@ -39,7 +37,7 @@ function Rating() {
 }
 
 export function EotOpening({ included }: { included: readonly string[] }) {
-  const lead = useEotHeroPhoto(LEAD_PLACEHOLDER);
+  const lead = useEotHeroPhoto(LEAD_PHOTO);
   return (
     <section className="wbo-eot" aria-labelledby="wbo-eot-title">
       <div className="wbo-eot__in">
@@ -53,7 +51,7 @@ export function EotOpening({ included }: { included: readonly string[] }) {
 
         <div className="wbo-eot__media">
           <figure className="wbo-eot__lead">
-            <img src={lead.src} srcSet={lead.srcSet} alt={lead.alt} {...HIGH_PRIORITY} />
+            <img style={lead === LEAD_PHOTO ? { objectPosition: '50% 82%' } : undefined} src={lead.src} srcSet={lead.srcSet} sizes="(max-width: 1000px) 100vw, (max-width: 1600px) 59vw, 944px" alt={lead.alt} {...HIGH_PRIORITY} />
             <span className="wbo-tag wbo-narrow">{HEADLINE_PRICE}</span>
             <figcaption>{lead.caption}</figcaption>
           </figure>
