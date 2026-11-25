@@ -1,7 +1,8 @@
+import type { ImgHTMLAttributes } from 'react';
 import { Link } from 'react-router-dom';
 import { BookingProvider } from '../context/BookingContext';
 import QuoteCalculator from '../components/QuoteCalculator';
-import { WbDock, WbFooter, WbHeader, WbLink, WbPage, WB_PHONE_DISPLAY, WB_PHONE_HREF } from '../components/workbehind/WbChrome';
+import { LayoutImg, WbDock, WbFooter, WbHeader, WbLink, WbPage, WB_PHONE_DISPLAY, WB_PHONE_HREF } from '../components/workbehind/WbChrome';
 import { SofaOpening } from '../components/workbehind/SofaOpenings';
 import { FAQS, SCHEMA } from '../data/sofaContent';
 import { SOFA_BEFORE_AFTER } from '../data/sofaMedia';
@@ -20,6 +21,10 @@ const INCLUDED = [
   'A final check of the upholstery and cushions',
 ];
 
+function WideOnlyImg(props: ImgHTMLAttributes<HTMLImageElement>) {
+  return <LayoutImg only="wide" {...props} />;
+}
+
 export default function WorkBehindSofaPage() {
   const pairs = useResolvedWebsiteMedia(SOFA_BEFORE_AFTER);
 
@@ -37,16 +42,20 @@ export default function WorkBehindSofaPage() {
             <div className="wb-w">
               <h2 className="wb-h2" id="wb-sofa-results">Sofas we have cleaned</h2>
               <div className="wb-pairs">
-                {pairs.map((pair, index) => (
-                  // Phones and tablets already saw the first pair at the top of the page.
+                {pairs.map((pair, index) => {
+                  // Phones and tablets already saw the first pair at the top of the
+                  // page, so there it is hidden and never downloaded.
+                  const Img = index === 0 ? WideOnlyImg : 'img';
+                  return (
                   <figure className={`wb-fig wb-pair${index === 0 ? ' wbo-wide' : ''}`} key={pair.id}>
                     <div className="wb-two">
-                      <div className="wb-fig"><img src={pair.before} alt={pair.beforeAlt} loading="lazy" decoding="async" /><span className="wb-tape">{pair.beforeLabel ?? 'Before'}</span></div>
-                      <div className="wb-fig"><img src={pair.after} alt={pair.afterAlt} loading="lazy" decoding="async" /><span className="wb-tape">{pair.afterLabel ?? 'After'}</span></div>
+                      <div className="wb-fig"><Img src={pair.before} alt={pair.beforeAlt} loading="lazy" decoding="async" /><span className="wb-tape">{pair.beforeLabel ?? 'Before'}</span></div>
+                      <div className="wb-fig"><Img src={pair.after} alt={pair.afterAlt} loading="lazy" decoding="async" /><span className="wb-tape">{pair.afterLabel ?? 'After'}</span></div>
                     </div>
                     <figcaption><p><b>{pair.label}</b></p></figcaption>
                   </figure>
-                ))}
+                  );
+                })}
               </div>
               <Link className="wb-link" to="/gallery" style={{ marginTop: 16 }}>See more of our work</Link>
             </div>

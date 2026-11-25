@@ -1,5 +1,5 @@
-import { WbLink } from './WbChrome';
-import { useSofaHeroItem, useSofaHeroPhoto, type WbStill } from './wbMedia';
+import { LayoutImg, WbLink } from './WbChrome';
+import { HIGH_PRIORITY, useSofaHeroItem, useSofaHeroPhoto, type WbStill } from './wbMedia';
 import { GOOGLE_RATING_ARIA_LABEL, GOOGLE_RATING_LABEL, HAS_VERIFIED_RATING } from '../../data/googleRating';
 import { GOOGLE_READ_REVIEWS_LINK } from '../GoogleBrand';
 import { CARPET_ITEM_PRICES_P, CARPET_MIN_BOOKING_P, penceToDisplay as gbp } from '../../data/pricing';
@@ -28,6 +28,10 @@ const STRIPE: WbStill = {
   caption: 'Blue velvet seat, part-way through. The lighter strip is where the tool has already been.',
 };
 const SEAT = SOFA_BEFORE_AFTER[0];
+// Phone-sized copies of the built-in pair (the originals are 1350px, up to 686 KB).
+const sized = (name: string) => [480, 640, 800].map(w => `/images/work-behind/${name}-${w}.webp ${w}w`).join(', ');
+const SEAT_SRCSET = { before: sized('sofa-seat-before'), after: sized('sofa-seat-after') };
+const PAIR_SIZES = '(max-width: 1000px) 50vw, 1px';
 
 function Rating() {
   return HAS_VERIFIED_RATING
@@ -51,15 +55,15 @@ export function SofaOpening() {
           <p className="wbo-price wbo-sofa__first wbo-narrow">{FIRST_PRICES}</p>
         </div>
 
-        {/* Lazy on both layouts: the hidden layout's photos are then never fetched. */}
+        {/* Each layout downloads only its own opening photos (LayoutImg), and loads them first. */}
         <figure className="wbo-sofa__pair wbo-narrow">
           <div className="wbo-sofa__two">
-            <div className="wb-fig"><img src={pair.before} alt={pair.beforeAlt} loading="lazy" decoding="async" /><span className="wb-tape">{pair.beforeLabel ?? 'Before'}</span></div>
-            <div className="wb-fig"><img src={pair.after} alt={pair.afterAlt} loading="lazy" decoding="async" /><span className="wb-tape">{pair.afterLabel ?? 'After'}</span></div>
+            <div className="wb-fig"><LayoutImg only="narrow" src={pair.before} srcSet={pair === SEAT ? SEAT_SRCSET.before : undefined} sizes={pair === SEAT ? PAIR_SIZES : undefined} alt={pair.beforeAlt} {...HIGH_PRIORITY} /><span className="wb-tape">{pair.beforeLabel ?? 'Before'}</span></div>
+            <div className="wb-fig"><LayoutImg only="narrow" src={pair.after} srcSet={pair === SEAT ? SEAT_SRCSET.after : undefined} sizes={pair === SEAT ? PAIR_SIZES : undefined} alt={pair.afterAlt} {...HIGH_PRIORITY} /><span className="wb-tape">{pair.afterLabel ?? 'After'}</span></div>
           </div>
           <figcaption>{pair === SEAT ? 'Dried spill rings on a taupe seat cushion, then the same cushion after hot-water extraction.' : pair.label}</figcaption>
         </figure>
-        <img className="wbo-sofa__stripe wbo-wide" src={stripe.src} srcSet={stripe.srcSet} alt={stripe.alt} loading="lazy" decoding="async" />
+        <LayoutImg only="wide" className="wbo-sofa__stripe wbo-wide" src={stripe.src} srcSet={stripe.srcSet} alt={stripe.alt} {...HIGH_PRIORITY} />
 
         <div className="wbo-sofa__pitch">
           <p className="wbo-price wbo-wide">{FIRST_PRICES}</p>

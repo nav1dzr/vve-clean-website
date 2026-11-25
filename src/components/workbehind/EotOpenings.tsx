@@ -1,4 +1,4 @@
-import { WbLink } from './WbChrome';
+import { LayoutImg, WbLink } from './WbChrome';
 import { HIGH_PRIORITY, WB_PHOTO, useEotHeroPhoto, type WbStill } from './wbMedia';
 import { GOOGLE_RATING_ARIA_LABEL, GOOGLE_RATING_LABEL, HAS_VERIFIED_RATING } from '../../data/googleRating';
 import { GOOGLE_READ_REVIEWS_LINK } from '../GoogleBrand';
@@ -12,17 +12,23 @@ import '../../styles/wb-openings.css';
 // underneath), the room-by-room layout on desktop (lead photo across the top,
 // three supporting photos, each a different part of the clean).
 //
-// Both layouts use the same CRM opening photo and the same built-in fallback.
+// One lead photo serves both layouts. It reads the CRM position
+// "End of tenancy · Opening photograph" (service-end-of-tenancy-hero); until
+// the owner's wide photo of a finished, empty room is published there, a
+// labelled preview placeholder shows the crop. The placeholder must be
+// replaced before release.
+//
+// The three supporting photos appear on desktop only and are never downloaded
+// by phones (see LayoutImg).
 
 const DAYS = EOT_GUARANTEE_HOURS / 24;
 const HEADLINE_PRICE = `Studio ${gbp(EOT_BASE_PRICES_P.studio)} · 2 bedrooms ${gbp(EOT_BASE_PRICES_P.bed2)}`;
 const GUARANTEE = `Tell us within ${DAYS} days if we missed agreed work and we come back once to re-clean it.`;
 
-const LEAD_PHOTO: WbStill = {
-  src: '/images/work-behind/eot-hob-1440.webp',
-  srcSet: '/images/work-behind/eot-hob-640.webp 640w, /images/work-behind/eot-hob-960.webp 960w, /images/work-behind/eot-hob-1440.webp 1440w',
-  alt: 'Clean black glass hob set into a wooden kitchen worktop',
-  caption: 'Kitchen hob after cleaning',
+const LEAD_PLACEHOLDER: WbStill = {
+  src: '/images/work-behind/placeholder-eot-room.svg',
+  alt: 'Placeholder for a wide photo of a finished, empty kitchen or living room',
+  caption: 'Placeholder: your wide photo of a finished, empty room goes here.',
 };
 const SUPPORT: WbStill[] = [
   { ...WB_PHOTO.jobOven, caption: 'Oven, racks and glass' },
@@ -37,7 +43,7 @@ function Rating() {
 }
 
 export function EotOpening({ included }: { included: readonly string[] }) {
-  const lead = useEotHeroPhoto(LEAD_PHOTO);
+  const lead = useEotHeroPhoto(LEAD_PLACEHOLDER);
   return (
     <section className="wbo-eot" aria-labelledby="wbo-eot-title">
       <div className="wbo-eot__in">
@@ -51,13 +57,13 @@ export function EotOpening({ included }: { included: readonly string[] }) {
 
         <div className="wbo-eot__media">
           <figure className="wbo-eot__lead">
-            <img style={lead === LEAD_PHOTO ? { objectPosition: '50% 82%' } : undefined} src={lead.src} srcSet={lead.srcSet} sizes="(max-width: 1000px) 100vw, (max-width: 1600px) 59vw, 944px" alt={lead.alt} {...HIGH_PRIORITY} />
+            <img src={lead.src} srcSet={lead.srcSet} sizes={lead.srcSet ? '(max-width: 1000px) 100vw, (max-width: 1600px) 59vw, 944px' : undefined} alt={lead.alt} {...HIGH_PRIORITY} />
             <span className="wbo-tag wbo-narrow">{HEADLINE_PRICE}</span>
             <figcaption>{lead.caption}</figcaption>
           </figure>
           {SUPPORT.map(tile => (
             <figure key={tile.src} className="wbo-eot__tile wbo-wide">
-              <img src={tile.src} alt={tile.alt} loading="lazy" decoding="async" />
+              <LayoutImg only="wide" src={tile.src} alt={tile.alt} loading="lazy" decoding="async" />
               <figcaption>{tile.caption}</figcaption>
             </figure>
           ))}

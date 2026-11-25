@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type AnchorHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useId, useState, type AnchorHTMLAttributes, type ImgHTMLAttributes, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import BrandLogo from '../BrandLogo';
 import { useBookingCtx } from '../../context/BookingContext';
@@ -156,6 +156,23 @@ export function WbDock({ quoteHref, label = 'Get my price', watch }: { quoteHref
         : <WbLink className="wb-btn" href={quoteHref}>{label}</WbLink>}
       <a className="wb-btn wb-btn--line" href={whatsapp} target="_blank" rel="noopener noreferrer" data-track-location="sticky-footer-whatsapp">WhatsApp</a>
     </div>
+  );
+}
+
+const BLANK_GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+/**
+ * A photo that belongs to only one layout. The other layout is pointed at a
+ * 1-pixel inline image, so a phone never downloads a desktop-only photo and a
+ * desktop never downloads a phone-only one. Pair it with the matching
+ * wbo-narrow / wbo-wide class, which hides it in the other layout.
+ */
+export function LayoutImg({ only, ...img }: { only: 'narrow' | 'wide' } & ImgHTMLAttributes<HTMLImageElement>) {
+  return (
+    <picture className="wb-layout-pic">
+      <source media={only === 'wide' ? '(max-width: 1000px)' : '(min-width: 1001px)'} srcSet={BLANK_GIF} />
+      <img {...img} />
+    </picture>
   );
 }
 

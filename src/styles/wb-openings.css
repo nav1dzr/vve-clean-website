@@ -93,3 +93,6 @@
   .wbo-sofa__pitch .wb-acts { margin-top: 0; }
   .wbo-sofa__pitch .wb-acts .wb-btn { flex: 0 0 auto; }
 }
+
+/* LayoutImg wraps photos in <picture>; let the image keep its own layout. */
+.wb .wb-layout-pic { display: contents; }
