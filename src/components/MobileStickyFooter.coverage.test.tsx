@@ -57,6 +57,7 @@ const INTENTIONAL_SUPPRESSIONS: Record<string, RegExp> = {
   'WorkBehindHomePage.tsx': /<WbDock quoteHref="#services"/,
   'WorkBehindEndOfTenancyPage.tsx': /<WbDock quoteHref="#quote" watch="#quote"/,
   'WorkBehindSofaPage.tsx': /<WbDock quoteHref="#quote"/,
+  'WorkBehindCarpetPage.tsx': /<WbDock quoteHref="#quote-start"/,
 };
 
 /** Pages carrying their own fixed bottom bar instead of the shared one. */

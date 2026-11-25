@@ -1049,7 +1049,8 @@ function QuoteCalculatorForm({
 
           {/* ── Left: configurator ── */}
           <div className="min-w-0 lg:col-span-3 bg-white p-4 sm:p-6 md:p-8 rounded-tl-2xl rounded-tr-2xl lg:rounded-tr-none lg:rounded-bl-2xl">
-            <div ref={serviceAreaRef} className="space-y-5">
+            {/* #quote-start lands a "Get my price" link on the first choice (rooms, furniture or property), below the heading. */}
+            <div ref={serviceAreaRef} id="quote-start" className="space-y-5 scroll-mt-24">
 
               {/* Step label */}
               <div className="flex items-center gap-2 mb-1">

@@ -96,3 +96,57 @@
 
 /* LayoutImg wraps photos in <picture>; let the image keep its own layout. */
 .wb .wb-layout-pic { display: contents; }
+
+/* ── Carpet ─────────────────────────────────────────────────────────────── */
+/* Phones and tablets: headline, the tall job photo, then room prices with the minimum. */
+.wbo-carpet { background: var(--wb-wall); }
+.wbo-carpet__in { max-width: 1600px; margin: 0 auto; }
+.wbo-carpet__head { padding: 22px max(16px, env(safe-area-inset-left, 0px)) 16px; }
+.wb .wbo-carpet__first { color: var(--wb-ink); font-size: 22px; margin: 14px 0 0; }
+.wbo-carpet__ph { margin: 0; position: relative; }
+.wbo-carpet__ph img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; object-position: 50% 45%; }
+.wbo-carpet__ph figcaption { background: var(--wb-ink); color: #c8d0de; font-size: 14.5px; line-height: 1.4; padding: 10px max(16px, env(safe-area-inset-left, 0px)); }
+.wbo-carpet__board { background: var(--wb-carpet); color: #fff; padding: 20px max(16px, env(safe-area-inset-left, 0px)) 26px; font-size: 18px; line-height: 1.42; }
+.wbo-carpet__board .wbo-ladder caption { text-align: left; caption-side: top; }
+.wbo-carpet__board .wbo-ladder__min th, .wbo-carpet__board .wbo-ladder__min td { color: var(--wb-gold); font-weight: 700; }
+.wbo-carpet__board .wbo-fine { color: #d5e2f5; margin-top: 12px; max-width: 32em; }
+@media (min-width: 700px) and (max-width: 1000px) {
+  .wbo-carpet__head { padding-top: 30px; }
+  .wbo-carpet__ph img { aspect-ratio: 4 / 3; object-position: 50% 26%; }
+  .wbo-carpet__board .wbo-ladder { max-width: 520px; }
+  .wbo-carpet__board .wb-acts .wb-btn { flex: 0 0 auto; }
+}
+/* Desktop: headline and the price board on the wall, the photo as a tall panel. */
+@media (min-width: 1001px) {
+  .wbo-carpet__in { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); grid-template-rows: auto 1fr; }
+  .wbo-carpet__head { grid-column: 1; grid-row: 1; padding: 56px 56px 28px max(32px, calc((100vw - 1280px) / 2 + 16px)); }
+  .wbo-carpet .wbo-h1 { font-size: clamp(64px, 6.2vw, 104px); }
+  .wbo-carpet__ph { grid-column: 2; grid-row: 1 / span 2; }
+  .wbo-carpet__ph img { aspect-ratio: auto; height: clamp(600px, calc(100vh - 68px), 820px); object-position: 50% 42%; }
+  .wbo-carpet__ph figcaption { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(20, 28, 42, .86); }
+  .wbo-carpet__board { grid-column: 1; grid-row: 2; background: none; color: var(--wb-ink); padding: 0 56px 48px max(32px, calc((100vw - 1280px) / 2 + 16px)); }
+  .wbo-carpet__board .wbo-ladder { max-width: 520px; }
+  .wbo-carpet__board .wbo-ladder__min th, .wbo-carpet__board .wbo-ladder__min td { color: var(--wb-ink); background: var(--wb-gold); padding-left: 10px; padding-right: 10px; }
+  .wbo-carpet__board .wbo-fine { color: var(--wb-soft); }
+  .wbo-carpet__board .wb-rating { color: var(--wb-ink); }
+  .wbo-carpet__board .wb-acts .wb-btn { flex: 0 0 auto; }
+}
+
+/* Carpet results: before and after, with the job clip one tap away. */
+.wbc-results { display: grid; gap: 34px; margin-top: 28px; }
+.wbc-results .wb-two img { aspect-ratio: 4 / 3; }
+.wbc-results figcaption p { margin: 10px 0 0; font-size: 16px; max-width: 32em; }
+.wbc-results figcaption b { font: 700 20px/1.1 var(--wb-disp); text-transform: uppercase; letter-spacing: .03em; margin-right: 6px; }
+.wbc-clip { margin-top: 10px; border-top: 1px solid var(--wb-rule); }
+.wbc-clip summary { cursor: pointer; display: flex; align-items: center; min-height: 48px; font: 700 18px/1 var(--wb-disp); text-transform: uppercase; letter-spacing: .04em; color: var(--wb-carpet); }
+.wbc-clip summary::before { content: '▶'; font-size: 12px; margin-right: 10px; }
+.wbc-clip[open] summary::before { content: '▼'; }
+.wbc-clip > div { max-width: 360px; }
+@media (min-width: 1001px) { .wbc-results { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; } }
+.wbc-process { display: grid; gap: 28px; align-items: start; }
+.wbc-process .wb-list { border-top-color: #fff; }
+@media (min-width: 1001px) { .wbc-process { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 56px; } }
+
+/* A "Get my price" link moves focus to its target (tabindex -1) so screen
+   readers land there; the target itself needs no outline. Real controls keep theirs. */
+.wb [tabindex="-1"]:focus, .wb-legacy [tabindex="-1"]:focus { outline: none; }

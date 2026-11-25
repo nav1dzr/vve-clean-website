@@ -6,7 +6,7 @@ import BookingManagementPage from './pages/BookingManagementPage';
 import LeafletPage from './pages/LeafletPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
-import CarpetCleaningPage from './pages/CarpetCleaningPage';
+import CarpetCleaningPage from './pages/WorkBehindCarpetPage';
 import SofaCleaningPage from './pages/WorkBehindSofaPage';
 import CommercialCarpetPage from './pages/CommercialCarpetPage';
 import EndOfTenancyPage from './pages/WorkBehindEndOfTenancyPage';

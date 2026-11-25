@@ -64,6 +64,13 @@ export function useEotHeroPhoto(fallback: WbStill): WbStill {
   return toStill(named ?? service) ?? fallback;
 }
 
+/** The carpet page's CRM hero position, the same one the current carpet page reads. */
+export function useCarpetHeroPhoto(fallback: WbStill): WbStill {
+  const named = useWebsiteMediaPosition('service-carpet-hero', null);
+  const service = useManagedServiceHeroMedia('carpet');
+  return toStill(named ?? service) ?? fallback;
+}
+
 /** The sofa page's CRM hero position, the same one the current sofa page reads. */
 export function useSofaHeroItem(): GalleryItem | null {
   const named = useWebsiteMediaPosition('service-sofa-hero', null);

@@ -73,7 +73,8 @@ describe('hash navigation to #quote', () => {
     await waitFor(() => {
       expect(document.activeElement?.id).toBe('quote');
     });
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Carpet cleaning in London');
+    // The redesigned Carpet page names the service in its heading's kicker.
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Carpet cleaning London');
     expect(screen.getByRole('button', { name: 'Increase Bedroom quantity' })).toBeInTheDocument();
   });
 });
